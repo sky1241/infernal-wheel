@@ -1,0 +1,45 @@
+
+
+--- PAGE 1 ---
+UI COLOR CHEA T SHEET
+W ork in the HSB color syst em
+T o Mak e a Color V ariation…
+Hue- Sa tur a tion-Brightness is mor e intuitive than RGB
+	• 	0% sa tur a tion (lef t edge) is always a fla t gr ay .
+	• 	100% sa tur a tion (right edge) is always a rich color or 
+black,  depending on brightness
+	•	0% brightness (bot tom edge) is always black
+	•	100% brightness (top edge) is a bright color or 
+white,  depending on sa tur a tion
+Sa tur a tion r efers to richness of  the color:
+Brightness is “how on the light bulb is”:
+C olor adjustments ar e either lighter or dark er
+T he cor e skill of  color in UI design is making varia tions
+Lighter  varia tions  on  the  
+backgr ound  color  for  
+r aised  con t r o ls
+Dark er  varia tions  on  the  
+backgr ound  color  for  i n set  
+con t r o ls
+D isabled =  l i g h t er v aria tion
+N ormal but ton =  base color
+H o v er ed =  da r k er v aria tion
+D if fer ent hues have dif fer ent luminosities,  which 
+complement them being used as dark er or lighter 
+varia tions
+V ariations are Ev erythin g
+Ho w  t o Shi f t H u es
+	•	 I ncr e a se brightnes s
+	•	Decr e ase sa tur a tion
+	•	Hue towar ds  ne ar est of  cyan,  magenta,  or 
+    yellow
+	•	 D ecr e a se brightnes s
+	•	Incr e ase sa tur a tion
+	•	Hue towar ds  ne ar est of  r ed,  gr een,  or blue
+All  or ders
+Bitcoi n
+E ther eu m
+Rippl e
+D ark mode
+C l i c k  H e r e
+C l i c k  H e r e
