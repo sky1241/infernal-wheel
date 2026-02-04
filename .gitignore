@@ -12,41 +12,12 @@ nul
 *.pid
 dashboard.port
 
-# Logs personnels (contiennent des donnees privees)
-log.csv
-drinks.log
-commands.log
-commands.sent.log
+# Logs d'erreur systeme
 dashboard_error.log
 onedrive_to_e.log
-
-# Donnees utilisateur (fichiers de tracking personnel)
-state.json
-settings.json
-records.json
-quicknote.txt
-actionnote.txt
-heartbeat.txt
-drinks.csv
-habits.csv
-commands.in
-
-# Dossier de notes personnelles
-notes/
 
 # Exports et bundles temporaires
 gpt_export_*/
 gpt_csv_*/
 chatgpt_bundle/
 project_summary/
-
-# Fichiers hellwell runtime
-hellwell/commands.in
-hellwell/drinks.csv
-hellwell/habits.csv
-hellwell/heartbeat.txt
-hellwell/log.csv
-hellwell/settings.json
-hellwell/state.json
-hellwell/state.json.*
-hellwell/notes/

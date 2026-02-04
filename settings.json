@@ -1,0 +1,84 @@
+{
+  "actions": [
+    {
+      "key": "work",
+      "minutes": 0,
+      "label": "Work",
+      "mode": "work",
+      "requireOk": false
+    },
+    {
+      "key": "dodo",
+      "minutes": 0,
+      "label": "Dodo",
+      "mode": "sleep",
+      "requireOk": false
+    },
+    {
+      "key": "clope",
+      "minutes": 10,
+      "label": "Clope",
+      "mode": "break",
+      "requireOk": true
+    },
+    {
+      "key": "manger",
+      "minutes": 25,
+      "label": "Manger",
+      "mode": "break",
+      "requireOk": true
+    },
+    {
+      "key": "menage",
+      "minutes": 20,
+      "label": "M\u00e9nage",
+      "mode": "break",
+      "requireOk": true
+    },
+    {
+      "key": "douche",
+      "minutes": 10,
+      "label": "Douche",
+      "mode": "break",
+      "requireOk": true
+    },
+    {
+      "key": "marche",
+      "minutes": 15,
+      "label": "Marche",
+      "mode": "break",
+      "requireOk": true
+    },
+    {
+      "key": "reveille",
+      "minutes": 10,
+      "label": "R\u00e9veille",
+      "mode": "break",
+      "requireOk": true
+    },
+    {
+      "key": "meditation",
+      "label": "M\u00e9ditation",
+      "mode": "break",
+      "minutes": 15,
+      "requireOk": true
+    },
+    {
+      "key": "glandouille",
+      "minutes": 10,
+      "label": "Glandouille",
+      "mode": "break",
+      "requireOk": true
+    },
+    {
+      "key": "sport",
+      "minutes": 45,
+      "label": "Sport",
+      "mode": "break",
+      "requireOk": true
+    }
+  ],
+  "penalty": {
+    "enableOverrunPenalty": true
+  }
+}

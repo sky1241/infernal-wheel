@@ -1,0 +1,26 @@
+{
+  "GoalWorkSeconds": 1800000,
+  "TotalWorkSeconds": 18933,
+  "PenaltySeconds": 10386,
+  "RemainingWorkSeconds": 1791453,
+  "DayKey": "2026-01-14",
+  "DayWorkSeconds": 18933,
+  "DaySleepSeconds": 108,
+  "Current": {
+    "Name": "work",
+    "StartedAt": "2026-01-14 18:52:34",
+    "EndsAt": null,
+    "IsWork": true,
+    "IsSleep": false,
+    "RequireOk": false,
+    "Paused": false,
+    "PausedRemainSec": null
+  },
+  "Engine": {
+    "Started": true,
+    "AwaitOk": false,
+    "PenaltyActive": false,
+    "OverrunStartAt": null,
+    "LastTick": "2026-01-14 19:05:24"
+  }
+}

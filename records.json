@@ -1,0 +1,22 @@
+﻿{
+  "clopeFromWake": {
+    "bestMin": 91,
+    "date": "2026-02-04"
+  },
+  "beerFromWake": {
+    "bestMin": 595,
+    "date": "2026-02-03"
+  },
+  "alcoholSober": {
+    "bestMin": 629,
+    "date": "2026-02-02"
+  },
+  "clopeSober": {
+    "bestMin": 210,
+    "date": "2026-02-02"
+  },
+  "anyFromWake": {
+    "date": "2026-02-04",
+    "bestMin": 516
+  }
+}
