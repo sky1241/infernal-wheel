@@ -742,13 +742,48 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 }
 .calloutTitle{font-weight:800}
 .calloutDesc{font-size:.9rem; color:var(--muted)}
+/* [UX] Help tooltip - hover (PC) + tap (mobile) */
 .help{
   display:inline-flex; align-items:center; justify-content:center;
   width:18px; height:18px; border-radius:999px;
   border:1px solid rgba(255,255,255,.35); color:var(--muted); font-size:.75rem;
   margin-left:6px; vertical-align:middle;
+  cursor:pointer; position:relative;
+  -webkit-tap-highlight-color:transparent;
+  user-select:none;
 }
 .help:hover{color:var(--text); border-color:rgba(255,255,255,.6)}
+.help::after{
+  content:attr(data-tip);
+  position:absolute; bottom:calc(100% + 8px); left:50%;
+  transform:translateX(-50%);
+  background:rgba(18,24,32,.95); border:1px solid var(--border);
+  border-radius:6px; padding:8px 12px;
+  font-size:.8125rem; color:var(--text); white-space:nowrap;
+  max-width:240px; white-space:normal; text-align:center;
+  box-shadow:0 4px 12px rgba(0,0,0,.4);
+  opacity:0; visibility:hidden;
+  transition:opacity var(--transition-fast) ease, visibility var(--transition-fast) ease;
+  pointer-events:none; z-index:1000;
+}
+.help::before{
+  content:"";
+  position:absolute; bottom:calc(100% + 2px); left:50%;
+  transform:translateX(-50%);
+  border:6px solid transparent; border-top-color:rgba(18,24,32,.95);
+  opacity:0; visibility:hidden;
+  transition:opacity var(--transition-fast) ease;
+  z-index:1001;
+}
+/* PC: hover */
+.help:hover::after,.help:hover::before{opacity:1;visibility:visible}
+/* Mobile: tap (class toggled by JS) */
+.help.active::after,.help.active::before{opacity:1;visibility:visible}
+/* Position adjustment si tooltip depasse */
+@media(max-width:480px){
+  .help::after{left:auto;right:-8px;transform:none;max-width:200px}
+  .help::before{left:auto;right:12px;transform:none}
+}
 .skeleton{position:relative; overflow:hidden; background:rgba(255,255,255,.05)}
 .skeleton::after{
   content:""; position:absolute; inset:0;
@@ -986,7 +1021,7 @@ body{
         </div>
       </div>
     <div class="box agendaBox">
-      <div><b>Agenda du jour</b><span class="help" title="Timeline des actions du jour.">?</span></div>
+      <div><b>Agenda du jour</b><span class="help" data-tip="Timeline des actions du jour.">?</span></div>
       <div id="agendaTimeline">__TIMELINE__</div>
       <div id="actionsToday">__ACTIONS_TODAY__</div>
       <div id="drinkToday"></div>
@@ -1027,12 +1062,12 @@ body{
     </div>
 
     <div style="margin-top:12px">
-      <b>Actions</b><span class="help" title="Actions rapides (pauses, activites).">?</span><br/>
+      <b>Actions</b><span class="help" data-tip="Actions rapides (pauses, activites).">?</span><br/>
       <div class="grid" id="actionsGrid" style="margin-top:10px"></div>
     </div>
 
     <div style="margin-top:12px">
-      <b>Comptage alcool</b><span class="help" title="Ajoute ou ajuste les consommations du jour.">?</span>
+      <b>Comptage alcool</b><span class="help" data-tip="Ajoute ou ajuste les consommations du jour.">?</span>
       <!-- [UX_BEHAVIORAL_PDF C11] Labels visibles au-dessus des champs -->
       <div class="fieldRow" style="margin-top:10px">
         <div class="fieldGroup">
@@ -1092,7 +1127,7 @@ body{
   </div>
 
   <div class="card reveal d6">
-    <h2>Rapport mensuel - __YM__ <span class="help" title="Vue d'ensemble du mois avec tendances et variations.">?</span></h2>
+    <h2>Rapport mensuel - __YM__ <span class="help" data-tip="Vue d'ensemble du mois avec tendances et variations.">?</span></h2>
     <div class="chartWrap">
       <canvas id="monthChart"></canvas>
     </div>
@@ -1990,6 +2025,23 @@ if(an){
     }
   }, 2000);
 }
+
+// [UX] Help tooltips - tap to toggle on mobile
+document.querySelectorAll('.help[data-tip]').forEach(el => {
+  el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // Fermer les autres tooltips ouverts
+    document.querySelectorAll('.help.active').forEach(other => {
+      if (other !== el) other.classList.remove('active');
+    });
+    // Toggle celui-ci
+    el.classList.toggle('active');
+  });
+});
+// Fermer tooltip si on clique ailleurs
+document.addEventListener('click', () => {
+  document.querySelectorAll('.help.active').forEach(el => el.classList.remove('active'));
+});
 </script>
 </body>
 </html>
