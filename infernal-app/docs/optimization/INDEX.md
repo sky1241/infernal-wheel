@@ -32,6 +32,10 @@
 - [Banderole Bug (Bottom Banner)](./06_ux-components/banner-bug.md)
 - [Fiche Support Projet](./06_ux-components/support-dialog.md)
 
+### Internationalisation & Responsive
+- [Setup i18n Multi-Langue](./07_internationalization/i18n-setup.md)
+- [Responsive & Anti-Chevauchement](./07_internationalization/responsive-scale.md)
+
 ---
 
 ## Fichiers de reference (hors ce dossier)

@@ -62,6 +62,20 @@ L'utilisateur peut continuer a utiliser l'app pendant que le message est visible
 - Nouveaux messages remplacent l'ancien
 - Messages critiques (error) prioritaires sur info/warning
 
+### Limitation frequence
+- **MAX 1 banner bug par jour** (erreurs utilisateur)
+- Exceptions: erreurs critiques systeme (crash imminent)
+- Stocke `lastBugBannerDate` dans settings
+- Reset a minuit (InfernalDay = 4h du matin)
+
+```dart
+bool canShowBugBanner() {
+  final lastShown = settings.lastBugBannerDate;
+  if (lastShown == null) return true;
+  return InfernalDay.fromDate(lastShown).key != InfernalDay.current().key;
+}
+```
+
 ---
 
 ## Implementation Flutter
