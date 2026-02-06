@@ -778,25 +778,6 @@ body{
 .tpl-section.evening{border-left-color:#a78bfa}
 .tpl-section.alert{border-left-color:#ff7a7a}
 .tpl-section.neutral{border-left-color:var(--muted)}
-/* Cacher les sections check-in (garder inputs pour export) */
-.tpl-section.morning,
-.tpl-section.evening,
-.tpl-section.alert,
-.tpl-section.neutral,
-.tpl-section:not([style]){display:none}
-.tpl-section[style]{display:block} /* Garder Données Auto visible */
-/* Message motivant */
-.motivational-msg{
-  text-align:center; padding:var(--sp-24) var(--sp-16);
-  color:rgba(255,255,255,.6); font-style:italic; font-size:1rem;
-  border:1px dashed rgba(255,255,255,.15); border-radius:var(--r);
-  background:rgba(0,0,0,.15); margin-top:var(--sp-12);
-  line-height:1.6;
-}
-.motivational-msg .quote{
-  font-size:1.15rem; color:var(--text); display:block;
-  margin-bottom:var(--sp-8); font-weight:600; font-style:normal;
-}
 .tpl-title{
   display:flex; align-items:center; gap:var(--sp-8);
   font-weight:700; font-size:var(--text-sm); color:var(--text);
@@ -1389,14 +1370,7 @@ a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
             </div>
           </section>
 
-          <!-- MESSAGE MOTIVANT -->
-          <div class="motivational-msg">
-            <span class="quote">« Libère-toi. Lâche-toi. Écris. »</span>
-            Cet espace est le tien. Pas de jugement, pas de filtre.<br>
-            Ton psy recevra tout via le bouton Exporter.
-          </div>
-
-          <!-- MATIN (caché visuellement, inputs gardés pour export) -->
+          <!-- MATIN -->
           <section class="tpl-section morning">
             <div class="tpl-title"><span class="icon" style="color:#FFD700">☀</span> Check-in Matin</div>
             <div class="tpl-grid">
@@ -1696,7 +1670,8 @@ function getMetricsFromContent(text) {
   return text.split(/\r?\n/).filter(line => isMetricLine(line)).join('\n');
 }
 function buildFullContent() {
-  const metrics = getMetricsFromContent(fullContent);
+  // Récupère les métriques depuis les inputs (pas affichées dans textarea mais sauvegardées)
+  const metrics = buildTextFromInputs();
   const newText = ta.value.trim();
   // Métriques en haut, texte libre en bas
   if (metrics && newText) return metrics + '\n\n' + newText;
@@ -1955,13 +1930,9 @@ function buildTextFromInputs() {
 }
 
 function syncInputToTextarea() {
-  const text = buildTextFromInputs();
-  console.log('[SYNC] buildTextFromInputs returned:', text);
-  console.log('[SYNC] ta element:', ta);
-  ta.value = text;
-  dirty = true;
-  console.log('[SYNC] ta.value is now:', ta.value);
-  setNoteStatus('en cours...', 'saving');
+  // Désactivé: ne plus afficher les métriques dans le textarea
+  // Les données sont sauvegardées via fullContent pour l'export
+  return;
 }
 
 /* Champs inversés (bas = bien) */
