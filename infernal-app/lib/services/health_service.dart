@@ -1,196 +1,488 @@
+// lib/services/health_service.dart
+// Service de sante unifie : HealthKit (iOS) + Health Connect (Android)
+// Auto-detection reveil via donnees sommeil montre connectee
+
+import 'dart:async';
 import 'dart:io';
-import '../core/logger.dart';
-import '../models/sleep_data.dart';
+import 'package:flutter/foundation.dart';
+import '../core/infernal_day.dart';
 
-/// Service pour integrer HealthKit (iOS) et Health Connect (Android)
-///
-/// INFRASTRUCTURE SEULEMENT - pas de connexion active.
-/// Le code commente montre comment implementer avec le package 'health'.
-///
-/// Compatible:
-/// - Apple Watch via HealthKit (iOS)
-/// - Montres Android via Health Connect
-/// - Fallback manuel si pas de montre
-class HealthService {
-  // En production, decommenter et utiliser le package 'health'
-  // import 'package:health/health.dart';
-  // final HealthFactory _health = HealthFactory();
+/// Source des donnees de sante
+enum HealthSource {
+  healthKit,      // iOS (Apple Watch, iPhone)
+  healthConnect,  // Android (Wear OS, Samsung, Fitbit, Xiaomi, etc.)
+  manual,         // Saisie manuelle (pas de montre)
+  unknown,
+}
 
-  bool _isAuthorized = false;
-  bool _isInitialized = false;
+/// Etat de la permission sante
+enum HealthPermission {
+  notDetermined,  // Jamais demande
+  authorized,     // Autorise
+  denied,         // Refuse
+  unavailable,    // Pas supporte sur cet appareil
+}
 
-  /// True si le service est initialise
-  bool get isInitialized => _isInitialized;
+/// Donnees de sommeil d'une nuit
+class SleepSession {
+  final DateTime bedTime;      // Heure coucher
+  final DateTime wakeTime;     // Heure reveil
+  final int durationMinutes;   // Duree totale
+  final HealthSource source;   // Source des donnees
+  final String? deviceName;    // Nom de la montre/appareil
 
-  /// True si les permissions sont accordees
-  bool get isAuthorized => _isAuthorized;
+  const SleepSession({
+    required this.bedTime,
+    required this.wakeTime,
+    required this.durationMinutes,
+    required this.source,
+    this.deviceName,
+  });
 
-  /// Platform actuelle
-  bool get isIOS => Platform.isIOS;
-  bool get isAndroid => Platform.isAndroid;
-
-  /// Nom de la source selon la plateforme
-  String get sourceName {
-    if (isIOS) return 'HealthKit (Apple)';
-    if (isAndroid) return 'Health Connect (Android)';
-    return 'Unknown';
+  /// Qualite estimee basee sur la duree
+  String get qualityEstimate {
+    if (durationMinutes < 300) return 'bad';       // < 5h
+    if (durationMinutes < 360) return 'poor';      // < 6h
+    if (durationMinutes < 420) return 'okay';      // < 7h
+    if (durationMinutes < 540) return 'good';      // < 9h
+    return 'great';                                 // >= 9h
   }
 
-  /// Initialiser le service
-  Future<void> init() async {
-    if (_isInitialized) return;
+  Map<String, dynamic> toJson() => {
+    'bedTime': bedTime.toIso8601String(),
+    'wakeTime': wakeTime.toIso8601String(),
+    'durationMinutes': durationMinutes,
+    'source': source.name,
+    'deviceName': deviceName,
+  };
 
-    Log.info('HEALTH', 'Initializing', data: {'platform': sourceName});
-
-    // Verifier disponibilite
-    final available = await isAvailable();
-    if (!available) {
-      Log.warn('HEALTH', 'Health data not available on this device');
-    }
-
-    _isInitialized = true;
-    Log.info('HEALTH', 'Initialized', data: {'available': available});
-  }
-
-  /// Verifier si les donnees sante sont disponibles
-  Future<bool> isAvailable() async {
-    try {
-      // Sur iOS: HealthKit toujours disponible
-      if (isIOS) {
-        return true;
-      }
-
-      // Sur Android: Health Connect doit etre installe
-      if (isAndroid) {
-        // TODO: Verifier si Health Connect est installe
-        // return await _health.isHealthConnectAvailable();
-        return true; // Placeholder
-      }
-
-      return false;
-    } catch (e) {
-      Log.error('HEALTH', 'isAvailable check failed', error: e);
-      return false;
-    }
-  }
-
-  /// Demander les permissions
-  Future<bool> requestAuthorization() async {
-    if (_isAuthorized) return true;
-
-    Log.info('HEALTH', 'Requesting authorization');
-
-    try {
-      // Types qu'on veut lire (sommeil uniquement)
-      // final types = [
-      //   HealthDataType.SLEEP_ASLEEP,
-      //   HealthDataType.SLEEP_IN_BED,
-      // ];
-      //
-      // final permissions = types.map((t) => HealthDataAccess.READ).toList();
-      // _isAuthorized = await _health.requestAuthorization(types, permissions: permissions);
-
-      _isAuthorized = true; // Placeholder - a remplacer en prod
-
-      Log.info('HEALTH', 'Authorization result', data: {'granted': _isAuthorized});
-      return _isAuthorized;
-    } catch (e, stack) {
-      Log.error('HEALTH', 'Authorization failed', error: e, stack: stack);
-      _isAuthorized = false;
-      return false;
-    }
-  }
-
-  /// Recuperer le sommeil de la nuit derniere
-  ///
-  /// Retourne null si:
-  /// - Pas autorise
-  /// - Pas de donnees
-  /// - Erreur
-  Future<SleepData?> fetchLastNightSleep({int goalMinutes = 480}) async {
-    if (!_isAuthorized) {
-      Log.warn('HEALTH', 'Cannot fetch sleep - not authorized');
-      return null;
-    }
-
-    Log.debug('HEALTH', 'Fetching last night sleep');
-
-    try {
-      // final now = DateTime.now();
-      // final yesterday = now.subtract(const Duration(hours: 24));
-      //
-      // // Recuperer les donnees de sommeil
-      // final sleepData = await _health.getHealthDataFromTypes(
-      //   yesterday,
-      //   now,
-      //   [HealthDataType.SLEEP_ASLEEP],
-      // );
-      //
-      // if (sleepData.isEmpty) {
-      //   Log.info('HEALTH', 'No sleep data found');
-      //   return null;
-      // }
-      //
-      // // Trouver debut et fin du sommeil
-      // final sorted = sleepData..sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
-      // final bedTime = sorted.first.dateFrom;
-      // final wakeTime = sorted.last.dateTo;
-      //
-      // final result = SleepData.fromHealth(
-      //   bedTime: bedTime,
-      //   wakeTime: wakeTime,
-      //   isApple: isIOS,
-      //   goalMinutes: goalMinutes,
-      // );
-      //
-      // Log.info('HEALTH', 'Sleep data fetched', data: {
-      //   'duration': result.durationFormatted,
-      //   'quality': result.quality.label,
-      // });
-      //
-      // return result;
-
-      // Placeholder - pas de connexion reelle
-      Log.debug('HEALTH', 'Placeholder mode - returning null');
-      return null;
-    } catch (e, stack) {
-      Log.error('HEALTH', 'Fetch sleep failed', error: e, stack: stack);
-      return null;
-    }
-  }
-
-  /// Verifier si on a des donnees recentes
-  Future<bool> hasRecentData() async {
-    final sleep = await fetchLastNightSleep();
-    return sleep != null;
-  }
-
-  /// Creer des donnees de sommeil manuelles
-  ///
-  /// Utilise quand:
-  /// - Pas de montre connectee
-  /// - Permission refusee
-  /// - Pas de donnees disponibles
-  SleepData createManualSleep({
-    required DateTime wakeTime,
-    required double estimatedHours,
-    int goalMinutes = 480,
-  }) {
-    Log.info('HEALTH', 'Creating manual sleep', data: {
-      'wakeTime': wakeTime.toIso8601String(),
-      'hours': estimatedHours,
-    });
-
-    return SleepData.manual(
-      wakeTime: wakeTime,
-      estimatedHours: estimatedHours,
-      goalMinutes: goalMinutes,
+  factory SleepSession.fromJson(Map<String, dynamic> json) {
+    return SleepSession(
+      bedTime: DateTime.tryParse(json['bedTime'] as String? ?? '') ?? DateTime.now(),
+      wakeTime: DateTime.tryParse(json['wakeTime'] as String? ?? '') ?? DateTime.now(),
+      durationMinutes: (json['durationMinutes'] as num?)?.toInt() ?? 0,
+      source: HealthSource.values.firstWhere(
+        (s) => s.name == json['source'],
+        orElse: () => HealthSource.unknown,
+      ),
+      deviceName: json['deviceName'] as String?,
     );
   }
+}
 
-  /// Reset les permissions (pour tests/debug)
-  void resetAuthorization() {
-    _isAuthorized = false;
-    Log.debug('HEALTH', 'Authorization reset');
+/// Evenement de reveil detecte
+class WakeEvent {
+  final DateTime wakeTime;
+  final HealthSource source;
+  final bool isAutoDetected;  // true = montre, false = manuel
+
+  const WakeEvent({
+    required this.wakeTime,
+    required this.source,
+    required this.isAutoDetected,
+  });
+}
+
+/// Callback quand un reveil est detecte
+typedef WakeDetectedCallback = void Function(WakeEvent event);
+
+/// Service de sante principal
+class HealthService {
+  HealthService._();
+  static final HealthService _instance = HealthService._();
+  static HealthService get instance => _instance;
+
+  // Etat interne
+  HealthSource _source = HealthSource.unknown;
+  HealthPermission _permission = HealthPermission.notDetermined;
+  bool _isMonitoring = false;
+  Timer? _pollTimer;
+  DateTime? _lastKnownWakeTime;
+  String? _connectedDeviceName;
+
+  // Callbacks
+  final List<WakeDetectedCallback> _wakeCallbacks = [];
+
+  /// Source actuelle des donnees
+  HealthSource get source => _source;
+
+  /// Permission actuelle
+  HealthPermission get permission => _permission;
+
+  /// Est-ce qu'une montre est connectee?
+  bool get hasSmartwatch => _source == HealthSource.healthKit || _source == HealthSource.healthConnect;
+
+  /// Nom de l'appareil connecte
+  String? get connectedDeviceName => _connectedDeviceName;
+
+  /// Dernier reveil connu
+  DateTime? get lastKnownWakeTime => _lastKnownWakeTime;
+
+  /// Initialise le service et detecte la plateforme
+  Future<void> initialize() async {
+    if (Platform.isIOS) {
+      await _initHealthKit();
+    } else if (Platform.isAndroid) {
+      await _initHealthConnect();
+    } else {
+      _source = HealthSource.manual;
+      _permission = HealthPermission.unavailable;
+    }
+
+    debugPrint('[Health] Initialized: source=$_source, permission=$_permission');
   }
+
+  /// Demande les permissions sante
+  Future<HealthPermission> requestPermission() async {
+    if (_source == HealthSource.manual) {
+      return HealthPermission.unavailable;
+    }
+
+    try {
+      if (Platform.isIOS) {
+        _permission = await _requestHealthKitPermission();
+      } else if (Platform.isAndroid) {
+        _permission = await _requestHealthConnectPermission();
+      }
+    } catch (e) {
+      debugPrint('[Health] Permission request failed: $e');
+      _permission = HealthPermission.denied;
+    }
+
+    return _permission;
+  }
+
+  /// Demarre la surveillance du reveil
+  void startWakeMonitoring() {
+    if (_isMonitoring) return;
+    if (_permission != HealthPermission.authorized) return;
+
+    _isMonitoring = true;
+
+    // Poll toutes les 5 minutes pour detecter le reveil
+    _pollTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      _checkForWakeUp();
+    });
+
+    // Check immediat
+    _checkForWakeUp();
+
+    debugPrint('[Health] Wake monitoring started');
+  }
+
+  /// Arrete la surveillance
+  void stopWakeMonitoring() {
+    _isMonitoring = false;
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    debugPrint('[Health] Wake monitoring stopped');
+  }
+
+  /// Enregistre un callback pour les reveils detectes
+  void onWakeDetected(WakeDetectedCallback callback) {
+    _wakeCallbacks.add(callback);
+  }
+
+  /// Supprime un callback
+  void removeWakeCallback(WakeDetectedCallback callback) {
+    _wakeCallbacks.remove(callback);
+  }
+
+  /// Recupere les donnees de sommeil pour un jour InfernalWheel
+  Future<SleepSession?> getSleepForDay(InfernalDay day) async {
+    if (_permission != HealthPermission.authorized) return null;
+
+    try {
+      if (Platform.isIOS) {
+        return await _getHealthKitSleep(day);
+      } else if (Platform.isAndroid) {
+        return await _getHealthConnectSleep(day);
+      }
+    } catch (e) {
+      debugPrint('[Health] Failed to get sleep data: $e');
+    }
+
+    return null;
+  }
+
+  /// Recupere le dernier reveil detecte (aujourd'hui)
+  Future<DateTime?> getTodayWakeTime() async {
+    final today = InfernalDay.today();
+    final sleep = await getSleepForDay(today);
+    return sleep?.wakeTime;
+  }
+
+  /// Signale un reveil manuel (sans montre)
+  void reportManualWake(DateTime wakeTime) {
+    _lastKnownWakeTime = wakeTime;
+    _notifyWake(WakeEvent(
+      wakeTime: wakeTime,
+      source: HealthSource.manual,
+      isAutoDetected: false,
+    ));
+  }
+
+  // ============================================================
+  // HEALTH KIT (iOS) - Apple Watch, iPhone
+  // ============================================================
+  // Supporte: Apple Watch Series 1-9, Ultra, SE
+  //           iPhone avec app Sante
+  // ============================================================
+
+  Future<void> _initHealthKit() async {
+    _source = HealthSource.healthKit;
+    _permission = HealthPermission.notDetermined;
+
+    // TODO: Avec le package 'health':
+    // final health = HealthFactory();
+    // final available = await health.hasPermissions([HealthDataType.SLEEP_ASLEEP]);
+    // _permission = available == true ? HealthPermission.authorized : HealthPermission.notDetermined;
+    //
+    // // Detecter Apple Watch
+    // final devices = await health.getHealthConnectSdkStatus(); // iOS equivalent
+    // _connectedDeviceName = 'Apple Watch';
+  }
+
+  Future<HealthPermission> _requestHealthKitPermission() async {
+    // TODO: Implementer avec health package
+    //
+    // final health = HealthFactory();
+    // final types = [
+    //   HealthDataType.SLEEP_ASLEEP,
+    //   HealthDataType.SLEEP_AWAKE,
+    //   HealthDataType.SLEEP_IN_BED,
+    //   HealthDataType.SLEEP_LIGHT,
+    //   HealthDataType.SLEEP_DEEP,
+    //   HealthDataType.SLEEP_REM,
+    // ];
+    // final permissions = types.map((_) => HealthDataAccess.READ).toList();
+    // final granted = await health.requestAuthorization(types, permissions: permissions);
+    // return granted ? HealthPermission.authorized : HealthPermission.denied;
+
+    return HealthPermission.authorized; // Placeholder
+  }
+
+  Future<SleepSession?> _getHealthKitSleep(InfernalDay day) async {
+    // TODO: Implementer avec health package
+    //
+    // final health = HealthFactory();
+    // final startTime = day.startTime.subtract(const Duration(hours: 12));
+    // final endTime = day.endTime;
+    //
+    // final data = await health.getHealthDataFromTypes(
+    //   startTime,
+    //   endTime,
+    //   [HealthDataType.SLEEP_ASLEEP],
+    // );
+    //
+    // if (data.isEmpty) return null;
+    //
+    // // Grouper les sessions et trouver la plus recente
+    // data.sort((a, b) => b.dateTo.compareTo(a.dateTo));
+    //
+    // // Trouver debut et fin de la nuit
+    // final sleepStart = data.last.dateFrom;
+    // final sleepEnd = data.first.dateTo;
+    //
+    // return SleepSession(
+    //   bedTime: sleepStart,
+    //   wakeTime: sleepEnd,
+    //   durationMinutes: sleepEnd.difference(sleepStart).inMinutes,
+    //   source: HealthSource.healthKit,
+    //   deviceName: data.first.sourceName ?? 'Apple Watch',
+    // );
+
+    return null; // Placeholder
+  }
+
+  // ============================================================
+  // HEALTH CONNECT (Android) - Toutes montres Android
+  // ============================================================
+  // Supporte:
+  // - Wear OS (Google Pixel Watch, Samsung Galaxy Watch 4+, TicWatch, etc.)
+  // - Samsung Health (Galaxy Watch, Galaxy Fit)
+  // - Fitbit (Versa, Sense, Charge, etc.)
+  // - Xiaomi/Mi Band (Mi Band, Amazfit)
+  // - Huawei (Watch GT, Band)
+  // - Garmin (via Health Connect sync)
+  // - Withings (ScanWatch, Steel HR)
+  // - Oura Ring
+  // - Whoop
+  // ============================================================
+
+  Future<void> _initHealthConnect() async {
+    _source = HealthSource.healthConnect;
+    _permission = HealthPermission.notDetermined;
+
+    // TODO: Avec le package 'health':
+    // final health = HealthFactory();
+    // final status = await health.getHealthConnectSdkStatus();
+    //
+    // if (status == HealthConnectSdkStatus.sdkUnavailable) {
+    //   // Health Connect pas installe
+    //   _source = HealthSource.manual;
+    //   _permission = HealthPermission.unavailable;
+    //   return;
+    // }
+    //
+    // if (status == HealthConnectSdkStatus.sdkUnavailableProviderUpdateRequired) {
+    //   // Mise a jour necessaire
+    //   debugPrint('[Health] Health Connect needs update');
+    // }
+  }
+
+  Future<HealthPermission> _requestHealthConnectPermission() async {
+    // TODO: Implementer avec health package
+    //
+    // final health = HealthFactory();
+    // final types = [
+    //   HealthDataType.SLEEP_SESSION,
+    //   HealthDataType.SLEEP_ASLEEP,
+    //   HealthDataType.SLEEP_AWAKE,
+    //   HealthDataType.SLEEP_LIGHT,
+    //   HealthDataType.SLEEP_DEEP,
+    //   HealthDataType.SLEEP_REM,
+    // ];
+    // final permissions = types.map((_) => HealthDataAccess.READ).toList();
+    // final granted = await health.requestAuthorization(types, permissions: permissions);
+    // return granted ? HealthPermission.authorized : HealthPermission.denied;
+
+    return HealthPermission.authorized; // Placeholder
+  }
+
+  Future<SleepSession?> _getHealthConnectSleep(InfernalDay day) async {
+    // TODO: Implementer avec health package
+    //
+    // final health = HealthFactory();
+    // final startTime = day.startTime.subtract(const Duration(hours: 12));
+    // final endTime = day.endTime;
+    //
+    // // Health Connect utilise SLEEP_SESSION pour les sessions completes
+    // final sessions = await health.getHealthDataFromTypes(
+    //   startTime,
+    //   endTime,
+    //   [HealthDataType.SLEEP_SESSION],
+    // );
+    //
+    // if (sessions.isEmpty) {
+    //   // Fallback sur SLEEP_ASLEEP
+    //   final asleep = await health.getHealthDataFromTypes(
+    //     startTime,
+    //     endTime,
+    //     [HealthDataType.SLEEP_ASLEEP],
+    //   );
+    //   if (asleep.isEmpty) return null;
+    //   sessions.addAll(asleep);
+    // }
+    //
+    // sessions.sort((a, b) => b.dateTo.compareTo(a.dateTo));
+    // final latest = sessions.first;
+    //
+    // return SleepSession(
+    //   bedTime: latest.dateFrom,
+    //   wakeTime: latest.dateTo,
+    //   durationMinutes: latest.dateTo.difference(latest.dateFrom).inMinutes,
+    //   source: HealthSource.healthConnect,
+    //   deviceName: latest.sourceName,
+    // );
+
+    return null; // Placeholder
+  }
+
+  // ============================================================
+  // DETECTION REVEIL AUTOMATIQUE
+  // ============================================================
+
+  Future<void> _checkForWakeUp() async {
+    if (!_isMonitoring) return;
+
+    final today = InfernalDay.today();
+
+    try {
+      final sleep = await getSleepForDay(today);
+      if (sleep == null) return;
+
+      // Nouveau reveil detecte?
+      if (_lastKnownWakeTime == null || sleep.wakeTime.isAfter(_lastKnownWakeTime!)) {
+        // Verifier que c'est bien aujourd'hui (jour InfernalWheel)
+        if (today.contains(sleep.wakeTime)) {
+          _lastKnownWakeTime = sleep.wakeTime;
+          _notifyWake(WakeEvent(
+            wakeTime: sleep.wakeTime,
+            source: _source,
+            isAutoDetected: true,
+          ));
+        }
+      }
+    } catch (e) {
+      debugPrint('[Health] Wake check failed: $e');
+    }
+  }
+
+  void _notifyWake(WakeEvent event) {
+    debugPrint('[Health] Wake detected: ${event.wakeTime} (auto=${event.isAutoDetected})');
+    for (final callback in _wakeCallbacks) {
+      try {
+        callback(event);
+      } catch (e) {
+        debugPrint('[Health] Callback error: $e');
+      }
+    }
+  }
+
+  /// Libere les ressources
+  void dispose() {
+    stopWakeMonitoring();
+    _wakeCallbacks.clear();
+  }
+}
+
+/// Extension pour faciliter l'acces au service
+extension HealthServiceX on HealthService {
+  /// Verifie si le service est pret a etre utilise
+  bool get isReady => permission == HealthPermission.authorized;
+
+  /// Description de la source actuelle
+  String get sourceDescription {
+    switch (source) {
+      case HealthSource.healthKit:
+        return connectedDeviceName ?? 'Apple Watch';
+      case HealthSource.healthConnect:
+        return connectedDeviceName ?? 'Montre Android';
+      case HealthSource.manual:
+        return 'Saisie manuelle';
+      case HealthSource.unknown:
+        return 'Non configure';
+    }
+  }
+
+  /// Liste des montres supportees (pour affichage)
+  static const List<String> supportedWatches = [
+    // iOS
+    'Apple Watch (toutes series)',
+    // Wear OS
+    'Google Pixel Watch',
+    'Samsung Galaxy Watch 4/5/6',
+    'TicWatch Pro/E',
+    'Fossil Gen 6',
+    'Mobvoi',
+    // Samsung
+    'Samsung Galaxy Watch (toutes)',
+    'Samsung Galaxy Fit',
+    // Fitbit
+    'Fitbit Versa/Sense',
+    'Fitbit Charge',
+    'Fitbit Luxe/Inspire',
+    // Xiaomi
+    'Xiaomi Mi Band',
+    'Amazfit GTR/GTS/Bip',
+    // Huawei
+    'Huawei Watch GT/Fit',
+    'Huawei Band',
+    // Autres
+    'Garmin (via Health Connect)',
+    'Withings ScanWatch/Steel HR',
+    'Oura Ring',
+    'Whoop',
+  ];
 }
