@@ -28,6 +28,10 @@
 - [Verifications build](./05_release-readiness/build-checks.md)
 - [Configurations](./05_release-readiness/configs.md)
 
+### Composants UX
+- [Banderole Bug (Bottom Banner)](./06_ux-components/banner-bug.md)
+- [Fiche Support Projet](./06_ux-components/support-dialog.md)
+
 ---
 
 ## Fichiers de reference (hors ce dossier)
