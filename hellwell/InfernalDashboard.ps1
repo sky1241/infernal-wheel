@@ -99,13 +99,15 @@ while ($true) {
         $payload = Get-LiveStatePayload
         if ($payload.ok) {
           $todayKey = Get-InfernalDayKey (Get-Date)
+          $yesterdayKey = Get-InfernalDayKey ((Get-Date).AddDays(-1))
           $payload.dailyAlcohol = Get-DailyAlcoholTotals $todayKey
+          $payload.yesterdayAlcohol = Get-DailyAlcoholTotals $yesterdayKey
         }
         Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes ($payload | ConvertTo-Json -Depth 12))
         continue
       }
       if ($path -eq "/api/note") {
-        $d = if ($qs.ContainsKey("d")) { $qs["d"] } else { (Get-Date).ToString("yyyy-MM-dd") }
+        $d = if ($qs.ContainsKey("d")) { $qs["d"] } else { Get-InfernalDayKey (Get-Date) }
         $content = Get-NoteContent $d
         Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true; day=$d; content=$content} | ConvertTo-Json -Depth 6))
         continue
@@ -471,7 +473,8 @@ document.getElementById("btnNotif").onclick = ()=> toast("Nouvelle notification"
         continue
       }
       if ($path -eq "/notes") {
-        $d = if ($qs.ContainsKey("d")) { $qs["d"] } else { (Get-Date).ToString("yyyy-MM-dd") }
+        # Utiliser InfernalDay (basé sur cycle réveil/dodo, pas minuit)
+        $d = if ($qs.ContainsKey("d")) { $qs["d"] } else { Get-InfernalDayKey (Get-Date) }
         $content = Get-NoteContent $d
 
         # Récupérer les données du jour pour pré-remplir le template
@@ -481,14 +484,45 @@ document.getElementById("btnNotif").onclick = ()=> toast("Nouvelle notification"
         $dayWS = $workSleep[$d]
         $workMin = if ($dayWS) { [math]::Round($dayWS.work / 60) } else { 0 }
         $sleepMin = if ($dayWS) { [math]::Round($dayWS.sleep / 60) } else { 0 }
-        $sleepH = [math]::Round($sleepMin / 60, 1)
-        $workH = [math]::Round($workMin / 60, 1)
+        $sleepH = [math]::Floor($sleepMin / 60)
+        $sleepMinRemainder = $sleepMin % 60
+        $sleepStr = "${sleepH}h${sleepMinRemainder} minute"
+        $workH = [math]::Floor($workMin / 60)
+        $workMinRemainder = $workMin % 60
+        $workStr = "${workH}h${workMinRemainder} minute"
 
-        # Première clope et première bière du jour
+        # Première clope et premier alcool du jour (any = beer/wine/strong)
         $firstClope = Get-FirstActionTimeForDay $d "clope"
-        $firstBeer = Get-FirstDrinkTimeForDay $d "beer"
+        $firstAlcool = Get-FirstDrinkTimeForDay $d "any"
+        $firstWake = Get-FirstActionTimeForDay $d "reveille"
         $firstClopeStr = if ($firstClope) { $firstClope.ToString("HH:mm") } else { "--:--" }
-        $firstBeerStr = if ($firstBeer) { $firstBeer.ToString("HH:mm") } else { "--:--" }
+        $firstAlcoolStr = if ($firstAlcool) { $firstAlcool.ToString("HH:mm") } else { "--:--" }
+
+        # Délai réveil → 1ère clope/alcool (en minutes)
+        $delayClopeMin = if ($firstWake -and $firstClope) { [int][Math]::Round(($firstClope - $firstWake).TotalMinutes) } else { $null }
+        $delayAlcoolMin = if ($firstWake -and $firstAlcool) { [int][Math]::Round(($firstAlcool - $firstWake).TotalMinutes) } else { $null }
+
+        # Hier pour comparaison
+        $yesterdayDate = ([DateTime]::ParseExact($d, "yyyy-MM-dd", $null)).AddDays(-1).ToString("yyyy-MM-dd")
+        $firstClopeYesterday = Get-FirstActionTimeForDay $yesterdayDate "clope"
+        $firstAlcoolYesterday = Get-FirstDrinkTimeForDay $yesterdayDate "any"
+        $firstWakeYesterday = Get-FirstActionTimeForDay $yesterdayDate "reveille"
+        $delayClopeYesterday = if ($firstWakeYesterday -and $firstClopeYesterday) { [int][Math]::Round(($firstClopeYesterday - $firstWakeYesterday).TotalMinutes) } else { $null }
+        $delayAlcoolYesterday = if ($firstWakeYesterday -and $firstAlcoolYesterday) { [int][Math]::Round(($firstAlcoolYesterday - $firstWakeYesterday).TotalMinutes) } else { $null }
+
+        # Données d'hier pour comparaison
+        $clopeCountYesterday = Get-DailyActionCount $yesterdayDate "clope"
+        $alcTotalsYesterday = Get-DailyAlcoholTotals $yesterdayDate
+        $alcTotalYesterday = $alcTotalsYesterday.beer + $alcTotalsYesterday.wine + $alcTotalsYesterday.strong
+        $dayWSYesterday = $workSleep[$yesterdayDate]
+        $sleepMinYesterday = if ($dayWSYesterday) { [math]::Round($dayWSYesterday.sleep / 60) } else { 0 }
+        $workMinYesterday = if ($dayWSYesterday) { [math]::Round($dayWSYesterday.work / 60) } else { 0 }
+        $sleepHYesterday = [math]::Floor($sleepMinYesterday / 60)
+        $sleepMinYesterdayRemainder = $sleepMinYesterday % 60
+        $sleepStrYesterday = "${sleepHYesterday}h${sleepMinYesterdayRemainder} minute"
+        $actionDurationsYesterday = Get-DailyActionDurationsForDay $yesterdayDate $null
+        $sportMinYesterday = if ($actionDurationsYesterday["sport"]) { [math]::Round($actionDurationsYesterday["sport"] / 60) } else { 0 }
+        $glandouilleMinYesterday = if ($actionDurationsYesterday["glandouille"]) { [math]::Round($actionDurationsYesterday["glandouille"] / 60) } else { 0 }
 
         # Durées des actions
         $actionDurations = Get-DailyActionDurationsForDay $d $null
@@ -499,6 +533,100 @@ document.getElementById("btnNotif").onclick = ()=> toast("Nouvelle notification"
         # Total alcool en unités
         $alcTotal = $alcTotals.beer + $alcTotals.wine + $alcTotals.strong
         $alcStr = if ($alcTotal -gt 0) { "$($alcTotals.beer)B $($alcTotals.wine)V $($alcTotals.strong)AF" } else { "0" }
+
+        # Trend indicators - comparaison avec hier
+        # Pour métriques positives (sommeil, travail, sport): + = mieux qu'hier (vert), - = moins bien (rouge)
+        # Pour métriques négatives (clopes, alcool, glando): - = moins qu'hier (vert), + = plus qu'hier (rouge)
+
+        # Sommeil: afficher celui d'hier (nuit complète), trend vs avant-hier serait trop complexe
+        $trendSleepClass = "warn"
+        $trendSleepText = "="
+
+        # Clopes: aujourd'hui vs hier (moins = mieux = vert)
+        $diffClope = $clopeCount - $clopeCountYesterday
+        $trendClopeClass = if ($diffClope -lt 0) { "good" } elseif ($diffClope -gt 0) { "bad" } else { "warn" }
+        $trendClopeText = if ($diffClope -gt 0) { "+$diffClope" } elseif ($diffClope -lt 0) { "$diffClope" } else { "=" }
+
+        # Alcool: afficher les 3 compteurs séparément avec trend individuel
+        $diffBeer = $alcTotals.beer - $alcTotalsYesterday.beer
+        $diffWine = $alcTotals.wine - $alcTotalsYesterday.wine
+        $diffStrong = $alcTotals.strong - $alcTotalsYesterday.strong
+        $diffAlcTotal = $alcTotal - $alcTotalYesterday
+        # Trend classes individuelles (moins = mieux = vert pour alcool)
+        $trendBeerClass = if ($diffBeer -lt 0) { "good" } elseif ($diffBeer -gt 0) { "bad" } else { "warn" }
+        $trendWineClass = if ($diffWine -lt 0) { "good" } elseif ($diffWine -gt 0) { "bad" } else { "warn" }
+        $trendStrongClass = if ($diffStrong -lt 0) { "good" } elseif ($diffStrong -gt 0) { "bad" } else { "warn" }
+        # Format différences individuelles
+        $trendBeerText = if ($diffBeer -gt 0) { "+$diffBeer" } elseif ($diffBeer -lt 0) { "$diffBeer" } else { "=" }
+        $trendWineText = if ($diffWine -gt 0) { "+$diffWine" } elseif ($diffWine -lt 0) { "$diffWine" } else { "=" }
+        $trendStrongText = if ($diffStrong -gt 0) { "+$diffStrong" } elseif ($diffStrong -lt 0) { "$diffStrong" } else { "=" }
+        # Classes d'intensité rouge basées sur la quantité (alc-0 à alc-5)
+        $alcBeerIntensity = [math]::Min(5, [math]::Max(0, $alcTotals.beer))
+        $alcWineIntensity = [math]::Min(5, [math]::Max(0, $alcTotals.wine))
+        $alcStrongIntensity = [math]::Min(5, [math]::Max(0, $alcTotals.strong))
+        # Pour l'export txt on garde un format lisible
+        $alcDisplayStr = "Bière: $($alcTotals.beer), Vin: $($alcTotals.wine), Fort: $($alcTotals.strong)"
+
+        # Sport: aujourd'hui vs hier (plus = mieux = vert)
+        $diffSport = $sportMin - $sportMinYesterday
+        $trendSportClass = if ($diffSport -gt 0) { "good" } elseif ($diffSport -lt 0) { "bad" } else { "warn" }
+        $trendSportText = if ($diffSport -gt 0) { "+${diffSport} minute" } elseif ($diffSport -lt 0) { "${diffSport} minute" } else { "=" }
+
+        # Glandouille: aujourd'hui vs hier (moins = mieux = vert)
+        $diffGlando = $glandouilleMin - $glandouilleMinYesterday
+        $trendGlandoClass = if ($diffGlando -lt 0) { "good" } elseif ($diffGlando -gt 0) { "bad" } else { "warn" }
+        $trendGlandoText = if ($diffGlando -gt 0) { "+${diffGlando} minute" } elseif ($diffGlando -lt 0) { "${diffGlando} minute" } else { "=" }
+
+        # Travail: aujourd'hui vs hier (plus = mieux = vert)
+        $diffWork = $workMin - $workMinYesterday
+        $trendWorkClass = if ($diffWork -gt 0) { "good" } elseif ($diffWork -lt 0) { "bad" } else { "warn" }
+        $trendWorkText = if ($diffWork -gt 0) { "+${diffWork} minute" } elseif ($diffWork -lt 0) { "${diffWork} minute" } else { "=" }
+
+        # 1ère clope: comparer délai réveil→clope avec hier (plus long = mieux)
+        $trendFirstClopeClass = "warn"
+        $trendFirstClopeText = "="
+        $delayClopeStr = if ($delayClopeMin -ne $null -and $delayClopeMin -ge 0) { "$delayClopeMin" } else { "--" }
+        if ($delayClopeMin -ne $null -and $delayClopeYesterday -ne $null) {
+            $diffClopeDelay = $delayClopeMin - $delayClopeYesterday
+            if ($diffClopeDelay -gt 0) {
+                $trendFirstClopeClass = "good"
+                $trendFirstClopeText = "+${diffClopeDelay} minute"
+            } elseif ($diffClopeDelay -lt 0) {
+                $trendFirstClopeClass = "bad"
+                $trendFirstClopeText = "${diffClopeDelay} minute"
+            }
+        } elseif (-not $firstClope) {
+            $trendFirstClopeClass = "good"
+            $trendFirstClopeText = "0"
+            $delayClopeStr = "--"
+        }
+
+        # 1er alcool: comparer délai réveil→alcool avec hier (plus long = mieux)
+        $trendFirstAlcoolClass = "warn"
+        $trendFirstAlcoolText = "="
+        $delayAlcoolStr = if ($delayAlcoolMin -ne $null -and $delayAlcoolMin -ge 0) { "$delayAlcoolMin" } else { "--" }
+        if ($delayAlcoolMin -ne $null -and $delayAlcoolYesterday -ne $null) {
+            $diffAlcoolDelay = $delayAlcoolMin - $delayAlcoolYesterday
+            if ($diffAlcoolDelay -gt 0) {
+                $trendFirstAlcoolClass = "good"
+                $trendFirstAlcoolText = "+${diffAlcoolDelay} minute"
+            } elseif ($diffAlcoolDelay -lt 0) {
+                $trendFirstAlcoolClass = "bad"
+                $trendFirstAlcoolText = "${diffAlcoolDelay} minute"
+            }
+        } elseif (-not $firstAlcool) {
+            $trendFirstAlcoolClass = "good"
+            $trendFirstAlcoolText = "0"
+            $delayAlcoolStr = "--"
+        }
+
+        # Navigation dates
+        $dateObj = [DateTime]::ParseExact($d, "yyyy-MM-dd", $null)
+        $prevDay = $dateObj.AddDays(-1).ToString("yyyy-MM-dd")
+        $nextDay = $dateObj.AddDays(1).ToString("yyyy-MM-dd")
+        $dayNames = @("Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi")
+        $dayName = $dayNames[[int]$dateObj.DayOfWeek]
+        $dateDisplay = $dateObj.ToString("dd MMMM yyyy", [System.Globalization.CultureInfo]::GetCultureInfo("fr-FR"))
 
         $page = @"
 <!doctype html><html lang="fr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -561,7 +689,7 @@ body{
 .brand{display:flex; align-items:center; gap:var(--sp-12); flex-wrap:wrap}
 .row{display:flex; gap:var(--sp-8); flex-wrap:wrap; align-items:center}
 
-/* [PDF] Back button - prominent, touch target 48x48 */
+/* [PDF] Back button - vert accent */
 .btn-back{
   display:inline-flex; align-items:center; justify-content:center; gap:var(--sp-8);
   min-width:48px; min-height:48px; padding:var(--sp-8) var(--sp-16);
@@ -581,6 +709,17 @@ body{
 .btn-back:active{transform:translateY(0) scale(0.98)}
 .btn-back:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .btn-back svg{width:20px;height:20px;stroke:currentColor;stroke-width:2.5;fill:none}
+
+/* [PDF] Notes button - vert accent */
+.btn-notes{
+  display:inline-flex; align-items:center; justify-content:center; gap:var(--sp-8);
+  min-width:48px; min-height:48px; padding:var(--sp-8) var(--sp-16);
+  background:linear-gradient(135deg, rgba(53,217,154,.25), rgba(53,217,154,.15));
+  border:2px solid rgba(53,217,154,.6); border-radius:var(--r-lg);
+  color:var(--accent); font-weight:700; font-size:var(--text-base);
+  box-shadow:0 0 20px rgba(53,217,154,.2), 0 4px 12px rgba(0,0,0,.2);
+}
+.btn-notes svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none}
 
 /* Pills */
 .pill{
@@ -609,9 +748,11 @@ body{
   background:radial-gradient(closest-side, rgba(91,178,255,.08), transparent 70%);
   opacity:.45; pointer-events:none;
 }
+/* [PDF] Hover = lighter: brightness(1.1) saturate(1.3) */
 .card:hover{
   border-color:rgba(91,178,255,.5);
   box-shadow:0 12px 40px rgba(0,0,0,.5), 0 0 20px rgba(91,178,255,.1);
+  filter:brightness(1.05);
 }
 
 /* [PDF] Layout - Gutters 16-24px, max-width 1120px */
@@ -637,6 +778,25 @@ body{
 .tpl-section.evening{border-left-color:#a78bfa}
 .tpl-section.alert{border-left-color:#ff7a7a}
 .tpl-section.neutral{border-left-color:var(--muted)}
+/* Cacher les sections check-in (garder inputs pour export) */
+.tpl-section.morning,
+.tpl-section.evening,
+.tpl-section.alert,
+.tpl-section.neutral,
+.tpl-section:not([style]){display:none}
+.tpl-section[style]{display:block} /* Garder Données Auto visible */
+/* Message motivant */
+.motivational-msg{
+  text-align:center; padding:var(--sp-24) var(--sp-16);
+  color:rgba(255,255,255,.6); font-style:italic; font-size:1rem;
+  border:1px dashed rgba(255,255,255,.15); border-radius:var(--r);
+  background:rgba(0,0,0,.15); margin-top:var(--sp-12);
+  line-height:1.6;
+}
+.motivational-msg .quote{
+  font-size:1.15rem; color:var(--text); display:block;
+  margin-bottom:var(--sp-8); font-weight:600; font-style:normal;
+}
 .tpl-title{
   display:flex; align-items:center; gap:var(--sp-8);
   font-weight:700; font-size:var(--text-sm); color:var(--text);
@@ -645,90 +805,271 @@ body{
 }
 .tpl-title .icon{font-size:1rem}
 .tpl-grid{
-  display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-4) var(--sp-8);
+  display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-8) var(--sp-12);
 }
 .tpl-grid.single{grid-template-columns:1fr}
 .tpl-item{
-  display:flex; justify-content:space-between; align-items:center;
-  padding:var(--sp-4) 0; color:var(--muted); font-size:.8125rem;
+  display:grid; grid-template-columns:120px 1fr; gap:var(--sp-8);
+  align-items:center; justify-items:start;
+  padding:var(--sp-8) 0; color:var(--muted); font-size:.8125rem;
 }
-.tpl-item .label{color:var(--text); font-weight:500}
+.tpl-item .label{color:var(--text);font-weight:500}
+/* Centrer le rating-wrap (segment avec boutons) dans tpl-item */
+.tpl-item .rating-wrap{justify-self:end}
 .tpl-item .val{
   background:rgba(255,255,255,.08); padding:2px 8px; border-radius:4px;
   font-family:monospace; min-width:40px; text-align:center;
 }
-/* [UX] Rating field - input + suffix intégrés */
-.rating-field{
-  display:inline-flex; align-items:stretch;
-  border:1px solid var(--border); border-radius:6px;
-  background:rgba(255,255,255,.06);
-  overflow:hidden;
-  transition:all var(--transition-fast) ease;
-  min-height:32px;
+/* [PDF] Données Auto - compact avec indicateur trend */
+.data-auto-grid{
+  display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-4);
 }
-.rating-field:focus-within{
+.data-auto-item{
+  display:flex; align-items:center; gap:var(--sp-8);
+  padding:var(--sp-4) var(--sp-8); font-size:.75rem;
+  background:rgba(255,255,255,.03); border-radius:4px;
+}
+.data-auto-item .label{color:var(--muted);flex:1}
+.data-auto-item .val{
+  font-family:monospace; font-weight:600; color:var(--text);
+  min-width:32px; text-align:right;
+  background:rgba(255,255,255,.08); padding:2px 6px; border-radius:4px;
+}
+.data-auto-item .sep{
+  color:rgba(255,255,255,.2); margin:0 4px; font-weight:300;
+}
+.trend{
+  min-width:20px; height:18px; padding:0 4px; border-radius:3px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:.625rem; font-weight:700; flex-shrink:0;
+  transition:all .2s ease;
+}
+.trend.warn{background:rgba(247,191,84,.25);color:#f7bf54}
+/* [UX] Trend gradient levels - intensity based on magnitude */
+.trend.good,.trend.good-1{background:rgba(53,217,154,.2);color:#35d99a;box-shadow:0 0 4px rgba(53,217,154,.15)}
+.trend.good-2{background:rgba(53,217,154,.35);color:#35d99a;box-shadow:0 0 6px rgba(53,217,154,.25)}
+.trend.good-3{background:rgba(53,217,154,.5);color:#35d99a;box-shadow:0 0 8px rgba(53,217,154,.35)}
+.trend.good-4{background:rgba(53,217,154,.65);color:#fff;box-shadow:0 0 10px rgba(53,217,154,.45)}
+.trend.good-5{background:rgba(53,217,154,.85);color:#fff;box-shadow:0 0 12px rgba(53,217,154,.6)}
+.trend.bad,.trend.bad-1{background:rgba(255,122,122,.2);color:#ff7a7a;box-shadow:0 0 4px rgba(255,122,122,.15)}
+.trend.bad-2{background:rgba(255,122,122,.35);color:#ff7a7a;box-shadow:0 0 6px rgba(255,122,122,.25)}
+.trend.bad-3{background:rgba(255,122,122,.5);color:#ff7a7a;box-shadow:0 0 8px rgba(255,122,122,.35)}
+.trend.bad-4{background:rgba(255,122,122,.65);color:#fff;box-shadow:0 0 10px rgba(255,122,122,.45)}
+.trend.bad-5{background:rgba(255,122,122,.85);color:#fff;box-shadow:0 0 12px rgba(255,122,122,.6)}
+/* [UX] Priority items - cadre coloré selon trend (vert=bien, rouge=mal) */
+.data-auto-item.priority{
+  border:2px solid rgba(150,150,150,.3);
+  border-radius:6px;
+  padding:var(--sp-4) var(--sp-8);
+}
+.data-auto-item.priority.good{
+  background:rgba(53,217,154,.18);
+  border-color:rgba(53,217,154,.7);
+  border-width:2.5px;
+  box-shadow:0 0 12px rgba(53,217,154,.4), inset 0 0 8px rgba(53,217,154,.1);
+  animation:priority-pulse 2s ease-in-out infinite;
+}
+@keyframes priority-pulse{
+  0%,100%{box-shadow:0 0 12px rgba(53,217,154,.4)}
+  50%{box-shadow:0 0 18px rgba(53,217,154,.6)}
+}
+.data-auto-item.priority.bad{
+  background:rgba(255,122,122,.1);
+  border-color:rgba(255,122,122,.5);
+  box-shadow:0 0 6px rgba(255,122,122,.2);
+}
+.data-auto-item.priority.warn{
+  background:rgba(247,191,84,.1);
+  border-color:rgba(247,191,84,.5);
+  box-shadow:0 0 6px rgba(247,191,84,.2);
+}
+/* [UX] Alcool icon SVG inline */
+.alc-icon{display:inline-block;vertical-align:middle;margin-right:2px}
+/* [UX] Alcool values - red intensity based on quantity */
+.alc-val{font-family:monospace;font-weight:700;min-width:20px;text-align:center;padding:2px 6px;border-radius:3px}
+.alc-val.alc-0{color:var(--muted);background:transparent}
+.alc-val.alc-1{color:#ff9999;background:rgba(255,122,122,.1)}
+.alc-val.alc-2{color:#ff7a7a;background:rgba(255,122,122,.2)}
+.alc-val.alc-3{color:#ff5c5c;background:rgba(255,122,122,.3)}
+.alc-val.alc-4{color:#ff3d3d;background:rgba(255,122,122,.45)}
+.alc-val.alc-5{color:#fff;background:rgba(255,60,60,.65);text-shadow:0 0 4px rgba(255,0,0,.5)}
+/* [UX] Rating wrapper - style segment iOS horizontal */
+.rating-wrap{
+  display:inline-flex; align-items:stretch;
+  border:1px solid var(--border); border-radius:8px;
+  background:rgba(255,255,255,.04);
+  overflow:hidden;
+}
+/* [UX] Stepper buttons - style iOS segment compact */
+.rating-btn{
+  display:flex; align-items:center; justify-content:center;
+  width:32px; height:32px;
+  background:transparent;
+  border:none;
+  color:var(--muted);
+  font-size:1.1rem; font-weight:400;
+  cursor:pointer;
+  transition:all .12s ease;
+  user-select:none;
+  position:relative;
+}
+.rating-btn::after{
+  content:''; position:absolute;
+  top:6px; bottom:6px; width:1px;
+  background:var(--border);
+}
+.rating-btn.minus::after{right:0}
+.rating-btn.plus::after{left:0}
+.rating-btn:hover{
+  background:rgba(255,255,255,.08);
+  color:var(--text);
+}
+.rating-btn:active{
+  background:rgba(255,255,255,.12);
+  transform:scale(0.95);
+}
+.rating-btn:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:-2px;
+}
+
+/* [UX] Rating field - input + suffix intégrés dans le segment */
+.rating-field{
+  display:inline-flex; align-items:center; justify-content:center;
+  background:transparent;
+  border:none;
+  min-width:auto;
+  min-height:28px;
+  transition:all var(--transition-fast) ease;
+}
+/* Focus sur le wrapper parent */
+.rating-wrap:focus-within{
   border-color:var(--accent);
   box-shadow:0 0 0 3px rgba(53,217,154,.15);
 }
-.rating-field:hover:not(:focus-within){
+.rating-wrap:hover:not(:focus-within){
   border-color:rgba(107,188,255,.4);
-  background:rgba(255,255,255,.08);
+  background:rgba(255,255,255,.06);
 }
-/* Couleurs sémantiques sur le wrapper */
-.rating-field.val-bad{border-color:#ff7a7a;background:rgba(255,122,122,.08)}
-.rating-field.val-bad:focus-within{box-shadow:0 0 0 3px rgba(255,122,122,.15)}
-.rating-field.val-mid{border-color:#f7bf54;background:rgba(247,191,84,.08)}
-.rating-field.val-mid:focus-within{box-shadow:0 0 0 3px rgba(247,191,84,.15)}
-.rating-field.val-good{border-color:#35d99a;background:rgba(53,217,154,.08)}
-.rating-field.val-good:focus-within{box-shadow:0 0 0 3px rgba(53,217,154,.15)}
+/* Couleurs subtiles - bordure 2px, fond léger, pas de glow agressif */
+.rating-field.val-0{border:2px solid hsl(0,70%,50%);background:hsla(0,70%,45%,.18)}
+.rating-field.val-0:focus-within{box-shadow:0 0 0 3px hsla(0,70%,50%,.25)}
+.rating-field.val-1{border:2px solid hsl(12,70%,52%);background:hsla(12,70%,47%,.17)}
+.rating-field.val-1:focus-within{box-shadow:0 0 0 3px hsla(12,70%,52%,.24)}
+.rating-field.val-2{border:2px solid hsl(24,70%,52%);background:hsla(24,70%,47%,.16)}
+.rating-field.val-2:focus-within{box-shadow:0 0 0 3px hsla(24,70%,52%,.23)}
+.rating-field.val-3{border:2px solid hsl(36,70%,50%);background:hsla(36,70%,45%,.15)}
+.rating-field.val-3:focus-within{box-shadow:0 0 0 3px hsla(36,70%,50%,.22)}
+.rating-field.val-4{border:2px solid hsl(48,70%,48%);background:hsla(48,70%,43%,.15)}
+.rating-field.val-4:focus-within{box-shadow:0 0 0 3px hsla(48,70%,48%,.21)}
+.rating-field.val-5{border:2px solid hsl(60,65%,45%);background:hsla(60,65%,40%,.14)}
+.rating-field.val-5:focus-within{box-shadow:0 0 0 3px hsla(60,65%,45%,.20)}
+.rating-field.val-6{border:2px solid hsl(75,65%,42%);background:hsla(75,65%,38%,.15)}
+.rating-field.val-6:focus-within{box-shadow:0 0 0 3px hsla(75,65%,42%,.21)}
+.rating-field.val-7{border:2px solid hsl(90,65%,40%);background:hsla(90,65%,36%,.16)}
+.rating-field.val-7:focus-within{box-shadow:0 0 0 3px hsla(90,65%,40%,.22)}
+.rating-field.val-8{border:2px solid hsl(105,65%,38%);background:hsla(105,65%,34%,.17)}
+.rating-field.val-8:focus-within{box-shadow:0 0 0 3px hsla(105,65%,38%,.23)}
+.rating-field.val-9{border:2px solid hsl(115,60%,38%);background:hsla(115,60%,34%,.18)}
+.rating-field.val-9:focus-within{box-shadow:0 0 0 3px hsla(115,60%,38%,.24)}
+.rating-field.val-10{border:2px solid hsl(125,55%,38%);background:hsla(125,55%,34%,.19)}
+.rating-field.val-10:focus-within{box-shadow:0 0 0 3px hsla(125,55%,38%,.25)}
 .rating-field.filled{border-color:var(--accent);background:rgba(53,217,154,.06)}
 
 /* Input inside rating field */
 .rating-field .tpl-input{
-  width:40px; height:100%; min-height:30px;
-  padding:4px 6px;
+  width:28px; height:100%; min-height:28px;
+  padding:2px;
   background:transparent; border:none;
   color:var(--text); font-size:.875rem; font-weight:600;
-  text-align:center; font-family:inherit;
+  text-align:right; font-family:inherit;
   outline:none;
+  -moz-appearance:textfield;
 }
 .rating-field .tpl-input::placeholder{color:var(--muted);opacity:.5}
+/* Hide native spin buttons */
 .rating-field .tpl-input::-webkit-inner-spin-button,
-.rating-field .tpl-input::-webkit-outer-spin-button{opacity:1;cursor:pointer;height:auto}
-/* Couleur du texte selon valeur */
-.rating-field.val-bad .tpl-input{color:#ffa0a0}
-.rating-field.val-mid .tpl-input{color:#f7d794}
-.rating-field.val-good .tpl-input{color:#35d99a}
+.rating-field .tpl-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+/* Couleur du texte - sat 65%, plus subtil */
+.rating-field.val-0 .tpl-input{color:hsl(0,65%,68%);font-weight:600}
+.rating-field.val-1 .tpl-input{color:hsl(12,65%,68%);font-weight:600}
+.rating-field.val-2 .tpl-input{color:hsl(24,65%,66%);font-weight:600}
+.rating-field.val-3 .tpl-input{color:hsl(36,65%,64%);font-weight:600}
+.rating-field.val-4 .tpl-input{color:hsl(48,65%,60%);font-weight:600}
+.rating-field.val-5 .tpl-input{color:hsl(60,60%,55%);font-weight:600}
+.rating-field.val-6 .tpl-input{color:hsl(75,60%,52%);font-weight:600}
+.rating-field.val-7 .tpl-input{color:hsl(90,60%,50%);font-weight:600}
+.rating-field.val-8 .tpl-input{color:hsl(105,60%,48%);font-weight:600}
+.rating-field.val-9 .tpl-input{color:hsl(115,55%,46%);font-weight:600}
+.rating-field.val-10 .tpl-input{color:hsl(125,50%,45%);font-weight:600}
 
-/* Suffix intégré */
+/* Suffix intégré - même police que l'input */
 .rating-field .rating-suffix{
   display:flex; align-items:center; justify-content:center;
-  padding:0 8px;
-  background:rgba(0,0,0,.2);
-  color:var(--muted); font-size:.75rem; font-weight:500;
-  border-left:1px solid rgba(255,255,255,.08);
+  padding:0 4px 0 0;
+  background:transparent;
+  color:var(--muted); font-size:.875rem; font-weight:600;
+  border:none;
   user-select:none;
 }
-.rating-field.val-bad .rating-suffix{color:rgba(255,160,160,.7)}
-.rating-field.val-mid .rating-suffix{color:rgba(247,215,148,.7)}
-.rating-field.val-good .rating-suffix{color:rgba(53,217,154,.7)}
+/* Couleur suffix subtile */
+.rating-field.val-0 .rating-suffix{color:hsla(0,55%,65%,.7);font-weight:500}
+.rating-field.val-1 .rating-suffix{color:hsla(12,55%,65%,.7);font-weight:500}
+.rating-field.val-2 .rating-suffix{color:hsla(24,55%,63%,.7);font-weight:500}
+.rating-field.val-3 .rating-suffix{color:hsla(36,55%,60%,.7);font-weight:500}
+.rating-field.val-4 .rating-suffix{color:hsla(48,55%,56%,.7);font-weight:500}
+.rating-field.val-5 .rating-suffix{color:hsla(60,50%,52%,.7);font-weight:500}
+.rating-field.val-6 .rating-suffix{color:hsla(75,50%,50%,.7);font-weight:500}
+.rating-field.val-7 .rating-suffix{color:hsla(90,50%,48%,.7);font-weight:500}
+.rating-field.val-8 .rating-suffix{color:hsla(105,50%,46%,.7);font-weight:500}
+.rating-field.val-9 .rating-suffix{color:hsla(115,45%,44%,.7);font-weight:500}
+.rating-field.val-10 .rating-suffix{color:hsla(125,40%,43%,.7);font-weight:500}
 
 /* Fallback pour anciens .tpl-input sans wrapper */
-.tpl-input:not(.rating-field .tpl-input){
+.tpl-input:not(.rating-field .tpl-input):not(.tpl-input-text){
   width:48px; height:26px; padding:2px 4px;
   background:rgba(255,255,255,.1); border:1px solid var(--border);
   border-radius:4px; color:var(--text); font-size:.8rem;
   text-align:center; font-family:inherit;
 }
-.tpl-input:not(.rating-field .tpl-input):focus{outline:none;border-color:var(--accent);background:rgba(53,217,154,.15)}
+.tpl-input:not(.rating-field .tpl-input):not(.tpl-input-text):focus{outline:none;border-color:var(--accent);background:rgba(53,217,154,.15)}
+
+/* [PDF] Text inputs TDAH - touch target 44px, focus visible */
+.tpl-item-text{
+  display:grid; grid-template-columns:100px 1fr; gap:var(--sp-12);
+  align-items:center; padding:var(--sp-8) 0;
+}
+.tpl-item-text .label{
+  color:var(--text); font-weight:500; font-size:.8125rem;
+}
+.tpl-input-text{
+  width:100%; min-height:36px; padding:var(--sp-8) var(--sp-12);
+  background:rgba(255,255,255,.06); border:1px solid var(--border);
+  border-radius:6px; color:var(--text); font-size:.875rem;
+  font-family:inherit; transition:all var(--transition-fast) ease;
+}
+.tpl-input-text::placeholder{color:var(--muted);opacity:.5}
+.tpl-input-text:hover{border-color:rgba(107,188,255,.3);background:rgba(255,255,255,.08)}
+.tpl-input-text:focus{
+  outline:none; border-color:var(--accent);
+  background:rgba(53,217,154,.08);
+  box-shadow:0 0 0 3px rgba(53,217,154,.15);
+}
 .tpl-suffix:not(.rating-suffix){color:var(--muted);font-size:.7rem;margin-left:2px}
 .tpl-list{list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:var(--sp-4)}
 .tpl-list li{
   display:flex; align-items:center; gap:var(--sp-8);
   padding:var(--sp-4) var(--sp-8); background:rgba(255,255,255,.04);
   border-radius:4px; font-size:.8125rem; color:var(--muted);
+  cursor:pointer; transition:all .15s ease;
 }
-.tpl-list li::before{content:""; width:12px; height:12px; border:1.5px solid var(--muted); border-radius:3px; flex-shrink:0}
+.tpl-list li:hover{background:rgba(255,255,255,.08)}
+.tpl-list label{cursor:pointer; display:flex; align-items:center; gap:var(--sp-8); flex:1}
+.tpl-list .tpl-check{
+  width:16px; height:16px; margin:0;
+  accent-color:var(--accent); cursor:pointer;
+}
+.tpl-list li.checked{color:var(--accent); background:rgba(53,217,154,.08)}
 .tpl-note{font-size:.75rem; color:var(--muted); font-style:italic; margin-top:var(--sp-4)}
 .tpl-formula{
   background:rgba(107,188,255,.1); border:1px solid rgba(107,188,255,.3);
@@ -743,13 +1084,12 @@ body{
 /* Valeurs remplies par parsing */
 .val.filled{background:rgba(53,217,154,.2);color:var(--accent);font-weight:700;border:1px solid rgba(53,217,154,.4)}
 .val.empty{background:rgba(255,255,255,.08);color:var(--muted)}
-.tpl-list li.checked{color:var(--accent)}
-.tpl-list li.checked::before{background:var(--accent);border-color:var(--accent)}
 /* Éléments cliquables */
 .tpl-hint{font-size:.7rem;color:var(--muted);text-align:center;padding:var(--sp-4);margin-bottom:var(--sp-8);opacity:.7}
 .clickable{cursor:pointer;transition:all var(--transition-fast) ease;border-radius:4px}
-.clickable:hover{background:rgba(107,188,255,.15);transform:translateX(2px)}
-.tpl-list li.clickable:hover{background:rgba(107,188,255,.2)}
+/* [PDF] Hover = brightness(1.1) saturate(1.3) */
+.clickable:hover{background:rgba(107,188,255,.2);transform:translateX(2px);filter:brightness(1.1) saturate(1.3)}
+.tpl-list li.clickable:hover{background:rgba(107,188,255,.25)}
 
 /* [PDF] Textarea/Input - même hauteur que sidebar */
 .notesTa{
@@ -767,6 +1107,34 @@ body{
 }
 .notesTa::placeholder{color:var(--muted);opacity:.7}
 
+/* [UX] Notes left column - flex layout */
+.notesLeft{display:flex;flex-direction:column;gap:var(--sp-16)}
+
+/* [UX] Data summary - below notes with clear separator */
+.dataSummary{
+  padding:var(--sp-12);
+  background:rgba(53,217,154,.05);
+  border:1px solid rgba(53,217,154,.15);
+  border-radius:var(--r);
+}
+.dataSummary-sep{
+  width:100%;height:1px;
+  background:linear-gradient(90deg, transparent, rgba(53,217,154,.3), transparent);
+  margin-bottom:var(--sp-12);
+}
+.dataSummary-title{
+  font-size:.75rem;font-weight:600;color:var(--accent);
+  margin-bottom:var(--sp-8);letter-spacing:.3px;
+}
+.dataSummary-grid{
+  display:flex;flex-wrap:wrap;gap:var(--sp-12);
+}
+.ds-item{
+  display:inline-flex;align-items:center;gap:var(--sp-4);
+  font-size:.8rem;color:var(--muted);
+}
+.ds-item b{color:var(--text);font-weight:600}
+
 /* [PDF] Buttons - Height min 40px, width min 64px, radius 4-8px, touch target 48x48 */
 .btn{
   border:1px solid var(--border); background:rgba(16,22,29,.65); color:var(--text);
@@ -781,8 +1149,10 @@ body{
 }
 /* [PDF] Touch target 48x48 for accessibility */
 .btn::before{content:"";position:absolute;inset:-4px;z-index:-1}
-.btn:hover{transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.35);border-color:rgba(91,178,255,.5)}
-.btn:active{transform:translateY(0) scale(0.98)}
+/* [PDF] Hover = darker: brightness(1.1) saturate(1.3) */
+.btn:hover{transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.35);border-color:rgba(91,178,255,.5);filter:brightness(1.1) saturate(1.3)}
+/* [PDF] Active = even darker: brightness(0.95) saturate(1.4) */
+.btn:active{transform:translateY(0) scale(0.98);filter:brightness(0.95) saturate(1.4)}
 /* [PDF] Focus: outline 2px */
 .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;box-shadow:0 0 0 4px rgba(53,217,154,.25)}
 .btn.ghost{background:transparent;border-color:rgba(255,255,255,.25)}
@@ -790,6 +1160,14 @@ body{
 /* [PDF] Disabled: 38-50% opacity */
 .btn:disabled{cursor:not-allowed;opacity:.38;filter:grayscale(30%)}
 .btn:disabled:hover{transform:none;box-shadow:0 1px 2px rgba(0,0,0,.18)}
+
+/* [UX] Export button - accent color */
+.export-btn{
+  display:inline-flex;align-items:center;
+  background:rgba(53,217,154,.15);border-color:rgba(53,217,154,.4);color:var(--accent);
+  min-width:auto;padding:var(--sp-4) var(--sp-12);min-height:32px;
+}
+.export-btn:hover{background:rgba(53,217,154,.25);border-color:rgba(53,217,154,.6)}
 
 /* [UX_PDF] Ripple effect */
 .btn{position:relative;overflow:hidden}
@@ -814,6 +1192,63 @@ a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 }
 .pageTitle{font-weight:900;font-size:1.375rem;margin:0;letter-spacing:.3px}
 .pageMeta{color:var(--muted);font-size:.875rem;display:flex;align-items:center;gap:var(--sp-8)}
+
+/* [UX] Date navigation - fixed arrows that follow scroll */
+.dateNavWrap{
+  position:relative;
+}
+.dateNav{
+  position:fixed;
+  top:50%;
+  transform:translateY(-50%);
+  display:flex; align-items:center; justify-content:center;
+  width:48px; height:48px;
+  background:linear-gradient(135deg, rgba(107,188,255,.2), rgba(107,188,255,.08));
+  border:2px solid rgba(107,188,255,.4);
+  border-radius:50%;
+  color:var(--blue);
+  text-decoration:none;
+  font-size:1.25rem; font-weight:700;
+  box-shadow:0 4px 24px rgba(0,0,0,.5), 0 0 24px rgba(107,188,255,.15);
+  transition:all var(--transition-normal) ease;
+  z-index:100;
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+}
+/* [PDF] Hover = brightness(1.1) saturate(1.3) */
+.dateNav:hover{
+  background:linear-gradient(135deg, rgba(107,188,255,.35), rgba(107,188,255,.2));
+  border-color:rgba(107,188,255,.7);
+  transform:translateY(-50%) scale(1.1);
+  box-shadow:0 8px 32px rgba(0,0,0,.5), 0 0 40px rgba(107,188,255,.25);
+  filter:brightness(1.1) saturate(1.3);
+}
+/* [PDF] Active = brightness(0.95) saturate(1.4) */
+.dateNav:active{transform:translateY(-50%) scale(0.92);filter:brightness(0.95) saturate(1.4)}
+.dateNav:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+.dateNav.prev{left:12px}
+.dateNav.next{right:12px}
+@media(max-width:900px){
+  .dateNav{width:44px;height:44px}
+  .dateNav.prev{left:8px}
+  .dateNav.next{right:8px}
+}
+@media(max-width:640px){
+  .dateNav{width:40px;height:40px;top:auto;bottom:24px;transform:none}
+  .dateNav.prev{left:16px}
+  .dateNav.next{right:16px}
+  .dateNav:hover{transform:scale(1.1)}
+  .dateNav:active{transform:scale(0.92)}
+}
+.dateNav svg{width:24px;height:24px;stroke:currentColor;stroke-width:2.5;fill:none}
+@media(max-width:640px){.dateNav svg{width:20px;height:20px}}
+
+/* Date display in header */
+.dateDisplay{
+  display:flex; align-items:center; gap:var(--sp-12);
+  font-weight:800; font-size:1.125rem;
+}
+.dateDisplay .dayName{color:var(--blue);text-transform:capitalize}
+.dateDisplay .dateStr{color:var(--text)}
 
 /* Loading bar */
 .loadingBar{position:fixed;top:0;left:0;right:0;height:3px;background:rgba(255,255,255,.06);opacity:0;pointer-events:none;z-index:2000;transition:opacity var(--transition-normal) ease}
@@ -889,53 +1324,81 @@ a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         <span>Dashboard</span>
       </a>
-      <span class="pill" style="border-color:rgba(53,217,154,.4);background:rgba(53,217,154,.1);color:var(--accent)">
-        <svg style="width:16px;height:16px;margin-right:6px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        Notes
-      </span>
     </div>
     <div class="row">
-      <span style="font-weight:900;font-size:var(--text-lg);letter-spacing:.3px">InfernalWheel</span>
+      <span id="offlineCount" class="pill" style="display:none;border-color:var(--warn);background:rgba(247,191,84,.15);color:var(--warn);font-size:.75rem"></span>
+      <span class="btn-notes" title="Page Notes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>Notes</span>
+      </span>
     </div>
   </nav>
 
   <!-- [landmark_wcag_1_3_1] main -->
   <main id="main-content">
-    <div class="card">
-      <div class="pageHeader">
-        <h1 class="pageTitle">Notes - $d</h1>
-        <div class="pageMeta">
-          <span>Autosave 2s</span>
-          <span>|</span>
-          <span>$d.txt</span>
-          <span id="noteStatus" class="status" role="status" aria-live="polite">-</span>
+    <div class="dateNavWrap">
+      <a href="/notes?d=$prevDay" class="dateNav prev" title="Jour précédent" aria-label="Jour précédent">
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <a href="/notes?d=$nextDay" class="dateNav next" title="Jour suivant" aria-label="Jour suivant">
+        <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+      </a>
+      <div class="card">
+        <div class="pageHeader">
+          <div>
+            <h1 class="pageTitle">Notes</h1>
+            <div class="dateDisplay">
+              <span class="dayName">$dayName</span>
+              <span class="dateStr">$dateDisplay</span>
+            </div>
+          </div>
+          <div class="pageMeta">
+            <span id="noteStatus" class="status" role="status" aria-live="polite">-</span>
+            <button type="button" class="btn export-btn" onclick="exportDayData()" title="Exporter les données du jour">
+              <svg style="width:16px;height:16px;margin-right:4px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Exporter
+            </button>
+          </div>
         </div>
-      </div>
 
       <div class="notesRow">
         <div>
           <label for="t" class="sr-only">Notes du jour</label>
-          <textarea id="t" class="notesTa" placeholder="Ecris tes notes ici..." aria-label="Notes du jour"></textarea>
+          <textarea id="t" class="notesTa" placeholder="Parle, défoule-toi, note ce que tu veux... Cet espace est à toi." aria-label="Notes du jour"></textarea>
         </div>
         <aside class="notesBox" aria-label="Template de check-in">
           <!-- DONNÉES AUTO -->
           <section class="tpl-section" style="border-left-color:var(--accent);background:rgba(53,217,154,.05)">
             <div class="tpl-title"><span class="icon">&#9889;</span> Données Auto</div>
-            <div class="tpl-grid">
-              <div class="tpl-item"><span class="label">Sommeil</span><span class="val">${sleepH}h</span></div>
-              <div class="tpl-item"><span class="label">Travail</span><span class="val">${workH}h</span></div>
-              <div class="tpl-item"><span class="label">Clopes</span><span class="val">$clopeCount</span></div>
-              <div class="tpl-item"><span class="label">Alcool</span><span class="val">$alcStr</span></div>
-              <div class="tpl-item"><span class="label">1ère clope</span><span class="val">$firstClopeStr</span></div>
-              <div class="tpl-item"><span class="label">1ère bière</span><span class="val">$firstBeerStr</span></div>
-              <div class="tpl-item"><span class="label">Sport</span><span class="val">${sportMin}m</span></div>
-              <div class="tpl-item"><span class="label">Glandouille</span><span class="val">${glandouilleMin}m</span></div>
+            <!-- Sommeil masqué (code conservé): $sleepStrYesterday $trendSleepClass $trendSleepText -->
+            <div class="data-auto-grid">
+              <!-- PRIORITÉ: 2 premières cases avec cadre coloré selon trend -->
+              <div class="data-auto-item priority $trendFirstAlcoolClass"><span class="label">🍺 1er du jour</span><span class="val">$delayAlcoolStr</span><span class="sep">│</span><span class="trend $trendFirstAlcoolClass">$trendFirstAlcoolText</span></div>
+              <div class="data-auto-item priority $trendFirstClopeClass"><span class="label">🚬 1ère du jour</span><span class="val">$delayClopeStr</span><span class="sep">│</span><span class="trend $trendFirstClopeClass">$trendFirstClopeText</span></div>
+              <!-- Reste des items -->
+              <div class="data-auto-item"><span class="label">🚬</span><span class="val">$clopeCount</span><span class="sep">│</span><span class="trend $trendClopeClass">$trendClopeText</span></div>
+              <div class="data-auto-item"><span class="label">🍺</span><span class="alc-val alc-$alcBeerIntensity">$($alcTotals.beer)</span><span class="sep">│</span><span class="trend $trendBeerClass">$trendBeerText</span></div>
+              <div class="data-auto-item"><span class="label">🍷</span><span class="alc-val alc-$alcWineIntensity">$($alcTotals.wine)</span><span class="sep">│</span><span class="trend $trendWineClass">$trendWineText</span></div>
+              <div class="data-auto-item"><span class="label"><svg class="alc-icon" viewBox="0 0 16 16" width="14" height="14"><path d="M3 2 L4.5 14 h7 L13 2" fill="none" stroke="#9e4a5d" stroke-width="1.3"/><path d="M3.8 6 h8.4 l-1 8 h-6.4 L3.8 6z" fill="#c4722a" opacity=".8"/><rect x="4" y="4" width="4.8" height="4.2" rx=".7" fill="#b8e8f8" opacity=".95"/><rect x="8.2" y="4.5" width="4.2" height="4" rx=".6" fill="#a8e0f4" opacity=".9"/></svg></span><span class="alc-val alc-$alcStrongIntensity">$($alcTotals.strong)</span><span class="sep">│</span><span class="trend $trendStrongClass">$trendStrongText</span></div>
+            </div>
+            <!-- ACTIVITÉS -->
+            <div class="data-auto-grid" style="margin-top:var(--sp-8)">
+              <div class="data-auto-item"><span class="label">💼 Travail</span><span class="val">$workStr</span><span class="sep">│</span><span class="trend $trendWorkClass">$trendWorkText</span></div>
+              <div class="data-auto-item"><span class="label">🏃 Sport</span><span class="val">${sportMin} minute</span><span class="sep">│</span><span class="trend $trendSportClass">$trendSportText</span></div>
+              <div class="data-auto-item"><span class="label">📺 Glando</span><span class="val">${glandouilleMin} minute</span><span class="sep">│</span><span class="trend $trendGlandoClass">$trendGlandoText</span></div>
             </div>
           </section>
 
-          <!-- MATIN -->
+          <!-- MESSAGE MOTIVANT -->
+          <div class="motivational-msg">
+            <span class="quote">« Libère-toi. Lâche-toi. Écris. »</span>
+            Cet espace est le tien. Pas de jugement, pas de filtre.<br>
+            Ton psy recevra tout via le bouton Exporter.
+          </div>
+
+          <!-- MATIN (caché visuellement, inputs gardés pour export) -->
           <section class="tpl-section morning">
-            <div class="tpl-title"><span class="icon">&#9728;</span> Check-in Matin</div>
+            <div class="tpl-title"><span class="icon" style="color:#FFD700">☀</span> Check-in Matin</div>
             <div class="tpl-grid">
               <div class="tpl-item"><span class="label">Qualité sommeil</span><div class="rating-field"><input type="number" class="tpl-input" data-field="qualite" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
               <div class="tpl-item"><span class="label">Énergie</span><div class="rating-field"><input type="number" class="tpl-input" data-field="energie" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
@@ -944,7 +1407,7 @@ a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
             </div>
           </section>
 
-          <section class="tpl-section morning">
+          <section class="tpl-section morning ">
             <div class="tpl-title"><span class="icon">&#129504;</span> État Mental</div>
             <div class="tpl-grid">
               <div class="tpl-item"><span class="label">Humeur</span><div class="rating-field"><input type="number" class="tpl-input" data-field="humeur" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
@@ -954,18 +1417,18 @@ a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
             </div>
           </section>
 
-          <section class="tpl-section">
+          <section class="tpl-section ">
             <div class="tpl-title"><span class="icon">&#127919;</span> Plan TDAH</div>
             <div class="tpl-grid single">
-              <div class="tpl-item"><span class="label">Priorité 1</span><input type="text" class="tpl-input" data-field="priorite1" style="flex:1;width:auto" placeholder="..."></div>
-              <div class="tpl-item"><span class="label">Priorité 2</span><input type="text" class="tpl-input" data-field="priorite2" style="flex:1;width:auto" placeholder="..."></div>
-              <div class="tpl-item"><span class="label">Priorité 3</span><input type="text" class="tpl-input" data-field="priorite3" style="flex:1;width:auto" placeholder="..."></div>
-              <div class="tpl-item"><span class="label">Minimum vital</span><input type="text" class="tpl-input" data-field="minimum" style="flex:1;width:auto" placeholder="..."></div>
+              <div class="tpl-item-text"><span class="label">Priorité 1</span><input type="text" class="tpl-input tpl-input-text" data-field="priorite1" placeholder="..."></div>
+              <div class="tpl-item-text"><span class="label">Priorité 2</span><input type="text" class="tpl-input tpl-input-text" data-field="priorite2" placeholder="..."></div>
+              <div class="tpl-item-text"><span class="label">Priorité 3</span><input type="text" class="tpl-input tpl-input-text" data-field="priorite3" placeholder="..."></div>
+              <div class="tpl-item-text"><span class="label">Minimum vital</span><input type="text" class="tpl-input tpl-input-text" data-field="minimum" placeholder="..."></div>
             </div>
           </section>
 
           <!-- SOIR -->
-          <section class="tpl-section evening">
+          <section class="tpl-section evening ">
             <div class="tpl-title"><span class="icon">&#127769;</span> Journal Soir</div>
             <div class="tpl-grid">
               <div class="tpl-item"><span class="label">Humeur soir</span><div class="rating-field"><input type="number" class="tpl-input" data-field="humeur_soir" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
@@ -977,62 +1440,60 @@ a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
           </section>
 
           <!-- COLÈRE -->
-          <section class="tpl-section alert">
+          <section class="tpl-section alert ">
             <div class="tpl-title"><span class="icon">&#128293;</span> Colère / Explosions</div>
-            <div class="tpl-grid">
-              <div class="tpl-item"><span class="label">Épisodes</span><input type="number" class="tpl-input" data-field="episodes" min="0" max="99" placeholder="-"></div>
+            <div class="tpl-grid single">
               <div class="tpl-item"><span class="label">Intensité</span><div class="rating-field"><input type="number" class="tpl-input" data-field="intensite" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
             </div>
-            <div class="tpl-note" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-              <span>Déclencheur:</span><input type="text" class="tpl-input" data-field="declencheur" style="flex:1;width:auto;min-width:80px" placeholder="...">
+            <div class="tpl-item-text" style="margin-top:var(--sp-8)">
+              <span class="label">Déclencheur</span><input type="text" class="tpl-input tpl-input-text" data-field="declencheur" placeholder="...">
             </div>
             <div style="margin-top:8px;font-size:.75rem;color:var(--muted)">Compétences utilisées:</div>
             <ul class="tpl-list">
-              <li data-check="pause90"><input type="checkbox" class="tpl-check" data-field="pause90"> Pause 90 secondes</li>
-              <li data-check="respiration"><input type="checkbox" class="tpl-check" data-field="respiration"> Respiration 4-6</li>
-              <li data-check="sortir"><input type="checkbox" class="tpl-check" data-field="sortir"> Sortir / marcher</li>
-              <li data-check="ecrire"><input type="checkbox" class="tpl-check" data-field="ecrire"> Écrire au lieu de parler</li>
+              <li><label><input type="checkbox" class="tpl-check" data-field="pause90"> Pause 90 secondes</label></li>
+              <li><label><input type="checkbox" class="tpl-check" data-field="respiration"> Respiration 4-6</label></li>
+              <li><label><input type="checkbox" class="tpl-check" data-field="sortir"> Sortir / marcher</label></li>
+              <li><label><input type="checkbox" class="tpl-check" data-field="ecrire"> Écrire au lieu de parler</label></li>
             </ul>
           </section>
 
-          <!-- CBT -->
-          <section class="tpl-section neutral">
+          <!-- CBT (Thérapie Cognitive Comportementale) -->
+          <section class="tpl-section neutral ">
             <div class="tpl-title"><span class="icon">&#128161;</span> CBT Rapide</div>
             <div class="tpl-grid single">
-              <div class="tpl-item"><span class="label">Situation</span><input type="text" class="tpl-input" data-field="situation" style="flex:1;width:auto" placeholder="..."></div>
-              <div class="tpl-item"><span class="label">Pensée auto</span><input type="text" class="tpl-input" data-field="pensee" style="flex:1;width:auto" placeholder="..."></div>
               <div class="tpl-item"><span class="label">Émotion</span><div class="rating-field"><input type="number" class="tpl-input" data-field="emotion" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
-              <div class="tpl-item"><span class="label">Alternative</span><input type="text" class="tpl-input" data-field="alternative" style="flex:1;width:auto" placeholder="..."></div>
+              <div class="tpl-item-text"><span class="label">Pensée auto</span><input type="text" class="tpl-input tpl-input-text" data-field="pensee" placeholder="..."></div>
+              <div class="tpl-item-text"><span class="label">Alternative</span><input type="text" class="tpl-input tpl-input-text" data-field="alternative" placeholder="..."></div>
             </div>
-          </section>
-
-          <!-- BILAN -->
-          <section class="tpl-section">
-            <div class="tpl-title"><span class="icon">&#128200;</span> Bilan</div>
-            <div class="tpl-grid">
-              <div class="tpl-item"><span class="label">Score global</span><div class="rating-field"><input type="number" class="tpl-input" data-field="score" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
-              <div class="tpl-item"><span class="label">Relations</span><div class="rating-field"><input type="number" class="tpl-input" data-field="relations" min="0" max="6" placeholder="-"><span class="rating-suffix">/6</span></div></div>
-            </div>
-            <div class="tpl-formula">Stabilité = (Sommeil + (10-Irrit) + (10-Colère) + Focus + Répar) / 5</div>
           </section>
 
           <!-- GARDE-FOU -->
-          <section class="tpl-section alert">
+          <section class="tpl-section alert ">
             <div class="tpl-title"><span class="icon">&#128680;</span> Garde-fou</div>
             <div class="tpl-grid single">
               <div class="tpl-item"><span class="label">Idées noires</span><div class="rating-field"><input type="number" class="tpl-input" data-field="ideesnoires" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
             </div>
             <div class="tpl-warn">Si 8-10: parler à un pro ou quelqu'un de confiance</div>
           </section>
+
+          <!-- BILAN -->
+          <section class="tpl-section ">
+            <div class="tpl-title"><span class="icon">&#128200;</span> Bilan</div>
+            <div class="tpl-grid">
+              <div class="tpl-item"><span class="label">Score global</span><div class="rating-field"><input type="number" class="tpl-input" data-field="score" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+              <div class="tpl-item"><span class="label">Relations</span><div class="rating-field"><input type="number" class="tpl-input" data-field="relations" min="0" max="6" placeholder="-"><span class="rating-suffix">/6</span></div></div>
+            </div>
+          </section>
         </aside>
       </div>
+    </div>
     </div>
   </main>
 
   <!-- [UX_BEHAVIORAL_PDF E19] Trust Pattern -->
   <footer style="text-align:center;padding:var(--sp-16);color:var(--muted);font-size:.8125rem">
     <span style="margin-right:var(--sp-8)">&#128274;</span>
-    Donnees 100% locales - Aucune donnee envoyee
+    Données 100% locales - Aucune donnée envoyée
   </footer>
 </div>
 <script>
@@ -1041,6 +1502,32 @@ const ta = document.getElementById("t");
 const noteStatus = document.getElementById("noteStatus");
 let pendingReq = 0;
 let lastNetErrorAt = 0;
+
+/* [OFFLINE] Queue pour stocker les actions hors ligne */
+const OFFLINE_KEY = "iw_offline_queue";
+function getOfflineQueue(){ try { return JSON.parse(localStorage.getItem(OFFLINE_KEY)) || []; } catch { return []; } }
+function saveOfflineQueue(q){ localStorage.setItem(OFFLINE_KEY, JSON.stringify(q)); updateOfflineCount(); }
+function queueOfflineAction(url, data){ const q = getOfflineQueue(); q.push({ url, data, ts: Date.now() }); saveOfflineQueue(q); console.log("[OFFLINE] Queued:", url); }
+function updateOfflineCount(){
+  const q = getOfflineQueue();
+  const badge = document.getElementById("offlineCount");
+  if (badge) { badge.textContent = q.length > 0 ? q.length + " en attente" : ""; badge.style.display = q.length > 0 ? "inline" : "none"; }
+}
+async function syncOfflineQueue(){
+  const q = getOfflineQueue();
+  if (!q.length || !navigator.onLine) return;
+  let synced = 0;
+  for (const item of q) {
+    try {
+      const r = await fetch(item.url, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(item.data) });
+      if (r.ok) synced++; else break;
+    } catch { break; }
+  }
+  if (synced > 0) {
+    saveOfflineQueue(q.slice(synced));
+    showToast(synced + " action(s) synchronisée(s)", "success", "Sync");
+  }
+}
 
 /* [UX_PDF] Status display with classes */
 function setNoteStatus(text, type=""){
@@ -1090,9 +1577,11 @@ function notifyNetError(){
 }
 
 /* Network events */
-window.addEventListener("online", ()=>{ setOffline(false); showToast("Connexion retablie.", "success", "Reseau"); });
+window.addEventListener("online", ()=>{ setOffline(false); showToast("Connexion retablie.", "success", "Reseau"); syncOfflineQueue(); });
 window.addEventListener("offline", ()=>{ setOffline(true); showToast("Hors ligne.", "error", "Reseau"); });
 setOffline(navigator && navigator.onLine === false);
+updateOfflineCount();
+if (navigator.onLine) syncOfflineQueue();
 
 const retryBtn = document.getElementById("offlineRetry");
 if (retryBtn) {
@@ -1123,13 +1612,24 @@ function initRippleEffects(){
 }
 
 /* API helpers */
-async function postJSON(url, obj){
+async function postJSON(url, obj, canQueue=true){
+  const queueableUrls = ["/api/cmd", "/api/drinks/add", "/api/drinks/adjust", "/api/note/save", "/api/note", "/api/quicknote", "/api/actionnote"];
+  if (!navigator.onLine && canQueue && queueableUrls.some(u => url.includes(u))) {
+    queueOfflineAction(url, obj);
+    showToast("Action mise en file (hors ligne)", "warn", "Offline");
+    return {ok:true, queued:true};
+  }
   requestStart();
   try{
     const r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(obj), cache:"no-store"});
     if(!r.ok){ notifyNetError(); return {ok:false}; }
     return await r.json();
   } catch(e){
+    if (canQueue && queueableUrls.some(u => url.includes(u))) {
+      queueOfflineAction(url, obj);
+      showToast("Action mise en file (erreur réseau)", "warn", "Offline");
+      return {ok:true, queued:true};
+    }
     notifyNetError();
     return {ok:false};
   } finally {
@@ -1151,14 +1651,33 @@ async function getJSON(url){
 }
 
 /* Note loading */
+let fullContent = ""; // Contenu complet avec métriques (pour export)
+const metricPatterns = [
+  /^(qualit[eé]\s*sommeil|[eé]nergie|motivation|douleur|humeur(\s*soir)?|anxi[eé]t[eé]|irritabilit[eé]|clart[eé]|stress|focus|fatigue|fiert[eé]|intensit[eé]|[eé]motion|id[eé]es?\s*noires?|score\s*global|relations?)\s*[:=]\s*.+$/i,
+  /^(minimum|priorit[eé]\s*[123]|d[eé]clencheur|pensee|alternative)\s*[:=]\s*.+$/i
+];
+function isMetricLine(line) {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  return metricPatterns.some(p => p.test(trimmed));
+}
+function filterMetrics(text) {
+  return text.split(/\r?\n/).filter(line => !isMetricLine(line)).join('\n').trim();
+}
 async function loadNote(){
   setNoteStatus("loading...", "saving");
   const j = await getJSON("/api/note?d=" + encodeURIComponent(day));
   if(j && j.ok){
-    ta.value = j.content || "";
-    lastSent = ta.value || "";
+    fullContent = j.content || "";
+    // Afficher seulement le texte libre (sans métriques)
+    const textOnly = filterMetrics(fullContent);
+    ta.value = textOnly;
+    lastSent = fullContent; // On compare avec le contenu complet
     dirty = false;
     setNoteStatus("loaded", "saved");
+    // Parse les métriques pour remplir les inputs cachés
+    const parsed = parseNoteContent(fullContent);
+    updateTemplate(parsed.values, parsed.checks);
   } else {
     setNoteStatus("error", "error");
     showToast("Erreur chargement note.", "error", "Notes");
@@ -1168,17 +1687,30 @@ loadNote();
 
 /* Autosave logic */
 let dirty = false;
-let lastSent = ta.value || "";
+let lastTextOnly = "";
 ta.addEventListener("input", ()=>{
   dirty = true;
   setNoteStatus("en cours...", "saving");
 });
+function getMetricsFromContent(text) {
+  return text.split(/\r?\n/).filter(line => isMetricLine(line)).join('\n');
+}
+function buildFullContent() {
+  const metrics = getMetricsFromContent(fullContent);
+  const newText = ta.value.trim();
+  // Métriques en haut, texte libre en bas
+  if (metrics && newText) return metrics + '\n\n' + newText;
+  if (metrics) return metrics;
+  return newText;
+}
 setInterval(async ()=>{
-  const current = ta.value || "";
-  if (!dirty && current === lastSent) { return; }
-  const j = await postJSON("/api/note",{day:day,content:current});
+  const currentText = ta.value || "";
+  if (!dirty && currentText === lastTextOnly) { return; }
+  const toSave = buildFullContent();
+  const j = await postJSON("/api/note",{day:day,content:toSave});
   if(j && j.ok){
-    lastSent = current;
+    fullContent = toSave;
+    lastTextOnly = currentText;
     dirty = false;
     setNoteStatus("saved " + new Date().toLocaleTimeString().slice(0,5), "saved");
   } else {
@@ -1187,15 +1719,31 @@ setInterval(async ()=>{
   }
 }, 2000);
 
-/* Save on page leave */
-window.addEventListener("beforeunload", ()=>{
-  if(dirty){ postJSON("/api/note",{day:day,content:ta.value}); }
+/* Save on page leave - use sendBeacon for reliability */
+function saveBeforeLeave() {
+  if (dirty || ta.value !== lastTextOnly) {
+    const toSave = buildFullContent();
+    const data = JSON.stringify({day: day, content: toSave});
+    navigator.sendBeacon("/api/note", new Blob([data], {type: "application/json"}));
+    dirty = false;
+    lastTextOnly = ta.value;
+    fullContent = toSave;
+  }
+}
+window.addEventListener("beforeunload", saveBeforeLeave);
+window.addEventListener("pagehide", saveBeforeLeave);
+
+/* Intercept day navigation links to save first */
+document.querySelectorAll(".dateNav").forEach(link => {
+  link.addEventListener("click", (e) => {
+    saveBeforeLeave();
+  });
 });
 
 /* Parsing regex - synchronise textarea avec template */
 const fieldMappings = {
   // Matin
-  qualite: ['qualite', 'qualité', 'sommeil qualite', 'qual sommeil'],
+  qualite: ['qualite', 'qualité', 'qualité sommeil', 'sommeil qualite', 'qual sommeil'],
   energie: ['energie', 'énergie', 'nrj'],
   motivation: ['motivation', 'motiv'],
   douleur: ['douleur', 'doul', 'mal'],
@@ -1307,6 +1855,7 @@ function updateTemplate(values, checks) {
         // Reset classes sur le wrapper si présent
         const wrapper = el.closest('.rating-field');
         const target = wrapper || el;
+        for (let i = 0; i <= 10; i++) { target.classList.remove('val-' + i); }
         target.classList.remove('filled', 'val-bad', 'val-mid', 'val-good');
       } else {
         const suffix = el.dataset.suffix || '';
@@ -1347,8 +1896,8 @@ function initClickableFields() {
 
       // Ajoute une nouvelle ligne si besoin
       const current = ta.value;
-      const needsNewline = current.length > 0 && !current.endsWith('\\n');
-      const textToInsert = (needsNewline ? '\\n' : '') + insertText;
+      const needsNewline = current.length > 0 && !current.endsWith(NL);
+      const textToInsert = (needsNewline ? NL : '') + insertText;
 
       // Insère à la fin
       ta.value += textToInsert;
@@ -1368,13 +1917,18 @@ function initClickableFields() {
 }
 
 /* Sync inputs vers textarea */
+const NL = String.fromCharCode(10); // Newline - avoid PowerShell escaping
+
 function buildTextFromInputs() {
   const lines = [];
 
   // Récupère toutes les valeurs des inputs
-  document.querySelectorAll('.tpl-input').forEach(input => {
+  const allInputs = document.querySelectorAll('.tpl-input');
+  console.log('[BUILD] Found', allInputs.length, 'inputs');
+  allInputs.forEach(input => {
     const field = input.dataset.field;
     const val = input.value;
+    console.log('[BUILD] field:', field, 'value:', val);
     if (val && val.trim() !== '') {
       // Trouve le label correspondant
       const item = input.closest('.tpl-item');
@@ -1383,6 +1937,7 @@ function buildTextFromInputs() {
         const labelEl = item.querySelector('.label');
         if (labelEl) label = labelEl.textContent;
       }
+      console.log('[BUILD] Adding:', label, ':', val);
       lines.push(label + ': ' + val);
     }
   });
@@ -1396,13 +1951,16 @@ function buildTextFromInputs() {
     }
   });
 
-  return lines.join('\\n');
+  return lines.join(NL);
 }
 
 function syncInputToTextarea() {
   const text = buildTextFromInputs();
+  console.log('[SYNC] buildTextFromInputs returned:', text);
+  console.log('[SYNC] ta element:', ta);
   ta.value = text;
   dirty = true;
+  console.log('[SYNC] ta.value is now:', ta.value);
   setNoteStatus('en cours...', 'saving');
 }
 
@@ -1421,28 +1979,97 @@ function applySemanticColor(input) {
   const wrapper = input.closest('.rating-field');
   const target = wrapper || input;
 
-  // Reset classes
+  // Reset toutes les classes de niveau
+  for (let i = 0; i <= 10; i++) {
+    target.classList.remove('val-' + i);
+  }
   target.classList.remove('val-bad', 'val-mid', 'val-good', 'filled');
 
   if (isNaN(val) || input.value === '') {
     return; // Pas de valeur = pas de couleur
   }
 
-  // Calcul du pourcentage
-  const pct = val / max;
+  // Calcul du niveau (0-10)
   const isInverted = invertedFields.includes(field);
+  let level = Math.round((val / max) * 10);
+  level = Math.max(0, Math.min(10, level));
 
-  // Détermine si c'est bon ou mauvais
-  let quality;
-  if (pct <= 0.3) {
-    quality = isInverted ? 'good' : 'bad';
-  } else if (pct <= 0.6) {
-    quality = 'mid';
-  } else {
-    quality = isInverted ? 'bad' : 'good';
+  // Pour les champs inversés, inverser le niveau de couleur
+  // (haut = mal donc rouge, bas = bien donc vert)
+  if (isInverted) {
+    level = 10 - level;
   }
 
-  target.classList.add('val-' + quality);
+  target.classList.add('val-' + level);
+}
+
+/* Auto-calcul du Score Global pondéré */
+function calculateAutoScore() {
+  // Récupérer les valeurs des champs
+  const getVal = (field) => {
+    const input = document.querySelector('[data-field="' + field + '"]');
+    if (!input || input.value === '') return null;
+    return parseFloat(input.value) || 0;
+  };
+
+  // Facteurs positifs (plus = mieux)
+  const positifs = [
+    { field: 'qualite', poids: 1.5, label: 'Sommeil' },
+    { field: 'energie', poids: 1.0, label: 'Énergie' },
+    { field: 'motivation', poids: 1.0, label: 'Motivation' },
+    { field: 'humeur', poids: 1.5, label: 'Humeur' },
+    { field: 'clarte', poids: 1.0, label: 'Clarté' },
+    { field: 'focus', poids: 1.0, label: 'Focus' },
+    { field: 'fierte', poids: 0.8, label: 'Fierté' }
+  ];
+
+  // Facteurs négatifs (à inverser: 10 - valeur)
+  const negatifs = [
+    { field: 'douleur', poids: 0.8, label: 'Douleur' },
+    { field: 'anxiete', poids: 1.2, label: 'Anxiété' },
+    { field: 'irritabilite', poids: 1.2, label: 'Irritabilité' },
+    { field: 'stress', poids: 1.2, label: 'Stress' },
+    { field: 'fatigue', poids: 1.0, label: 'Fatigue' },
+    { field: 'ideesnoires', poids: 1.5, label: 'Idées noires' }
+  ];
+
+  let somme = 0;
+  let poidsTotal = 0;
+  let champsRemplis = 0;
+
+  // Calcul positifs
+  positifs.forEach(f => {
+    const val = getVal(f.field);
+    if (val !== null) {
+      somme += val * f.poids;
+      poidsTotal += f.poids * 10; // max possible
+      champsRemplis++;
+    }
+  });
+
+  // Calcul négatifs (inversés)
+  negatifs.forEach(f => {
+    const val = getVal(f.field);
+    if (val !== null) {
+      somme += (10 - val) * f.poids; // inverser: 0 douleur = 10 points
+      poidsTotal += f.poids * 10;
+      champsRemplis++;
+    }
+  });
+
+  // Besoin d'au moins 3 champs pour calculer
+  if (champsRemplis < 3) return;
+
+  // Score sur 10
+  const score = Math.round((somme / poidsTotal) * 100) / 10;
+  const scoreFinal = Math.max(0, Math.min(10, score));
+
+  // Mettre à jour le champ score
+  const scoreInput = document.querySelector('[data-field="score"]');
+  if (scoreInput && scoreInput !== document.activeElement) {
+    scoreInput.value = scoreFinal.toFixed(1);
+    applySemanticColor(scoreInput);
+  }
 }
 
 function initInputListeners() {
@@ -1452,6 +2079,10 @@ function initInputListeners() {
     input.addEventListener('input', () => {
       if (input.type === 'number') {
         applySemanticColor(input);
+        // Recalculer le score auto (sauf si on édite le score lui-même)
+        if (input.dataset.field !== 'score') {
+          calculateAutoScore();
+        }
       } else {
         // Pour les champs texte, juste filled
         const wrapper = input.closest('.rating-field');
@@ -1469,16 +2100,177 @@ function initInputListeners() {
     }
   });
 
+  // Calculer le score initial après chargement
+  setTimeout(calculateAutoScore, 600);
+
   // Écoute les changements sur les checkboxes
   document.querySelectorAll('.tpl-check').forEach(cb => {
-    cb.addEventListener('change', syncInputToTextarea);
+    // Toggle classe checked sur le li parent
+    const updateCheckedClass = () => {
+      const li = cb.closest('li');
+      if (li) li.classList.toggle('checked', cb.checked);
+    };
+    cb.addEventListener('change', () => {
+      updateCheckedClass();
+      syncInputToTextarea();
+    });
+    // État initial
+    updateCheckedClass();
   });
 }
 
+/* [UX] Create stepper buttons for rating fields - style iOS segment */
+function initRatingSteppers() {
+  const fields = document.querySelectorAll('.rating-field');
+  console.log('[INIT STEPPERS] Found', fields.length, 'rating fields');
+  fields.forEach((field, idx) => {
+    const input = field.querySelector('input[type="number"]');
+    console.log('[INIT STEPPERS]', idx, 'field:', input ? input.dataset.field : 'NO INPUT');
+    if (!input) return;
+
+    // Create wrapper segment
+    const wrap = document.createElement('div');
+    wrap.className = 'rating-wrap';
+    field.parentNode.insertBefore(wrap, field);
+
+    // Bouton moins (gauche)
+    const btnMinus = document.createElement('button');
+    btnMinus.type = 'button';
+    btnMinus.className = 'rating-btn minus';
+    btnMinus.textContent = '−';
+    btnMinus.setAttribute('aria-label', 'Diminuer');
+    btnMinus.addEventListener('click', () => {
+      const min = parseFloat(input.min) || 0;
+      const val = parseFloat(input.value) || 0;
+      if (val > min) {
+        input.value = val - 1;
+        applySemanticColor(input);
+        syncInputToTextarea();
+        if (input.dataset.field !== 'score') calculateAutoScore();
+      }
+    });
+
+    // Bouton plus (droite)
+    const btnPlus = document.createElement('button');
+    btnPlus.type = 'button';
+    btnPlus.className = 'rating-btn plus';
+    btnPlus.textContent = '+';
+    btnPlus.setAttribute('aria-label', 'Augmenter');
+    btnPlus.addEventListener('click', () => {
+      const max = parseFloat(input.max) || 10;
+      const val = parseFloat(input.value) || 0;
+      if (val < max) {
+        input.value = val + 1;
+        applySemanticColor(input);
+        syncInputToTextarea();
+        if (input.dataset.field !== 'score') calculateAutoScore();
+      }
+    });
+
+    // Layout horizontal iOS: [ - ] [ value ] [ + ]
+    wrap.appendChild(btnMinus);
+    wrap.appendChild(field);
+    wrap.appendChild(btnPlus);
+  });
+}
+
+/* Export day data as text file */
+function exportDayData(){
+  const date = "$d";
+  const dayName = "$dayName";
+  const notes = document.getElementById("t").value || "(aucune note)";
+
+  // Collect all check-in values
+  const fields = {};
+  document.querySelectorAll("[data-field]").forEach(el => {
+    const key = el.getAttribute("data-field");
+    let val = "";
+    if (el.type === "checkbox") val = el.checked ? "Oui" : "Non";
+    else val = el.value || "-";
+    fields[key] = val;
+  });
+
+  // Build readable text
+  let txt = "=".repeat(50) + "\\n";
+  txt += "JOURNAL - " + dayName + " " + date + "\\n";
+  txt += "=".repeat(50) + "\\n\\n";
+
+  txt += "--- NOTES LIBRES ---\\n";
+  txt += notes + "\\n\\n";
+
+  txt += "--- DONNÉES AUTO ---\\n";
+  txt += "Sommeil (hier): $sleepStrYesterday\\n";
+  txt += "Travail: $workStr\\n";
+  txt += "Clopes: $clopeCount\\n";
+  txt += "Alcool: $alcDisplayStr\\n";
+  txt += "Sport: ${sportMin}\\n";
+  txt += "Glandouille: ${glandouilleMin}\\n\\n";
+
+  txt += "--- CHECK-IN MATIN ---\\n";
+  txt += "Qualité sommeil: " + (fields.qualite || "-") + "/10\\n";
+  txt += "Énergie: " + (fields.energie || "-") + "/10\\n";
+  txt += "Motivation: " + (fields.motivation || "-") + "/10\\n";
+  txt += "Douleur: " + (fields.douleur || "-") + "/10\\n\\n";
+
+  txt += "--- ÉTAT MENTAL ---\\n";
+  txt += "Humeur: " + (fields.humeur || "-") + "/10\\n";
+  txt += "Anxiété: " + (fields.anxiete || "-") + "/10\\n";
+  txt += "Irritabilité: " + (fields.irritabilite || "-") + "/10\\n";
+  txt += "Clarté: " + (fields.clarte || "-") + "/10\\n\\n";
+
+  txt += "--- PLAN TDAH ---\\n";
+  txt += "Priorité 1: " + (fields.priorite1 || "-") + "\\n";
+  txt += "Priorité 2: " + (fields.priorite2 || "-") + "\\n";
+  txt += "Priorité 3: " + (fields.priorite3 || "-") + "\\n";
+  txt += "Minimum vital: " + (fields.minimum || "-") + "\\n\\n";
+
+  txt += "--- JOURNAL SOIR ---\\n";
+  txt += "Humeur soir: " + (fields.humeur_soir || "-") + "/10\\n";
+  txt += "Stress: " + (fields.stress || "-") + "/10\\n";
+  txt += "Focus: " + (fields.focus || "-") + "/10\\n";
+  txt += "Fatigue: " + (fields.fatigue || "-") + "/10\\n";
+  txt += "Fierté: " + (fields.fierte || "-") + "/10\\n\\n";
+
+  txt += "--- COLÈRE ---\\n";
+  txt += "Intensité: " + (fields.intensite || "-") + "/10\\n";
+  txt += "Déclencheur: " + (fields.declencheur || "-") + "\\n";
+  txt += "Pause 90s: " + (fields.pause90 || "Non") + "\\n";
+  txt += "Respiration: " + (fields.respiration || "Non") + "\\n";
+  txt += "Sortir: " + (fields.sortir || "Non") + "\\n\\n";
+
+  txt += "--- CBT ---\\n";
+  txt += "Émotion: " + (fields.emotion || "-") + "/10\\n";
+  txt += "Idées noires: " + (fields.idees_noires || "-") + "/10\\n";
+  txt += "Score global: " + (fields.score_global || "-") + "/10\\n";
+  txt += "Relations: " + (fields.relations || "-") + "/10\\n\\n";
+
+  txt += "=".repeat(50) + "\\n";
+  txt += "Exporté le " + new Date().toLocaleString("fr-FR") + "\\n";
+
+  // Download as file
+  const blob = new Blob([txt], {type: "text/plain;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "journal_" + date + ".txt";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  showToast("Fichier exporté: journal_" + date + ".txt", "success", "Export");
+}
+
 /* Init */
+console.log('[INIT] Starting initialization...');
 initRippleEffects();
+console.log('[INIT] initRippleEffects done');
 initClickableFields();
+console.log('[INIT] initClickableFields done');
+initRatingSteppers();
+console.log('[INIT] initRatingSteppers done');
 initInputListeners();
+console.log('[INIT] initInputListeners done - ALL READY');
 </script>
 </body></html>
 "@

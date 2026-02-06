@@ -1101,10 +1101,53 @@ function Get-DayTimelineHtml([string]$dayKey, $state) {
     $lk = [string]$k
     if ($lk) { $actionSet[$lk.ToLowerInvariant()] = $true }
   }
-  $html = ""
+
+  # Build graphical timeline
+  $hoursHtml = "<div class='timeline-hours'>"
+  for ($h = 0; $h -lt 24; $h += 2) {
+    $hoursHtml += "<span class='timeline-hour'>${h}h</span><span class='timeline-hour'></span>"
+  }
+  $hoursHtml += "</div>"
+
+  $barsHtml = "<div class='timeline-bars'>"
+  foreach ($it in $items) {
+    if ($it.IsPoint) { continue }
+    $tag = if ($it.Work) { "work" } elseif ($it.Sleep) { "sleep" } else { "break" }
+    $actionClass = ""
+    if (-not $it.Work -and -not $it.Sleep) {
+      $nameKey = ([string]$it.Name).ToLowerInvariant()
+      if ($actionSet.ContainsKey($nameKey)) { $actionClass = " action-$nameKey" }
+    }
+    # Calculate position as % of 24h
+    $startMin = $it.Start.Hour * 60 + $it.Start.Minute
+    $endMin = $it.End.Hour * 60 + $it.End.Minute
+    if ($endMin -le $startMin) { $endMin = $startMin + 1 }
+    $leftPct = [math]::Round(($startMin / 1440) * 100, 2)
+    $widthPct = [math]::Round((($endMin - $startMin) / 1440) * 100, 2)
+    if ($widthPct -lt 0.5) { $widthPct = 0.5 }
+    $durMin = [int](ConvertTo-Minutes $it.DurSec)
+    $label = if ($widthPct -gt 3) { $it.Name } else { "" }
+    $title = "$($it.Name): $($it.Start.ToString('HH:mm'))-$($it.End.ToString('HH:mm')) (${durMin}m)"
+    $barsHtml += "<div class='timeline-bar $tag$actionClass' style='left:${leftPct}%;width:${widthPct}%' title='$title'>"
+    if ($label) { $barsHtml += "<span class='timeline-bar-label'>$label</span>" }
+    $barsHtml += "</div>"
+  }
+  $barsHtml += "</div>"
+
+  # Current time indicator
+  $now = Get-Date
+  $nowMin = $now.Hour * 60 + $now.Minute
+  $nowPct = [math]::Round(($nowMin / 1440) * 100, 2)
+  $nowStr = $now.ToString("HH:mm")
+  $nowHtml = "<div class='timeline-now' style='left:${nowPct}%' title='Maintenant: $nowStr'></div>"
+
+  $graphHtml = "<div class='timeline-graph'>$hoursHtml$barsHtml$nowHtml</div>"
+
+  # Also keep text list below
+  $listHtml = ""
   foreach ($it in $items) {
     if ($it.IsPoint) {
-      $html += "<div class='seg break'><div><b>$($it.Start.ToString('HH:mm')) - $($it.Name)</b></div></div>"
+      $listHtml += "<div class='seg break'><div><b>$($it.Start.ToString('HH:mm')) - $($it.Name)</b></div></div>"
       continue
     }
     $tag = if ($it.Work) { "work" } elseif ($it.Sleep) { "sleep" } else { "break" }
@@ -1113,9 +1156,10 @@ function Get-DayTimelineHtml([string]$dayKey, $state) {
       $nameKey = ([string]$it.Name).ToLowerInvariant()
       if ($actionSet.ContainsKey($nameKey)) { $actionClass = " action-$nameKey" }
     }
-    $html += "<div class='seg $tag$actionClass'><div><b>$($it.Name)</b></div><div class='muted'>$($it.Start.ToString('HH:mm')) -> $($it.End.ToString('HH:mm')) - $([int](ConvertTo-Minutes $it.DurSec))m</div></div>"
+    $listHtml += "<div class='seg $tag$actionClass'><div><b>$($it.Name)</b></div><div class='muted'>$($it.Start.ToString('HH:mm')) -> $($it.End.ToString('HH:mm')) - $([int](ConvertTo-Minutes $it.DurSec))m</div></div>"
   }
-  return $html
+
+  return $graphHtml + $listHtml
 }
 
 function Get-DailyActionCount([string]$dayKey, [string]$actionName) {
@@ -1385,6 +1429,10 @@ function Get-LiveStatePayload() {
   $todayKey = Get-InfernalDayKey (Get-Date)
   $prevKey = Get-PrevDayKey $todayKey
   $actionsToday = Get-DailyActionDurationsForDay ((Get-Date).ToString("yyyy-MM-dd")) $s
+
+  # Get yesterday's work for trend comparison
+  $dailyWS = Get-DailyWorkSleep
+  $yesterdayWorkSec = if ($dailyWS.ContainsKey($prevKey)) { [int]$dailyWS[$prevKey].work } else { 0 }
   $labels = Get-ActionLabelMap
   $list = @()
   foreach ($k in (Get-ActionKeys)) {
@@ -1528,6 +1576,7 @@ function Get-LiveStatePayload() {
     totalWorkSec = [int]($s.TotalWorkSeconds ?? 0)
     totalOverrunSec = [int]($s.TotalOverrunSeconds ?? 0)
     totalBreakSec = [int]($s.TotalBreakSeconds ?? 0)
+    yesterdayWorkSec = $yesterdayWorkSec
     remWorkSec = [int][Math]::Max(0, ([int]($s.GoalWorkSeconds ?? 500*3600)) - ([int]($s.TotalWorkSeconds ?? 0) + [int]($s.TotalOverrunSeconds ?? 0)))
     dailyCigCount = [int]($s.DayClopeCount ?? 0)
     dailyClopeSec = $displayClopeSec

@@ -60,10 +60,20 @@ function New-PageHtml([string]$ym) {
       } elseif ($dailyActions.ContainsKey($dk) -and $dailyActions[$dk].ContainsKey($k)) {
         $durSec = [int]$dailyActions[$dk][$k]
       }
-      $dur = Format-DurationShort $durSec
-      $actsHtml += "<div class='dmeta'>${label}: $dur</div>"
+      if ($durSec -gt 0) {
+        $dur = Format-DurationShort $durSec
+        $actsHtml += "<div class='dmeta'>${label}: $dur</div>"
+      }
     }
-    $week += "<td class='day'><div class='dnum'>$($d.Day)</div><div class='dmeta'>Work: <b>$([int](ConvertTo-Minutes $ws.work))m</b><br/>Sleep: $([int](ConvertTo-Minutes $ws.sleep))m</div>$alc$smk$actsHtml<div class='dlink'><a href='/notes?d=$dk'>Notes</a></div></td>"
+    # Build Work/Sleep display only if > 0
+    $workSleepHtml = ""
+    $workMin = [int](ConvertTo-Minutes $ws.work)
+    $sleepMin = [int](ConvertTo-Minutes $ws.sleep)
+    $wsParts = @()
+    if ($workMin -gt 0) { $wsParts += "Work: <b>${workMin}m</b>" }
+    if ($sleepMin -gt 0) { $wsParts += "Sleep: ${sleepMin}m" }
+    if ($wsParts.Count -gt 0) { $workSleepHtml = "<div class='dmeta'>" + ($wsParts -join "<br/>") + "</div>" }
+    $week += "<td class='day'><div class='dnum'>$($d.Day)</div>$workSleepHtml$alc$smk$actsHtml<div class='dlink'><a href='/notes?d=$dk'>Notes</a></div></td>"
     $cells = $startWeekday + $day
     if (($cells % 7) -eq 0) {
       $rowsHtml += "<tr>$week</tr>"
@@ -174,32 +184,106 @@ body{
 a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
 .container{max-width:1200px; margin:0 auto}
 .topbar{
-  /* Glass morphism topbar */
-  display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:16px;
-  padding:14px 20px; border:1px solid rgba(255,255,255,.1); border-radius:12px;
-  background:linear-gradient(135deg, rgba(18,24,32,.8), rgba(18,24,32,.5));
-  box-shadow:0 10px 40px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.05) inset;
-  backdrop-filter:blur(16px);
-  -webkit-backdrop-filter:blur(16px);
-  position:sticky; top:12px; z-index:1200;
+  /* [UX_PDF] Compact topbar - single row */
+  display:flex; justify-content:space-between; align-items:center; gap:var(--sp-12);
+  padding:var(--sp-8) var(--sp-16); margin-bottom:var(--sp-16);
+  border:1px solid rgba(255,255,255,.08); border-radius:var(--r);
+  background:rgba(18,24,32,.85);
+  backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+  position:sticky; top:var(--sp-8); z-index:1200;
+  min-height:44px;
 }
-.brand{display:flex; align-items:center; gap:12px; font-weight:800; font-size:1.125rem}
-.brand::before{
-  content:""; width:12px; height:12px; border-radius:999px;
-  background:radial-gradient(circle, rgba(38,211,140,1), rgba(38,211,140,.3));
-  box-shadow:0 0 20px rgba(38,211,140,.7), 0 0 40px rgba(38,211,140,.4);
-  animation:brandPulse 2s ease-in-out infinite;
+.brand{display:flex; align-items:center; gap:var(--sp-8); font-weight:700; font-size:.875rem; color:var(--text)}
+/* [UX_PDF] Heartbeat indicator dot with pulse */
+.hb-dot{
+  width:10px; height:10px; border-radius:50%; flex-shrink:0;
+  background:var(--danger);
+  box-shadow:0 0 6px currentColor;
 }
-@keyframes brandPulse{
-  0%,100%{box-shadow:0 0 20px rgba(38,211,140,.7), 0 0 40px rgba(38,211,140,.4)}
-  50%{box-shadow:0 0 30px rgba(38,211,140,.9), 0 0 60px rgba(38,211,140,.5)}
+.hb-dot.online{
+  background:var(--accent);
+  box-shadow:0 0 8px rgba(53,217,154,.6);
+  animation:hbPulse 2s ease-in-out infinite;
 }
+.hb-dot.stale{background:var(--warn); box-shadow:0 0 8px rgba(247,191,84,.5)}
+.hb-dot.offline{
+  background:var(--danger);
+  box-shadow:0 0 10px rgba(255,122,122,.7);
+  animation:hbOffline 1s ease-in-out infinite;
+}
+@keyframes hbPulse{
+  0%,100%{box-shadow:0 0 8px rgba(53,217,154,.5)}
+  50%{box-shadow:0 0 14px rgba(53,217,154,.8)}
+}
+@keyframes hbOffline{
+  0%,100%{opacity:1}
+  50%{opacity:.5}
+}
+/* [UX_PDF] Compact tag - smaller than pill */
+.tag{
+  padding:var(--sp-4) var(--sp-8); border-radius:var(--sp-4);
+  background:rgba(255,255,255,.06); color:var(--muted);
+  font-size:.75rem; font-weight:500; letter-spacing:.3px;
+  display:inline-flex; align-items:center; gap:var(--sp-4);
+}
+.tag.accent{background:rgba(53,217,154,.12); color:var(--accent)}
+/* Nav links row */
+.nav-links{display:flex; align-items:center; gap:var(--sp-8)}
+/* [UX_PDF] Secondary nav - visible but not competing with primary */
+.nav-link{
+  padding:var(--sp-4) var(--sp-8); border-radius:var(--sp-4);
+  color:var(--muted); font-size:.75rem; font-weight:500;
+  text-decoration:none; transition:all .15s ease;
+  border:1px solid transparent;
+}
+.nav-link:hover{
+  background:rgba(255,255,255,.08); color:var(--text);
+  border-color:rgba(255,255,255,.15);
+  text-decoration:none;
+}
+.nav-link:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+/* [UX_PDF] Date nav - functional, secondary hierarchy */
+.nav-date{
+  padding:var(--sp-4) var(--sp-8);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:var(--sp-4);
+  background:rgba(255,255,255,.03);
+}
+.nav-date:hover{
+  background:rgba(107,188,255,.1);
+  border-color:rgba(107,188,255,.3);
+  color:var(--blue);
+}
+/* [UX_PDF] Primary nav button - clear affordance + pulse animation */
+.nav-primary{
+  padding:var(--sp-8) var(--sp-12);
+  min-height:36px;
+  background:linear-gradient(135deg, rgba(53,217,154,.2), rgba(53,217,154,.1));
+  color:var(--accent); font-weight:700; font-size:.8125rem;
+  border:1px solid rgba(53,217,154,.4);
+  border-radius:var(--sp-8);
+  box-shadow:0 2px 8px rgba(53,217,154,.15), inset 0 1px 0 rgba(255,255,255,.1);
+  cursor:pointer;
+  animation:notePulse 3s ease-in-out infinite;
+}
+.nav-primary:hover{
+  background:linear-gradient(135deg, rgba(53,217,154,.3), rgba(53,217,154,.15));
+  border-color:rgba(53,217,154,.6);
+  box-shadow:0 4px 12px rgba(53,217,154,.25);
+  transform:translateY(-1px);
+  animation:none;
+}
+.nav-primary:active{transform:translateY(0); box-shadow:0 1px 4px rgba(53,217,154,.15)}
+@keyframes notePulse{
+  0%,100%{box-shadow:0 2px 8px rgba(53,217,154,.15)}
+  50%{box-shadow:0 2px 16px rgba(53,217,154,.35), 0 0 20px rgba(53,217,154,.15)}
+}
+/* Legacy pill for backwards compat */
 .pill{
-  /* [WEB] touch target min 44px, padding 8px 12px */
-  padding:8px 12px; min-height:2.75rem; border:1px solid var(--border); border-radius:999px;
-  background:rgba(16,22,29,.6); color:var(--muted); font-size:.875rem; letter-spacing:.2px;
-  backdrop-filter:blur(6px); display:inline-flex; align-items:center;
-  transition:border-color .2s ease, background .2s ease;
+  padding:var(--sp-4) var(--sp-8); min-height:32px; border:1px solid var(--border); border-radius:999px;
+  background:rgba(16,22,29,.6); color:var(--muted); font-size:.75rem;
+  display:inline-flex; align-items:center;
+  transition:border-color .15s ease, background .15s ease;
 }
 .alcStat{
   /* [WEB] padding 8px, radius 8px */
@@ -515,6 +599,44 @@ th{background:rgba(16,22,29,.6); text-align:left; color:var(--muted)}
 .seg.action-meditation{--seg-border:rgba(79,107,255,.6); --seg-bg:rgba(79,107,255,.08); --seg-accent:rgba(79,107,255,.9); --seg-glow:rgba(79,107,255,.4)}
 .seg.action-glandouille{--seg-border:rgba(155,92,255,.6); --seg-bg:rgba(155,92,255,.08); --seg-accent:rgba(155,92,255,.9); --seg-glow:rgba(155,92,255,.45)}
 .seg.action-chier{--seg-border:rgba(255,153,85,.55); --seg-bg:rgba(255,153,85,.08); --seg-accent:rgba(255,153,85,.9); --seg-glow:rgba(255,153,85,.4)}
+
+/* Timeline graphique avec heures reelles */
+.timeline-graph{
+  position:relative; height:60px; background:rgba(16,22,29,.4);
+  border:1px solid var(--border); border-radius:var(--r);
+  margin:var(--sp-12) 0; overflow:hidden;
+}
+.timeline-hours{
+  position:absolute; top:0; left:0; right:0; height:18px;
+  display:flex; justify-content:space-between; padding:0 2px;
+  font-size:.65rem; color:var(--muted); pointer-events:none;
+}
+.timeline-hour{flex:0 0 auto; width:calc(100%/24); text-align:center}
+.timeline-bars{position:absolute; top:20px; left:0; right:0; bottom:4px}
+.timeline-bar{
+  position:absolute; top:0; height:100%; min-width:2px;
+  border-radius:3px; opacity:.85;
+  transition:opacity .2s ease;
+}
+.timeline-bar:hover{opacity:1; z-index:10}
+.timeline-bar.work{background:linear-gradient(180deg, rgba(255,79,216,.7), rgba(255,79,216,.4))}
+.timeline-bar.sleep{background:linear-gradient(180deg, rgba(102,126,234,.7), rgba(102,126,234,.4))}
+.timeline-bar.break{background:linear-gradient(180deg, rgba(246,183,60,.6), rgba(246,183,60,.3))}
+.timeline-bar.action-clope{background:linear-gradient(180deg, rgba(255,77,77,.7), rgba(255,77,77,.4))}
+.timeline-bar.action-manger{background:linear-gradient(180deg, rgba(255,93,143,.7), rgba(255,93,143,.4))}
+.timeline-bar.action-sport{background:linear-gradient(180deg, rgba(60,255,122,.7), rgba(60,255,122,.4))}
+.timeline-bar.action-glandouille{background:linear-gradient(180deg, rgba(155,92,255,.7), rgba(155,92,255,.4))}
+.timeline-bar-label{
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  font-size:.6rem; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.5);
+  white-space:nowrap; pointer-events:none;
+}
+.timeline-now{
+  position:absolute; top:18px; bottom:0; width:2px;
+  background:var(--accent); box-shadow:0 0 6px var(--accent);
+  z-index:20;
+}
+
 /* [WEB] textarea radius 8px */
 textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,.6); border:1px solid var(--border); color:var(--text); padding:12px; border-radius:8px; outline:none; font-family:inherit; transition:border-color .2s ease}
 .input{
@@ -960,25 +1082,24 @@ body{
 <div id="offlineBanner" class="offlineBanner" role="status" aria-live="polite">
   Hors ligne : mise a jour pausee
   <button class="btn ghost" id="offlineRetry" type="button">Reessayer</button>
+  <button class="btn ghost" onclick="syncOfflineQueue();showToast('Sync lancé','info')">Sync queue</button>
 </div>
 <div id="toastHost" class="toastHost" aria-live="polite" aria-atomic="true"></div>
 <!-- [landmark_wcag_1_3_1] -->
 <div class="container">
-  <!-- [landmark_wcag_1_3_1] nav -->
+  <!-- [landmark_wcag_1_3_1] nav - compact single line -->
   <nav class="topbar reveal d1" aria-label="Navigation principale">
     <div class="brand">
-      <!-- [heading_hierarchy_wcag_1_3_1] seul h1 -->
-      <h1 style="font-weight:900;font-size:1.125rem;margin:0">InfernalWheel</h1>
-      <div class="pill">Heartbeat <span class="status __HBCLASS__">__HB__</span></div>
-      <div class="pill">InfernalDay __TODAY__</div>
-      <div class="pill">Port __PORT__</div>
-      <div class="pill">Local only (127.0.0.1)</div>
+      <span class="hb-dot __HBCLASS__" title="Heartbeat: __HB__"></span>
+      <h1 style="font-weight:800;font-size:.875rem;margin:0">InfernalWheel</h1>
+      <span class="tag">__TODAY__</span>
+      <span class="tag" style="opacity:.6">:__PORT__</span>
+      <span id="offlineCount" class="tag" style="display:none;background:rgba(247,191,84,.15);color:var(--warn)"></span>
     </div>
-    <div class="row">
-      <a class="pill" href="/?m=__PREVYM__">&lt; __PREVYM__</a>
-      <a class="pill" href="/?m=__NEXTYM__">__NEXTYM__ &gt;</a>
-      <a class="pill" href="/notes">Notes</a>
-      <a class="pill" href="/ux">UX Lab</a>
+    <div class="nav-links">
+      <a class="nav-link nav-primary" href="/notes"><svg style="width:14px;height:14px;margin-right:4px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Notes</a>
+      <a class="nav-link nav-date" href="/?m=__PREVYM__">&larr; __PREVYM__</a>
+      <a class="nav-link nav-date" href="/?m=__NEXTYM__">__NEXTYM__ &rarr;</a>
     </div>
   </nav>
 
@@ -1089,9 +1210,9 @@ body{
           <div class="fieldGroup">
             <label for="adjustType" class="fieldLabel">Type</label>
             <select id="adjustType" class="input" style="width:140px">
-              <option value="beer">Total biere</option>
-              <option value="strong">Total alcool fort</option>
+              <option value="beer" selected>Total biere</option>
               <option value="wine">Total vin</option>
+              <option value="strong">Total alcool fort</option>
             </select>
           </div>
           <div class="fieldGroup">
@@ -1155,6 +1276,39 @@ let currentBoxClass = "";
 let currentBoxExtra = "";
 let pendingReq = 0;
 let lastNetErrorAt = 0;
+
+/* [OFFLINE] Queue pour stocker les actions hors ligne */
+const OFFLINE_KEY = "iw_offline_queue";
+function getOfflineQueue(){ try { return JSON.parse(localStorage.getItem(OFFLINE_KEY)) || []; } catch { return []; } }
+function saveOfflineQueue(q){ localStorage.setItem(OFFLINE_KEY, JSON.stringify(q)); updateOfflineCount(); console.log("[OFFLINE] Queue saved:", q.length, "items"); }
+function queueOfflineAction(url, data){ const q = getOfflineQueue(); q.push({ url, data, ts: Date.now() }); saveOfflineQueue(q); console.log("[OFFLINE] Queued:", url, data); }
+function updateOfflineCount(){
+  const q = getOfflineQueue();
+  const badge = document.getElementById("offlineCount");
+  console.log("[OFFLINE] Queue count:", q.length);
+  if (badge) { badge.textContent = q.length > 0 ? q.length + " en attente" : ""; badge.style.display = q.length > 0 ? "inline" : "none"; }
+}
+async function syncOfflineQueue(){
+  const q = getOfflineQueue();
+  console.log("[OFFLINE] Sync check - queue:", q.length, "online:", navigator.onLine);
+  if (!q.length) return;
+  if (!navigator.onLine) { console.log("[OFFLINE] Still offline, skipping sync"); return; }
+  let synced = 0;
+  for (const item of q) {
+    try {
+      console.log("[OFFLINE] Syncing:", item.url);
+      const r = await fetch(item.url, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(item.data) });
+      if (r.ok) { synced++; console.log("[OFFLINE] Synced OK"); }
+      else { console.log("[OFFLINE] Sync failed:", r.status); break; }
+    } catch(e) { console.log("[OFFLINE] Sync error:", e); break; }
+  }
+  if (synced > 0) {
+    saveOfflineQueue(q.slice(synced));
+    showToast(synced + " action(s) synchronisée(s)", "success", "Sync");
+  }
+}
+window.addEventListener("online", ()=>{ setOffline(false); syncOfflineQueue(); });
+window.addEventListener("offline", ()=>{ setOffline(true); });
 function setLoading(on){
   const bar = document.getElementById("globalLoading");
   if (!bar) return;
@@ -1246,13 +1400,26 @@ if (retryBtn) {
     loadSettings();
   });
 }
-async function postJSON(url, obj){
+async function postJSON(url, obj, canQueue=true){
+  /* [OFFLINE] Si offline et action queueable, stocker localement */
+  const queueableUrls = ["/api/cmd", "/api/drinks/add", "/api/drinks/adjust", "/api/note/save", "/api/quicknote", "/api/actionnote"];
+  if (!navigator.onLine && canQueue && queueableUrls.some(u => url.includes(u))) {
+    queueOfflineAction(url, obj);
+    showToast("Action mise en file (hors ligne)", "warn", "Offline");
+    return {ok:true, queued:true};
+  }
   requestStart();
   try{
     const r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(obj)});
     if (!r.ok) { notifyNetError(); return {ok:false, error:"http"}; }
     return await r.json();
   } catch(e){
+    /* [OFFLINE] Si échec réseau, tenter de queue */
+    if (canQueue && queueableUrls.some(u => url.includes(u))) {
+      queueOfflineAction(url, obj);
+      showToast("Action mise en file (erreur réseau)", "warn", "Offline");
+      return {ok:true, queued:true};
+    }
     notifyNetError();
     return {ok:false, error:"network"};
   } finally {
@@ -1955,6 +2122,8 @@ loadMonthlySummary();
 initOnboarding();
 initAdjustToggle();
 initRippleEffects();
+updateOfflineCount();
+syncOfflineQueue();
 if (drinkInput) { drinkInput.addEventListener("input", validateDrinkInput); }
 if (adjustInput) { adjustInput.addEventListener("input", validateAdjustInput); }
 validateDrinkInput();
