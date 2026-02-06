@@ -1,0 +1,76 @@
+{
+  "@@locale": "ar",
+
+  "appName": "InfernalWheel",
+  "today": "اليوم",
+  "yesterday": "أمس",
+  "thisWeek": "هذا الأسبوع",
+  "thisMonth": "هذا الشهر",
+
+  "cigarettes": "سجائر",
+  "beers": "بيرة",
+  "wine": "كؤوس نبيذ",
+  "spirits": "مشروبات روحية",
+
+  "cigarettesCount": "{count, plural, =0{لا سجائر} =1{سيجارة واحدة} other{{count} سجائر}}",
+  "beersCount": "{count, plural, =0{لا بيرة} =1{بيرة واحدة} other{{count} بيرة}}",
+  "wineCount": "{count, plural, =0{لا كؤوس} =1{كأس نبيذ واحد} other{{count} كؤوس نبيذ}}",
+  "spiritsCount": "{count, plural, =0{لا مشروبات} =1{مشروب واحد} other{{count} مشروبات}}",
+
+  "sleep": "النوم",
+  "wakeTime": "وقت الاستيقاظ",
+  "bedTime": "وقت النوم",
+  "duration": "المدة",
+  "quality": "الجودة",
+
+  "sleepQualityBad": "سيء",
+  "sleepQualityPoor": "ضعيف",
+  "sleepQualityOkay": "مقبول",
+  "sleepQualityGood": "جيد",
+  "sleepQualityGreat": "ممتاز",
+
+  "sleepDurationFormat": "{hours}س{minutes}د",
+
+  "journal": "اليومية",
+  "settings": "الإعدادات",
+  "export": "تصدير",
+  "support": "دعم",
+
+  "increment": "إضافة",
+  "decrement": "إزالة",
+  "save": "حفظ",
+  "cancel": "إلغاء",
+  "close": "إغلاق",
+  "retry": "إعادة المحاولة",
+
+  "noData": "لا توجد بيانات",
+  "noSleepData": "لا توجد بيانات نوم",
+  "manualEntry": "إدخال يدوي",
+  "autoDetected": "اكتشاف تلقائي",
+
+  "errorSaveFailed": "فشل الحفظ",
+  "errorLoadFailed": "فشل التحميل",
+  "errorNetworkFailed": "خطأ في الشبكة",
+  "errorUnknown": "خطأ غير معروف",
+
+  "supportTitle": "دعم InfernalWheel؟",
+  "supportDesc": "هذا التطبيق مجاني 100% وبدون تتبع.",
+  "donate": "تبرع",
+  "watchAd": "مشاهدة إعلان",
+  "noThanks": "لا شكراً",
+
+  "bugReportTitle": "مشاكل مكتشفة",
+  "bugReportDesc": "{count, plural, =1{مشكلة واحدة مكتشفة اليوم} other{{count} مشاكل مكتشفة اليوم}}",
+  "bugReportView": "عرض التفاصيل",
+  "bugReportIgnore": "تجاهل لـ 24 ساعة",
+
+  "settingsSleepGoal": "هدف النوم",
+  "settingsAddictions": "إدماناتي",
+  "settingsNotifications": "الإشعارات",
+  "settingsLanguage": "اللغة",
+  "settingsTheme": "المظهر",
+  "settingsExportData": "تصدير بياناتي",
+  "settingsAbout": "حول",
+
+  "dateFormatted": "{date}"
+}

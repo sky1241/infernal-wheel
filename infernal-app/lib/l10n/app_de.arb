@@ -1,0 +1,76 @@
+{
+  "@@locale": "de",
+
+  "appName": "InfernalWheel",
+  "today": "Heute",
+  "yesterday": "Gestern",
+  "thisWeek": "Diese Woche",
+  "thisMonth": "Dieser Monat",
+
+  "cigarettes": "Zigaretten",
+  "beers": "Biere",
+  "wine": "Glaser Wein",
+  "spirits": "Spirituosen",
+
+  "cigarettesCount": "{count, plural, =0{Keine Zigaretten} =1{1 Zigarette} other{{count} Zigaretten}}",
+  "beersCount": "{count, plural, =0{Keine Biere} =1{1 Bier} other{{count} Biere}}",
+  "wineCount": "{count, plural, =0{Keine Glaser} =1{1 Glas Wein} other{{count} Glaser Wein}}",
+  "spiritsCount": "{count, plural, =0{Keine Getranke} =1{1 Getrank} other{{count} Getranke}}",
+
+  "sleep": "Schlaf",
+  "wakeTime": "Aufwachzeit",
+  "bedTime": "Schlafenszeit",
+  "duration": "Dauer",
+  "quality": "Qualitat",
+
+  "sleepQualityBad": "Schlecht",
+  "sleepQualityPoor": "Ungenuegend",
+  "sleepQualityOkay": "Mittelmaessig",
+  "sleepQualityGood": "Gut",
+  "sleepQualityGreat": "Ausgezeichnet",
+
+  "sleepDurationFormat": "{hours}h{minutes}m",
+
+  "journal": "Tagebuch",
+  "settings": "Einstellungen",
+  "export": "Exportieren",
+  "support": "Unterstuetzen",
+
+  "increment": "Hinzufuegen",
+  "decrement": "Entfernen",
+  "save": "Speichern",
+  "cancel": "Abbrechen",
+  "close": "Schliessen",
+  "retry": "Erneut versuchen",
+
+  "noData": "Keine Daten",
+  "noSleepData": "Keine Schlafdaten",
+  "manualEntry": "Manuelle Eingabe",
+  "autoDetected": "Automatisch erkannt",
+
+  "errorSaveFailed": "Speichern fehlgeschlagen",
+  "errorLoadFailed": "Laden fehlgeschlagen",
+  "errorNetworkFailed": "Netzwerkfehler",
+  "errorUnknown": "Unbekannter Fehler",
+
+  "supportTitle": "InfernalWheel unterstuetzen?",
+  "supportDesc": "Diese App ist 100% kostenlos und ohne Tracking.",
+  "donate": "Spenden",
+  "watchAd": "Werbung ansehen",
+  "noThanks": "Nein danke",
+
+  "bugReportTitle": "Probleme erkannt",
+  "bugReportDesc": "{count, plural, =1{1 Problem heute erkannt} other{{count} Probleme heute erkannt}}",
+  "bugReportView": "Details anzeigen",
+  "bugReportIgnore": "Fuer 24h ignorieren",
+
+  "settingsSleepGoal": "Schlafziel",
+  "settingsAddictions": "Meine Suechte",
+  "settingsNotifications": "Benachrichtigungen",
+  "settingsLanguage": "Sprache",
+  "settingsTheme": "Design",
+  "settingsExportData": "Meine Daten exportieren",
+  "settingsAbout": "Ueber",
+
+  "dateFormatted": "{date}"
+}

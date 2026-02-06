@@ -1,0 +1,76 @@
+{
+  "@@locale": "pt",
+
+  "appName": "InfernalWheel",
+  "today": "Hoje",
+  "yesterday": "Ontem",
+  "thisWeek": "Esta semana",
+  "thisMonth": "Este mes",
+
+  "cigarettes": "Cigarros",
+  "beers": "Cervejas",
+  "wine": "Copos de vinho",
+  "spirits": "Destilados",
+
+  "cigarettesCount": "{count, plural, =0{Nenhum cigarro} =1{1 cigarro} other{{count} cigarros}}",
+  "beersCount": "{count, plural, =0{Nenhuma cerveja} =1{1 cerveja} other{{count} cervejas}}",
+  "wineCount": "{count, plural, =0{Nenhum copo} =1{1 copo de vinho} other{{count} copos de vinho}}",
+  "spiritsCount": "{count, plural, =0{Nenhuma dose} =1{1 dose} other{{count} doses}}",
+
+  "sleep": "Sono",
+  "wakeTime": "Acordar",
+  "bedTime": "Dormir",
+  "duration": "Duracao",
+  "quality": "Qualidade",
+
+  "sleepQualityBad": "Ruim",
+  "sleepQualityPoor": "Insuficiente",
+  "sleepQualityOkay": "Regular",
+  "sleepQualityGood": "Bom",
+  "sleepQualityGreat": "Excelente",
+
+  "sleepDurationFormat": "{hours}h{minutes}m",
+
+  "journal": "Diario",
+  "settings": "Configuracoes",
+  "export": "Exportar",
+  "support": "Apoiar",
+
+  "increment": "Adicionar",
+  "decrement": "Remover",
+  "save": "Salvar",
+  "cancel": "Cancelar",
+  "close": "Fechar",
+  "retry": "Tentar novamente",
+
+  "noData": "Sem dados",
+  "noSleepData": "Sem dados de sono",
+  "manualEntry": "Entrada manual",
+  "autoDetected": "Detectado auto",
+
+  "errorSaveFailed": "Falha ao salvar",
+  "errorLoadFailed": "Falha ao carregar",
+  "errorNetworkFailed": "Erro de rede",
+  "errorUnknown": "Erro desconhecido",
+
+  "supportTitle": "Apoiar InfernalWheel?",
+  "supportDesc": "Este app e 100% gratis e sem rastreamento.",
+  "donate": "Doar",
+  "watchAd": "Assistir anuncio",
+  "noThanks": "Nao obrigado",
+
+  "bugReportTitle": "Problemas detectados",
+  "bugReportDesc": "{count, plural, =1{1 problema detectado hoje} other{{count} problemas detectados hoje}}",
+  "bugReportView": "Ver detalhes",
+  "bugReportIgnore": "Ignorar por 24h",
+
+  "settingsSleepGoal": "Meta de sono",
+  "settingsAddictions": "Minhas adicoes",
+  "settingsNotifications": "Notificacoes",
+  "settingsLanguage": "Idioma",
+  "settingsTheme": "Tema",
+  "settingsExportData": "Exportar meus dados",
+  "settingsAbout": "Sobre",
+
+  "dateFormatted": "{date}"
+}

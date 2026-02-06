@@ -1,0 +1,76 @@
+{
+  "@@locale": "zh",
+
+  "appName": "InfernalWheel",
+  "today": "今天",
+  "yesterday": "昨天",
+  "thisWeek": "本周",
+  "thisMonth": "本月",
+
+  "cigarettes": "香烟",
+  "beers": "啤酒",
+  "wine": "葡萄酒",
+  "spirits": "烈酒",
+
+  "cigarettesCount": "{count, plural, =0{无香烟} other{{count}支香烟}}",
+  "beersCount": "{count, plural, =0{无啤酒} other{{count}杯啤酒}}",
+  "wineCount": "{count, plural, =0{无葡萄酒} other{{count}杯葡萄酒}}",
+  "spiritsCount": "{count, plural, =0{无烈酒} other{{count}杯烈酒}}",
+
+  "sleep": "睡眠",
+  "wakeTime": "起床时间",
+  "bedTime": "就寝时间",
+  "duration": "时长",
+  "quality": "质量",
+
+  "sleepQualityBad": "差",
+  "sleepQualityPoor": "较差",
+  "sleepQualityOkay": "一般",
+  "sleepQualityGood": "良好",
+  "sleepQualityGreat": "优秀",
+
+  "sleepDurationFormat": "{hours}小时{minutes}分钟",
+
+  "journal": "日记",
+  "settings": "设置",
+  "export": "导出",
+  "support": "支持",
+
+  "increment": "添加",
+  "decrement": "移除",
+  "save": "保存",
+  "cancel": "取消",
+  "close": "关闭",
+  "retry": "重试",
+
+  "noData": "无数据",
+  "noSleepData": "无睡眠数据",
+  "manualEntry": "手动输入",
+  "autoDetected": "自动检测",
+
+  "errorSaveFailed": "保存失败",
+  "errorLoadFailed": "加载失败",
+  "errorNetworkFailed": "网络错误",
+  "errorUnknown": "未知错误",
+
+  "supportTitle": "支持InfernalWheel？",
+  "supportDesc": "此应用100%免费且无追踪。",
+  "donate": "捐赠",
+  "watchAd": "观看广告",
+  "noThanks": "不用了",
+
+  "bugReportTitle": "检测到问题",
+  "bugReportDesc": "{count, plural, =1{今天检测到1个问题} other{今天检测到{count}个问题}}",
+  "bugReportView": "查看详情",
+  "bugReportIgnore": "忽略24小时",
+
+  "settingsSleepGoal": "睡眠目标",
+  "settingsAddictions": "我的成瘾",
+  "settingsNotifications": "通知",
+  "settingsLanguage": "语言",
+  "settingsTheme": "主题",
+  "settingsExportData": "导出我的数据",
+  "settingsAbout": "关于",
+
+  "dateFormatted": "{date}"
+}

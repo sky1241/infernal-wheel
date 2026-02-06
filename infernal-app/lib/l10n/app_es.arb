@@ -1,0 +1,76 @@
+{
+  "@@locale": "es",
+
+  "appName": "InfernalWheel",
+  "today": "Hoy",
+  "yesterday": "Ayer",
+  "thisWeek": "Esta semana",
+  "thisMonth": "Este mes",
+
+  "cigarettes": "Cigarrillos",
+  "beers": "Cervezas",
+  "wine": "Copas de vino",
+  "spirits": "Licores",
+
+  "cigarettesCount": "{count, plural, =0{Ningun cigarrillo} =1{1 cigarrillo} other{{count} cigarrillos}}",
+  "beersCount": "{count, plural, =0{Ninguna cerveza} =1{1 cerveza} other{{count} cervezas}}",
+  "wineCount": "{count, plural, =0{Ninguna copa} =1{1 copa de vino} other{{count} copas de vino}}",
+  "spiritsCount": "{count, plural, =0{Ninguna copa} =1{1 copa} other{{count} copas}}",
+
+  "sleep": "Sueno",
+  "wakeTime": "Despertar",
+  "bedTime": "Acostarse",
+  "duration": "Duracion",
+  "quality": "Calidad",
+
+  "sleepQualityBad": "Malo",
+  "sleepQualityPoor": "Insuficiente",
+  "sleepQualityOkay": "Regular",
+  "sleepQualityGood": "Bueno",
+  "sleepQualityGreat": "Excelente",
+
+  "sleepDurationFormat": "{hours}h{minutes}m",
+
+  "journal": "Diario",
+  "settings": "Ajustes",
+  "export": "Exportar",
+  "support": "Apoyar",
+
+  "increment": "Anadir",
+  "decrement": "Quitar",
+  "save": "Guardar",
+  "cancel": "Cancelar",
+  "close": "Cerrar",
+  "retry": "Reintentar",
+
+  "noData": "Sin datos",
+  "noSleepData": "Sin datos de sueno",
+  "manualEntry": "Entrada manual",
+  "autoDetected": "Detectado auto",
+
+  "errorSaveFailed": "Error al guardar",
+  "errorLoadFailed": "Error al cargar",
+  "errorNetworkFailed": "Error de red",
+  "errorUnknown": "Error desconocido",
+
+  "supportTitle": "Apoyar InfernalWheel?",
+  "supportDesc": "Esta app es 100% gratis y sin rastreo.",
+  "donate": "Donar",
+  "watchAd": "Ver un anuncio",
+  "noThanks": "No gracias",
+
+  "bugReportTitle": "Problemas detectados",
+  "bugReportDesc": "{count, plural, =1{1 problema detectado hoy} other{{count} problemas detectados hoy}}",
+  "bugReportView": "Ver detalles",
+  "bugReportIgnore": "Ignorar por 24h",
+
+  "settingsSleepGoal": "Objetivo de sueno",
+  "settingsAddictions": "Mis adicciones",
+  "settingsNotifications": "Notificaciones",
+  "settingsLanguage": "Idioma",
+  "settingsTheme": "Tema",
+  "settingsExportData": "Exportar mis datos",
+  "settingsAbout": "Acerca de",
+
+  "dateFormatted": "{date}"
+}
