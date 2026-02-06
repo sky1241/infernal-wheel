@@ -1,12 +1,15 @@
+import '../core/logger.dart';
 import 'addiction.dart';
 
 /// Configuration utilisateur
+///
+/// Stocke localement, jamais envoyee a l'exterieur.
 class UserSettings {
   /// Addictions actives
   List<AddictionType> enabledAddictions;
 
-  /// Objectif sommeil en heures
-  double sleepGoalHours;
+  /// Objectif sommeil en heures (entre 4 et 12)
+  double _sleepGoalHours;
 
   /// Utiliser les donnees de la montre si disponible
   bool useHealthData;
@@ -20,15 +23,28 @@ class UserSettings {
   /// Premiere utilisation terminee
   bool onboardingComplete;
 
+  /// Limites
+  static const double minSleepGoal = 4.0;
+  static const double maxSleepGoal = 12.0;
+  static const double defaultSleepGoal = 8.0;
+
   UserSettings({
     List<AddictionType>? enabledAddictions,
-    this.sleepGoalHours = 8.0,
+    double sleepGoalHours = defaultSleepGoal,
     this.useHealthData = true,
     this.allowManualFallback = true,
     this.darkMode = true,
     this.onboardingComplete = false,
-  }) : enabledAddictions = enabledAddictions ??
-      AddictionType.values.where((t) => t.isDefault).toList();
+  })  : enabledAddictions = enabledAddictions ??
+            AddictionType.values.where((t) => t.isDefault).toList(),
+        _sleepGoalHours = sleepGoalHours.clamp(minSleepGoal, maxSleepGoal);
+
+  /// Objectif sommeil en heures
+  double get sleepGoalHours => _sleepGoalHours;
+
+  set sleepGoalHours(double value) {
+    _sleepGoalHours = value.clamp(minSleepGoal, maxSleepGoal);
+  }
 
   /// Settings par defaut
   factory UserSettings.defaults() => UserSettings();
@@ -37,36 +53,87 @@ class UserSettings {
   void toggleAddiction(AddictionType type) {
     if (enabledAddictions.contains(type)) {
       enabledAddictions.remove(type);
+      Log.debug('SETTINGS', 'Addiction disabled', data: {'type': type.id});
     } else {
+      enabledAddictions.add(type);
+      Log.debug('SETTINGS', 'Addiction enabled', data: {'type': type.id});
+    }
+  }
+
+  /// Activer une addiction
+  void enableAddiction(AddictionType type) {
+    if (!enabledAddictions.contains(type)) {
       enabledAddictions.add(type);
     }
   }
 
-  /// Objectif sommeil en minutes
-  int get sleepGoalMinutes => (sleepGoalHours * 60).round();
-
-  /// Serialization
-  Map<String, dynamic> toJson() => {
-    'enabledAddictions': enabledAddictions.map((a) => a.id).toList(),
-    'sleepGoalHours': sleepGoalHours,
-    'useHealthData': useHealthData,
-    'allowManualFallback': allowManualFallback,
-    'darkMode': darkMode,
-    'onboardingComplete': onboardingComplete,
-  };
-
-  factory UserSettings.fromJson(Map<String, dynamic> json) {
-    final addictionIds = (json['enabledAddictions'] as List?)?.cast<String>() ?? [];
-    return UserSettings(
-      enabledAddictions: addictionIds
-          .map((id) => AddictionType.values.where((t) => t.id == id).firstOrNull)
-          .whereType<AddictionType>()
-          .toList(),
-      sleepGoalHours: (json['sleepGoalHours'] as num?)?.toDouble() ?? 8.0,
-      useHealthData: json['useHealthData'] ?? true,
-      allowManualFallback: json['allowManualFallback'] ?? true,
-      darkMode: json['darkMode'] ?? true,
-      onboardingComplete: json['onboardingComplete'] ?? false,
-    );
+  /// Desactiver une addiction
+  void disableAddiction(AddictionType type) {
+    enabledAddictions.remove(type);
   }
+
+  /// Verifier si une addiction est active
+  bool isEnabled(AddictionType type) => enabledAddictions.contains(type);
+
+  /// Objectif sommeil en minutes
+  int get sleepGoalMinutes => (_sleepGoalHours * 60).round();
+
+  /// Serialization JSON
+  Map<String, dynamic> toJson() => {
+        'enabledAddictions': enabledAddictions.map((a) => a.id).toList(),
+        'sleepGoalHours': _sleepGoalHours,
+        'useHealthData': useHealthData,
+        'allowManualFallback': allowManualFallback,
+        'darkMode': darkMode,
+        'onboardingComplete': onboardingComplete,
+      };
+
+  /// Deserialization avec guards
+  factory UserSettings.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      Log.warn('SETTINGS', 'Null json, using defaults');
+      return UserSettings.defaults();
+    }
+
+    try {
+      // Parse addictions avec fallback
+      List<AddictionType> addictions;
+      final addictionsRaw = json['enabledAddictions'];
+      if (addictionsRaw is List) {
+        addictions = addictionsRaw
+            .whereType<String>()
+            .map((id) => AddictionType.fromId(id))
+            .whereType<AddictionType>()
+            .toList();
+        // Si liste vide, utiliser les defaults
+        if (addictions.isEmpty) {
+          addictions = AddictionType.values.where((t) => t.isDefault).toList();
+        }
+      } else {
+        addictions = AddictionType.values.where((t) => t.isDefault).toList();
+      }
+
+      // Parse sleepGoalHours
+      final rawSleepGoal = json['sleepGoalHours'];
+      final sleepGoalHours = (rawSleepGoal is num)
+          ? rawSleepGoal.toDouble()
+          : UserSettings.defaultSleepGoal;
+
+      return UserSettings(
+        enabledAddictions: addictions,
+        sleepGoalHours: sleepGoalHours,
+        useHealthData: json['useHealthData'] as bool? ?? true,
+        allowManualFallback: json['allowManualFallback'] as bool? ?? true,
+        darkMode: json['darkMode'] as bool? ?? true,
+        onboardingComplete: json['onboardingComplete'] as bool? ?? false,
+      );
+    } catch (e, stack) {
+      Log.error('SETTINGS', 'Parse failed, using defaults', error: e, stack: stack);
+      return UserSettings.defaults();
+    }
+  }
+
+  @override
+  String toString() =>
+      'UserSettings(addictions: ${enabledAddictions.length}, sleep: ${_sleepGoalHours}h)';
 }
