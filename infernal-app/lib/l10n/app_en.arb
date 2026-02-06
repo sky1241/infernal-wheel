@@ -1,0 +1,76 @@
+{
+  "@@locale": "en",
+
+  "appName": "InfernalWheel",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "thisWeek": "This week",
+  "thisMonth": "This month",
+
+  "cigarettes": "Cigarettes",
+  "beers": "Beers",
+  "wine": "Glasses of wine",
+  "spirits": "Spirits",
+
+  "cigarettesCount": "{count, plural, =0{No cigarettes} =1{1 cigarette} other{{count} cigarettes}}",
+  "beersCount": "{count, plural, =0{No beers} =1{1 beer} other{{count} beers}}",
+  "wineCount": "{count, plural, =0{No glasses} =1{1 glass of wine} other{{count} glasses of wine}}",
+  "spiritsCount": "{count, plural, =0{No drinks} =1{1 drink} other{{count} drinks}}",
+
+  "sleep": "Sleep",
+  "wakeTime": "Wake time",
+  "bedTime": "Bed time",
+  "duration": "Duration",
+  "quality": "Quality",
+
+  "sleepQualityBad": "Bad",
+  "sleepQualityPoor": "Poor",
+  "sleepQualityOkay": "Okay",
+  "sleepQualityGood": "Good",
+  "sleepQualityGreat": "Great",
+
+  "sleepDurationFormat": "{hours}h{minutes}m",
+
+  "journal": "Journal",
+  "settings": "Settings",
+  "export": "Export",
+  "support": "Support",
+
+  "increment": "Add",
+  "decrement": "Remove",
+  "save": "Save",
+  "cancel": "Cancel",
+  "close": "Close",
+  "retry": "Retry",
+
+  "noData": "No data",
+  "noSleepData": "No sleep data",
+  "manualEntry": "Manual entry",
+  "autoDetected": "Auto detected",
+
+  "errorSaveFailed": "Save failed",
+  "errorLoadFailed": "Load failed",
+  "errorNetworkFailed": "Network error",
+  "errorUnknown": "Unknown error",
+
+  "supportTitle": "Support InfernalWheel?",
+  "supportDesc": "This app is 100% free with no tracking.",
+  "donate": "Donate",
+  "watchAd": "Watch an ad",
+  "noThanks": "No thanks",
+
+  "bugReportTitle": "Issues detected",
+  "bugReportDesc": "{count, plural, =1{1 issue detected today} other{{count} issues detected today}}",
+  "bugReportView": "View details",
+  "bugReportIgnore": "Ignore for 24h",
+
+  "settingsSleepGoal": "Sleep goal",
+  "settingsAddictions": "My addictions",
+  "settingsNotifications": "Notifications",
+  "settingsLanguage": "Language",
+  "settingsTheme": "Theme",
+  "settingsExportData": "Export my data",
+  "settingsAbout": "About",
+
+  "dateFormatted": "{date}"
+}

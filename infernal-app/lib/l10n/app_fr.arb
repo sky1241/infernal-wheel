@@ -1,0 +1,112 @@
+{
+  "@@locale": "fr",
+  "@@last_modified": "2024-02-06",
+
+  "appName": "InfernalWheel",
+  "@appName": { "description": "Nom de l'application" },
+
+  "today": "Aujourd'hui",
+  "yesterday": "Hier",
+  "thisWeek": "Cette semaine",
+  "thisMonth": "Ce mois",
+
+  "cigarettes": "Cigarettes",
+  "beers": "Bieres",
+  "wine": "Verres de vin",
+  "spirits": "Alcool fort",
+
+  "cigarettesCount": "{count, plural, =0{Aucune cigarette} =1{1 cigarette} other{{count} cigarettes}}",
+  "@cigarettesCount": {
+    "description": "Nombre de cigarettes avec pluralisation",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "beersCount": "{count, plural, =0{Aucune biere} =1{1 biere} other{{count} bieres}}",
+  "@beersCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "wineCount": "{count, plural, =0{Aucun verre} =1{1 verre de vin} other{{count} verres de vin}}",
+  "@wineCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "spiritsCount": "{count, plural, =0{Aucun verre} =1{1 verre} other{{count} verres}}",
+  "@spiritsCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "sleep": "Sommeil",
+  "wakeTime": "Reveil",
+  "bedTime": "Coucher",
+  "duration": "Duree",
+  "quality": "Qualite",
+
+  "sleepQualityBad": "Mauvais",
+  "sleepQualityPoor": "Insuffisant",
+  "sleepQualityOkay": "Moyen",
+  "sleepQualityGood": "Bon",
+  "sleepQualityGreat": "Excellent",
+
+  "sleepDurationFormat": "{hours}h{minutes}",
+  "@sleepDurationFormat": {
+    "placeholders": {
+      "hours": { "type": "int" },
+      "minutes": { "type": "int" }
+    }
+  },
+
+  "journal": "Journal",
+  "settings": "Parametres",
+  "export": "Exporter",
+  "support": "Soutenir",
+
+  "increment": "Ajouter",
+  "decrement": "Retirer",
+  "save": "Enregistrer",
+  "cancel": "Annuler",
+  "close": "Fermer",
+  "retry": "Reessayer",
+
+  "noData": "Aucune donnee",
+  "noSleepData": "Pas de donnees sommeil",
+  "manualEntry": "Saisie manuelle",
+  "autoDetected": "Detection auto",
+
+  "errorSaveFailed": "Sauvegarde impossible",
+  "errorLoadFailed": "Chargement echoue",
+  "errorNetworkFailed": "Erreur reseau",
+  "errorUnknown": "Erreur inconnue",
+
+  "supportTitle": "Soutenir InfernalWheel ?",
+  "supportDesc": "Cette app est 100% gratuite et sans tracking.",
+  "donate": "Faire un don",
+  "watchAd": "Regarder une pub",
+  "noThanks": "Non merci",
+
+  "bugReportTitle": "Problemes detectes",
+  "bugReportDesc": "{count, plural, =1{1 probleme detecte aujourd'hui} other{{count} problemes detectes aujourd'hui}}",
+  "@bugReportDesc": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "bugReportView": "Voir details",
+  "bugReportIgnore": "Ignorer pour 24h",
+
+  "settingsSleepGoal": "Objectif sommeil",
+  "settingsAddictions": "Mes addictions",
+  "settingsNotifications": "Notifications",
+  "settingsLanguage": "Langue",
+  "settingsTheme": "Theme",
+  "settingsExportData": "Exporter mes donnees",
+  "settingsAbout": "A propos",
+
+  "dateFormatted": "{date}",
+  "@dateFormatted": {
+    "description": "Date formatee selon la locale",
+    "placeholders": {
+      "date": { "type": "DateTime", "format": "yMMMd" }
+    }
+  }
+}

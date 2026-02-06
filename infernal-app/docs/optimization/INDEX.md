@@ -36,6 +36,19 @@
 - [Setup i18n Multi-Langue](./07_internationalization/i18n-setup.md)
 - [Responsive & Anti-Chevauchement](./07_internationalization/responsive-scale.md)
 
+### Localisation (i18n/l10n)
+- [Strategie Localisation](./08_localization/strategy.md)
+- [Pseudo-Locale (Test UI)](./08_localization/pseudo-locale.md)
+- [Regles de Survie UI Multi-Langue](./08_localization/ui-survival-rules.md)
+
+### Stabilite UI
+- [Detection Automatique Problemes](./09_ui-stability/layout-issue-detection.md)
+- [Patterns de Defaillance Courants](./09_ui-stability/common-failures.md)
+
+### Rapport de Bug Quotidien
+- [Schema du Rapport](./10_daily-bug-report/schema.md)
+- [Regles de Deduplication](./10_daily-bug-report/dedup-rules.md)
+
 ---
 
 ## Fichiers de reference (hors ce dossier)
@@ -46,6 +59,9 @@
 | `../../pubspec.yaml` | Dependances Flutter |
 | `../../lib/theme/spacing.dart` | Systeme de spacing (4px base) |
 | `../../lib/theme/colors.dart` | Palette de couleurs |
+| `../../lib/debug/layout_issue_detector.dart` | Detection bugs UI automatique |
+| `../../lib/debug/daily_bug_report.dart` | Rapport quotidien (1x/jour) |
+| `../../lib/l10n/*.arb` | Fichiers traduction (ARB) |
 
 ## Tags utilises
 
