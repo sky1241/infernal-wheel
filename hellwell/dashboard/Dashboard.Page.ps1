@@ -430,12 +430,14 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
 .alcUnitsRow .alcUnitChip:nth-child(1){grid-column:3; justify-self:center}
 .alcUnitsRow .alcUnitChip:nth-child(2){grid-column:4; justify-self:center}
 .alcUnitsRow .alcUnitChip:nth-child(3){grid-column:5; justify-self:center}
-.alcUnitsRow .alcUnitChip:nth-child(4){grid-column:6; justify-self:center}
+.alcUnitsRow .alcUnitChip:nth-child(4){grid-column:6; justify-self:end}
 .alcUnitChip{
   display:flex;
   align-items:center;
   gap:8px;
   padding:8px 12px;
+  width:130px;
+  box-sizing:border-box;
   border-radius:12px;
   border:1px solid rgba(255,255,255,.12);
   background:rgba(16,22,29,.7);
