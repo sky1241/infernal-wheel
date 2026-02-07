@@ -142,16 +142,26 @@ function New-PageHtml([string]$ym) {
       $deltaVal = $null
       try { $deltaVal = [double]$w.DeltaPure } catch { $deltaVal = $null }
       $deltaLabel = "—"
-      $deltaClass = "deltaFlat"
+      $deltaStyle = ""
+      $deltaArrow = ""
       if ($null -ne $deltaVal) {
         if ($deltaVal -gt 0) {
           $deltaLabel = "+" + $deltaVal.ToString("0.###")
-          if ($deltaVal -lt 0.5) { $deltaClass = "deltaUp delta-low" }
-          elseif ($deltaVal -lt 1.5) { $deltaClass = "deltaUp delta-mid" }
-          else { $deltaClass = "deltaUp delta-high" }
+          # Score 5-10 for positive delta (yellow to red), maxDelta = 0.5
+          $score = 5 + ([Math]::Min([Math]::Abs($deltaVal), 0.5) / 0.5 * 5)
+          $hue = [Math]::Round(120 - (($score - 1) * 13.33))
+          $deltaStyle = "style=`"color:hsl($hue,85%,55%);border-color:hsl($hue,70%,40%);background:hsla($hue,80%,50%,.12)`""
+          $deltaArrow = "<span class='trend-arrow' aria-label='augmentation'>&#8593;</span>"
         }
-        elseif ($deltaVal -lt 0) { $deltaLabel = $deltaVal.ToString("0.###"); $deltaClass = "deltaDown" }
-        else { $deltaLabel = "0"; $deltaClass = "deltaFlat" }
+        elseif ($deltaVal -lt 0) {
+          $deltaLabel = $deltaVal.ToString("0.###")
+          # Score 1-5 for negative delta (green to yellow), maxDelta = 0.5
+          $score = 5 - ([Math]::Min([Math]::Abs($deltaVal), 0.5) / 0.5 * 4)
+          $hue = [Math]::Round(120 - (($score - 1) * 13.33))
+          $deltaStyle = "style=`"color:hsl($hue,85%,55%);border-color:hsl($hue,70%,40%);background:hsla($hue,80%,50%,.12)`""
+          $deltaArrow = "<span class='trend-arrow' aria-label='diminution'>&#8595;</span>"
+        }
+        else { $deltaLabel = "0" }
       }
       $isOlder = ($i -ge 1)
       $rowClass = if ($isOlder) { "weekRow" } else { "weekRow currentWeek" }
@@ -204,7 +214,7 @@ function New-PageHtml([string]$ym) {
         $doseTrend = Get-Trend $currDose $prevDose 0.5
       }
 
-      $weeksHtml += "<div class='weekLine'><div class='$rowClass'><div class='$cellClass'>$($w.WeekKey)</div><div class='$cellClass'>$range</div><div class='$cellNumClass'><span class='wkCount' $($beerTrend.Style)>$($w.BeerCans)$($beerTrend.Arrow)</span></div><div class='$cellNumClass'><span class='wkCount' $($wineTrend.Style)>$($w.WineGlasses)$($wineTrend.Arrow)</span></div><div class='$cellNumClass'><span class='wkCount' $($strongTrend.Style)>$($w.StrongGlasses)$($strongTrend.Arrow)</span></div><div class='$cellDoseClass'><span class='doseBox' $($doseTrend.Style)>$($w.PureLiters)$($doseTrend.Arrow)</span></div></div><div class='weekDelta $deltaClass'>$deltaLabel</div></div>"
+      $weeksHtml += "<div class='weekLine'><div class='$rowClass'><div class='$cellClass'>$($w.WeekKey)</div><div class='$cellClass'>$range</div><div class='$cellNumClass'><span class='wkCount' $($beerTrend.Style)>$($w.BeerCans)$($beerTrend.Arrow)</span></div><div class='$cellNumClass'><span class='wkCount' $($wineTrend.Style)>$($w.WineGlasses)$($wineTrend.Arrow)</span></div><div class='$cellNumClass'><span class='wkCount' $($strongTrend.Style)>$($w.StrongGlasses)$($strongTrend.Arrow)</span></div><div class='$cellDoseClass'><span class='doseBox' $($doseTrend.Style)>$($w.PureLiters)$($doseTrend.Arrow)</span></div></div><div class='weekDelta' $deltaStyle>$deltaLabel$deltaArrow</div></div>"
       $i++
     }
     $weeksHtml += "</div></div>"
@@ -1210,43 +1220,8 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
   width:100%; justify-content:center; text-align:center;
   justify-self:stretch; box-sizing:border-box;
 }
-.weekDelta.deltaUp{
-  color:rgba(255,77,77,.95);
-  border-color:rgba(255,77,77,.55);
-  background:rgba(255,77,77,.12);
-  box-shadow:0 0 10px rgba(255,77,77,.22);
-}
-.weekDelta.deltaUp.delta-low{
-  color:rgba(255,210,60,.95);
-  border-color:rgba(255,210,60,.5);
-  background:rgba(255,210,60,.12);
-  box-shadow:0 0 10px rgba(255,210,60,.2);
-}
-.weekDelta.deltaUp.delta-mid{
-  color:rgba(255,150,50,.95);
-  border-color:rgba(255,150,50,.5);
-  background:rgba(255,150,50,.12);
-  box-shadow:0 0 10px rgba(255,150,50,.2);
-}
-.weekDelta.deltaUp.delta-high{
-  color:rgba(255,77,77,.95);
-  border-color:rgba(255,77,77,.6);
-  background:rgba(255,77,77,.15);
-  box-shadow:0 0 15px rgba(255,77,77,.3);
-}
 .whisky-icon{display:inline-block;width:20px;height:20px;vertical-align:middle;margin-right:3px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
 .alc-icon{font-size:1rem;margin-right:2px;vertical-align:middle}
-.weekDelta.deltaDown{
-  color:rgba(60,255,122,.95);
-  border-color:rgba(60,255,122,.55);
-  background:rgba(60,255,122,.12);
-  box-shadow:0 0 10px rgba(60,255,122,.2);
-}
-.weekDelta.deltaFlat{
-  color:var(--muted);
-  border-color:rgba(255,255,255,.15);
-  background:rgba(255,255,255,.05);
-}
 .weekRow.head .weekCell{color:var(--text); font-weight:700; letter-spacing:.3px}
 .weekRow:not(.head) .weekCell{color:var(--text)}
 .weekRow:not(.head) .weekCell.olderWeek{color:var(--muted)}
