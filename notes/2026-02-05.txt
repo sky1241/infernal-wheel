@@ -1,0 +1,51 @@
+﻿minimum: 3
+Respiration 4-6
+
+Respiration 4-6
+
+Respiration 4-6
+
+Respiration 4-6
+
+Respiration 4-6
+
+Respiration 4-6
+
+Respiration 4-6
+
+Respiration 4-6
+
+Respiration 4-6
+
+Respiration 4-6
+
+---
+TRAVAIL REALISE AVEC CLAUDE (reveil -> 03:35 coucher):
+
+Flutter App InfernalWheel:
+- InfernalDay: jour commence a 4h (pas minuit)
+- HealthService: support Apple Watch + toutes montres Android
+  (Samsung, Fitbit, Xiaomi, Huawei, Garmin, Wear OS)
+- WakeTracker: detection auto reveil via montre
+- AddictionTracker: tracking clope/alcool + delta depuis reveil
+
+Localisation (i18n):
+- 8 langues: FR, EN, ES, PT, DE, AR (RTL), ZH, pseudo-locale
+- Fichiers ARB avec pluralisation ICU
+- Regles UI anti-casse multi-langue
+
+Documentation:
+- 08_localization: strategie, pseudo-locale, regles survie UI
+- 09_ui-stability: detection auto bugs, patterns defaillance
+- 10_daily-bug-report: schema JSON, deduplication 1x/jour
+
+Widgets safe:
+- SafeText, SafeRow, SafeButton, SafeIconButton
+- SafePadding (RTL), SafePage, SafeChipList
+- Touch targets 48dp minimum
+
+3 commits GitHub: 79fb773, d58d550, ab6bce1
+Total: +5000 lignes de code/doc
+
+Conso jour: 10 clopes, 9 bieres
+Coucher: 03:35
