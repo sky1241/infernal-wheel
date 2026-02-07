@@ -494,6 +494,38 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .currentBox.action-meditation{--curr-border:rgba(79,107,255,.7); --curr-bg:rgba(79,107,255,.12); --curr-glow:rgba(79,107,255,.45)}
 .currentBox.action-glandouille{--curr-border:rgba(155,92,255,.7); --curr-bg:rgba(155,92,255,.12); --curr-glow:rgba(155,92,255,.45)}
 .currentBox.action-chier{--curr-border:rgba(255,153,85,.7); --curr-bg:rgba(255,153,85,.12); --curr-glow:rgba(255,153,85,.45)}
+/* Box header + stats pro design */
+.box-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:var(--sp-12);border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:var(--sp-16)}
+.box-title{font-weight:800;font-size:1.1rem;color:var(--text);display:flex;align-items:center;gap:var(--sp-8);letter-spacing:-.3px}
+.box-title-icon{font-size:1.3rem;filter:drop-shadow(0 0 8px rgba(255,255,255,.3))}
+.box-subtitle{font-size:.75rem;color:var(--muted);font-weight:500;background:rgba(255,255,255,.05);padding:4px 10px;border-radius:12px}
+.box-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-12);padding:var(--sp-16) 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:var(--sp-16)}
+.box-stat{text-align:center;padding:var(--sp-8);border-radius:var(--r);background:rgba(255,255,255,.02);transition:background .2s}
+.box-stat:hover{background:rgba(255,255,255,.05)}
+.box-stat-icon{font-size:1rem;margin-bottom:4px;opacity:.7}
+.box-stat-value{font-size:1.25rem;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.2}
+.box-stat-label{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:2px}
+.box-stat-value.accent{color:var(--accent);text-shadow:0 0 20px rgba(53,217,154,.4)}
+.box-stat-value.warn{color:var(--warn);text-shadow:0 0 20px rgba(247,191,84,.4)}
+.box-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent);margin:var(--sp-16) 0}
+.box-remain{text-align:center;padding:var(--sp-16) 0}
+.box-remain-value{font-size:3rem;font-weight:900;background:linear-gradient(135deg,#fff,rgba(255,255,255,.85));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-2px;line-height:1}
+.box-remain-label{font-size:.75rem;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:1px}
+.box-progress{position:relative;height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;margin-top:var(--sp-12)}
+.box-progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),#6bbcff,var(--accent));background-size:200% 100%;border-radius:4px;transition:width .5s ease;animation:progressShimmer 2s linear infinite}
+@keyframes progressShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.box-progress-pct{position:absolute;right:0;top:-18px;font-size:.7rem;color:var(--muted);font-weight:600}
+.box-action-row{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-12) 0;flex-wrap:wrap;gap:var(--sp-8)}
+.box-action-main{font-size:2rem;font-weight:900;color:var(--text);letter-spacing:-1px;text-shadow:0 0 30px rgba(255,255,255,.15)}
+.box-action-flags{display:flex;gap:var(--sp-8);flex-wrap:wrap}
+.box-action-flag{font-size:.7rem;padding:4px 12px;border-radius:12px;background:rgba(255,255,255,.06);color:var(--muted);font-weight:600;border:1px solid rgba(255,255,255,.08);transition:all .2s}
+.box-action-flag.active{background:linear-gradient(135deg,var(--accent),#6bbcff);color:#000;border-color:transparent;box-shadow:0 0 15px rgba(53,217,154,.4)}
+.box-timer{display:flex;align-items:center;gap:var(--sp-16);padding:var(--sp-12) 0;flex-wrap:wrap}
+.box-timer-item{display:flex;flex-direction:column;align-items:center}
+.box-timer-value{font-size:1.1rem;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+.box-timer-label{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.box-timer-value.overtime{color:var(--danger);animation:overtimePulse 1s ease-in-out infinite}
+@keyframes overtimePulse{0%,100%{opacity:1}50%{opacity:.6}}
 .kpi .box::after{
   content:""; position:absolute; right:10px; top:10px; width:10px; height:10px;
   border:2px solid rgba(255,255,255,.06); transform:rotate(45deg);
@@ -1160,26 +1192,37 @@ body{
     </div>
     <div id="firstsToday" class="firstsHero"></div>
     <div class="kpi">
-      <div class="box">
-        <div><b>WORK Remaining</b> <small>(en minutes)</small></div>
-        <div class="big" id="kRemain">__REM__m</div>
-        <small id="kRemain2">Goal: __GOALM__m - Done: __DONEM__m - Break: __OVERM__m</small>
-        <div class="progress" style="margin-top:10px"><div id="bar" style="width:0%"></div></div>
-      <div class="miniNoteWrap" style="margin-top:18px">
+      <div class="box" role="region" aria-label="Travail restant">
+        <div class="box-header">
+          <div class="box-title"><span class="box-title-icon" aria-hidden="true">&#128337;</span><span>WORK Remaining</span></div>
+          <span class="box-subtitle">minutes</span>
+        </div>
+        <div class="box-stats">
+          <div class="box-stat"><div class="box-stat-icon" aria-hidden="true">&#127919;</div><div class="box-stat-value" id="statGoal">__GOALM__</div><div class="box-stat-label">Objectif</div></div>
+          <div class="box-stat"><div class="box-stat-icon" aria-hidden="true">&#9989;</div><div class="box-stat-value accent" id="statDone">__DONEM__</div><div class="box-stat-label">Fait</div></div>
+          <div class="box-stat"><div class="box-stat-icon" aria-hidden="true">&#9749;</div><div class="box-stat-value warn" id="statBreak">__OVERM__</div><div class="box-stat-label">Pause</div></div>
+        </div>
+        <div class="box-remain"><div class="box-remain-value" id="kRemain">__REM__m</div><div class="box-remain-label">restant</div></div>
+        <div class="box-progress"><span class="box-progress-pct" id="progressPct">0%</span><div class="box-progress-bar" id="bar" style="width:0%"></div></div>
+        <div class="box-divider"></div>
+        <div class="miniNoteWrap">
           <label for="quickNote" class="sr-only">Note rapide</label>
           <textarea id="quickNote" class="miniNote" placeholder="Note rapide..." aria-label="Note rapide"></textarea>
           <small id="quickNoteStatus" class="muted" role="status" aria-live="polite">-</small>
         </div>
       </div>
-    <div class="box currentBox" id="currentBox">
-      <div><b>Action en cours</b></div>
-      <div class="big" id="kSeg">-</div>
-      <div class="row" style="gap:8px">
-        <small id="kSeg2">-</small>
-        <small id="kTimer">-</small>
-      </div>
-      <div style="height:18px"></div>
-      <div class="miniNoteWrap" style="margin-top:18px">
+      <div class="box currentBox" id="currentBox" role="region" aria-label="Action en cours">
+        <div class="box-header">
+          <div class="box-title"><span class="box-title-icon" aria-hidden="true">&#9654;&#65039;</span><span>Action en cours</span></div>
+          <div class="box-action-flags" id="kSeg2"></div>
+        </div>
+        <div class="box-action-row"><div class="box-action-main" id="kSeg">-</div></div>
+        <div class="box-timer" id="kTimerWrap">
+          <div class="box-timer-item"><div class="box-timer-value" id="kTimerElapsed">-</div><div class="box-timer-label">Elapsed</div></div>
+          <div class="box-timer-item"><div class="box-timer-value" id="kTimerRemain">-</div><div class="box-timer-label">Restant</div></div>
+        </div>
+        <div class="box-divider"></div>
+        <div class="miniNoteWrap">
           <label for="scratchNote" class="sr-only">Note action</label>
           <textarea id="scratchNote" class="miniNote" placeholder="Note action..." aria-label="Note action"></textarea>
           <small id="actionNoteStatus" class="muted" role="status" aria-live="polite">-</small>
@@ -2003,8 +2046,11 @@ async function refreshLive(){
     const j = await r.json();
     if(!j.ok){
       document.getElementById("kSeg").textContent = "OFFLINE";
-      document.getElementById("kSeg2").textContent = "Start timer";
-      document.getElementById("kTimer").textContent = "-";
+      document.getElementById("kSeg2").innerHTML = "<span class='box-action-flag'>Start timer</span>";
+      const elapsedEl = document.getElementById("kTimerElapsed");
+      const remainEl = document.getElementById("kTimerRemain");
+      if(elapsedEl) elapsedEl.textContent = "-";
+      if(remainEl) remainEl.textContent = "-";
       document.getElementById("liveCard").classList.remove("alert");
       setEngineStatus("offline");
       notifyNetError();
@@ -2016,12 +2062,15 @@ async function refreshLive(){
     document.getElementById("kRemain").textContent = fmtMin(j.remWorkSec) + "m";
     const doneSec = (j.totalWorkSec || 0) + (j.totalOverrunSec || 0);
     const breakSec = j.totalBreakSec || 0;
-    document.getElementById("kRemain2").textContent =
-      "Goal: " + fmtMin(j.goalWorkSec) + "m - Done: " + fmtMin(doneSec) + "m - Break: " + fmtMin(breakSec) + "m";
+    document.getElementById("statGoal").textContent = fmtMin(j.goalWorkSec) + "m";
+    document.getElementById("statDone").textContent = fmtMin(doneSec) + "m";
+    document.getElementById("statBreak").textContent = fmtMin(breakSec) + "m";
 
     const denom = (j.goalWorkSec || 0);
     const pct = denom > 0 ? Math.min(100, (doneSec/denom)*100) : 0;
     document.getElementById("bar").style.width = pct.toFixed(1) + "%";
+    const pctEl = document.getElementById("progressPct");
+    if(pctEl) pctEl.textContent = pct.toFixed(0) + "%";
 
     const seg = (j.currentName || "idle").toUpperCase();
     document.getElementById("kSeg").textContent = seg;
@@ -2047,20 +2096,29 @@ async function refreshLive(){
       currentBoxExtra = extra;
     }
     let flags = [];
-    if(j.awaitOk) flags.push("WAIT_OK");
-    if(j.paused) flags.push("PAUSED");
-    if(j.resumeDetected) flags.push("RESUME_GAP");
-    document.getElementById("kSeg2").textContent = flags.length ? flags.join(" - ") : "RUN";
+    if(j.awaitOk) flags.push("<span class='box-action-flag'>WAIT_OK</span>");
+    if(j.paused) flags.push("<span class='box-action-flag'>PAUSED</span>");
+    if(j.resumeDetected) flags.push("<span class='box-action-flag'>RESUME_GAP</span>");
+    document.getElementById("kSeg2").innerHTML = flags.length ? flags.join("") : "<span class='box-action-flag active'>RUN</span>";
 
-    let tline = "elapsed " + fmtMin(j.elapsedSec) + "m";
-    if(j.remainSec != null) tline = "remaining " + fmtMin(j.remainSec) + "m - " + tline;
-
-    if(j.overtimeSec > 0){
-      document.getElementById("kTimer").innerHTML = "OVERTIME <span class='alertText'>+" + fmtMin(j.overtimeSec) + "m</span> - " + tline;
-      document.getElementById("liveCard").classList.add("alert");
-    } else {
-      document.getElementById("kTimer").textContent = tline;
-      document.getElementById("liveCard").classList.remove("alert");
+    // Timer display
+    const elapsedEl = document.getElementById("kTimerElapsed");
+    const remainEl = document.getElementById("kTimerRemain");
+    if(elapsedEl) elapsedEl.textContent = fmtMin(j.elapsedSec) + "m";
+    if(remainEl){
+      if(j.overtimeSec > 0){
+        remainEl.textContent = "+" + fmtMin(j.overtimeSec) + "m";
+        remainEl.classList.add("overtime");
+        document.getElementById("liveCard").classList.add("alert");
+      } else if(j.remainSec != null){
+        remainEl.textContent = fmtMin(j.remainSec) + "m";
+        remainEl.classList.remove("overtime");
+        document.getElementById("liveCard").classList.remove("alert");
+      } else {
+        remainEl.textContent = "-";
+        remainEl.classList.remove("overtime");
+        document.getElementById("liveCard").classList.remove("alert");
+      }
     }
 
     if(j.dailyAlcohol){
