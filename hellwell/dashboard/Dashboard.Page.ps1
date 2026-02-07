@@ -24,14 +24,20 @@ function New-PageHtml([string]$ym) {
   $startWeekday = ([int]$first.DayOfWeek + 6) % 7
   $daysInMonth = [DateTime]::DaysInMonth($first.Year, $first.Month)
 
+  # [WEB.md] Jours de la semaine pour attribut data-weekday (mobile)
+  $weekdayNames = @("Lun","Mar","Mer","Jeu","Ven","Sam","Dim")
+
   $rowsHtml = ""
   $week = ""
   for ($i=0; $i -lt $startWeekday; $i++) {
-    $week += "<td class='day muted empty'></td>"
+    $week += "<td class='day muted empty' aria-hidden='true'></td>"
   }
   for ($day=1; $day -le $daysInMonth; $day++) {
     $d = Get-Date -Year $first.Year -Month $first.Month -Day $day -Hour 0 -Minute 0 -Second 0
     $dk = $d.ToString("yyyy-MM-dd")
+    # [WEB.md §29] Calcul du jour de semaine pour data-weekday
+    $weekdayIdx = ([int]$d.DayOfWeek + 6) % 7
+    $weekdayName = $weekdayNames[$weekdayIdx]
     $ws = if ($daily.ContainsKey($dk)) { $daily[$dk] } else { @{work=0;sleep=0;clope=0} }
     $da = Get-DailyAlcoholTotals $dk
     $alc = ""
@@ -73,7 +79,11 @@ function New-PageHtml([string]$ym) {
     if ($workMin -gt 0) { $wsParts += "Work: <b>${workMin}m</b>" }
     if ($sleepMin -gt 0) { $wsParts += "Sleep: ${sleepMin}m" }
     if ($wsParts.Count -gt 0) { $workSleepHtml = "<div class='dmeta'>" + ($wsParts -join "<br/>") + "</div>" }
-    $week += "<td class='day'><div class='dnum'>$($d.Day)</div>$workSleepHtml$alc$smk$actsHtml<div class='dlink'><a href='/notes?d=$dk'>Notes</a></div></td>"
+    # [WEB.md §29,31] ARIA label pour accessibilité + data-weekday pour mobile
+    $ariaLabel = "$day $($d.ToString('MMMM'))"
+    # [WEB.md §35] Classe today pour jour actuel
+    $todayClass = if ($dk -eq $todayCalKey) { " today" } else { "" }
+    $week += "<td class='day$todayClass' data-weekday='$weekdayName' aria-label='$ariaLabel'><div class='dnum' aria-hidden='true'>$($d.Day)</div>$workSleepHtml$alc$smk$actsHtml<div class='dlink'><a href='/notes?d=$dk' aria-label='Notes du $day'>Notes</a></div></td>"
     $cells = $startWeekday + $day
     if (($cells % 7) -eq 0) {
       $rowsHtml += "<tr>$week</tr>"
@@ -84,7 +94,7 @@ function New-PageHtml([string]$ym) {
     $cellsInLastRow = ($startWeekday + $daysInMonth) % 7
     $pad = 0
     if ($cellsInLastRow -ne 0) { $pad = 7 - $cellsInLastRow }
-    for ($i=0; $i -lt $pad; $i++) { $week += "<td class='day muted empty'></td>" }
+    for ($i=0; $i -lt $pad; $i++) { $week += "<td class='day muted empty' aria-hidden='true'></td>" }
     $rowsHtml += "<tr>$week</tr>"
   }
 
@@ -600,27 +610,152 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 }
 .alert{border-color:rgba(255,107,107,.9); box-shadow:0 0 0 2px rgba(255,107,107,.12), var(--shadow)}
 .alertText{color:rgba(255,107,107,.95); font-weight:900}
-/* [reflow_wcag_1_4_10] responsive table */
-table{border-collapse:collapse;width:100%;table-layout:fixed}
-td,th{border:1px solid var(--border); padding:.5rem; vertical-align:top; width:14.285%}
-th{background:rgba(16,22,29,.6); text-align:left; color:var(--muted)}
-/* Calendar UX improvements */
-.day{min-height:5.75rem;height:auto;overflow:hidden;transition:background .2s,box-shadow .2s}
-.day:not(.empty):hover{background:rgba(53,217,154,.05);box-shadow:inset 0 0 0 1px rgba(53,217,154,.2)}
-.day.today{background:rgba(53,217,154,.08);border-color:rgba(53,217,154,.3)}
+/* [WEB.md §16,26] Calendar table - reflow WCAG 1.4.10 */
+table{
+  border-collapse:collapse;
+  width:100%;
+  table-layout:fixed;
+}
+td,th{
+  border:1px solid var(--border);
+  /* [WEB.md §36] Padding système 4px base */
+  padding:var(--sp-12);
+  vertical-align:top;
+  width:14.285%;
+}
+th{
+  background:rgba(16,22,29,.7);
+  text-align:left;
+  /* [WEB.md §22] Contraste amélioré pour headers */
+  color:#c5cdd5;
+  font-weight:600;
+  font-size:.875rem;
+}
+
+/* [WEB.md §15,21] Calendar day cells - Cards avec touch targets */
+.day{
+  /* [WEB.md §21] Min-height pour touch target vertical */
+  min-height:6rem;
+  height:auto;
+  overflow:hidden;
+  /* [WEB.md §41] Transitions standardisées */
+  transition:background var(--transition-normal) ease,
+             box-shadow var(--transition-normal) ease,
+             border-color var(--transition-normal) ease;
+  position:relative;
+}
+.day:not(.empty):hover{
+  background:rgba(53,217,154,.06);
+  box-shadow:inset 0 0 0 2px rgba(53,217,154,.25);
+}
+/* [WEB.md §23] Focus visible sur cellules navigables */
+.day:focus-within{
+  outline:2px solid var(--accent);
+  outline-offset:-2px;
+  box-shadow:0 0 0 4px rgba(53,217,154,.2);
+}
+.day.today{
+  background:rgba(53,217,154,.1);
+  border-color:rgba(53,217,154,.4);
+  /* [WEB.md §35] Indicateur visuel distinct */
+  box-shadow:inset 0 3px 0 0 var(--accent);
+}
+.day.empty{
+  background:rgba(16,22,29,.3);
+  /* [WEB.md §22] Contraste bordure visible */
+  border-color:rgba(255,255,255,.04);
+}
+
+/* [WEB.md §26] Responsive mobile - reflow WCAG 1.4.10 */
 @media(max-width:640px){
   table,thead,tbody,tr,td,th{display:block;width:100%}
   thead tr{position:absolute;top:-9999px;left:-9999px}
-  td.day{min-height:auto;height:auto;padding:.75rem;margin-bottom:.5rem;border-radius:8px}
+  td.day{
+    min-height:auto;
+    height:auto;
+    padding:var(--sp-16);
+    margin-bottom:var(--sp-8);
+    border-radius:12px;
+    /* [WEB.md §39] Card style mobile */
+    border:1px solid rgba(255,255,255,.1);
+  }
   td.day.empty{display:none}
+  /* [WEB.md §29] Afficher le jour de la semaine sur mobile */
+  td.day::before{
+    content:attr(data-weekday);
+    display:block;
+    font-size:.75rem;
+    color:#a7b3bf;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    margin-bottom:var(--sp-4);
+  }
 }
-.dnum{font-weight:900;font-size:1.1rem;color:var(--text)}
-.dmeta{margin-top:6px;font-size:.7rem;color:var(--muted);overflow-wrap:anywhere;line-height:1.4}
-.dlink{margin-top:8px;font-size:.75rem;overflow-wrap:anywhere}
-.dlink a{color:var(--accent);text-decoration:none;padding:4px 8px;border-radius:6px;background:rgba(53,217,154,.08);transition:background .2s}
-.dlink a:hover{background:rgba(53,217,154,.15)}
-.dlink a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.day.empty{background:transparent}
+
+/* [WEB.md §38] Day number - Typography text-lg/xl */
+.dnum{
+  font-weight:800;
+  font-size:1.25rem;
+  color:#fff;
+  line-height:1.2;
+}
+
+/* [WEB.md §22] Day metadata - contraste amélioré */
+.dmeta{
+  margin-top:var(--sp-8);
+  font-size:.8125rem;
+  /* Contraste amélioré */
+  color:#b8c4d0;
+  overflow-wrap:anywhere;
+  line-height:1.5;
+}
+
+/* [WEB.md §21] Day link - touch target 44px */
+.dlink{
+  margin-top:var(--sp-12);
+  font-size:.875rem;
+  overflow-wrap:anywhere;
+}
+.dlink a{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  /* [WEB.md §21] Touch target min 44px */
+  min-height:44px;
+  padding:var(--sp-8) var(--sp-12);
+  color:var(--accent);
+  text-decoration:none;
+  border-radius:8px;
+  background:rgba(53,217,154,.1);
+  border:1px solid rgba(53,217,154,.2);
+  font-weight:500;
+  transition:background var(--transition-fast) ease,
+             border-color var(--transition-fast) ease;
+}
+.dlink a:hover{
+  background:rgba(53,217,154,.18);
+  border-color:rgba(53,217,154,.35);
+}
+/* [WEB.md §23] Focus visible WCAG 2.4.7/2.4.13 */
+.dlink a:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+  box-shadow:0 0 0 4px rgba(53,217,154,.25);
+}
+
+/* [WEB.md §27] Reduce motion */
+@media (prefers-reduced-motion:reduce){
+  .day,.dlink a{transition:none}
+  .day:not(.empty):hover{box-shadow:inset 0 0 0 2px rgba(53,217,154,.3)}
+}
+
+/* [WEB.md §22] Forced colors / high contrast mode */
+@media (forced-colors:active){
+  .day{border:2px solid CanvasText}
+  .day.today{border:3px solid Highlight}
+  .dlink a{border:2px solid LinkText}
+  th{border:2px solid CanvasText}
+}
 /* Section headers UX */
 .section-header{display:flex;align-items:center;gap:var(--sp-8);margin-bottom:var(--sp-16)}
 .section-header h2{margin:0;font-size:1.25rem;font-weight:800;color:var(--text);display:flex;align-items:center;gap:var(--sp-8)}
