@@ -872,18 +872,18 @@ th{
   letter-spacing:.5px;
 }
 
-/* Day cell = Card compacte et élégante */
+/* ═══ DAY CELL: Hauteur fixe + symétrie ═══ */
 td.day{
   background:linear-gradient(145deg, rgba(22,28,36,.95), rgba(16,22,29,.85));
   border:1px solid rgba(255,255,255,.06);
   border-radius:12px;
-  padding:12px;
+  padding:10px;
   vertical-align:top;
-  min-height:120px;
+  height:150px;
   position:relative;
   box-shadow:0 2px 8px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.03);
   transition:all .2s cubic-bezier(.4,0,.2,1);
-  overflow:visible; /* Permet au tooltip de dépasser */
+  overflow:hidden;
 }
 td.day::after{
   content:"";
@@ -896,9 +896,10 @@ td.day::after{
 
 /* Hover = élévation + glow subtil */
 td.day:not(.empty):hover{
-  transform:translateY(-3px);
+  transform:translateY(-2px);
   box-shadow:0 8px 24px rgba(0,0,0,.25), 0 0 0 1px rgba(91,178,255,.2);
   border-color:rgba(91,178,255,.3);
+  overflow:visible; /* Tooltip peut dépasser au hover */
 }
 
 /* Focus visible */
@@ -907,130 +908,133 @@ td.day:focus-within{
   outline-offset:2px;
 }
 
-/* TODAY = accent fort */
+/* TODAY = accent fort avec glow */
 td.day.today{
-  background:linear-gradient(145deg, rgba(53,217,154,.08), rgba(16,22,29,.9));
-  border:1.5px solid rgba(53,217,154,.4);
-  box-shadow:0 0 20px rgba(53,217,154,.1), 0 4px 12px rgba(0,0,0,.2);
+  background:linear-gradient(145deg, rgba(53,217,154,.06), rgba(16,22,29,.9));
+  border:1.5px solid rgba(53,217,154,.5);
+  box-shadow:0 0 25px rgba(53,217,154,.15), 0 4px 12px rgba(0,0,0,.2);
 }
-/* Badge "Aujourd'hui" dans le HTML */
+
+/* Badge "Aujourd'hui" - compact */
 .dtoday-badge{
   display:inline-flex;
   align-items:center;
-  font-size:.55rem;
+  font-size:.5rem;
   font-weight:800;
   color:var(--accent);
-  background:rgba(53,217,154,.12);
-  padding:3px 8px;
-  border-radius:5px;
-  letter-spacing:.4px;
+  background:rgba(53,217,154,.15);
+  padding:2px 6px;
+  border-radius:4px;
+  letter-spacing:.3px;
   text-transform:uppercase;
   margin-left:6px;
 }
 
 /* Empty days */
 td.day.empty{
-  background:rgba(14,19,25,.25);
-  border:1px dashed rgba(255,255,255,.04);
+  background:rgba(14,19,25,.2);
+  border:1px dashed rgba(255,255,255,.03);
   box-shadow:none;
-  min-height:80px;
+  height:150px;
 }
 td.day.empty:hover{transform:none;box-shadow:none}
 
-/* ═══ HEADER: Numéro + Badge + Travail ═══ */
+/* ═══ HEADER: Numéro + Badge Travail (ligne unique) ═══ */
 .dhead{
   display:flex;
   align-items:center;
-  justify-content:space-between;
   gap:6px;
-  margin-bottom:10px;
-  flex-wrap:wrap;
+  margin-bottom:6px;
+  flex-shrink:0;
 }
 .dhead-left{
   display:flex;
   align-items:center;
-  gap:6px;
+  gap:4px;
+  flex:1;
+  min-width:0;
 }
 .dnum{
-  font-size:1.75rem;
+  font-size:1.5rem;
   font-weight:900;
   color:#fff;
   line-height:1;
-  letter-spacing:-1px;
+  letter-spacing:-0.5px;
 }
 td.day.today .dnum{
   color:var(--accent);
-  text-shadow:0 0 25px rgba(53,217,154,.5);
+  text-shadow:0 0 20px rgba(53,217,154,.5);
 }
 .dwork{
-  display:flex;
+  display:inline-flex;
   align-items:center;
-  gap:4px;
-  font-size:.65rem;
+  gap:3px;
+  font-size:.6rem;
   font-weight:700;
-  color:rgba(255,79,216,.9);
-  background:rgba(255,79,216,.1);
-  padding:4px 8px;
-  border-radius:6px;
-  border:1px solid rgba(255,79,216,.2);
+  color:rgba(255,79,216,.95);
+  background:rgba(255,79,216,.12);
+  padding:3px 6px;
+  border-radius:5px;
+  border:1px solid rgba(255,79,216,.25);
   flex-shrink:0;
+  margin-left:auto;
 }
 .dwork:empty{display:none}
 
-/* ═══ STATS ROW: Sleep + Alc + Smoke ═══ */
+/* ═══ STATS ROW: Sleep + Alc + Smoke (grille compacte) ═══ */
 .dstats{
   display:flex;
   flex-wrap:wrap;
-  gap:6px;
-  margin-bottom:8px;
-  min-height:24px;
+  gap:4px;
+  margin-bottom:6px;
+  flex-shrink:0;
 }
 .dstat{
   display:inline-flex;
   align-items:center;
-  gap:3px;
-  font-size:.65rem;
+  gap:2px;
+  font-size:.55rem;
   font-weight:600;
-  padding:3px 7px;
-  border-radius:5px;
+  padding:2px 5px;
+  border-radius:4px;
   white-space:nowrap;
 }
 .dstat--sleep{
   color:rgba(102,126,234,.95);
-  background:rgba(102,126,234,.1);
-  border:1px solid rgba(102,126,234,.15);
+  background:rgba(102,126,234,.12);
+  border:1px solid rgba(102,126,234,.2);
 }
 .dstat--alc{
   color:rgba(246,183,60,.95);
-  background:rgba(246,183,60,.1);
+  background:rgba(246,183,60,.12);
   border:1px solid rgba(246,183,60,.2);
 }
 .dstat--smoke{
   color:rgba(255,77,77,.95);
-  background:rgba(255,77,77,.1);
+  background:rgba(255,77,77,.12);
   border:1px solid rgba(255,77,77,.2);
 }
 
 /* ═══ ACTIONS: Condensé avec tooltip ═══ */
 .dacts{
   position:relative;
-  margin-bottom:8px;
+  flex-shrink:0;
 }
 .dacts-toggle{
   display:inline-flex;
   align-items:center;
-  gap:4px;
-  font-size:.6rem;
+  gap:3px;
+  font-size:.55rem;
   font-weight:600;
   color:var(--muted);
   background:rgba(255,255,255,.04);
-  padding:4px 8px;
-  border-radius:5px;
+  padding:3px 6px;
+  border-radius:4px;
   cursor:default;
   transition:all .15s ease;
 }
 .dacts-toggle:hover{
-  background:rgba(255,255,255,.08);
+  background:rgba(255,255,255,.1);
   color:var(--text);
 }
 /* Tooltip des actions au hover */
@@ -1090,33 +1094,30 @@ td.day.today .dnum{
   display:none; /* Caché par défaut dans la nouvelle vue */
 }
 
-/* ═══ NOTES LINK: CTA proéminent ═══ */
+/* ═══ NOTES LINK: Compact en bas ═══ */
 .dlink{
-  margin-top:auto;
-  padding-top:8px;
+  margin-top:6px;
 }
 .dlink a{
-  display:flex;
+  display:inline-flex;
   align-items:center;
   justify-content:center;
-  gap:5px;
-  min-height:36px;
-  padding:8px 12px;
-  font-size:.7rem;
+  gap:4px;
+  min-height:28px;
+  padding:4px 10px;
+  font-size:.6rem;
   font-weight:700;
   color:var(--accent);
   text-decoration:none;
-  background:rgba(53,217,154,.08);
-  border:1px solid rgba(53,217,154,.2);
-  border-radius:8px;
+  background:rgba(53,217,154,.06);
+  border:1px solid rgba(53,217,154,.15);
+  border-radius:6px;
   transition:all .15s ease;
-  width:100%;
 }
 .dlink a:hover{
   background:rgba(53,217,154,.15);
-  border-color:rgba(53,217,154,.35);
-  transform:translateY(-1px);
-  box-shadow:0 4px 12px rgba(53,217,154,.15);
+  border-color:rgba(53,217,154,.4);
+  box-shadow:0 2px 8px rgba(53,217,154,.2);
 }
 .dlink a:focus-visible{
   outline:2px solid var(--accent);
@@ -1134,15 +1135,15 @@ td.day.today .dnum{
     gap:4px;
   }
   td.day{
-    min-height:100px;
-    padding:10px;
+    height:130px;
+    padding:8px;
   }
-  .dnum{font-size:1.4rem}
-  .dtoday-badge{font-size:.5rem;padding:2px 5px;margin-left:4px}
-  .dstats{gap:4px}
-  .dstat{font-size:.6rem;padding:2px 5px}
-  .dwork{font-size:.6rem;padding:3px 6px}
-  .dacts-toggle{font-size:.55rem}
+  .dnum{font-size:1.3rem}
+  .dtoday-badge{font-size:.45rem;padding:2px 4px}
+  .dstats{gap:3px}
+  .dstat{font-size:.5rem;padding:2px 4px}
+  .dwork{font-size:.5rem;padding:2px 5px}
+  .dacts-toggle{font-size:.5rem;padding:2px 5px}
   .dacts-details{
     position:fixed;
     bottom:auto;
@@ -1158,7 +1159,7 @@ td.day.today .dnum{
   }
   .dacts-details::after{display:none}
   td.day.empty{display:none}
-  .dlink a{min-height:40px}
+  .dlink a{min-height:32px;padding:4px 8px}
 }
 
 /* Reduce motion */
