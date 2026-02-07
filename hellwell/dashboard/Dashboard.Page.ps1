@@ -40,9 +40,14 @@ function New-PageHtml([string]$ym) {
     $weekdayName = $weekdayNames[$weekdayIdx]
     $ws = if ($daily.ContainsKey($dk)) { $daily[$dk] } else { @{work=0;sleep=0;clope=0} }
     $da = Get-DailyAlcoholTotals $dk
+    # [WEB.md] Icônes pour chaque type de donnée
     $alc = ""
     if (($da.wine + $da.beer + $da.strong) -gt 0) {
-      $alc = "<div class='dmeta'>Alcool: Vin $($da.wine) | Bi&egrave;re $($da.beer) | Alcool fort $($da.strong)</div>"
+      $alcParts = @()
+      if ($da.wine -gt 0) { $alcParts += "&#127863; $($da.wine)" }
+      if ($da.beer -gt 0) { $alcParts += "&#127866; $($da.beer)" }
+      if ($da.strong -gt 0) { $alcParts += "&#127867; $($da.strong)" }
+      $alc = "<div class='dmeta'>" + ($alcParts -join " ") + "</div>"
     }
     $smk = ""
     $clopeCount = [int]($ws.clope ?? 0)
@@ -55,7 +60,7 @@ function New-PageHtml([string]$ym) {
       }
     }
     if ($clopeCount -gt 0) {
-      $smk = "<div class='dmeta'>Clope: $clopeCount</div>"
+      $smk = "<div class='dmeta'>&#128684; <b>$clopeCount</b></div>"
     }
     $actsHtml = ""
     foreach ($k in $actionKeys) {
@@ -71,19 +76,21 @@ function New-PageHtml([string]$ym) {
         $actsHtml += "<div class='dmeta'>${label}: $dur</div>"
       }
     }
-    # Build Work/Sleep display only if > 0
+    # [WEB.md] Work/Sleep avec icônes
     $workSleepHtml = ""
     $workMin = [int](ConvertTo-Minutes $ws.work)
     $sleepMin = [int](ConvertTo-Minutes $ws.sleep)
-    $wsParts = @()
-    if ($workMin -gt 0) { $wsParts += "Work: <b>${workMin}m</b>" }
-    if ($sleepMin -gt 0) { $wsParts += "Sleep: ${sleepMin}m" }
-    if ($wsParts.Count -gt 0) { $workSleepHtml = "<div class='dmeta'>" + ($wsParts -join "<br/>") + "</div>" }
+    if ($workMin -gt 0) {
+      $workSleepHtml += "<div class='dmeta'>&#128187; <b>${workMin}m</b></div>"
+    }
+    if ($sleepMin -gt 0) {
+      $workSleepHtml += "<div class='dmeta'>&#128164; ${sleepMin}m</div>"
+    }
     # [WEB.md §29,31] ARIA label pour accessibilité + data-weekday pour mobile
     $ariaLabel = "$day $($d.ToString('MMMM'))"
     # [WEB.md §35] Classe today pour jour actuel
     $todayClass = if ($dk -eq $todayCalKey) { " today" } else { "" }
-    $week += "<td class='day$todayClass' data-weekday='$weekdayName' aria-label='$ariaLabel'><div class='dnum' aria-hidden='true'>$($d.Day)</div>$workSleepHtml$alc$smk$actsHtml<div class='dlink'><a href='/notes?d=$dk' aria-label='Notes du $day'>Notes</a></div></td>"
+    $week += "<td class='day$todayClass' data-weekday='$weekdayName' aria-label='$ariaLabel'><div class='dnum' aria-hidden='true'>$($d.Day)</div>$workSleepHtml$alc$smk$actsHtml<div class='dlink'><a href='/notes?d=$dk' aria-label='Notes du $day'>&#128221; Notes</a></div></td>"
     $cells = $startWeekday + $day
     if (($cells % 7) -eq 0) {
       $rowsHtml += "<tr>$week</tr>"
@@ -610,27 +617,178 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 }
 .alert{border-color:rgba(255,107,107,.9); box-shadow:0 0 0 2px rgba(255,107,107,.12), var(--shadow)}
 .alertText{color:rgba(255,107,107,.95); font-weight:900}
-/* [reflow_wcag_1_4_10] responsive table */
-table{border-collapse:collapse;width:100%;table-layout:fixed}
-td,th{border:1px solid var(--border); padding:.5rem; vertical-align:top; width:14.285%}
-th{background:rgba(16,22,29,.6); text-align:left; color:var(--muted)}
-/* Calendar UX improvements */
-.day{min-height:5.75rem;height:auto;overflow:hidden;transition:background .2s,box-shadow .2s}
-.day:not(.empty):hover{background:rgba(53,217,154,.05);box-shadow:inset 0 0 0 1px rgba(53,217,154,.2)}
-.day.today{background:rgba(53,217,154,.08);border-color:rgba(53,217,154,.3)}
-@media(max-width:640px){
-  table,thead,tbody,tr,td,th{display:block;width:100%}
-  thead tr{position:absolute;top:-9999px;left:-9999px}
-  td.day{min-height:auto;height:auto;padding:.75rem;margin-bottom:.5rem;border-radius:8px}
-  td.day.empty{display:none}
+/* ════════════════════════════════════════════════════════════════════════════════
+   CALENDRIER PRO - Règles UX WEB.md appliquées
+   §36 Spacing 4px | §38 Typography | §39 Cards | §32-35 Colors HSB | §21 Touch 44px
+   ════════════════════════════════════════════════════════════════════════════════ */
+
+/* [§39] Table = grille de cards avec gap */
+table{
+  border-collapse:separate;
+  border-spacing:var(--sp-8);
+  width:100%;
+  table-layout:fixed;
 }
-.dnum{font-weight:900;font-size:1.1rem;color:var(--text)}
-.dmeta{margin-top:6px;font-size:.7rem;color:var(--muted);overflow-wrap:anywhere;line-height:1.4}
-.dlink{margin-top:8px;font-size:.75rem;overflow-wrap:anywhere}
-.dlink a{color:var(--accent);text-decoration:none;padding:4px 8px;border-radius:6px;background:rgba(53,217,154,.08);transition:background .2s}
-.dlink a:hover{background:rgba(53,217,154,.15)}
-.dlink a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.day.empty{background:transparent}
+
+/* [§38] Headers - text-xs uppercase, muted */
+th{
+  background:transparent;
+  border:none;
+  padding:var(--sp-8) var(--sp-4);
+  text-align:center;
+  color:var(--blue);
+  font-weight:600;
+  font-size:.75rem;
+  text-transform:uppercase;
+  letter-spacing:1px;
+}
+
+/* [§39] Day = Card: padding 16px, radius 8px, shadow */
+td.day{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:var(--sp-16);
+  vertical-align:top;
+  min-height:7rem;
+  position:relative;
+  box-shadow:0 1px 3px rgba(0,0,0,.12);
+  transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+
+/* [§34] Hover = brightness+saturate */
+td.day:not(.empty):hover{
+  transform:translateY(-2px);
+  box-shadow:0 4px 12px rgba(0,0,0,.2);
+  border-color:var(--blue);
+}
+
+/* [§23] Focus visible */
+td.day:focus-within{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+
+/* TODAY = accent prominent */
+td.day.today{
+  background:linear-gradient(135deg, rgba(53,217,154,.12) 0%, var(--panel) 100%);
+  border:2px solid var(--accent);
+  box-shadow:0 0 0 3px rgba(53,217,154,.15), 0 2px 8px rgba(0,0,0,.15);
+}
+td.day.today::before{
+  content:"📅 Aujourd'hui";
+  position:absolute;
+  top:var(--sp-8);
+  right:var(--sp-8);
+  font-size:.625rem;
+  font-weight:700;
+  color:var(--accent);
+  background:rgba(53,217,154,.15);
+  padding:2px 8px;
+  border-radius:4px;
+}
+
+/* Empty days */
+td.day.empty{
+  background:rgba(14,19,25,.3);
+  border:1px dashed rgba(255,255,255,.06);
+  box-shadow:none;
+}
+td.day.empty:hover{transform:none;box-shadow:none}
+
+/* [§38] Day number - text-2xl bold */
+.dnum{
+  font-size:1.5rem;
+  font-weight:800;
+  color:#fff;
+  line-height:1;
+  margin-bottom:var(--sp-8);
+}
+td.day.today .dnum{
+  color:var(--accent);
+  text-shadow:0 0 20px rgba(53,217,154,.4);
+}
+
+/* [§38] Metadata - text-xs avec icônes */
+.dmeta{
+  display:flex;
+  align-items:center;
+  gap:var(--sp-4);
+  margin-top:var(--sp-4);
+  font-size:.75rem;
+  color:var(--muted);
+  line-height:1.4;
+  padding:var(--sp-4) 0;
+  border-bottom:1px solid rgba(255,255,255,.04);
+}
+.dmeta:last-of-type{border-bottom:none}
+.dmeta b{
+  color:var(--text);
+  font-weight:600;
+}
+
+/* [§21,39] Link = button style, touch target 44px */
+.dlink{
+  margin-top:var(--sp-12);
+}
+.dlink a{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:var(--sp-4);
+  min-height:36px;
+  padding:var(--sp-8) var(--sp-12);
+  font-size:.75rem;
+  font-weight:600;
+  color:var(--accent);
+  text-decoration:none;
+  background:rgba(53,217,154,.1);
+  border:1px solid rgba(53,217,154,.25);
+  border-radius:6px;
+  transition:all .15s ease;
+}
+.dlink a:hover{
+  background:rgba(53,217,154,.18);
+  border-color:rgba(53,217,154,.4);
+  transform:translateY(-1px);
+}
+.dlink a:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+
+/* [§26] Mobile responsive */
+@media(max-width:640px){
+  table{border-spacing:var(--sp-4)}
+  table,thead,tbody,tr{display:block;width:100%}
+  thead{display:none}
+  tr{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:var(--sp-4);
+  }
+  td.day{
+    min-height:auto;
+    padding:var(--sp-12);
+  }
+  td.day.empty{display:none}
+  td.day.today::before{display:none}
+  .dnum{font-size:1.25rem}
+  .dlink a{min-height:40px;width:100%;justify-content:center}
+}
+
+/* Reduce motion */
+@media(prefers-reduced-motion:reduce){
+  td.day,.dlink a{transition:none}
+  td.day:not(.empty):hover{transform:none}
+}
+
+/* High contrast */
+@media(forced-colors:active){
+  td.day{border:2px solid CanvasText}
+  td.day.today{border:3px solid Highlight}
+  .dlink a{border:2px solid LinkText}
+}
 /* Section headers UX */
 .section-header{display:flex;align-items:center;gap:var(--sp-8);margin-bottom:var(--sp-16)}
 .section-header h2{margin:0;font-size:1.25rem;font-weight:800;color:var(--text);display:flex;align-items:center;gap:var(--sp-8)}
