@@ -364,45 +364,55 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
   display:inline-flex; align-items:center;
   transition:border-color .15s ease, background .15s ease;
 }
-.alcStat{
-  /* [WEB] padding 8px, radius 8px */
-  padding:8px 12px; border:1px solid var(--border); border-radius:8px;
-  background:rgba(16,22,29,.55); color:var(--muted); font-size:.875rem; letter-spacing:.2px;
-  box-shadow:0 0 0 1px rgba(255,255,255,.03) inset;
-  text-align:center;
+/* Alcool Units Row - flexbox avec chips glassmorphism */
+.alcUnitsRow{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  padding:4px 0 8px;
+  align-items:stretch;
 }
-.alcStat.unitStat{color:var(--muted)}
-.alcHeaderGrid{
-  display:grid; width:100%;
-  grid-template-columns:repeat(6, minmax(0,1fr));
-  column-gap:var(--week-gap);
-  align-items:baseline;
-  padding:0 8px;
-  box-sizing:border-box;
-  margin-bottom:4px;
+.alcUnitChip{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 14px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(16,22,29,.7);
+  backdrop-filter:blur(8px);
+  box-shadow:0 4px 12px rgba(0,0,0,.2), 0 0 0 1px rgba(255,255,255,.04) inset;
+  transition:all .2s ease;
 }
-.alcTitle{
-  grid-column:1 / 4;
-  margin:4px 0 6px;
+.alcUnitChip:hover{
+  transform:translateY(-2px);
+  box-shadow:0 6px 16px rgba(0,0,0,.25), 0 0 0 1px rgba(255,255,255,.08) inset;
 }
-.alcDate{
-  /* [WEB] padding 8px 12px, radius 8px */
-  grid-column:4;
-  font-weight:800; font-size:1rem; letter-spacing:.3px;
-  color:var(--text); line-height:1;
-  justify-self:center; text-align:center;
-  padding:8px 12px; border-radius:8px;
-  border:1px solid rgba(255,255,255,.14);
-  background:rgba(12,18,26,.7);
-  box-shadow:0 1px 3px rgba(0,0,0,.1);
-  display:inline-flex; align-items:center; justify-content:center;
+.alcUnitChip__icon{font-size:1.5rem; filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+.alcUnitChip__content{display:flex; flex-direction:column; gap:2px}
+.alcUnitChip__label{font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted)}
+.alcUnitChip__value{font-size:.875rem; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums}
+/* Chip color accents */
+.alcUnitChip--beer{border-color:rgba(255,193,7,.35); background:linear-gradient(135deg, rgba(255,193,7,.1), rgba(16,22,29,.7))}
+.alcUnitChip--beer .alcUnitChip__label{color:rgba(255,193,7,.9)}
+.alcUnitChip--wine{border-color:rgba(220,53,69,.35); background:linear-gradient(135deg, rgba(220,53,69,.1), rgba(16,22,29,.7))}
+.alcUnitChip--wine .alcUnitChip__label{color:rgba(220,100,120,.9)}
+.alcUnitChip--strong{border-color:rgba(255,152,0,.35); background:linear-gradient(135deg, rgba(255,152,0,.1), rgba(16,22,29,.7))}
+.alcUnitChip--strong .alcUnitChip__label{color:rgba(255,180,80,.9)}
+/* Date chip */
+.alcDateChip{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 16px;
+  margin-left:auto;
+  border-radius:12px;
+  border:1px solid rgba(107,188,255,.4);
+  background:linear-gradient(135deg, rgba(107,188,255,.15), rgba(16,22,29,.7));
+  box-shadow:0 4px 12px rgba(0,0,0,.2), 0 0 12px rgba(107,188,255,.1);
 }
-.alcStatsGrid{
-  display:grid; width:100%;
-  grid-template-columns:repeat(6, minmax(0,1fr));
-  column-gap:var(--week-gap); row-gap:8px;
-  padding:6px 8px; box-sizing:border-box; border:1px solid transparent;
-}
+.alcDateChip__icon{font-size:1.1rem}
+.alcDateChip__value{font-size:.9rem; font-weight:800; color:var(--text); letter-spacing:.3px}
 .alcCard{
   border-color:rgba(91,178,255,.4);
   box-shadow:0 16px 50px rgba(0,0,0,.5), 0 0 40px rgba(91,178,255,.15), 0 0 0 1px rgba(91,178,255,.12) inset;
@@ -412,22 +422,8 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
   background:radial-gradient(closest-side, rgba(91,178,255,.12), transparent 70%);
   opacity:.55;
 }
-.alcCard .alcTitle{
-  font-size:1.375rem; letter-spacing:.4px;
-}
-.alcCard .alcSectionLabel{
-  font-size:.75rem; color:rgba(255,255,255,.9);
-}
-.alcCard .alcStat{
-  background:rgba(12,18,26,.7);
-  border-color:rgba(255,255,255,.14);
-  box-shadow:0 0 0 1px rgba(255,255,255,.05) inset, 0 4px 10px rgba(0,0,0,.25);
-}
-.alcSectionLabel{
-  padding:0 8px 2px;
-  font-size:.8125rem; color:var(--text); letter-spacing:.3px;
-  font-weight:700; text-transform:uppercase;
-}
+/* Alcool badge accent */
+.alcBadge{background:linear-gradient(135deg, rgba(107,188,255,.25), rgba(107,188,255,.1)); border-color:rgba(107,188,255,.4); color:rgba(180,220,255,.95)}
 .alcDivider{
   /* [WEB] margin 8px */
   height:2px;
@@ -1906,24 +1902,41 @@ body{
   </div>
 
   <div class="card reveal d3 alcCard">
-    <div class="weekLine alcHeaderLine">
-      <div class="alcHeaderGrid">
-        <h2 class="alcTitle">Alcool : semaine en cours</h2>
-        <div class="alcDate">__TODAY__</div>
-      </div>
-      <div></div>
+    <div class="section-header">
+      <h2><span class="section-header-icon" aria-hidden="true">&#127866;</span>Alcool</h2>
+      <span class="section-header-badge alcBadge">Semaine en cours</span>
     </div>
-    <div class="alcSectionLabel">Unit&eacute;s de mesure</div>
-    <div class="weekLine alcStatsLine">
-      <div class="alcStatsGrid">
-        <div class="alcStat unitStat" style="grid-column:3">1 canette = __BEER_UNIT__ L</div>
-        <div class="alcStat unitStat" style="grid-column:4">1 verre = __WINE_UNIT__ L</div>
-        <div class="alcStat unitStat" style="grid-column:5">1 verre = __STRONG_UNIT__ L</div>
+
+    <div class="alcUnitsRow">
+      <div class="alcUnitChip alcUnitChip--beer">
+        <span class="alcUnitChip__icon" aria-hidden="true">&#127866;</span>
+        <div class="alcUnitChip__content">
+          <span class="alcUnitChip__label">Bi&egrave;re</span>
+          <span class="alcUnitChip__value">1 canette = __BEER_UNIT__ L</span>
+        </div>
       </div>
-      <div></div>
+      <div class="alcUnitChip alcUnitChip--wine">
+        <span class="alcUnitChip__icon" aria-hidden="true">&#127863;</span>
+        <div class="alcUnitChip__content">
+          <span class="alcUnitChip__label">Vin</span>
+          <span class="alcUnitChip__value">1 verre = __WINE_UNIT__ L</span>
+        </div>
+      </div>
+      <div class="alcUnitChip alcUnitChip--strong">
+        <span class="alcUnitChip__icon" aria-hidden="true">&#129380;</span>
+        <div class="alcUnitChip__content">
+          <span class="alcUnitChip__label">Fort</span>
+          <span class="alcUnitChip__value">1 verre = __STRONG_UNIT__ L</span>
+        </div>
+      </div>
+      <div class="alcDateChip">
+        <span class="alcDateChip__icon" aria-hidden="true">&#128197;</span>
+        <span class="alcDateChip__value">__TODAY__</span>
+      </div>
     </div>
+
     <div class="alcDivider"></div>
-    <div style="margin-top:10px">
+    <div style="margin-top:12px">
       __ALC_WEEKS__
     </div>
   </div>
