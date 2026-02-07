@@ -364,12 +364,12 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
   display:inline-flex; align-items:center;
   transition:border-color .15s ease, background .15s ease;
 }
-/* Alcool Units Row - flexbox avec chips glassmorphism */
-.alcUnitsRow{
-  display:flex;
-  flex-wrap:wrap;
-  gap:12px;
-  padding:4px 0 8px;
+/* Alcool Units Grid - aligné avec colonnes du tableau */
+.alcUnitsGrid{
+  display:grid;
+  grid-template-columns:repeat(5, 1fr) var(--delta-col);
+  gap:8px;
+  padding:4px 8px 8px;
   align-items:stretch;
 }
 .alcUnitChip{
@@ -389,6 +389,7 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
   box-shadow:0 6px 16px rgba(0,0,0,.25), 0 0 0 1px rgba(255,255,255,.08) inset;
 }
 .alcUnitChip__icon{font-size:1.5rem; filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+.alcUnitChip__svg{width:28px; height:28px; flex-shrink:0; filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
 .alcUnitChip__content{display:flex; flex-direction:column; gap:2px}
 .alcUnitChip__label{font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted)}
 .alcUnitChip__value{font-size:.875rem; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums}
@@ -1907,12 +1908,16 @@ body{
       <span class="section-header-badge alcBadge">Semaine en cours</span>
     </div>
 
-    <div class="alcUnitsRow">
+    <div class="alcUnitsGrid">
+      <div class="alcDateChip" style="grid-column:1/3">
+        <span class="alcDateChip__icon" aria-hidden="true">&#128197;</span>
+        <span class="alcDateChip__value">__TODAY__</span>
+      </div>
       <div class="alcUnitChip alcUnitChip--beer">
         <span class="alcUnitChip__icon" aria-hidden="true">&#127866;</span>
         <div class="alcUnitChip__content">
           <span class="alcUnitChip__label">Bi&egrave;re</span>
-          <span class="alcUnitChip__value">1 canette = __BEER_UNIT__ L</span>
+          <span class="alcUnitChip__value">1 can. = __BEER_UNIT__ L</span>
         </div>
       </div>
       <div class="alcUnitChip alcUnitChip--wine">
@@ -1923,15 +1928,11 @@ body{
         </div>
       </div>
       <div class="alcUnitChip alcUnitChip--strong">
-        <span class="alcUnitChip__icon" aria-hidden="true">&#129380;</span>
+        <svg class="alcUnitChip__svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 4 L4 20 Q4 22 6 22 L18 22 Q20 22 20 20 L20 4 Z" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/><rect x="4" y="20" width="16" height="2" rx="0.5" fill="rgba(255,255,255,.15)"/><path d="M5 14 L5 20 Q5 21 6 21 L18 21 Q19 21 19 20 L19 14 Z" fill="#c17f24"/><rect x="5.5" y="6" width="7" height="9" rx="1.5" fill="#a8e0f0"/><rect x="11" y="8" width="7" height="8" rx="1.5" fill="#8ed0e8"/><path d="M6 7 L11.5 7 L11 12 L6.5 12 Z" fill="rgba(255,255,255,.55)"/><path d="M11.5 9 L17 9 L16.5 14 L12 14 Z" fill="rgba(255,255,255,.45)"/></svg>
         <div class="alcUnitChip__content">
           <span class="alcUnitChip__label">Fort</span>
           <span class="alcUnitChip__value">1 verre = __STRONG_UNIT__ L</span>
         </div>
-      </div>
-      <div class="alcDateChip">
-        <span class="alcDateChip__icon" aria-hidden="true">&#128197;</span>
-        <span class="alcDateChip__value">__TODAY__</span>
       </div>
     </div>
 
