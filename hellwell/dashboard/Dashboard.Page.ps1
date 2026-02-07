@@ -117,7 +117,8 @@ function New-PageHtml([string]$ym) {
     $weeksHtml = "<div class='muted'>Aucune entree.</div>"
   } else {
     $weeksHtml = "<div class='weeksWrap'><div class='weeksTable'>"
-    $weeksHtml += "<div class='weekLine headLine'><div class='weekRow head'><div class='weekCell'>Semaine</div><div class='weekCell'>P&eacute;riode</div><div class='weekCell num'>Vin</div><div class='weekCell num'>Bi&egrave;re</div><div class='weekCell num'>Alcool fort</div><div class='weekCell num doseHead'><span class='doseBox'>Dose d'alcool</span></div></div><div class='weekDelta headDelta'></div></div>"
+    $whiskySvg = "<svg class='whisky-icon' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><rect x='5' y='6' width='14' height='16' rx='2' fill='none' stroke='currentColor' stroke-width='1.5'/><path d='M5 14 L19 14 L19 20 Q19 22 17 22 L7 22 Q5 22 5 20 Z' fill='url(%23wg)'/><rect x='7' y='15' width='4' height='3' rx='1' fill='%2377ccff' opacity='.7'/><rect x='12' y='16' width='3' height='2' rx='.5' fill='%2399ddff' opacity='.6'/><defs><linearGradient id='wg' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='%23d4a04a'/><stop offset='100%' stop-color='%23a67c32'/></linearGradient></defs></svg>"
+    $weeksHtml += "<div class='weekLine headLine'><div class='weekRow head'><div class='weekCell'>Semaine</div><div class='weekCell'>P&eacute;riode</div><div class='weekCell num'><span class='alc-icon'>&#127863;</span>Vin</div><div class='weekCell num'><span class='alc-icon'>&#127866;</span>Bi&egrave;re</div><div class='weekCell num'>$whiskySvg Fort</div><div class='weekCell num doseHead'><span class='doseBox'>Dose pure</span></div></div><div class='weekDelta headDelta'></div></div>"
     $i = 0
     foreach ($w in $weeksTail) {
       $range = if ($w.WeekRange) { $w.WeekRange } else { "-" }
@@ -126,7 +127,12 @@ function New-PageHtml([string]$ym) {
       $deltaLabel = "—"
       $deltaClass = "deltaFlat"
       if ($null -ne $deltaVal) {
-        if ($deltaVal -gt 0) { $deltaLabel = "+" + $deltaVal.ToString("0.###"); $deltaClass = "deltaUp" }
+        if ($deltaVal -gt 0) {
+          $deltaLabel = "+" + $deltaVal.ToString("0.###")
+          if ($deltaVal -lt 0.5) { $deltaClass = "deltaUp delta-low" }
+          elseif ($deltaVal -lt 1.5) { $deltaClass = "deltaUp delta-mid" }
+          else { $deltaClass = "deltaUp delta-high" }
+        }
         elseif ($deltaVal -lt 0) { $deltaLabel = $deltaVal.ToString("0.###"); $deltaClass = "deltaDown" }
         else { $deltaLabel = "0"; $deltaClass = "deltaFlat" }
       }
@@ -770,6 +776,26 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
   background:rgba(255,77,77,.12);
   box-shadow:0 0 10px rgba(255,77,77,.22);
 }
+.weekDelta.deltaUp.delta-low{
+  color:rgba(255,210,60,.95);
+  border-color:rgba(255,210,60,.5);
+  background:rgba(255,210,60,.12);
+  box-shadow:0 0 10px rgba(255,210,60,.2);
+}
+.weekDelta.deltaUp.delta-mid{
+  color:rgba(255,150,50,.95);
+  border-color:rgba(255,150,50,.5);
+  background:rgba(255,150,50,.12);
+  box-shadow:0 0 10px rgba(255,150,50,.2);
+}
+.weekDelta.deltaUp.delta-high{
+  color:rgba(255,77,77,.95);
+  border-color:rgba(255,77,77,.6);
+  background:rgba(255,77,77,.15);
+  box-shadow:0 0 15px rgba(255,77,77,.3);
+}
+.whisky-icon{display:inline-block;width:18px;height:18px;vertical-align:middle;margin-right:2px}
+.alc-icon{font-size:1rem;margin-right:2px}
 .weekDelta.deltaDown{
   color:rgba(60,255,122,.95);
   border-color:rgba(60,255,122,.55);
