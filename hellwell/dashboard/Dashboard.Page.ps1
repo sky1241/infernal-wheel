@@ -40,16 +40,35 @@ function New-PageHtml([string]$ym) {
     $weekdayName = $weekdayNames[$weekdayIdx]
     $ws = if ($daily.ContainsKey($dk)) { $daily[$dk] } else { @{work=0;sleep=0;clope=0} }
     $da = Get-DailyAlcoholTotals $dk
-    # [WEB.md] Icônes pour chaque type de donnée
-    $alc = ""
+
+    # === NOUVELLE STRUCTURE COMPACTE ===
+    $workMin = [int](ConvertTo-Minutes $ws.work)
+    $sleepMin = [int](ConvertTo-Minutes $ws.sleep)
+
+    # Header: Numéro + badge travail
+    $workBadge = ""
+    if ($workMin -gt 0) {
+      $workH = [Math]::Floor($workMin / 60)
+      $workM = $workMin % 60
+      $workDisplay = if ($workH -gt 0) { "${workH}h" + $(if ($workM -gt 0) { "${workM}m" } else { "" }) } else { "${workMin}m" }
+      $workBadge = "<span class='dwork'>&#128187; $workDisplay</span>"
+    }
+
+    # Stats row: Sleep + Alcool + Clopes (badges compacts)
+    $statsHtml = ""
+    if ($sleepMin -gt 0) {
+      $sleepH = [Math]::Floor($sleepMin / 60)
+      $sleepM = $sleepMin % 60
+      $sleepDisplay = if ($sleepH -gt 0) { "${sleepH}h" + $(if ($sleepM -gt 0) { "${sleepM}" } else { "" }) } else { "${sleepMin}m" }
+      $statsHtml += "<span class='dstat dstat--sleep'>&#128164; $sleepDisplay</span>"
+    }
     if (($da.wine + $da.beer + $da.strong) -gt 0) {
       $alcParts = @()
-      if ($da.wine -gt 0) { $alcParts += "&#127863; $($da.wine)" }
-      if ($da.beer -gt 0) { $alcParts += "&#127866; $($da.beer)" }
-      if ($da.strong -gt 0) { $alcParts += "&#127867; $($da.strong)" }
-      $alc = "<div class='dmeta'>" + ($alcParts -join " ") + "</div>"
+      if ($da.wine -gt 0) { $alcParts += "&#127863;$($da.wine)" }
+      if ($da.beer -gt 0) { $alcParts += "&#127866;$($da.beer)" }
+      if ($da.strong -gt 0) { $alcParts += "&#127867;$($da.strong)" }
+      $statsHtml += "<span class='dstat dstat--alc'>" + ($alcParts -join " ") + "</span>"
     }
-    $smk = ""
     $clopeCount = [int]($ws.clope ?? 0)
     if ($dk -eq $todayKey) {
       if ($state -and $null -ne $state.DayClopeCount) {
@@ -60,9 +79,12 @@ function New-PageHtml([string]$ym) {
       }
     }
     if ($clopeCount -gt 0) {
-      $smk = "<div class='dmeta'>&#128684; <b>$clopeCount</b></div>"
+      $statsHtml += "<span class='dstat dstat--smoke'>&#128684;$clopeCount</span>"
     }
-    $actsHtml = ""
+
+    # Actions: Compteur + tooltip avec détails
+    $actsCount = 0
+    $actsDetails = ""
     foreach ($k in $actionKeys) {
       $label = if ($labelMap.ContainsKey($k)) { $labelMap[$k] } else { $k }
       $durSec = 0
@@ -72,25 +94,28 @@ function New-PageHtml([string]$ym) {
         $durSec = [int]$dailyActions[$dk][$k]
       }
       if ($durSec -gt 0) {
+        $actsCount++
         $dur = Format-DurationShort $durSec
-        $actsHtml += "<div class='dmeta'>${label}: $dur</div>"
+        $actsDetails += "<div class='dact-item'><span class='dact-name'>$label</span><span class='dact-dur'>$dur</span></div>"
       }
     }
-    # [WEB.md] Work/Sleep avec icônes
-    $workSleepHtml = ""
-    $workMin = [int](ConvertTo-Minutes $ws.work)
-    $sleepMin = [int](ConvertTo-Minutes $ws.sleep)
-    if ($workMin -gt 0) {
-      $workSleepHtml += "<div class='dmeta'>&#128187; <b>${workMin}m</b></div>"
+    $actsHtml = ""
+    if ($actsCount -gt 0) {
+      $actsHtml = "<div class='dacts'><span class='dacts-toggle'>&#128203; $actsCount activit" + $(if ($actsCount -gt 1) { "és" } else { "é" }) + "</span><div class='dacts-details'>$actsDetails</div></div>"
     }
-    if ($sleepMin -gt 0) {
-      $workSleepHtml += "<div class='dmeta'>&#128164; ${sleepMin}m</div>"
-    }
-    # [WEB.md §29,31] ARIA label pour accessibilité + data-weekday pour mobile
+
+    # ARIA + today class
     $ariaLabel = "$day $($d.ToString('MMMM'))"
-    # [WEB.md §35] Classe today pour jour actuel
     $todayClass = if ($dk -eq $todayCalKey) { " today" } else { "" }
-    $week += "<td class='day$todayClass' data-weekday='$weekdayName' aria-label='$ariaLabel'><div class='dnum' aria-hidden='true'>$($d.Day)</div>$workSleepHtml$alc$smk$actsHtml<div class='dlink'><a href='/notes?d=$dk' aria-label='Notes du $day'>&#128221; Notes</a></div></td>"
+
+    # === BUILD CELL ===
+    $cellHtml = "<td class='day$todayClass' data-weekday='$weekdayName' aria-label='$ariaLabel'>"
+    $cellHtml += "<div class='dhead'><span class='dnum'>$($d.Day)</span>$workBadge</div>"
+    if ($statsHtml) { $cellHtml += "<div class='dstats'>$statsHtml</div>" }
+    $cellHtml += $actsHtml
+    $cellHtml += "<div class='dlink'><a href='/notes?d=$dk' aria-label='Notes du $day'>&#128221; Notes</a></div>"
+    $cellHtml += "</td>"
+    $week += $cellHtml
     $cells = $startWeekday + $day
     if (($cells % 7) -eq 0) {
       $rowsHtml += "<tr>$week</tr>"
@@ -817,163 +842,314 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .alert{border-color:rgba(255,107,107,.9); box-shadow:0 0 0 2px rgba(255,107,107,.12), var(--shadow)}
 .alertText{color:rgba(255,107,107,.95); font-weight:900}
 /* ════════════════════════════════════════════════════════════════════════════════
-   CALENDRIER PRO - Règles UX WEB.md appliquées
-   §36 Spacing 4px | §38 Typography | §39 Cards | §32-35 Colors HSB | §21 Touch 44px
+   CALENDRIER PRO V2 - Refonte UX complète
+   - Vue condensée par défaut
+   - Progressive disclosure (détails au hover)
+   - Mini-badges colorés compacts
+   - Touch targets 48px
    ════════════════════════════════════════════════════════════════════════════════ */
 
-/* [§39] Table = grille de cards avec gap */
+/* Table = grille moderne */
 table{
   border-collapse:separate;
-  border-spacing:var(--sp-8);
+  border-spacing:6px;
   width:100%;
   table-layout:fixed;
 }
 
-/* [§38] Headers - text-xs uppercase, muted */
+/* Headers compacts */
 th{
   background:transparent;
   border:none;
-  padding:var(--sp-8) var(--sp-4);
+  padding:10px 4px;
   text-align:center;
   color:var(--blue);
-  font-weight:600;
-  font-size:.75rem;
+  font-weight:700;
+  font-size:.7rem;
   text-transform:uppercase;
-  letter-spacing:1px;
+  letter-spacing:.5px;
 }
 
-/* [§39] Day = Card: padding 16px, radius 8px, shadow */
+/* Day cell = Card compacte et élégante */
 td.day{
-  background:var(--panel);
-  border:1px solid var(--border);
-  border-radius:var(--r);
-  padding:var(--sp-16);
+  background:linear-gradient(145deg, rgba(22,28,36,.95), rgba(16,22,29,.85));
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:12px;
+  padding:12px;
   vertical-align:top;
-  min-height:7rem;
+  min-height:120px;
   position:relative;
-  box-shadow:0 1px 3px rgba(0,0,0,.12);
-  transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  box-shadow:0 2px 8px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.03);
+  transition:all .2s cubic-bezier(.4,0,.2,1);
+  overflow:hidden;
+}
+td.day::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:12px;
+  background:linear-gradient(135deg, rgba(91,178,255,.03) 0%, transparent 60%);
+  pointer-events:none;
 }
 
-/* [§34] Hover = brightness+saturate */
+/* Hover = élévation + glow subtil */
 td.day:not(.empty):hover{
-  transform:translateY(-2px);
-  box-shadow:0 4px 12px rgba(0,0,0,.2);
-  border-color:var(--blue);
+  transform:translateY(-3px);
+  box-shadow:0 8px 24px rgba(0,0,0,.25), 0 0 0 1px rgba(91,178,255,.2);
+  border-color:rgba(91,178,255,.3);
 }
 
-/* [§23] Focus visible */
+/* Focus visible */
 td.day:focus-within{
   outline:2px solid var(--accent);
   outline-offset:2px;
 }
 
-/* TODAY = accent prominent */
+/* TODAY = accent fort avec badge */
 td.day.today{
-  background:linear-gradient(135deg, rgba(53,217,154,.12) 0%, var(--panel) 100%);
-  border:2px solid var(--accent);
-  box-shadow:0 0 0 3px rgba(53,217,154,.15), 0 2px 8px rgba(0,0,0,.15);
+  background:linear-gradient(145deg, rgba(53,217,154,.08), rgba(16,22,29,.9));
+  border:1.5px solid rgba(53,217,154,.4);
+  box-shadow:0 0 20px rgba(53,217,154,.1), 0 4px 12px rgba(0,0,0,.2);
 }
 td.day.today::before{
-  content:"📅 Aujourd'hui";
+  content:"Aujourd'hui";
   position:absolute;
-  top:var(--sp-8);
-  right:var(--sp-8);
-  font-size:.625rem;
-  font-weight:700;
+  top:8px;
+  right:8px;
+  font-size:.6rem;
+  font-weight:800;
   color:var(--accent);
-  background:rgba(53,217,154,.15);
-  padding:2px 8px;
-  border-radius:4px;
+  background:rgba(53,217,154,.12);
+  padding:3px 8px;
+  border-radius:6px;
+  letter-spacing:.3px;
+  text-transform:uppercase;
 }
 
 /* Empty days */
 td.day.empty{
-  background:rgba(14,19,25,.3);
-  border:1px dashed rgba(255,255,255,.06);
+  background:rgba(14,19,25,.25);
+  border:1px dashed rgba(255,255,255,.04);
   box-shadow:none;
+  min-height:80px;
 }
 td.day.empty:hover{transform:none;box-shadow:none}
 
-/* [§38] Day number - text-2xl bold */
+/* ═══ HEADER: Numéro + Travail ═══ */
+.dhead{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  margin-bottom:8px;
+}
 .dnum{
-  font-size:1.5rem;
-  font-weight:800;
+  font-size:1.75rem;
+  font-weight:900;
   color:#fff;
   line-height:1;
-  margin-bottom:var(--sp-8);
+  letter-spacing:-1px;
 }
 td.day.today .dnum{
   color:var(--accent);
-  text-shadow:0 0 20px rgba(53,217,154,.4);
+  text-shadow:0 0 25px rgba(53,217,154,.5);
 }
-
-/* [§38] Metadata - text-xs avec icônes */
-.dmeta{
+.dwork{
   display:flex;
   align-items:center;
-  gap:var(--sp-4);
-  margin-top:var(--sp-4);
-  font-size:.75rem;
-  color:var(--muted);
-  line-height:1.4;
-  padding:var(--sp-4) 0;
-  border-bottom:1px solid rgba(255,255,255,.04);
+  gap:4px;
+  font-size:.7rem;
+  font-weight:700;
+  color:rgba(255,79,216,.9);
+  background:rgba(255,79,216,.12);
+  padding:4px 8px;
+  border-radius:6px;
+  border:1px solid rgba(255,79,216,.2);
 }
-.dmeta:last-of-type{border-bottom:none}
-.dmeta b{
-  color:var(--text);
-  font-weight:600;
-}
+.dwork:empty{display:none}
 
-/* [§21,39] Link = button style, touch target 44px */
-.dlink{
-  margin-top:var(--sp-12);
+/* ═══ STATS ROW: Sleep + Alc + Smoke ═══ */
+.dstats{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-bottom:8px;
+  min-height:24px;
 }
-.dlink a{
+.dstat{
   display:inline-flex;
   align-items:center;
-  justify-content:center;
-  gap:var(--sp-4);
-  min-height:36px;
-  padding:var(--sp-8) var(--sp-12);
-  font-size:.75rem;
+  gap:3px;
+  font-size:.65rem;
   font-weight:600;
-  color:var(--accent);
-  text-decoration:none;
-  background:rgba(53,217,154,.1);
-  border:1px solid rgba(53,217,154,.25);
-  border-radius:6px;
+  padding:3px 7px;
+  border-radius:5px;
+  white-space:nowrap;
+}
+.dstat--sleep{
+  color:rgba(102,126,234,.95);
+  background:rgba(102,126,234,.1);
+  border:1px solid rgba(102,126,234,.15);
+}
+.dstat--alc{
+  color:rgba(246,183,60,.95);
+  background:rgba(246,183,60,.1);
+  border:1px solid rgba(246,183,60,.2);
+}
+.dstat--smoke{
+  color:rgba(255,77,77,.95);
+  background:rgba(255,77,77,.1);
+  border:1px solid rgba(255,77,77,.2);
+}
+
+/* ═══ ACTIONS: Condensé avec tooltip ═══ */
+.dacts{
+  position:relative;
+  margin-bottom:8px;
+}
+.dacts-toggle{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  font-size:.6rem;
+  font-weight:600;
+  color:var(--muted);
+  background:rgba(255,255,255,.04);
+  padding:4px 8px;
+  border-radius:5px;
+  cursor:default;
   transition:all .15s ease;
 }
+.dacts-toggle:hover{
+  background:rgba(255,255,255,.08);
+  color:var(--text);
+}
+/* Tooltip des actions au hover */
+.dacts-details{
+  position:absolute;
+  bottom:calc(100% + 6px);
+  left:0;
+  right:0;
+  background:rgba(16,22,29,.97);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:8px;
+  padding:10px;
+  font-size:.65rem;
+  color:var(--text);
+  line-height:1.5;
+  box-shadow:0 8px 24px rgba(0,0,0,.4);
+  opacity:0;
+  visibility:hidden;
+  transform:translateY(4px);
+  transition:all .2s ease;
+  z-index:100;
+  max-width:200px;
+  pointer-events:none;
+}
+.dacts:hover .dacts-details{
+  opacity:1;
+  visibility:visible;
+  transform:translateY(0);
+  pointer-events:auto;
+}
+.dacts-details::after{
+  content:"";
+  position:absolute;
+  bottom:-6px;
+  left:16px;
+  width:10px;
+  height:10px;
+  background:rgba(16,22,29,.97);
+  border-right:1px solid rgba(255,255,255,.12);
+  border-bottom:1px solid rgba(255,255,255,.12);
+  transform:rotate(45deg);
+}
+.dact-item{
+  display:flex;
+  justify-content:space-between;
+  padding:3px 0;
+  border-bottom:1px solid rgba(255,255,255,.05);
+}
+.dact-item:last-child{border-bottom:none}
+.dact-name{color:var(--muted)}
+.dact-dur{color:var(--accent);font-weight:600}
+
+/* Legacy dmeta - fallback compact */
+.dmeta{
+  display:none; /* Caché par défaut dans la nouvelle vue */
+}
+
+/* ═══ NOTES LINK: CTA proéminent ═══ */
+.dlink{
+  margin-top:auto;
+  padding-top:8px;
+}
+.dlink a{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  min-height:36px;
+  padding:8px 12px;
+  font-size:.7rem;
+  font-weight:700;
+  color:var(--accent);
+  text-decoration:none;
+  background:rgba(53,217,154,.08);
+  border:1px solid rgba(53,217,154,.2);
+  border-radius:8px;
+  transition:all .15s ease;
+  width:100%;
+}
 .dlink a:hover{
-  background:rgba(53,217,154,.18);
-  border-color:rgba(53,217,154,.4);
+  background:rgba(53,217,154,.15);
+  border-color:rgba(53,217,154,.35);
   transform:translateY(-1px);
+  box-shadow:0 4px 12px rgba(53,217,154,.15);
 }
 .dlink a:focus-visible{
   outline:2px solid var(--accent);
   outline-offset:2px;
 }
 
-/* [§26] Mobile responsive */
+/* ═══ MOBILE RESPONSIVE ═══ */
 @media(max-width:640px){
-  table{border-spacing:var(--sp-4)}
+  table{border-spacing:4px}
   table,thead,tbody,tr{display:block;width:100%}
   thead{display:none}
   tr{
     display:grid;
     grid-template-columns:1fr 1fr;
-    gap:var(--sp-4);
+    gap:4px;
   }
   td.day{
-    min-height:auto;
-    padding:var(--sp-12);
+    min-height:100px;
+    padding:10px;
   }
+  td.day.today::before{
+    font-size:.55rem;
+    padding:2px 6px;
+  }
+  .dnum{font-size:1.4rem}
+  .dstats{gap:4px}
+  .dstat{font-size:.6rem;padding:2px 5px}
+  .dwork{font-size:.6rem;padding:3px 6px}
+  .dacts-toggle{font-size:.55rem}
+  .dacts-details{
+    position:fixed;
+    bottom:auto;
+    top:50%;
+    left:50%;
+    right:auto;
+    transform:translate(-50%,-50%) scale(.95);
+    width:calc(100vw - 40px);
+    max-width:280px;
+  }
+  .dacts:hover .dacts-details{
+    transform:translate(-50%,-50%) scale(1);
+  }
+  .dacts-details::after{display:none}
   td.day.empty{display:none}
-  td.day.today::before{display:none}
-  .dnum{font-size:1.25rem}
-  .dlink a{min-height:40px;width:100%;justify-content:center}
+  .dlink a{min-height:40px}
 }
 
 /* Reduce motion */
