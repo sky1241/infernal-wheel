@@ -693,7 +693,25 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 /* [WEB] font .875rem */
 .firstLabel{color:var(--muted); font-weight:700; letter-spacing:.2px; font-size:.875rem}
 .firstValue{color:var(--text)}
-.agendaBox{max-height:360px; overflow:auto}
+.agendaBox{max-height:400px; overflow:auto}
+.agenda-header{display:flex;justify-content:space-between;align-items:center;padding-bottom:var(--sp-8);border-bottom:1px solid var(--border);margin-bottom:var(--sp-12)}
+.agenda-title{display:flex;align-items:center;gap:var(--sp-8);font-weight:700;font-size:1rem;color:var(--text)}
+.agenda-clock{font-size:.875rem;color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600}
+.agenda-legend{display:flex;flex-wrap:wrap;gap:var(--sp-12);padding:var(--sp-8) 0;border-bottom:1px solid var(--border);margin-bottom:var(--sp-8)}
+.agenda-legend-item{display:flex;align-items:center;gap:var(--sp-4);font-size:.75rem;color:var(--muted)}
+.agenda-legend-dot{width:10px;height:10px;border-radius:50%}
+.agenda-legend-dot.work{background:linear-gradient(135deg,#ff4fd8,#ff4fd8aa)}
+.agenda-legend-dot.sleep{background:linear-gradient(135deg,#667eea,#667eeaaa)}
+.agenda-legend-dot.break{background:linear-gradient(135deg,#f6b73c,#f6b73caa)}
+.agenda-legend-dot.action{background:linear-gradient(135deg,#ff5d8f,#ff5d8faa)}
+.agenda-toggle{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-8) var(--sp-12);margin-top:var(--sp-8);background:rgba(16,22,29,.4);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;transition:background .2s}
+.agenda-toggle:hover{background:rgba(16,22,29,.6)}
+.agenda-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.agenda-toggle-label{font-size:.875rem;color:var(--muted);font-weight:600}
+.agenda-toggle-arrow{font-size:.75rem;color:var(--muted);transition:transform .2s}
+.agenda-toggle[aria-expanded="true"] .agenda-toggle-arrow{transform:rotate(180deg)}
+.agenda-details{max-height:0;overflow:hidden;transition:max-height .3s ease}
+.agenda-details.open{max-height:500px}
 /* [WEB] gap 8px */
 .actionList{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:8px; margin-top:8px}
 .chip{
@@ -1167,12 +1185,31 @@ body{
           <small id="actionNoteStatus" class="muted" role="status" aria-live="polite">-</small>
         </div>
       </div>
-    <div class="box agendaBox">
-      <div><b>Agenda du jour</b><span class="help" data-tip="Timeline des actions du jour.">?</span></div>
+    <div class="box agendaBox" role="region" aria-label="Agenda du jour">
+      <div class="agenda-header">
+        <div class="agenda-title">
+          <span aria-hidden="true">&#128337;</span>
+          <span>Agenda du jour</span>
+          <span class="help" data-tip="Timeline visuelle de votre journ&eacute;e.">?</span>
+        </div>
+        <div class="agenda-clock" id="agendaClock" aria-live="off">--:--</div>
+      </div>
       <div id="agendaTimeline">__TIMELINE__</div>
-      <div id="actionsToday">__ACTIONS_TODAY__</div>
-      <div id="drinkToday"></div>
-      <div id="smokeToday"></div>
+      <div class="agenda-legend" aria-label="L&eacute;gende">
+        <div class="agenda-legend-item"><span class="agenda-legend-dot work"></span><span>Work</span></div>
+        <div class="agenda-legend-item"><span class="agenda-legend-dot sleep"></span><span>Sleep</span></div>
+        <div class="agenda-legend-item"><span class="agenda-legend-dot break"></span><span>Pause</span></div>
+        <div class="agenda-legend-item"><span class="agenda-legend-dot action"></span><span>Actions</span></div>
+      </div>
+      <button class="agenda-toggle" aria-expanded="false" aria-controls="agendaDetails" id="agendaToggle">
+        <span class="agenda-toggle-label" id="agendaCount">D&eacute;tails</span>
+        <span class="agenda-toggle-arrow" aria-hidden="true">&#9660;</span>
+      </button>
+      <div class="agenda-details" id="agendaDetails">
+        <div id="actionsToday">__ACTIONS_TODAY__</div>
+        <div id="drinkToday"></div>
+        <div id="smokeToday"></div>
+      </div>
     </div>
     </div>
   </div>
@@ -2140,6 +2177,26 @@ async function refreshLive(){
 
   } catch(e){ notifyNetError(); }
 }
+
+// Agenda: clock + toggle
+function updateAgendaClock(){
+  const el = document.getElementById("agendaClock");
+  if(el){ const n = new Date(); el.textContent = n.getHours().toString().padStart(2,"0") + ":" + n.getMinutes().toString().padStart(2,"0"); }
+}
+function initAgendaToggle(){
+  const btn = document.getElementById("agendaToggle");
+  const box = document.getElementById("agendaDetails");
+  if(btn && box){
+    btn.addEventListener("click", ()=>{
+      const exp = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", (!exp).toString());
+      box.classList.toggle("open", !exp);
+    });
+  }
+}
+updateAgendaClock();
+initAgendaToggle();
+setInterval(updateAgendaClock, 1000);
 
 setInterval(refreshLive, 1000);
 refreshLive();
