@@ -901,21 +901,253 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 /* [WEB] margin 8px, radius 8px, padding 12px */
 .miniNoteWrap{margin-top:8px; border:1px solid var(--border); border-radius:8px; background:rgba(16,22,29,.6)}
 .miniNote{width:100%; min-height:72px; resize:vertical; background:transparent; border:none; color:var(--text); padding:12px; outline:none; font-family:inherit}
-.chartWrap{height:240px; margin-top:8px}
-#monthChart{width:100%; height:100%; display:block}
-/* [WEB] gap 16px, margin 8px */
-.legend{display:flex; gap:16px; flex-wrap:wrap; font-size:.875rem; color:var(--muted); margin-top:8px}
-.legendDot{width:8px; height:8px; border-radius:999px; display:inline-block; margin-right:8px}
-.kpiGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:var(--sp-12);margin-top:var(--sp-16)}
-.kpiTile{border:1px solid var(--border);border-radius:var(--r);padding:var(--sp-16);background:linear-gradient(135deg,rgba(16,22,29,.7),rgba(16,22,29,.5));transition:transform .2s,box-shadow .2s}
-.kpiTile:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.3)}
-.kpiLabel{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:var(--sp-4)}
-.kpiVal{font-size:1.5rem;font-weight:900;background:linear-gradient(135deg,#fff,rgba(255,255,255,.8));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.kpiDelta{font-size:.75rem;color:var(--muted);margin-top:var(--sp-4)}
-.kpiDelta.up{color:var(--danger)}
-.kpiDelta.down{color:var(--accent)}
-.notesBox{margin-top:8px; border:1px solid var(--border); border-radius:8px; padding:12px; background:rgba(16,22,29,.6)}
-.notesLine{font-size:.875rem; color:var(--muted); margin:4px 0}
+/* [UX_PRO] Chart wrapper - responsive height avec aspect ratio */
+.chartWrap{height:320px; margin-top:var(--sp-16); border-radius:var(--r); background:rgba(16,22,29,.4); padding:var(--sp-12); border:1px solid rgba(255,255,255,.04)}
+#monthChart{width:100%; height:100%; display:block; cursor:crosshair}
+
+/* [UX_PRO] Chart Tooltip - glassmorphism + animations */
+.chartTooltip{position:fixed;z-index:3000;min-width:240px;max-width:280px;padding:0;background:rgba(18,24,32,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.12);border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.05) inset;opacity:0;visibility:hidden;transform:translateY(8px) scale(0.96);transition:opacity .15s ease,transform .15s ease,visibility .15s ease;pointer-events:none;overflow:hidden}
+.chartTooltip.visible{opacity:1;visibility:visible;transform:translateY(0) scale(1)}
+.chartTooltip .ttHeader{padding:12px 16px;background:linear-gradient(135deg,rgba(107,188,255,.15),rgba(107,188,255,.05));border-bottom:1px solid rgba(255,255,255,.08);font-weight:800;font-size:.9375rem;color:#fff}
+.chartTooltip .ttGrid{padding:8px 12px}
+.chartTooltip .ttRow{display:grid;grid-template-columns:24px 1fr auto auto;gap:8px;align-items:center;padding:6px 4px;border-radius:6px;transition:background .1s ease}
+.chartTooltip .ttRow:hover{background:rgba(255,255,255,.04)}
+.chartTooltip .ttRow.addiction{background:rgba(255,107,138,.06)}
+.chartTooltip .ttIcon{font-size:1rem;text-align:center}
+.chartTooltip .ttLabel{font-size:.8125rem;color:var(--muted)}
+.chartTooltip .ttVal{font-size:.875rem;font-weight:700;color:#fff;text-align:right}
+.chartTooltip .ttTime{font-size:.75rem;color:var(--accent);font-variant-numeric:tabular-nums;text-align:right}
+.chartTooltip .ttDivider{height:1px;background:rgba(255,255,255,.08);margin:4px 12px}
+
+/* [WEB.md §21,22] Legend - touch targets 44px WCAG 2.5.8, contraste */
+.legend{
+  display:flex;
+  gap:var(--sp-12);
+  flex-wrap:wrap;
+  font-size:.875rem;
+  /* [WEB.md §22] Meilleur contraste */
+  color:#c5cdd5;
+  margin-top:var(--sp-16);
+  padding:var(--sp-16);
+  background:rgba(16,22,29,.4);
+  border-radius:var(--r);
+  border:1px solid rgba(255,255,255,.06);
+}
+/* [WEB.md §21] Touch target min 44px */
+.legend>span{
+  display:inline-flex;
+  align-items:center;
+  min-height:44px;
+  padding:var(--sp-8) var(--sp-12);
+  border-radius:8px;
+  transition:background var(--transition-fast) ease;
+  cursor:pointer;
+}
+.legend>span:hover{background:rgba(255,255,255,.08)}
+.legend>span:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+.legendDot{
+  width:14px;
+  height:14px;
+  border-radius:999px;
+  display:inline-block;
+  margin-right:var(--sp-8);
+  box-shadow:0 0 10px currentColor;
+  /* [WEB.md §22] Bordure pour contraste composant UI 3:1 */
+  border:1px solid rgba(255,255,255,.2);
+}
+@media (prefers-reduced-motion:reduce){
+  .legend>span{transition:none}
+}
+
+/* [WEB.md §16,21,36-40] KPI Grid - responsive avec touch targets WCAG 2.5.8 */
+.kpiGrid{
+  display:grid;
+  /* [WEB.md §40] Grille responsive 12 colonnes adaptée */
+  grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));
+  gap:var(--sp-16);
+  margin-top:var(--sp-20);
+}
+/* [WEB.md §21] Touch target min 44px pour accessibilité */
+.kpiTile{
+  position:relative;
+  /* [WEB.md §39] Card padding 16px, border-radius 8-12px */
+  min-height:120px; /* assure touch target vertical */
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:12px;
+  padding:var(--sp-20);
+  background:linear-gradient(145deg,rgba(22,28,38,.9),rgba(16,22,29,.7));
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  /* [WEB.md §41] Transition 200-300ms */
+  transition:transform var(--transition-normal) ease,
+             box-shadow var(--transition-normal) ease,
+             border-color var(--transition-normal) ease;
+  overflow:hidden;
+}
+.kpiTile::before{
+  content:"";
+  position:absolute;
+  top:0;left:0;right:0;
+  height:3px;
+  background:linear-gradient(90deg,var(--accent),var(--blue));
+  opacity:0;
+  transition:opacity var(--transition-normal) ease;
+}
+/* [WEB.md §32-34] Hover: brightness+saturate */
+.kpiTile:hover{
+  transform:translateY(-4px);
+  box-shadow:0 12px 32px rgba(0,0,0,.5);
+  border-color:rgba(107,188,255,.3);
+}
+.kpiTile:hover::before{opacity:1}
+/* [WEB.md §23] Focus visible WCAG 2.4.7/2.4.13 - outline 2px + offset 2px + contrast 3:1 */
+.kpiTile:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+  box-shadow:0 0 0 4px rgba(53,217,154,.25);
+}
+
+/* [WEB.md §42] KPI Icon - 24-32px pour lisibilité */
+.kpiIcon{
+  font-size:1.75rem;
+  margin-bottom:var(--sp-12);
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.4));
+  line-height:1;
+}
+
+/* [WEB.md §22,38] KPI Label - contraste WCAG 1.4.3 (4.5:1 sur fond sombre) */
+.kpiLabel{
+  display:flex;
+  align-items:center;
+  gap:var(--sp-8);
+  /* [WEB.md §38] text-xs = 12px minimum pour lisibilité */
+  font-size:.75rem;
+  /* Amélioration contraste: #c5cdd5 vs #121820 = ~8:1 */
+  color:#c5cdd5;
+  text-transform:uppercase;
+  letter-spacing:.5px;
+  margin-bottom:var(--sp-8);
+  font-weight:600;
+}
+
+/* [WEB.md §38] KPI Value - text-2xl/3xl pour impact visuel */
+.kpiVal{
+  font-size:clamp(1.5rem, 4vw, 2rem);
+  font-weight:800;
+  /* Meilleur contraste: blanc pur sur fond sombre = ~15:1 */
+  color:#fff;
+  line-height:1.2;
+  letter-spacing:-.5px;
+}
+
+/* [WEB.md §22] KPI Delta - indicateurs avec contraste WCAG 1.4.11 (3:1 composants) */
+.kpiDelta{
+  display:inline-flex;
+  align-items:center;
+  gap:var(--sp-4);
+  font-size:.8125rem;
+  font-weight:500;
+  margin-top:var(--sp-12);
+  padding:var(--sp-4) var(--sp-12);
+  border-radius:999px;
+  /* [WEB.md §22] Bordure pour non-text contrast 3:1 */
+  border:1px solid transparent;
+}
+/* Amélioration = mauvais (moins de sommeil, plus de clopes) */
+.kpiDelta.up{
+  color:#ff8fa3;
+  background:rgba(255,107,138,.12);
+  border-color:rgba(255,107,138,.3);
+}
+.kpiDelta.up::before{content:"\2191 ";font-weight:700}
+/* Amélioration = bon (plus de travail, moins de clopes) */
+.kpiDelta.down{
+  color:#6bffc0;
+  background:rgba(107,255,192,.12);
+  border-color:rgba(107,255,192,.3);
+}
+.kpiDelta.down::before{content:"\2193 ";font-weight:700}
+/* Flat = neutre */
+.kpiDelta.flat{
+  color:#a7b3bf;
+  background:rgba(255,255,255,.05);
+  border-color:rgba(255,255,255,.1);
+}
+.kpiDelta.flat::before{content:"\2194 ";font-weight:700}
+
+/* [WEB.md §27] Respect prefers-reduced-motion WCAG 2.3.3 */
+@media (prefers-reduced-motion:reduce){
+  .kpiTile,.kpiTile::before{transition:none}
+  .kpiTile:hover{transform:none}
+}
+
+/* [WEB.md §22] Support forced-colors/high-contrast mode */
+@media (forced-colors:active){
+  .kpiTile{border:2px solid CanvasText}
+  .kpiDelta{border:1px solid CanvasText}
+  .kpiVal{color:CanvasText}
+}
+
+/* [WEB.md §2,18] Notes Box - insights avec empty states */
+.notesBox{
+  margin-top:var(--sp-20);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;
+  padding:var(--sp-20);
+  background:linear-gradient(145deg,rgba(22,28,38,.8),rgba(16,22,29,.6));
+  backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
+}
+.notesBox .sectionLabel{
+  display:flex;
+  align-items:center;
+  gap:var(--sp-8);
+  font-size:.8125rem;
+  text-transform:uppercase;
+  letter-spacing:.5px;
+  /* [WEB.md §22] Meilleur contraste */
+  color:#c5cdd5;
+  margin-bottom:var(--sp-16);
+  padding-bottom:var(--sp-12);
+  border-bottom:1px solid rgba(255,255,255,.08);
+  font-weight:600;
+}
+/* [WEB.md §21] Touch target min 44px */
+.notesLine{
+  display:flex;
+  align-items:flex-start;
+  gap:var(--sp-12);
+  font-size:.9375rem;
+  color:var(--text);
+  /* [WEB.md §21] Min-height 44px pour touch */
+  min-height:44px;
+  padding:var(--sp-12) var(--sp-16);
+  margin:var(--sp-8) 0;
+  background:rgba(255,255,255,.03);
+  border-radius:8px;
+  border-left:3px solid var(--accent);
+  transition:background var(--transition-fast) ease;
+}
+.notesLine:hover{background:rgba(255,255,255,.06)}
+.notesLine:focus-within{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+.notesLine .noteIcon{
+  flex-shrink:0;
+  font-size:1.125rem;
+  line-height:1.4;
+}
+.notesLine .noteText{
+  flex:1;
+  line-height:1.5;
+}
+@media (prefers-reduced-motion:reduce){
+  .notesLine{transition:none}
+}
 .loadingBar{position:fixed; top:0; left:0; right:0; height:3px; background:rgba(255,255,255,.06); opacity:0; pointer-events:none; z-index:2000; transition:opacity .2s ease}
 .loadingBar.active{opacity:1}
 .loadingBarInner{height:100%; width:30%; background:linear-gradient(90deg, rgba(107,188,255,.2), rgba(107,188,255,.9), rgba(107,188,255,.2)); animation:loadingMove 1.2s linear infinite}
@@ -930,10 +1162,48 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 .toast.warn{border-left-color:var(--warn)}
 .toastTitle{font-weight:800; font-size:.9rem}
 .toastMsg{font-size:.85rem; color:var(--muted); margin-top:2px}
-.emptyState{border:1px dashed var(--border); border-radius:10px; padding:12px; margin-top:8px; background:rgba(16,22,29,.5); color:var(--muted)}
-.emptyTitle{color:var(--text); font-weight:800; margin-bottom:4px}
-.emptyDesc{font-size:.875rem}
-.emptyCta{margin-top:6px; font-size:.85rem; color:var(--blue)}
+/* [WEB.md §2] Empty States - structure standard */
+.emptyState{
+  border:1px dashed rgba(255,255,255,.15);
+  border-radius:12px;
+  padding:var(--sp-24);
+  margin-top:var(--sp-16);
+  background:rgba(16,22,29,.6);
+  color:var(--muted);
+  text-align:center;
+}
+/* [WEB.md §2] Illustration + titre + description + CTA */
+.emptyTitle{
+  color:var(--text);
+  font-weight:700;
+  font-size:1rem;
+  margin-bottom:var(--sp-8);
+}
+.emptyDesc{
+  font-size:.9375rem;
+  line-height:1.5;
+  max-width:320px;
+  margin:0 auto;
+}
+/* [WEB.md §21] CTA avec touch target 44px */
+.emptyCta{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:44px;
+  margin-top:var(--sp-16);
+  padding:var(--sp-8) var(--sp-16);
+  font-size:.9375rem;
+  color:var(--blue);
+  border:1px solid var(--blue);
+  border-radius:8px;
+  transition:background var(--transition-fast) ease;
+}
+.emptyCta:hover{background:rgba(107,188,255,.1)}
+.emptyCta:focus-visible{
+  outline:2px solid var(--blue);
+  outline-offset:2px;
+}
 /* [UX_BEHAVIORAL_PDF A5] Disabled States - feedback visuel clair */
 .btn:disabled{cursor:not-allowed; opacity:.55; filter:grayscale(30%)}
 .btn:disabled:hover{transform:none; box-shadow:none}
@@ -1003,6 +1273,9 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
   transform:translateX(-100%); animation:skeletonMove 1.2s ease-in-out infinite;
 }
 @keyframes skeletonMove{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+/* [UX_PRO] Skeleton lines pour loading states */
+.skeleton-line{display:inline-block;background:rgba(255,255,255,.06);position:relative;overflow:hidden;border-radius:4px}
+.skeleton-line::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);transform:translateX(-100%);animation:skeletonMove 1.2s ease-in-out infinite}
 .disclose{display:none}
 .disclose.show{display:block}
 /* [skip_link_wcag_2_4_1] skip link */
@@ -1830,16 +2103,23 @@ async function restartEngine(){
   }
 }
 
+/* [UX_PRO] Palette HSB espacée sur cercle chromatique - WCAG 1.4.1 distinction couleurs
+   Work:      320° Magenta/Rose - productivité, énergie
+   Sleep:     220° Bleu profond - nuit, calme
+   Healthy:   145° Vert vif - santé, sport
+   Chill:      40° Jaune/Orange - détente, repas
+   Addiction:   0° Rouge - danger, alerte
+*/
 const CHART_COLORS = {
-  work: "#35d99a",
-  sleep: "#6bbcff",
-  sport: "#f7bf54",
-  marche: "#ffffff",
-  manger: "#ff5d8f",
-  reveille: "#00d4ff",
-  glandouille: "#9b5cff",
-  clope: "#ff7a7a",
-  alcohol: "#f2a75c"
+  work: "#E639A3",        // Magenta vif (320°, 75%, 90%)
+  sleep: "#4169D9",       // Bleu profond (220°, 70%, 85%)
+  sport: "#39BF6E",       // Vert vif (145°, 70%, 75%) - healthy
+  marche: "#39BF6E",      // Vert (même - healthy)
+  manger: "#F2B83D",      // Jaune/orange (40°, 75%, 95%) - chill
+  reveille: "#F2B83D",    // Jaune (même - chill)
+  glandouille: "#F2B83D", // Jaune (même - chill)
+  clope: "#E64545",       // Rouge vif (0°, 70%, 90%) - addiction
+  alcohol: "#FF8C42"      // Orange (25°, 75%, 100%) - addiction ligne
 };
 
 function escapeHtml(s){
@@ -1868,17 +2148,31 @@ function fmtDelta(val, unit, precision){
 function renderMonthlyLegend(){
   const el = document.getElementById("monthLegend");
   if (!el) return;
-  el.innerHTML = ""
-    + "<span><span class='legendDot' style='background:" + CHART_COLORS.work + "'></span>Work</span>"
-    + "<span><span class='legendDot' style='background:" + CHART_COLORS.sleep + "'></span>Sleep</span>"
-    + "<span><span class='legendDot' style='background:" + CHART_COLORS.sport + "'></span>Sport</span>"
-    + "<span><span class='legendDot' style='background:" + CHART_COLORS.marche + "'></span>Marche</span>"
-    + "<span><span class='legendDot' style='background:" + CHART_COLORS.manger + "'></span>Manger</span>"
-    + "<span><span class='legendDot' style='background:" + CHART_COLORS.reveille + "'></span>R\u00e9veille</span>"
-    + "<span><span class='legendDot' style='background:" + CHART_COLORS.glandouille + "'></span>Glandouille</span>"
-    + "<span><span class='legendDot' style='background:" + CHART_COLORS.clope + "'></span>Clope (line)</span>"
-    + "<span><span class='legendDot' style='background:" + CHART_COLORS.alcohol + "'></span>Alcool (line)</span>";
+  // [WEB.md §31] Retirer aria-busy apres chargement
+  el.removeAttribute("aria-busy");
+  // [WEB.md §16] Legende avec CATEGORIES regroupees - palette HSB distincte
+  const legendItems = [
+    { color: CHART_COLORS.work, icon: "\ud83d\udcbb", label: "Work", desc: "travail" },
+    { color: CHART_COLORS.sleep, icon: "\ud83d\udca4", label: "Sleep", desc: "sommeil" },
+    { color: CHART_COLORS.sport, icon: "\ud83c\udfc3", label: "Healthy", desc: "sport + marche" },
+    { color: CHART_COLORS.manger, icon: "\ud83c\udf7d\ufe0f", label: "Chill", desc: "repas + repos" },
+    { color: CHART_COLORS.clope, icon: "\ud83d\udeac", label: "Clopes", isLine: true },
+    { color: CHART_COLORS.alcohol, icon: "\ud83c\udf7a", label: "Alcool", isLine: true }
+  ];
+  // [WEB.md §21,31] Touch targets 44px, ARIA accessible
+  el.innerHTML = legendItems.map(it => {
+    const lineStyle = it.isLine ? "border:2px dashed " + it.color + ";background:transparent" : "background:" + it.color;
+    const ariaLabel = it.label + (it.desc ? " (" + it.desc + ")" : "");
+    return "<span role='listitem' tabindex='0' aria-label='" + escapeHtml(ariaLabel) + "'>"
+      + "<span class='legendDot' style='" + lineStyle + "' aria-hidden='true'></span>"
+      + "<span>" + it.icon + " " + it.label + "</span>"
+      + "</span>";
+  }).join("");
 }
+
+/* [UX_PRO] Stockage des hitboxes pour le tooltip */
+let CHART_HITBOXES = [];
+let CHART_HOVER_INDEX = -1;
 
 function renderMonthlyChart(data){
   const canvas = document.getElementById("monthChart");
@@ -1886,7 +2180,7 @@ function renderMonthlyChart(data){
   const ctx = canvas.getContext("2d");
   const rect = canvas.getBoundingClientRect();
   const width = rect.width || 800;
-  const height = rect.height || 240;
+  const height = rect.height || 280;
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.round(width * dpr);
   canvas.height = Math.round(height * dpr);
@@ -1895,103 +2189,368 @@ function renderMonthlyChart(data){
   const days = data.days || [];
   if (!days.length) { return; }
 
-  const pad = { left: 36, right: 24, top: 14, bottom: 24 };
+  CHART_HITBOXES = [];
+
+  const pad = { left: 48, right: 24, top: 20, bottom: 32 };
   const w = width - pad.left - pad.right;
   const h = height - pad.top - pad.bottom;
 
-  const yMax = 24;
-  const yTicks = [0, 3, 6, 9, 12, 15, 18, 21, 24];
+  /* [UX_PRO] Axe Y = 0h (minuit) -> 24h+ (sessions qui depassent minuit) */
+  const yMin = 0;   // 00:00 minuit
+  const yMax = 28;  // permet sessions jusqu'a 4h du matin (affiche 24h + overflow)
+  const yRange = 24; // echelle principale = 24h
+  const yTicks = [0, 4, 8, 12, 16, 20, 24];
+
+  /* Fonction pour convertir heure en position Y (0=bas, 24=haut) */
+  function hourToY(hour) {
+    // Clamp pour eviter debordement graphique
+    const clamped = Math.max(0, Math.min(yMax, hour));
+    return pad.top + h - (clamped / yRange) * h;
+  }
 
   ctx.clearRect(0, 0, width, height);
-  ctx.strokeStyle = "rgba(255,255,255,0.22)";
-  ctx.lineWidth = 1.2;
-  ctx.fillStyle = "rgba(231,237,243,0.8)";
-  ctx.font = "10px 'Space Grotesk', sans-serif";
+
+  /* [UX_PRO] Fond du graphique avec gradient subtil */
+  const bgGrad = ctx.createLinearGradient(0, pad.top, 0, pad.top + h);
+  bgGrad.addColorStop(0, "rgba(16,22,29,0.3)");
+  bgGrad.addColorStop(1, "rgba(16,22,29,0.1)");
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(pad.left, pad.top, w, h);
+
+  /* Grille horizontale avec labels */
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 1;
+  ctx.fillStyle = "rgba(231,237,243,0.6)";
+  ctx.font = "11px 'Space Grotesk', sans-serif";
+  ctx.textAlign = "right";
   for (const t of yTicks) {
-    const y = pad.top + h - (t / yMax) * h;
+    const y = hourToY(t);
     ctx.beginPath();
     ctx.moveTo(pad.left, y);
     ctx.lineTo(pad.left + w, y);
     ctx.stroke();
-    ctx.fillText(String(t), 6, y + 3);
+    ctx.fillText(t + "h", pad.left - 8, y + 4);
   }
-  ctx.strokeStyle = "rgba(231,237,243,0.6)";
-  ctx.lineWidth = 1.4;
+
+  /* Axe Y gauche */
+  ctx.strokeStyle = "rgba(231,237,243,0.4)";
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(pad.left, pad.top);
   ctx.lineTo(pad.left, pad.top + h);
   ctx.stroke();
 
   const step = w / days.length;
-  const barW = Math.max(2, step * 0.65);
+  const barW = Math.max(4, Math.min(step * 0.7, 20));
+  const gap = 1;
 
+  /* [UX_PRO] Categories regroupees pour lisibilite - couleurs distinctes HSB */
+  /* work = travail | sleep = sommeil | chill = manger+glandouille | healthy = sport+marche | addiction = clope */
+  const CAT_COLORS = {
+    work: CHART_COLORS.work,       // #E639A3 Magenta (320°)
+    sleep: CHART_COLORS.sleep,     // #4169D9 Bleu (220°)
+    chill: CHART_COLORS.manger,    // #F2B83D Jaune/Orange (40°)
+    healthy: CHART_COLORS.sport,   // #39BF6E Vert (145°)
+    addiction: CHART_COLORS.clope  // #E64545 Rouge (0°)
+  };
+
+  /* Mapping nom -> categorie */
+  function getCategory(segName, segColor) {
+    if (segColor === "work") return "work";
+    if (segColor === "sleep") return "sleep";
+    if (segColor === "healthy" || segName === "sport" || segName === "marche") return "healthy";
+    if (segColor === "addiction" || segName === "clope") return "addiction";
+    // manger, glandouille, reveille, break -> chill
+    return "chill";
+  }
+
+  /* [UX_PRO] Dessiner les barres par segment d'activite REEL */
   for (let i = 0; i < days.length; i++) {
     const d = days[i];
     const x = pad.left + i * step + (step - barW) / 2;
-    let y = pad.top + h;
-    const segs = [
-      { v: (d.workMin || 0) / 60, c: CHART_COLORS.work },
-      { v: (d.sleepMin || 0) / 60, c: CHART_COLORS.sleep },
-      { v: (d.sportMin || 0) / 60, c: CHART_COLORS.sport },
-      { v: (d.marcheMin || 0) / 60, c: CHART_COLORS.marche },
-      { v: (d.mangerMin || 0) / 60, c: CHART_COLORS.manger },
-      { v: (d.reveilleMin || 0) / 60, c: CHART_COLORS.reveille },
-      { v: (d.glandouilleMin || 0) / 60, c: CHART_COLORS.glandouille }
-    ];
-    const total = segs.reduce((sum, s) => sum + s.v, 0);
-    const scale = total > yMax ? (yMax / total) : 1;
-    for (const s of segs) {
-      const segH = ((s.v * scale) / yMax) * h;
-      if (segH <= 0) { continue; }
-      y -= segH;
-      ctx.fillStyle = s.c;
-      ctx.fillRect(x, y, barW, segH);
+
+    /* Stocker la hitbox pour ce jour */
+    CHART_HITBOXES.push({
+      x: x - gap,
+      x2: x + barW + gap,
+      dayIndex: i,
+      dayData: d
+    });
+
+    /* [UX_PRO] Utiliser les segments reels avec heures exactes */
+    const realSegs = d.segments || [];
+
+    if (realSegs.length > 0) {
+      /* Dessiner chaque segment a sa position horaire reelle */
+      for (const seg of realSegs) {
+        if (seg.start === undefined || seg.end === undefined) continue;
+
+        let startH = seg.start;
+        let endH = seg.end;
+
+        /* [UX_PRO] Sessions qui traversent minuit: 20h -> 01:42 */
+        /* Si end < start, la session traverse minuit -> ajouter 24 a end */
+        if (endH < startH) {
+          endH += 24; // ex: 1.7 -> 25.7 (01:42 apres minuit)
+        }
+
+        /* Limiter aux bornes visibles du graphique */
+        startH = Math.max(0, startH);
+        endH = Math.min(yMax, endH);
+
+        if (endH <= startH) continue;
+
+        const segTop = hourToY(endH);
+        const segBot = hourToY(startH);
+        const segH = Math.max(2, segBot - segTop);
+
+        /* [UX_PRO] Couleur selon la CATEGORIE regroupee */
+        const cat = getCategory(seg.name, seg.color);
+        const color = CAT_COLORS[cat] || CAT_COLORS.chill;
+
+        /* Gradient pour chaque barre */
+        const grad = ctx.createLinearGradient(x, segTop, x, segTop + segH);
+        grad.addColorStop(0, color);
+        grad.addColorStop(1, color + "88");
+        ctx.fillStyle = grad;
+
+        /* Barre avec coins arrondis */
+        const r = Math.min(3, barW / 4);
+        ctx.beginPath();
+        ctx.roundRect(x, segTop, barW, segH, r);
+        ctx.fill();
+
+        /* Bordure subtile */
+        ctx.strokeStyle = "rgba(255,255,255,0.1)";
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    } else {
+      /* Fallback: empiler les durees par CATEGORIE si pas de segments */
+      const catTotals = {
+        work: (d.workMin || 0) / 60,
+        sleep: (d.sleepMin || 0) / 60,
+        healthy: ((d.sportMin || 0) + (d.marcheMin || 0)) / 60,
+        chill: ((d.mangerMin || 0) + (d.glandouilleMin || 0) + (d.reveilleMin || 0)) / 60
+      };
+      const catOrder = ["work", "sleep", "healthy", "chill"];
+      const total = Object.values(catTotals).reduce((a, b) => a + b, 0);
+      const scale = total > yRange ? (yRange / total) : 1;
+      let stackY = pad.top + h;
+      for (const cat of catOrder) {
+        const hrs = catTotals[cat] * scale;
+        const segH = (hrs / yRange) * h;
+        if (segH <= 1) continue;
+        stackY -= segH;
+        ctx.fillStyle = CAT_COLORS[cat];
+        ctx.fillRect(x, stackY, barW, segH);
+      }
+    }
+
+    /* [UX_PRO] Highlight si hover sur ce jour */
+    if (CHART_HOVER_INDEX === i) {
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      ctx.fillRect(x - gap, pad.top, barW + gap * 2, h);
     }
   }
 
+  /* Courbe Clopes */
   ctx.strokeStyle = CHART_COLORS.clope;
-  ctx.lineWidth = 1.6;
+  ctx.lineWidth = 2;
   ctx.setLineDash([]);
   ctx.beginPath();
+  const clopeMax = Math.max(10, ...days.map(d => d.clopeCount || 0));
   for (let i = 0; i < days.length; i++) {
     const d = days[i];
     const x = pad.left + i * step + step / 2;
-    const y = pad.top + h - (Math.min(yMax, (d.clopeCount || 0)) / yMax) * h;
+    const y = pad.top + h - ((d.clopeCount || 0) / clopeMax) * h * 0.8;
     if (i === 0) { ctx.moveTo(x, y); } else { ctx.lineTo(x, y); }
   }
   ctx.stroke();
-  ctx.fillStyle = CHART_COLORS.clope;
+
+  /* Points clopes avec hover effect */
   for (let i = 0; i < days.length; i++) {
     const d = days[i];
     const x = pad.left + i * step + step / 2;
-    const y = pad.top + h - (Math.min(yMax, (d.clopeCount || 0)) / yMax) * h;
+    const y = pad.top + h - ((d.clopeCount || 0) / clopeMax) * h * 0.8;
+    ctx.fillStyle = CHART_HOVER_INDEX === i ? "#fff" : CHART_COLORS.clope;
     ctx.beginPath();
-    ctx.arc(x, y, 2.2, 0, Math.PI * 2);
+    ctx.arc(x, y, CHART_HOVER_INDEX === i ? 5 : 3, 0, Math.PI * 2);
+    ctx.fill();
+    if (CHART_HOVER_INDEX === i) {
+      ctx.strokeStyle = CHART_COLORS.clope;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  /* Courbe Alcool */
+  ctx.strokeStyle = CHART_COLORS.alcohol;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  const alcMax = Math.max(5, ...days.map(d => d.alcoholCount || 0));
+  for (let i = 0; i < days.length; i++) {
+    const d = days[i];
+    const x = pad.left + i * step + step / 2;
+    const y = pad.top + h - ((d.alcoholCount || 0) / alcMax) * h * 0.6;
+    if (i === 0) { ctx.moveTo(x, y); } else { ctx.lineTo(x, y); }
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  /* Points alcool */
+  for (let i = 0; i < days.length; i++) {
+    const d = days[i];
+    const x = pad.left + i * step + step / 2;
+    const y = pad.top + h - ((d.alcoholCount || 0) / alcMax) * h * 0.6;
+    ctx.fillStyle = CHART_HOVER_INDEX === i ? "#fff" : CHART_COLORS.alcohol;
+    ctx.beginPath();
+    ctx.arc(x, y, CHART_HOVER_INDEX === i ? 5 : 3, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  ctx.strokeStyle = CHART_COLORS.alcohol;
-  ctx.lineWidth = 1.4;
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath();
-  for (let i = 0; i < days.length; i++) {
-    const d = days[i];
-    const x = pad.left + i * step + step / 2;
-    const y = pad.top + h - (Math.min(yMax, (d.alcoholCount || 0)) / yMax) * h;
-    if (i === 0) { ctx.moveTo(x, y); } else { ctx.lineTo(x, y); }
-  }
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  ctx.fillStyle = "rgba(231,237,243,0.5)";
-  ctx.font = "10px 'Space Grotesk', sans-serif";
+  /* Labels jours en bas */
+  ctx.fillStyle = "rgba(231,237,243,0.6)";
+  ctx.font = "11px 'Space Grotesk', sans-serif";
+  ctx.textAlign = "center";
   for (let i = 0; i < days.length; i++) {
     const day = days[i].day;
-    if (day === 1 || day === days.length || day % 5 === 0) {
-      const x = pad.left + i * step + step / 2 - 4;
-      ctx.fillText(String(day), x, pad.top + h + 14);
+    const showLabel = days.length <= 15 || day === 1 || day === days.length || day % 5 === 0;
+    if (showLabel) {
+      const x = pad.left + i * step + step / 2;
+      ctx.fillText(String(day), x, pad.top + h + 18);
     }
   }
+
+  /* Titre axe X */
+  ctx.fillStyle = "rgba(231,237,243,0.4)";
+  ctx.font = "10px 'Space Grotesk', sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText("jour du mois", pad.left + w, pad.top + h + 28);
+}
+
+/* [UX_PRO] Tooltip pour le graphique mensuel */
+function showChartTooltip(dayData, x, y) {
+  let tooltip = document.getElementById("chartTooltip");
+  if (!tooltip) {
+    tooltip = document.createElement("div");
+    tooltip.id = "chartTooltip";
+    tooltip.className = "chartTooltip";
+    document.body.appendChild(tooltip);
+  }
+
+  const d = dayData;
+  const fmtTime = (h, m) => {
+    if (h === undefined) return "-";
+    const hh = String(Math.floor(h)).padStart(2, "0");
+    const mm = String(m || 0).padStart(2, "0");
+    return hh + ":" + mm;
+  };
+  const fmtDur = (min) => {
+    if (!min) return "-";
+    const hrs = Math.floor(min / 60);
+    const mins = min % 60;
+    return hrs > 0 ? hrs + "h" + (mins > 0 ? String(mins).padStart(2, "0") : "") : mins + "min";
+  };
+
+  tooltip.innerHTML = ""
+    + "<div class='ttHeader'>\ud83d\udcc5 Jour " + d.day + "</div>"
+    + "<div class='ttGrid'>"
+    + "<div class='ttRow'><span class='ttIcon'>\ud83d\udcbb</span><span class='ttLabel'>Travail</span><span class='ttVal'>" + fmtDur(d.workMin) + "</span>"
+    + (d.workStart !== undefined ? "<span class='ttTime'>" + fmtTime(d.workStart) + " \u2192 " + fmtTime(d.workEnd) + "</span>" : "") + "</div>"
+    + "<div class='ttRow'><span class='ttIcon'>\ud83d\udca4</span><span class='ttLabel'>Sommeil</span><span class='ttVal'>" + fmtDur(d.sleepMin) + "</span>"
+    + (d.sleepStart !== undefined ? "<span class='ttTime'>" + fmtTime(d.sleepStart) + " \u2192 " + fmtTime(d.sleepEnd) + "</span>" : "") + "</div>"
+    + "<div class='ttRow'><span class='ttIcon'>\ud83c\udfc3</span><span class='ttLabel'>Sport</span><span class='ttVal'>" + fmtDur(d.sportMin) + "</span></div>"
+    + "<div class='ttRow'><span class='ttIcon'>\ud83d\udeb6</span><span class='ttLabel'>Marche</span><span class='ttVal'>" + fmtDur(d.marcheMin) + "</span></div>"
+    + "<div class='ttRow'><span class='ttIcon'>\u2600\ufe0f</span><span class='ttLabel'>Reveil</span><span class='ttVal'>" + (d.reveilleStart !== undefined ? fmtTime(d.reveilleStart) : "-") + "</span></div>"
+    + "</div>"
+    + "<div class='ttDivider'></div>"
+    + "<div class='ttGrid'>"
+    + "<div class='ttRow addiction'><span class='ttIcon'>\ud83d\udeac</span><span class='ttLabel'>Clopes</span><span class='ttVal'>" + (d.clopeCount || 0) + "</span></div>"
+    + "<div class='ttRow addiction'><span class='ttIcon'>\ud83c\udf7a</span><span class='ttLabel'>Alcool</span><span class='ttVal'>" + (d.alcoholCount || 0) + "</span></div>"
+    + "</div>";
+
+  /* [UX_PRO] Positionner le tooltip */
+  const ttRect = tooltip.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  let left = x + 16;
+  let top = y - 20;
+  if (left + 260 > vw) left = x - 260 - 16;
+  if (top + 300 > vh) top = vh - 300 - 16;
+  if (top < 8) top = 8;
+
+  tooltip.style.left = left + "px";
+  tooltip.style.top = top + "px";
+  tooltip.classList.add("visible");
+}
+
+function hideChartTooltip() {
+  const tooltip = document.getElementById("chartTooltip");
+  if (tooltip) tooltip.classList.remove("visible");
+}
+
+/* [UX_PRO] Event listeners pour le canvas */
+function initChartInteraction() {
+  const canvas = document.getElementById("monthChart");
+  if (!canvas || canvas.dataset.interactionInit) return;
+  canvas.dataset.interactionInit = "1";
+
+  canvas.addEventListener("mousemove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    let foundIndex = -1;
+    for (const hb of CHART_HITBOXES) {
+      if (x >= hb.x && x <= hb.x2) {
+        foundIndex = hb.dayIndex;
+        showChartTooltip(hb.dayData, e.clientX, e.clientY);
+        break;
+      }
+    }
+
+    if (foundIndex !== CHART_HOVER_INDEX) {
+      CHART_HOVER_INDEX = foundIndex;
+      if (MONTHLY_DATA) renderMonthlyChart(MONTHLY_DATA);
+    }
+
+    if (foundIndex === -1) hideChartTooltip();
+    canvas.style.cursor = foundIndex >= 0 ? "pointer" : "default";
+  });
+
+  canvas.addEventListener("mouseleave", () => {
+    if (CHART_HOVER_INDEX !== -1) {
+      CHART_HOVER_INDEX = -1;
+      if (MONTHLY_DATA) renderMonthlyChart(MONTHLY_DATA);
+    }
+    hideChartTooltip();
+  });
+
+  /* [UX_PRO] Touch support pour mobile */
+  canvas.addEventListener("touchstart", (e) => {
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+
+    for (const hb of CHART_HITBOXES) {
+      if (x >= hb.x && x <= hb.x2) {
+        CHART_HOVER_INDEX = hb.dayIndex;
+        showChartTooltip(hb.dayData, touch.clientX, touch.clientY);
+        if (MONTHLY_DATA) renderMonthlyChart(MONTHLY_DATA);
+        break;
+      }
+    }
+  }, { passive: true });
+
+  canvas.addEventListener("touchend", () => {
+    setTimeout(() => {
+      CHART_HOVER_INDEX = -1;
+      hideChartTooltip();
+      if (MONTHLY_DATA) renderMonthlyChart(MONTHLY_DATA);
+    }, 2000);
+  });
 }
 
 let MONTHLY_DATA = null;
@@ -2001,51 +2560,105 @@ function renderMonthlyKpis(data){
   const alc = s.alcohol || {};
   const el = document.getElementById("monthKpis");
   if (!el) return;
+  // [WEB.md §31] Retirer aria-busy apres chargement
+  el.removeAttribute("aria-busy");
 
   const deltaSleepHr = (d.avgSleepMin || 0) / 60;
   const deltaWorkHr = (d.avgWorkMin || 0) / 60;
 
+  // [UX_PRO] Icons + labels avec emojis semantiques
   const items = [
-    { label: "Avg sleep / day", val: fmtHoursFromMin(s.avgSleepMin), delta: fmtDelta(deltaSleepHr, "h/day", 1) },
-    { label: "Avg work / day", val: fmtHoursFromMin(s.avgWorkMin), delta: fmtDelta(deltaWorkHr, "h/day", 1) },
-    { label: "Avg work session", val: fmtMinVal(s.avgWorkSessionMin), delta: fmtDelta(d.avgWorkSessionMin, "min", 1) },
-    { label: "Avg sport / day", val: fmtMinVal(s.avgSportMin), delta: fmtDelta(d.avgSportMin, "min/day", 1) },
-    { label: "Clope avg / day", val: (Number(s.avgClopeCount) || 0).toFixed(2), delta: fmtDelta(d.avgClopeCount, "per day", 2) },
-    { label: "Alcool total", val: (Number(alc.totalLiters) || 0).toFixed(2) + " L", delta: "-" },
-    { label: "Alcool avg / day", val: (Number(alc.avgDrinksPerDay) || 0).toFixed(2), delta: fmtDelta(d.avgAlcoholPerDay, "per day", 2) },
-    { label: "Total work", val: fmtHoursFromMin(s.totalWorkMin), delta: "-" },
-    { label: "Clope-free days", val: String(s.clopeFreeDays || 0), delta: "-" }
+    { icon: "\ud83d\udca4", label: "Sommeil / jour", val: fmtHoursFromMin(s.avgSleepMin), delta: fmtDelta(deltaSleepHr, "h/jour", 1), deltaRaw: deltaSleepHr },
+    { icon: "\ud83d\udcbb", label: "Travail / jour", val: fmtHoursFromMin(s.avgWorkMin), delta: fmtDelta(deltaWorkHr, "h/jour", 1), deltaRaw: deltaWorkHr },
+    { icon: "\u23f1\ufe0f", label: "Session travail", val: fmtMinVal(s.avgWorkSessionMin), delta: fmtDelta(d.avgWorkSessionMin, "min", 1), deltaRaw: d.avgWorkSessionMin },
+    { icon: "\ud83c\udfc3", label: "Sport / jour", val: fmtMinVal(s.avgSportMin), delta: fmtDelta(d.avgSportMin, "min/jour", 1), deltaRaw: d.avgSportMin },
+    { icon: "\ud83d\udeac", label: "Clopes / jour", val: (Number(s.avgClopeCount) || 0).toFixed(2), delta: fmtDelta(d.avgClopeCount, "par jour", 2), deltaRaw: d.avgClopeCount, invertDelta: true },
+    { icon: "\ud83c\udf7a", label: "Alcool total", val: (Number(alc.totalLiters) || 0).toFixed(2) + " L", delta: "-", deltaRaw: 0 },
+    { icon: "\ud83c\udf77", label: "Alcool / jour", val: (Number(alc.avgDrinksPerDay) || 0).toFixed(2), delta: fmtDelta(d.avgAlcoholPerDay, "par jour", 2), deltaRaw: d.avgAlcoholPerDay, invertDelta: true },
+    { icon: "\ud83d\udcc8", label: "Total travail", val: fmtHoursFromMin(s.totalWorkMin), delta: "-", deltaRaw: 0 },
+    { icon: "\u2705", label: "Jours sans clope", val: String(s.clopeFreeDays || 0), delta: "-", deltaRaw: 0 }
   ];
 
-  el.innerHTML = items.map(it =>
-    "<div class='kpiTile'>"
-    + "<div class='kpiLabel'>" + escapeHtml(it.label) + "</div>"
-    + "<div class='kpiVal'>" + escapeHtml(it.val) + "</div>"
-    + "<div class='kpiDelta'>" + escapeHtml(it.delta || "-") + "</div>"
-    + "</div>"
-  ).join("");
+  // [UX_PRO] Delta class: up/down/flat avec inversion pour addictions
+  function getDeltaClass(raw, invert) {
+    if (raw === undefined || raw === null || raw === 0) return "flat";
+    const isUp = invert ? raw < 0 : raw > 0;
+    const isDown = invert ? raw > 0 : raw < 0;
+    if (isUp) return "up";
+    if (isDown) return "down";
+    return "flat";
+  }
+
+  // [WEB.md §29,31] ARIA: role, accessible name, live regions
+  el.innerHTML = items.map(it => {
+    const deltaClass = getDeltaClass(it.deltaRaw, it.invertDelta);
+    // [WEB.md §29] Description accessible complete pour screen readers
+    const ariaLabel = it.label + ": " + it.val + (it.delta !== "-" ? ", " + it.delta : "");
+    // [WEB.md §22] Texte alternatif pour delta (pas juste fleche)
+    const deltaText = deltaClass === "up" ? "hausse" : deltaClass === "down" ? "baisse" : "stable";
+    return "<article class='kpiTile' role='listitem' tabindex='0' aria-label='" + escapeHtml(ariaLabel) + "'>"
+      + "<div class='kpiIcon' aria-hidden='true'>" + it.icon + "</div>"
+      + "<div class='kpiLabel' id='kpi-label-" + escapeHtml(it.label.replace(/\s/g,'-')) + "'>" + escapeHtml(it.label) + "</div>"
+      + "<div class='kpiVal' aria-describedby='kpi-label-" + escapeHtml(it.label.replace(/\s/g,'-')) + "'>" + escapeHtml(it.val) + "</div>"
+      + (it.delta !== "-" ? "<div class='kpiDelta " + deltaClass + "' role='status'><span class='sr-only'>" + deltaText + ": </span>" + escapeHtml(it.delta) + "</div>" : "")
+      + "</article>";
+  }).join("");
 }
 
 function renderMonthlyNotes(data){
   const el = document.getElementById("monthNotes");
   if (!el) return;
+  // [WEB.md §31] Retirer aria-busy apres chargement
+  el.removeAttribute("aria-busy");
   const notes = data.insights || [];
+  // [WEB.md §2] Empty States - structure: illustration + titre + desc + CTA optionnel
   if (!notes.length) {
-    el.innerHTML = "<div class='emptyState'><div class='emptyTitle'>Aucun insight</div><div class='emptyDesc'>Les notes apparaitront apres analyse des donnees.</div></div>";
+    el.innerHTML = "<div class='emptyState' role='status'>"
+      + "<div style='font-size:2.5rem;margin-bottom:var(--sp-12);opacity:.8' aria-hidden='true'>\ud83d\udcca</div>"
+      + "<div class='emptyTitle'>Aucun insight disponible</div>"
+      + "<div class='emptyDesc'>Les analyses et tendances apparaitront automatiquement apres quelques jours de donnees.</div>"
+      + "</div>";
     return;
   }
-  el.innerHTML = notes.map(n => "<div class='notesLine'>- " + escapeHtml(n) + "</div>").join("");
+  // [UX_PRO] Section label + notes avec icones contextuelles
+  const noteIcons = ["\ud83d\udca1", "\ud83d\udcca", "\u2728", "\ud83c\udfaf", "\ud83d\udd0d"];
+  el.innerHTML = "<div class='sectionLabel'>\ud83d\udca1 Insights du mois</div>"
+    + notes.map((n, i) => {
+      const icon = noteIcons[i % noteIcons.length];
+      return "<div class='notesLine'><span class='noteIcon' aria-hidden='true'>" + icon + "</span><span class='noteText'>" + escapeHtml(n) + "</span></div>";
+    }).join("");
 }
 
 function showMonthlyLoading(){
+  // [WEB.md §1] Skeleton screens refletant la structure finale - pas de layout shift
   const k = document.getElementById("monthKpis");
   if (k) {
-    k.innerHTML = "<div class='kpiTile skeleton'></div><div class='kpiTile skeleton'></div><div class='kpiTile skeleton'></div>";
+    // [WEB.md §31] aria-busy pour indiquer le chargement aux screen readers
+    k.setAttribute("aria-busy", "true");
+    k.innerHTML = Array(6).fill(0).map(() =>
+      "<div class='kpiTile skeleton' style='min-height:120px' aria-hidden='true'>"
+      + "<div class='skeleton-line' style='width:36px;height:36px;border-radius:8px;margin-bottom:var(--sp-12)'></div>"
+      + "<div class='skeleton-line' style='width:65%;height:14px;margin-bottom:var(--sp-8)'></div>"
+      + "<div class='skeleton-line' style='width:45%;height:28px;margin-bottom:var(--sp-8)'></div>"
+      + "<div class='skeleton-line' style='width:55%;height:14px'></div>"
+      + "</div>"
+    ).join("");
   }
   const n = document.getElementById("monthNotes");
-  if (n) { n.innerHTML = "<div class='muted'>Chargement...</div>"; }
+  if (n) {
+    n.setAttribute("aria-busy", "true");
+    n.innerHTML = "<div class='skeleton-line' style='width:35%;height:14px;margin-bottom:var(--sp-16)' aria-hidden='true'></div>"
+      + "<div class='skeleton-line' style='width:100%;min-height:44px;margin-bottom:var(--sp-8);border-radius:8px' aria-hidden='true'></div>"
+      + "<div class='skeleton-line' style='width:90%;min-height:44px;margin-bottom:var(--sp-8);border-radius:8px' aria-hidden='true'></div>"
+      + "<div class='skeleton-line' style='width:75%;min-height:44px;border-radius:8px' aria-hidden='true'></div>";
+  }
   const l = document.getElementById("monthLegend");
-  if (l) { l.innerHTML = "<span class='muted'>Chargement...</span>"; }
+  if (l) {
+    l.setAttribute("aria-busy", "true");
+    l.innerHTML = Array(5).fill(0).map(() =>
+      "<span style='min-height:44px' aria-hidden='true'><span class='skeleton-line' style='width:14px;height:14px;border-radius:50%;margin-right:8px'></span><span class='skeleton-line' style='width:56px;height:16px'></span></span>"
+    ).join("");
+  }
 }
 
 async function loadMonthlySummary(){
@@ -2056,6 +2669,7 @@ async function loadMonthlySummary(){
   MONTHLY_DATA = data;
   renderMonthlyLegend();
   renderMonthlyChart(data);
+  initChartInteraction(); /* [UX_PRO] Init tooltip + hover */
   renderMonthlyKpis(data);
   renderMonthlyNotes(data);
 }
