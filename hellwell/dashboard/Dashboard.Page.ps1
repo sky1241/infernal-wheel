@@ -442,12 +442,16 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
 .alcUnitChip--strong .alcUnitChip__label{color:rgba(255,180,80,.9)}
 .alcUnitChip--pure{border-color:rgba(56,189,248,.35); background:linear-gradient(135deg, rgba(56,189,248,.1), rgba(16,22,29,.7))}
 .alcUnitChip--pure .alcUnitChip__label{color:rgba(56,189,248,.9)}
-/* Chips dans header tableau */
-.alcUnitChip--header{padding:6px 8px; border-radius:8px}
-.alcUnitChip--header .alcUnitChip__icon{font-size:1rem}
-.alcUnitChip--header .alcUnitChip__svg{width:18px; height:18px}
-.alcUnitChip--header .alcUnitChip__label{font-size:.6rem}
-.alcUnitChip--header .alcUnitChip__value{font-size:.65rem}
+/* Chips dans header tableau - uniformes et centrés */
+.alcUnitChip--header{
+  padding:8px 10px; border-radius:8px;
+  min-width:100px; justify-content:center;
+}
+.alcUnitChip--header .alcUnitChip__icon{font-size:1.1rem}
+.alcUnitChip--header .alcUnitChip__svg{width:20px; height:20px}
+.alcUnitChip--header .alcUnitChip__label{font-size:.6rem; text-align:center}
+.alcUnitChip--header .alcUnitChip__value{font-size:.65rem; text-align:center; white-space:nowrap}
+.alcUnitChip--header .alcUnitChip__content{align-items:center}
 .alcUnitChip--header:hover{transform:none}
 /* Date chip */
 .alcDateChip{
@@ -1208,64 +1212,69 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 /* [WEB] margin/gap 8px */
 .weeksWrap{overflow-x:auto; margin-top:8px; padding-bottom:4px; width:100%}
 .weeksTable{
-  --week-gap:8px;
-  --delta-col:96px;
+  --week-gap:12px;
+  --delta-col:88px;
   display:flex; flex-direction:column; gap:8px;
   width:100%;
 }
 .weekLine{
-  display:grid; grid-template-columns:minmax(0,1fr) var(--delta-col);
+  display:grid; grid-template-columns:1fr var(--delta-col);
   column-gap:8px; align-items:stretch;
 }
 .weekRow{
-  /* [WEB] padding 8px, radius 8px */
+  /* [WEB] padding 12px, radius 8px, grille uniforme */
   display:grid; width:100%;
-  grid-template-columns:repeat(6, minmax(0,1fr));
-  column-gap:var(--week-gap); align-items:center; padding:8px;
+  grid-template-columns:100px 110px 1fr 1fr 1fr 1fr;
+  column-gap:var(--week-gap); align-items:center; padding:12px 16px;
   border:1px solid var(--border); border-radius:8px;
   background:rgba(16,22,29,.55);
   position:relative;
 }
 .weekRow.head{
   background:rgba(16,22,29,.7); border-color:rgba(255,255,255,.08);
+  padding:16px;
 }
-/* [WEB] font-size .875rem */
-.weekCell{font-size:.875rem; color:var(--text)}
+/* [WEB] font-size .875rem, alignement uniforme */
+.weekCell{font-size:.875rem; color:var(--text); display:flex; align-items:center}
 .weekCell.num{
   font-variant-numeric:lining-nums tabular-nums;
   font-feature-settings:"lnum" 1, "tnum" 1;
-  text-align:left;
-  display:flex; align-items:baseline; gap:2px; justify-content:flex-start;
+  justify-content:center;
 }
 .weekCell.doseCell{
-  display:flex;
-  justify-content:flex-end;
+  justify-content:center;
 }
 .weekCell.doseHead{
-  display:flex;
-  align-items:center;
-  justify-content:flex-end;
+  justify-content:center;
 }
-.wkCount{min-width:12px; display:inline-block; text-align:center; font-variant-numeric:tabular-nums; font-weight:500}
-.trend-arrow{font-size:.75em; margin-left:2px; opacity:.9}
+.weekRow.head .weekCell.num{
+  justify-content:center;
+}
+.wkCount{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:32px; font-variant-numeric:tabular-nums; font-weight:600;
+  font-size:.9rem;
+}
+.trend-arrow{font-size:.7em; margin-left:3px; opacity:.85}
 .wkLiters{min-width:0; color:var(--muted)}
-.doseBox{display:inline-block; width:13ch; font-variant-numeric:tabular-nums; font-weight:500}
-.weekCell.doseHead .doseBox{
-  text-align:right;
-}
-.weekCell.doseCell .doseBox{
-  text-align:center;
+.doseBox{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:56px; font-variant-numeric:tabular-nums; font-weight:600;
+  font-size:.9rem;
 }
 .whisky-icon{display:inline-block;width:20px;height:20px;vertical-align:middle;margin-right:3px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
 .alc-icon{font-size:1rem;margin-right:2px;vertical-align:middle}
 .weekDelta{
-  display:flex; align-items:center; padding:8px; border-radius:8px;
-  font-size:.75rem; font-weight:700; letter-spacing:.2px; font-variant-numeric:tabular-nums;
-  border:1px solid rgba(255,255,255,.15);
-  width:100%; justify-content:center; text-align:center;
-  justify-self:stretch; box-sizing:border-box;
+  display:flex; align-items:center; justify-content:center;
+  padding:12px 8px; border-radius:8px;
+  font-size:.8rem; font-weight:700; letter-spacing:.2px; font-variant-numeric:tabular-nums;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(16,22,29,.4);
+  min-height:48px; box-sizing:border-box;
 }
-.weekLine.headLine .weekDelta{background:transparent;border-color:transparent}
+.weekLine.headLine .weekDelta{
+  background:transparent; border-color:transparent; min-height:auto;
+}
 .weekRow.head .weekCell{color:var(--text); font-weight:700; letter-spacing:.3px}
 .weekRow:not(.head) .weekCell{color:var(--text)}
 .weekRow:not(.head) .weekCell.olderWeek{color:var(--muted)}
@@ -1280,7 +1289,7 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
   50%{box-shadow:0 0 0 1px rgba(91,178,255,.18) inset, 0 8px 24px rgba(0,0,0,.3), 0 0 35px rgba(91,178,255,.25)}
 }
 .weekRow.currentWeek::before{
-  content:""; position:absolute; left:0; top:8px; bottom:8px; width:3px;
+  content:""; position:absolute; left:0; top:12px; bottom:12px; width:3px;
   background:linear-gradient(180deg, rgba(91,178,255,.9), rgba(91,178,255,.3));
   border-radius:3px;
   box-shadow:0 0 8px rgba(91,178,255,.5);
