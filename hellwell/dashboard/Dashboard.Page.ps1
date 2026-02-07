@@ -134,8 +134,8 @@ function New-PageHtml([string]$ym) {
     $weeksHtml = "<div class='muted'>Aucune entree.</div>"
   } else {
     $weeksHtml = "<div class='weeksWrap'><div class='weeksTable'>"
-    $whiskySvg = "<svg class='whisky-icon' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><rect x='5' y='6' width='14' height='16' rx='2' fill='none' stroke='currentColor' stroke-width='1.5'/><path d='M5 14 L19 14 L19 20 Q19 22 17 22 L7 22 Q5 22 5 20 Z' fill='url(%23wg)'/><rect x='7' y='15' width='4' height='3' rx='1' fill='%2377ccff' opacity='.7'/><rect x='12' y='16' width='3' height='2' rx='.5' fill='%2399ddff' opacity='.6'/><defs><linearGradient id='wg' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='%23d4a04a'/><stop offset='100%' stop-color='%23a67c32'/></linearGradient></defs></svg>"
-    $weeksHtml += "<div class='weekLine headLine'><div class='weekRow head'><div class='weekCell'>Semaine</div><div class='weekCell'>P&eacute;riode</div><div class='weekCell num'><span class='alc-icon'>&#127863;</span>Vin</div><div class='weekCell num'><span class='alc-icon'>&#127866;</span>Bi&egrave;re</div><div class='weekCell num'>$whiskySvg Fort</div><div class='weekCell num doseHead'><span class='doseBox'>Dose pure</span></div></div><div class='weekDelta headDelta'></div></div>"
+    $whiskySvg = "<svg class='whisky-icon' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg' aria-hidden='true'><path d='M4 4 L4 20 Q4 22 6 22 L18 22 Q20 22 20 20 L20 4 Z' fill='rgba(255,255,255,.08)' stroke='rgba(255,255,255,.4)' stroke-width='1.2'/><rect x='4' y='20' width='16' height='2' rx='0.5' fill='rgba(255,255,255,.15)'/><path d='M5 14 L5 20 Q5 21 6 21 L18 21 Q19 21 19 20 L19 14 Z' fill='#c17f24'/><rect x='5.5' y='6' width='7' height='9' rx='1.5' fill='#a8e0f0'/><rect x='11' y='8' width='7' height='8' rx='1.5' fill='#8ed0e8'/><path d='M6 7 L11.5 7 L11 12 L6.5 12 Z' fill='rgba(255,255,255,.55)'/><path d='M11.5 9 L17 9 L16.5 14 L12 14 Z' fill='rgba(255,255,255,.45)'/></svg>"
+    $weeksHtml += "<div class='weekLine headLine'><div class='weekRow head'><div class='weekCell'>Semaine</div><div class='weekCell'>P&eacute;riode</div><div class='weekCell num'><span class='alc-icon'>&#127863;</span>Vin</div><div class='weekCell num'><span class='alc-icon'>&#127866;</span>Bi&egrave;re</div><div class='weekCell num'>$whiskySvg Fort</div><div class='weekCell num doseHead'><span class='doseBox'><span class='alc-icon'>&#128167;</span>Dose pure</span></div></div><div class='weekDelta headDelta'>&Delta;</div></div>"
     $i = 0
     foreach ($w in $weeksTail) {
       $range = if ($w.WeekRange) { $w.WeekRange } else { "-" }
@@ -873,6 +873,7 @@ td.day.today .dnum{
 @media(prefers-reduced-motion:reduce){
   td.day,.dlink a{transition:none}
   td.day:not(.empty):hover{transform:none}
+  .weekRow.currentWeek{animation:none}
 }
 
 /* High contrast */
@@ -1127,7 +1128,7 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 .weekRow.head{
   background:rgba(16,22,29,.7); border-color:rgba(255,255,255,.08);
 }
-.weekLine.headLine .weekDelta{visibility:hidden}
+.weekLine.headLine .weekDelta{color:var(--muted);font-weight:600;font-size:.75rem;background:transparent;border-color:transparent;box-shadow:none}
 /* [WEB] font-size .875rem */
 .weekCell{font-size:.875rem; color:var(--text)}
 .weekCell.num{
@@ -1142,6 +1143,7 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 }
 .weekCell.doseHead{
   display:flex;
+  align-items:center;
   justify-content:flex-end;
 }
 .wkCount{min-width:12px; display:inline-block; text-align:center}
@@ -1185,8 +1187,8 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
   background:rgba(255,77,77,.15);
   box-shadow:0 0 15px rgba(255,77,77,.3);
 }
-.whisky-icon{display:inline-block;width:18px;height:18px;vertical-align:middle;margin-right:2px}
-.alc-icon{font-size:1rem;margin-right:2px}
+.whisky-icon{display:inline-block;width:20px;height:20px;vertical-align:middle;margin-right:3px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
+.alc-icon{font-size:1rem;margin-right:2px;vertical-align:middle}
 .weekDelta.deltaDown{
   color:rgba(60,255,122,.95);
   border-color:rgba(60,255,122,.55);
@@ -1202,13 +1204,20 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 .weekRow:not(.head) .weekCell{color:var(--text)}
 .weekRow:not(.head) .weekCell.olderWeek{color:var(--muted)}
 .weekRow.currentWeek{
-  border-color:rgba(91,178,255,.35);
-  box-shadow:0 0 0 1px rgba(91,178,255,.08) inset, 0 8px 20px rgba(0,0,0,.25);
+  border-color:rgba(91,178,255,.45);
+  background:linear-gradient(135deg, rgba(91,178,255,.08), rgba(16,22,29,.55));
+  box-shadow:0 0 0 1px rgba(91,178,255,.12) inset, 0 8px 24px rgba(0,0,0,.3), 0 0 20px rgba(91,178,255,.15);
+  animation:currentWeekPulse 3s ease-in-out infinite;
+}
+@keyframes currentWeekPulse{
+  0%,100%{box-shadow:0 0 0 1px rgba(91,178,255,.12) inset, 0 8px 24px rgba(0,0,0,.3), 0 0 20px rgba(91,178,255,.15)}
+  50%{box-shadow:0 0 0 1px rgba(91,178,255,.18) inset, 0 8px 24px rgba(0,0,0,.3), 0 0 35px rgba(91,178,255,.25)}
 }
 .weekRow.currentWeek::before{
   content:""; position:absolute; left:0; top:8px; bottom:8px; width:3px;
-  background:linear-gradient(180deg, rgba(91,178,255,.8), rgba(91,178,255,.2));
+  background:linear-gradient(180deg, rgba(91,178,255,.9), rgba(91,178,255,.3));
   border-radius:3px;
+  box-shadow:0 0 8px rgba(91,178,255,.5);
 }
 .weekRow.head .weekCell:nth-child(2){
   text-align:center;
@@ -3224,7 +3233,7 @@ async function refreshLive(){
       const badgeClope = fmtSoberBadge("Sans clope", f.soberClopeMin, f.bestClopeSoberMin, "clope");
       const badges = [badgeAlc, badgeClope].filter(x => x).join("");
       const recC = (Number(f.bestClopeFromWakeMin) > 0) ? (Number(f.bestClopeFromWakeMin) + "m (" + (f.bestClopeDate || "-") + ")") : "-";
-      const recA = (Number(f.bestAnyFromWakeMin) > 0) ? (Number(f.bestAnyFromWakeMin) + "m (" + (f.bestAnyDate || "-") + ")") : "-";
+      const recA = (Number(f.bestBeerFromWakeMin) > 0) ? (Number(f.bestBeerFromWakeMin) + "m (" + (f.bestBeerDate || "-") + ")") : "-";
 
       let praise = "";
       const positives = [];
