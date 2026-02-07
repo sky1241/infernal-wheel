@@ -434,9 +434,8 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
 .alcUnitChip{
   display:flex;
   align-items:center;
-  gap:10px;
-  padding:10px 14px;
-  min-width:140px;
+  gap:8px;
+  padding:8px 12px;
   border-radius:12px;
   border:1px solid rgba(255,255,255,.12);
   background:rgba(16,22,29,.7);
@@ -450,7 +449,7 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
 }
 .alcUnitChip__icon{font-size:1.5rem; filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
 .alcUnitChip__svg{width:28px; height:28px; flex-shrink:0; filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
-.alcUnitChip__content{display:flex; flex-direction:column; gap:2px; min-width:105px}
+.alcUnitChip__content{display:flex; flex-direction:column; gap:2px}
 .alcUnitChip__label{font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted)}
 .alcUnitChip__value{font-size:.875rem; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums}
 /* Chip color accents */
