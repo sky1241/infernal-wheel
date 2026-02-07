@@ -610,109 +610,27 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 }
 .alert{border-color:rgba(255,107,107,.9); box-shadow:0 0 0 2px rgba(255,107,107,.12), var(--shadow)}
 .alertText{color:rgba(255,107,107,.95); font-weight:900}
-/* ═══════════════════════════════════════════════════════════════════════════
-   CALENDRIER - Design Clean & Lisible [WEB.md §8,15,16]
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-table{
-  border-collapse:separate;
-  border-spacing:4px;
-  width:100%;
-  table-layout:fixed;
-}
-
-/* Headers - minimalistes */
-th{
-  background:transparent;
-  border:none;
-  padding:var(--sp-8);
-  text-align:center;
-  color:var(--muted);
-  font-weight:600;
-  font-size:.6875rem;
-  text-transform:uppercase;
-  letter-spacing:1px;
-}
-
-/* Cellules - fond sombre uniforme, bordures subtiles */
-td.day{
-  background:rgba(16,22,29,.5);
-  border:1px solid rgba(255,255,255,.06);
-  border-radius:8px;
-  padding:var(--sp-8) var(--sp-12);
-  vertical-align:top;
-  min-height:90px;
-  transition:border-color .15s ease;
-}
-td.day:hover{
-  border-color:rgba(255,255,255,.15);
-}
-td.day:focus-within{
-  outline:2px solid var(--accent);
-  outline-offset:2px;
-}
-
-/* AUJOURD'HUI - simple bordure accent */
-td.day.today{
-  background:rgba(53,217,154,.06);
-  border:2px solid var(--accent);
-}
-
-/* Vides */
-td.day.empty{
-  background:rgba(12,16,22,.3);
-  border-color:transparent;
-}
-
-/* Numéro - gros, blanc, simple */
-.dnum{
-  font-size:1.375rem;
-  font-weight:700;
-  color:#fff;
-  margin-bottom:var(--sp-4);
-}
-td.day.today .dnum{color:var(--accent)}
-
-/* Metadata - gris clair, compact */
-.dmeta{
-  font-size:.75rem;
-  color:var(--muted);
-  margin-top:2px;
-  line-height:1.3;
-}
-.dmeta b{color:#e0e6ec;font-weight:600}
-
-/* Lien Notes - texte simple */
-.dlink{margin-top:var(--sp-8)}
-.dlink a{
-  font-size:.6875rem;
-  color:var(--blue);
-  text-decoration:none;
-  opacity:.7;
-  transition:opacity .15s ease;
-}
-.dlink a:hover{opacity:1}
-.dlink a:focus-visible{
-  outline:2px solid var(--accent);
-  outline-offset:2px;
-}
-
-/* Mobile */
+/* [reflow_wcag_1_4_10] responsive table */
+table{border-collapse:collapse;width:100%;table-layout:fixed}
+td,th{border:1px solid var(--border); padding:.5rem; vertical-align:top; width:14.285%}
+th{background:rgba(16,22,29,.6); text-align:left; color:var(--muted)}
+/* Calendar UX improvements */
+.day{min-height:5.75rem;height:auto;overflow:hidden;transition:background .2s,box-shadow .2s}
+.day:not(.empty):hover{background:rgba(53,217,154,.05);box-shadow:inset 0 0 0 1px rgba(53,217,154,.2)}
+.day.today{background:rgba(53,217,154,.08);border-color:rgba(53,217,154,.3)}
 @media(max-width:640px){
-  table,thead,tbody,tr{display:block;width:100%}
-  thead{display:none}
-  tr{display:grid;grid-template-columns:1fr 1fr;gap:4px}
-  td.day{min-height:auto;padding:var(--sp-12)}
+  table,thead,tbody,tr,td,th{display:block;width:100%}
+  thead tr{position:absolute;top:-9999px;left:-9999px}
+  td.day{min-height:auto;height:auto;padding:.75rem;margin-bottom:.5rem;border-radius:8px}
   td.day.empty{display:none}
-  .dnum{font-size:1.125rem}
 }
-
-/* Reduce motion + High contrast */
-@media(prefers-reduced-motion:reduce){td.day,.dlink a{transition:none}}
-@media(forced-colors:active){
-  td.day{border:2px solid CanvasText}
-  td.day.today{border:3px solid Highlight}
-}
+.dnum{font-weight:900;font-size:1.1rem;color:var(--text)}
+.dmeta{margin-top:6px;font-size:.7rem;color:var(--muted);overflow-wrap:anywhere;line-height:1.4}
+.dlink{margin-top:8px;font-size:.75rem;overflow-wrap:anywhere}
+.dlink a{color:var(--accent);text-decoration:none;padding:4px 8px;border-radius:6px;background:rgba(53,217,154,.08);transition:background .2s}
+.dlink a:hover{background:rgba(53,217,154,.15)}
+.dlink a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.day.empty{background:transparent}
 /* Section headers UX */
 .section-header{display:flex;align-items:center;gap:var(--sp-8);margin-bottom:var(--sp-16)}
 .section-header h2{margin:0;font-size:1.25rem;font-weight:800;color:var(--text);display:flex;align-items:center;gap:var(--sp-8)}
