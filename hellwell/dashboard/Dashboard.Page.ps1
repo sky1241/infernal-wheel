@@ -1202,10 +1202,10 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
   align-items:center;
   justify-content:flex-end;
 }
-.wkCount{min-width:12px; display:inline-block; text-align:center}
+.wkCount{min-width:12px; display:inline-block; text-align:center; font-variant-numeric:tabular-nums; font-weight:500}
 .trend-arrow{font-size:.75em; margin-left:2px; opacity:.9}
 .wkLiters{min-width:0; color:var(--muted)}
-.doseBox{display:inline-block; width:13ch}
+.doseBox{display:inline-block; width:13ch; font-variant-numeric:tabular-nums; font-weight:500}
 .weekCell.doseHead .doseBox{
   text-align:right;
 }
@@ -1215,7 +1215,7 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 .weekDelta{
   /* [WEB] padding 8px, radius 8px, font .75rem */
   display:flex; align-items:center; padding:8px; border-radius:8px;
-  font-size:.75rem; font-weight:800; letter-spacing:.2px;
+  font-size:.75rem; font-weight:700; letter-spacing:.2px; font-variant-numeric:tabular-nums;
   border:1px solid rgba(255,255,255,.15);
   width:100%; justify-content:center; text-align:center;
   justify-self:stretch; box-sizing:border-box;
