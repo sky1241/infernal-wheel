@@ -364,16 +364,46 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
   display:inline-flex; align-items:center;
   transition:border-color .15s ease, background .15s ease;
 }
-/* Alcool Header Grid - date alignée sur colonne Vin (4) */
-.alcHeaderGrid{
+/* Alcool Header - grille alignée avec colonnes tableau */
+.alcHeaderRow{
   display:grid;
   grid-template-columns:repeat(6, minmax(0,1fr)) var(--delta-col);
   gap:var(--week-gap);
-  padding:8px 8px 4px;
+  padding:12px 8px 8px;
+  align-items:center;
 }
-.alcHeaderGrid .alcDateChip{
+.alcHeaderRow__title{
+  grid-column:1 / span 2;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.alcHeaderRow__title h2{
+  margin:0;
+  font-size:1.25rem;
+  font-weight:800;
+  color:var(--text);
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.alcHeaderRow__title .alcTitleIcon{font-size:1.3rem}
+.alcHeaderRow__date{
   grid-column:4;
   justify-self:center;
+}
+.alcHeaderRow__badge{
+  grid-column:6;
+  justify-self:center;
+  font-size:.7rem;
+  color:rgba(56,189,248,.9);
+  background:rgba(56,189,248,.1);
+  border:1px solid rgba(56,189,248,.25);
+  padding:6px 12px;
+  border-radius:20px;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:.5px;
 }
 /* Alcool Units Grid - chips alignés sur colonnes Bière(3)/Vin(4)/Fort(5) */
 .alcUnitsGrid{
@@ -382,10 +412,10 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
   gap:var(--week-gap);
   padding:4px 8px 12px;
 }
-.alcUnitsGrid .alcUnitChip:nth-child(1){grid-column:3}
-.alcUnitsGrid .alcUnitChip:nth-child(2){grid-column:4}
-.alcUnitsGrid .alcUnitChip:nth-child(3){grid-column:5}
-.alcUnitsGrid .alcUnitChip:nth-child(4){grid-column:6}
+.alcUnitsGrid .alcUnitChip:nth-child(1){grid-column:3; justify-self:center}
+.alcUnitsGrid .alcUnitChip:nth-child(2){grid-column:4; justify-self:center}
+.alcUnitsGrid .alcUnitChip:nth-child(3){grid-column:5; justify-self:center}
+.alcUnitsGrid .alcUnitChip:nth-child(4){grid-column:6; justify-self:center}
 .alcUnitChip{
   display:flex;
   align-items:center;
@@ -416,7 +446,6 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
 .alcUnitChip--strong .alcUnitChip__label{color:rgba(255,180,80,.9)}
 .alcUnitChip--pure{border-color:rgba(56,189,248,.35); background:linear-gradient(135deg, rgba(56,189,248,.1), rgba(16,22,29,.7))}
 .alcUnitChip--pure .alcUnitChip__label{color:rgba(56,189,248,.9)}
-.alcUnitChip--pure .alcUnitChip__value{font-size:.75rem; line-height:1.3}
 /* Date chip */
 .alcDateChip{
   display:flex;
@@ -1920,16 +1949,17 @@ body{
   </div>
 
   <div class="card reveal d3 alcCard">
-    <div class="section-header">
-      <h2><span class="section-header-icon" aria-hidden="true">&#127866;</span>Alcool</h2>
-      <span class="section-header-badge alcBadge">Semaine en cours</span>
-    </div>
-
-    <div class="alcHeaderGrid">
-      <div class="alcDateChip">
-        <span class="alcDateChip__icon" aria-hidden="true">&#128197;</span>
-        <span class="alcDateChip__value">__TODAY__</span>
+    <div class="alcHeaderRow">
+      <div class="alcHeaderRow__title">
+        <h2><span class="alcTitleIcon" aria-hidden="true">&#127866;</span>Alcool</h2>
       </div>
+      <div class="alcHeaderRow__date">
+        <div class="alcDateChip">
+          <span class="alcDateChip__icon" aria-hidden="true">&#128197;</span>
+          <span class="alcDateChip__value">__TODAY__</span>
+        </div>
+      </div>
+      <span class="alcHeaderRow__badge">Semaine en cours</span>
     </div>
     <div class="alcUnitsGrid">
       <div class="alcUnitChip alcUnitChip--beer">
@@ -1957,7 +1987,7 @@ body{
         <span class="alcUnitChip__icon" aria-hidden="true">&#128167;</span>
         <div class="alcUnitChip__content">
           <span class="alcUnitChip__label">Dose pure</span>
-          <span class="alcUnitChip__value">Alcool pur total<br>(vol &times; degr&eacute; &times; 0.8)</span>
+          <span class="alcUnitChip__value">= alcool pur (g)</span>
         </div>
       </div>
     </div>
