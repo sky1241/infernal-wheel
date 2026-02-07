@@ -135,7 +135,7 @@ function New-PageHtml([string]$ym) {
   } else {
     $weeksHtml = "<div class='weeksWrap'><div class='weeksTable'>"
     $whiskySvg = "<svg class='whisky-icon' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg' aria-hidden='true'><path d='M4 4 L4 20 Q4 22 6 22 L18 22 Q20 22 20 20 L20 4 Z' fill='rgba(255,255,255,.08)' stroke='rgba(255,255,255,.4)' stroke-width='1.2'/><rect x='4' y='20' width='16' height='2' rx='0.5' fill='rgba(255,255,255,.15)'/><path d='M5 14 L5 20 Q5 21 6 21 L18 21 Q19 21 19 20 L19 14 Z' fill='#c17f24'/><rect x='5.5' y='6' width='7' height='9' rx='1.5' fill='#a8e0f0'/><rect x='11' y='8' width='7' height='8' rx='1.5' fill='#8ed0e8'/><path d='M6 7 L11.5 7 L11 12 L6.5 12 Z' fill='rgba(255,255,255,.55)'/><path d='M11.5 9 L17 9 L16.5 14 L12 14 Z' fill='rgba(255,255,255,.45)'/></svg>"
-    $weeksHtml += "<div class='weekLine headLine'><div class='weekRow head'><div class='weekCell'>Semaine</div><div class='weekCell'>P&eacute;riode</div><div class='weekCell num'><span class='alc-icon'>&#127863;</span>Vin</div><div class='weekCell num'><span class='alc-icon'>&#127866;</span>Bi&egrave;re</div><div class='weekCell num'>$whiskySvg Fort</div><div class='weekCell num doseHead'><span class='doseBox'><span class='alc-icon'>&#128167;</span>Dose pure</span></div></div><div class='weekDelta headDelta'>&Delta;</div></div>"
+    $weeksHtml += "<div class='weekLine headLine'><div class='weekRow head'><div class='weekCell'>Semaine</div><div class='weekCell'>P&eacute;riode</div><div class='weekCell num'><span class='alc-icon'>&#127866;</span>Bi&egrave;re</div><div class='weekCell num'><span class='alc-icon'>&#127863;</span>Vin</div><div class='weekCell num'>$whiskySvg Fort</div><div class='weekCell num doseHead'><span class='doseBox'><span class='alc-icon'>&#128167;</span>Dose pure</span></div></div><div class='weekDelta headDelta'>&Delta;</div></div>"
     $i = 0
     foreach ($w in $weeksTail) {
       $range = if ($w.WeekRange) { $w.WeekRange } else { "-" }
@@ -158,7 +158,53 @@ function New-PageHtml([string]$ym) {
       $cellClass = if ($isOlder) { "weekCell olderWeek" } else { "weekCell" }
       $cellNumClass = if ($isOlder) { "weekCell num olderWeek" } else { "weekCell num" }
       $cellDoseClass = if ($isOlder) { "weekCell num doseCell olderWeek" } else { "weekCell num doseCell" }
-      $weeksHtml += "<div class='weekLine'><div class='$rowClass'><div class='$cellClass'>$($w.WeekKey)</div><div class='$cellClass'>$range</div><div class='$cellNumClass'><span class='wkCount'>$($w.WineGlasses)</span></div><div class='$cellNumClass'><span class='wkCount'>$($w.BeerCans)</span></div><div class='$cellNumClass'><span class='wkCount'>$($w.StrongGlasses)</span></div><div class='$cellDoseClass'><span class='doseBox'>$($w.PureLiters)</span></div></div><div class='weekDelta $deltaClass'>$deltaLabel</div></div>"
+
+      # Calculate trend colors + arrows by comparing with previous week (next row = older week)
+      # Score 1-10: 1=green (decrease), 5=yellow (neutral), 10=red (increase)
+      # HSL: hue = 120 - (score-1)*13.33 → green(120) → yellow(60) → red(0)
+      # WCAG 1.4.1: arrows ↓/↑ for colorblind accessibility
+      function Get-Trend($curr, $prev, $maxDelta) {
+        $result = @{ Style = ""; Arrow = "" }
+        if ($null -eq $prev -or $prev -eq 0) { return $result }
+        $delta = $curr - $prev
+        if ($delta -eq 0) { return $result }
+        # Normalize delta to score 1-10, clamped
+        $normalized = $delta / $maxDelta  # -1 to +1 range (approx)
+        $score = 5 + ($normalized * 5)
+        $score = [Math]::Max(1, [Math]::Min(10, $score))
+        # Calculate HSL hue: score 1→120°(green), 5→60°(yellow), 10→0°(red)
+        $hue = [Math]::Round(120 - (($score - 1) * 13.33))
+        $result.Style = "style=`"color:hsl($hue,85%,55%)`""
+        $result.Arrow = if ($delta -lt 0) { "<span class='trend-arrow' aria-label='diminution'>&#8595;</span>" } else { "<span class='trend-arrow' aria-label='augmentation'>&#8593;</span>" }
+        return $result
+      }
+
+      $beerTrend = @{ Style = ""; Arrow = "" }; $wineTrend = @{ Style = ""; Arrow = "" }
+      $strongTrend = @{ Style = ""; Arrow = "" }; $doseTrend = @{ Style = ""; Arrow = "" }
+      if ($i -lt ($weeksTail.Count - 1)) {
+        $prev = $weeksTail[$i + 1]
+        $currBeer = 0; $prevBeer = 0
+        try { $currBeer = [double]$w.BeerCans } catch {}
+        try { $prevBeer = [double]$prev.BeerCans } catch {}
+        $beerTrend = Get-Trend $currBeer $prevBeer 5
+
+        $currWine = 0; $prevWine = 0
+        try { $currWine = [double]$w.WineGlasses } catch {}
+        try { $prevWine = [double]$prev.WineGlasses } catch {}
+        $wineTrend = Get-Trend $currWine $prevWine 5
+
+        $currStrong = 0; $prevStrong = 0
+        try { $currStrong = [double]$w.StrongGlasses } catch {}
+        try { $prevStrong = [double]$prev.StrongGlasses } catch {}
+        $strongTrend = Get-Trend $currStrong $prevStrong 5
+
+        $currDose = 0; $prevDose = 0
+        try { $currDose = [double]$w.PureLiters } catch {}
+        try { $prevDose = [double]$prev.PureLiters } catch {}
+        $doseTrend = Get-Trend $currDose $prevDose 0.5
+      }
+
+      $weeksHtml += "<div class='weekLine'><div class='$rowClass'><div class='$cellClass'>$($w.WeekKey)</div><div class='$cellClass'>$range</div><div class='$cellNumClass'><span class='wkCount' $($beerTrend.Style)>$($w.BeerCans)$($beerTrend.Arrow)</span></div><div class='$cellNumClass'><span class='wkCount' $($wineTrend.Style)>$($w.WineGlasses)$($wineTrend.Arrow)</span></div><div class='$cellNumClass'><span class='wkCount' $($strongTrend.Style)>$($w.StrongGlasses)$($strongTrend.Arrow)</span></div><div class='$cellDoseClass'><span class='doseBox' $($doseTrend.Style)>$($w.PureLiters)$($doseTrend.Arrow)</span></div></div><div class='weekDelta $deltaClass'>$deltaLabel</div></div>"
       $i++
     }
     $weeksHtml += "</div></div>"
@@ -1147,6 +1193,7 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
   justify-content:flex-end;
 }
 .wkCount{min-width:12px; display:inline-block; text-align:center}
+.trend-arrow{font-size:.75em; margin-left:2px; opacity:.9}
 .wkLiters{min-width:0; color:var(--muted)}
 .doseBox{display:inline-block; width:13ch}
 .weekCell.doseHead .doseBox{
@@ -1894,8 +1941,8 @@ body{
     <div class="alcSectionLabel">Unit&eacute;s de mesure</div>
     <div class="weekLine alcStatsLine">
       <div class="alcStatsGrid">
-        <div class="alcStat unitStat" style="grid-column:3">1 verre = __WINE_UNIT__ L</div>
-        <div class="alcStat unitStat" style="grid-column:4">1 canette = __BEER_UNIT__ L</div>
+        <div class="alcStat unitStat" style="grid-column:3">1 canette = __BEER_UNIT__ L</div>
+        <div class="alcStat unitStat" style="grid-column:4">1 verre = __WINE_UNIT__ L</div>
         <div class="alcStat unitStat" style="grid-column:5">1 verre = __STRONG_UNIT__ L</div>
       </div>
       <div></div>
