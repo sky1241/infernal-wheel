@@ -610,151 +610,108 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 }
 .alert{border-color:rgba(255,107,107,.9); box-shadow:0 0 0 2px rgba(255,107,107,.12), var(--shadow)}
 .alertText{color:rgba(255,107,107,.95); font-weight:900}
-/* [WEB.md §16,26] Calendar table - reflow WCAG 1.4.10 */
+/* ═══════════════════════════════════════════════════════════════════════════
+   CALENDRIER - Design Clean & Lisible [WEB.md §8,15,16]
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 table{
-  border-collapse:collapse;
+  border-collapse:separate;
+  border-spacing:4px;
   width:100%;
   table-layout:fixed;
 }
-td,th{
-  border:1px solid var(--border);
-  /* [WEB.md §36] Padding système 4px base */
-  padding:var(--sp-12);
-  vertical-align:top;
-  width:14.285%;
-}
+
+/* Headers - minimalistes */
 th{
-  background:rgba(16,22,29,.7);
-  text-align:left;
-  /* [WEB.md §22] Contraste amélioré pour headers */
-  color:#c5cdd5;
+  background:transparent;
+  border:none;
+  padding:var(--sp-8);
+  text-align:center;
+  color:var(--muted);
   font-weight:600;
-  font-size:.875rem;
+  font-size:.6875rem;
+  text-transform:uppercase;
+  letter-spacing:1px;
 }
 
-/* [WEB.md §15,21] Calendar day cells - Cards avec touch targets */
-.day{
-  /* [WEB.md §21] Min-height pour touch target vertical */
-  min-height:6rem;
-  height:auto;
-  overflow:hidden;
-  /* [WEB.md §41] Transitions standardisées */
-  transition:background var(--transition-normal) ease,
-             box-shadow var(--transition-normal) ease,
-             border-color var(--transition-normal) ease;
-  position:relative;
-}
-.day:not(.empty):hover{
-  background:rgba(53,217,154,.06);
-  box-shadow:inset 0 0 0 2px rgba(53,217,154,.25);
-}
-/* [WEB.md §23] Focus visible sur cellules navigables */
-.day:focus-within{
-  outline:2px solid var(--accent);
-  outline-offset:-2px;
-  box-shadow:0 0 0 4px rgba(53,217,154,.2);
-}
-.day.today{
-  background:rgba(53,217,154,.1);
-  border-color:rgba(53,217,154,.4);
-  /* [WEB.md §35] Indicateur visuel distinct */
-  box-shadow:inset 0 3px 0 0 var(--accent);
-}
-.day.empty{
-  background:rgba(16,22,29,.3);
-  /* [WEB.md §22] Contraste bordure visible */
-  border-color:rgba(255,255,255,.04);
-}
-
-/* [WEB.md §26] Responsive mobile - reflow WCAG 1.4.10 */
-@media(max-width:640px){
-  table,thead,tbody,tr,td,th{display:block;width:100%}
-  thead tr{position:absolute;top:-9999px;left:-9999px}
-  td.day{
-    min-height:auto;
-    height:auto;
-    padding:var(--sp-16);
-    margin-bottom:var(--sp-8);
-    border-radius:12px;
-    /* [WEB.md §39] Card style mobile */
-    border:1px solid rgba(255,255,255,.1);
-  }
-  td.day.empty{display:none}
-  /* [WEB.md §29] Afficher le jour de la semaine sur mobile */
-  td.day::before{
-    content:attr(data-weekday);
-    display:block;
-    font-size:.75rem;
-    color:#a7b3bf;
-    text-transform:uppercase;
-    letter-spacing:.5px;
-    margin-bottom:var(--sp-4);
-  }
-}
-
-/* [WEB.md §38] Day number - Typography text-lg/xl */
-.dnum{
-  font-weight:800;
-  font-size:1.25rem;
-  color:#fff;
-  line-height:1.2;
-}
-
-/* [WEB.md §22] Day metadata - contraste amélioré */
-.dmeta{
-  margin-top:var(--sp-8);
-  font-size:.8125rem;
-  /* Contraste amélioré */
-  color:#b8c4d0;
-  overflow-wrap:anywhere;
-  line-height:1.5;
-}
-
-/* [WEB.md §21] Day link - touch target 44px */
-.dlink{
-  margin-top:var(--sp-12);
-  font-size:.875rem;
-  overflow-wrap:anywhere;
-}
-.dlink a{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  /* [WEB.md §21] Touch target min 44px */
-  min-height:44px;
-  padding:var(--sp-8) var(--sp-12);
-  color:var(--accent);
-  text-decoration:none;
+/* Cellules - fond sombre uniforme, bordures subtiles */
+td.day{
+  background:rgba(16,22,29,.5);
+  border:1px solid rgba(255,255,255,.06);
   border-radius:8px;
-  background:rgba(53,217,154,.1);
-  border:1px solid rgba(53,217,154,.2);
-  font-weight:500;
-  transition:background var(--transition-fast) ease,
-             border-color var(--transition-fast) ease;
+  padding:var(--sp-8) var(--sp-12);
+  vertical-align:top;
+  min-height:90px;
+  transition:border-color .15s ease;
 }
-.dlink a:hover{
-  background:rgba(53,217,154,.18);
-  border-color:rgba(53,217,154,.35);
+td.day:hover{
+  border-color:rgba(255,255,255,.15);
 }
-/* [WEB.md §23] Focus visible WCAG 2.4.7/2.4.13 */
+td.day:focus-within{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+
+/* AUJOURD'HUI - simple bordure accent */
+td.day.today{
+  background:rgba(53,217,154,.06);
+  border:2px solid var(--accent);
+}
+
+/* Vides */
+td.day.empty{
+  background:rgba(12,16,22,.3);
+  border-color:transparent;
+}
+
+/* Numéro - gros, blanc, simple */
+.dnum{
+  font-size:1.375rem;
+  font-weight:700;
+  color:#fff;
+  margin-bottom:var(--sp-4);
+}
+td.day.today .dnum{color:var(--accent)}
+
+/* Metadata - gris clair, compact */
+.dmeta{
+  font-size:.75rem;
+  color:var(--muted);
+  margin-top:2px;
+  line-height:1.3;
+}
+.dmeta b{color:#e0e6ec;font-weight:600}
+
+/* Lien Notes - texte simple */
+.dlink{margin-top:var(--sp-8)}
+.dlink a{
+  font-size:.6875rem;
+  color:var(--blue);
+  text-decoration:none;
+  opacity:.7;
+  transition:opacity .15s ease;
+}
+.dlink a:hover{opacity:1}
 .dlink a:focus-visible{
   outline:2px solid var(--accent);
   outline-offset:2px;
-  box-shadow:0 0 0 4px rgba(53,217,154,.25);
 }
 
-/* [WEB.md §27] Reduce motion */
-@media (prefers-reduced-motion:reduce){
-  .day,.dlink a{transition:none}
-  .day:not(.empty):hover{box-shadow:inset 0 0 0 2px rgba(53,217,154,.3)}
+/* Mobile */
+@media(max-width:640px){
+  table,thead,tbody,tr{display:block;width:100%}
+  thead{display:none}
+  tr{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  td.day{min-height:auto;padding:var(--sp-12)}
+  td.day.empty{display:none}
+  .dnum{font-size:1.125rem}
 }
 
-/* [WEB.md §22] Forced colors / high contrast mode */
-@media (forced-colors:active){
-  .day{border:2px solid CanvasText}
-  .day.today{border:3px solid Highlight}
-  .dlink a{border:2px solid LinkText}
-  th{border:2px solid CanvasText}
+/* Reduce motion + High contrast */
+@media(prefers-reduced-motion:reduce){td.day,.dlink a{transition:none}}
+@media(forced-colors:active){
+  td.day{border:2px solid CanvasText}
+  td.day.today{border:3px solid Highlight}
 }
 /* Section headers UX */
 .section-header{display:flex;align-items:center;gap:var(--sp-8);margin-bottom:var(--sp-16)}
