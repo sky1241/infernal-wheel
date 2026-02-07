@@ -135,19 +135,22 @@ function New-PageHtml([string]$ym) {
   } else {
     $weeksHtml = "<div class='weeksWrap'><div class='weeksTable'>"
     $whiskySvg = "<svg class='whisky-icon' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg' aria-hidden='true'><path d='M4 4 L4 20 Q4 22 6 22 L18 22 Q20 22 20 20 L20 4 Z' fill='rgba(255,255,255,.08)' stroke='rgba(255,255,255,.4)' stroke-width='1.2'/><rect x='4' y='20' width='16' height='2' rx='0.5' fill='rgba(255,255,255,.15)'/><path d='M5 14 L5 20 Q5 21 6 21 L18 21 Q19 21 19 20 L19 14 Z' fill='#c17f24'/><rect x='5.5' y='6' width='7' height='9' rx='1.5' fill='#a8e0f0'/><rect x='11' y='8' width='7' height='8' rx='1.5' fill='#8ed0e8'/><path d='M6 7 L11.5 7 L11 12 L6.5 12 Z' fill='rgba(255,255,255,.55)'/><path d='M11.5 9 L17 9 L16.5 14 L12 14 Z' fill='rgba(255,255,255,.45)'/></svg>"
-    $weeksHtml += "<div class='weekLine headLine'><div class='weekRow head'><div class='weekCell'>Semaine</div><div class='weekCell'>P&eacute;riode</div><div class='weekCell num'><span class='alc-icon'>&#127866;</span>Bi&egrave;re</div><div class='weekCell num'><span class='alc-icon'>&#127863;</span>Vin</div><div class='weekCell num'>$whiskySvg Fort</div><div class='weekCell num doseHead'><span class='doseBox'><span class='alc-icon'>&#128167;</span>Dose pure</span></div></div><div class='weekDelta headDelta'>&Delta;</div></div>"
+    $beerChip = "<div class='alcUnitChip alcUnitChip--beer alcUnitChip--header'><span class='alcUnitChip__icon' aria-hidden='true'>&#127866;</span><div class='alcUnitChip__content'><span class='alcUnitChip__label'>Bi&egrave;re</span><span class='alcUnitChip__value'>1 can. = __BEER_UNIT__ L</span></div></div>"
+    $wineChip = "<div class='alcUnitChip alcUnitChip--wine alcUnitChip--header'><span class='alcUnitChip__icon' aria-hidden='true'>&#127863;</span><div class='alcUnitChip__content'><span class='alcUnitChip__label'>Vin</span><span class='alcUnitChip__value'>1 verre = __WINE_UNIT__ L</span></div></div>"
+    $strongChip = "<div class='alcUnitChip alcUnitChip--strong alcUnitChip--header'>$whiskySvg<div class='alcUnitChip__content'><span class='alcUnitChip__label'>Fort</span><span class='alcUnitChip__value'>1 verre = __STRONG_UNIT__ L</span></div></div>"
+    $pureChip = "<div class='alcUnitChip alcUnitChip--pure alcUnitChip--header'><span class='alcUnitChip__icon' aria-hidden='true'>&#128167;</span><div class='alcUnitChip__content'><span class='alcUnitChip__label'>Pure</span><span class='alcUnitChip__value'>alcool pur (g)</span></div></div>"
+    $weeksHtml += "<div class='weekLine headLine'><div class='weekRow head'><div class='weekCell'>Semaine</div><div class='weekCell'>P&eacute;riode</div><div class='weekCell num'>$beerChip</div><div class='weekCell num'>$wineChip</div><div class='weekCell num'>$strongChip</div><div class='weekCell num doseHead'>$pureChip</div></div><div class='weekDelta headDelta'></div></div>"
     $i = 0
     foreach ($w in $weeksTail) {
       $range = if ($w.WeekRange) { $w.WeekRange } else { "-" }
       $deltaVal = $null
       try { $deltaVal = [double]$w.DeltaPure } catch { $deltaVal = $null }
-      $deltaLabel = "—"
+      $deltaLabel = ""
       $deltaStyle = ""
       $deltaArrow = ""
       if ($null -ne $deltaVal) {
         if ($deltaVal -gt 0) {
           $deltaLabel = "+" + $deltaVal.ToString("0.###")
-          # Score 5-10 for positive delta (yellow to red), maxDelta = 0.5
           $score = 5 + ([Math]::Min([Math]::Abs($deltaVal), 0.5) / 0.5 * 5)
           $hue = [Math]::Round(120 - (($score - 1) * 13.33))
           $deltaStyle = "style=`"color:hsl($hue,85%,55%);border-color:hsl($hue,70%,40%);background:hsla($hue,80%,50%,.12)`""
@@ -155,13 +158,11 @@ function New-PageHtml([string]$ym) {
         }
         elseif ($deltaVal -lt 0) {
           $deltaLabel = $deltaVal.ToString("0.###")
-          # Score 1-5 for negative delta (green to yellow), maxDelta = 0.5
           $score = 5 - ([Math]::Min([Math]::Abs($deltaVal), 0.5) / 0.5 * 4)
           $hue = [Math]::Round(120 - (($score - 1) * 13.33))
           $deltaStyle = "style=`"color:hsl($hue,85%,55%);border-color:hsl($hue,70%,40%);background:hsla($hue,80%,50%,.12)`""
           $deltaArrow = "<span class='trend-arrow' aria-label='diminution'>&#8595;</span>"
         }
-        else { $deltaLabel = "0" }
       }
       $isOlder = ($i -ge 1)
       $rowClass = if ($isOlder) { "weekRow" } else { "weekRow currentWeek" }
@@ -236,7 +237,7 @@ function New-PageHtml([string]$ym) {
   --accent:#35d99a; --blue:#6bbcff; --warn:#f7bf54; --danger:#ff7a7a;
   /* [WEB] card radius 8px, shadow lighter */
   --shadow:0 1px 3px rgba(0,0,0,.1); --r:8px;
-  --week-gap:8px; --delta-col:96px;
+  --week-gap:8px;
   /* [UX_SPACING_PDF] Système d'espacement basé sur 4px */
   --sp-4:4px; --sp-8:8px; --sp-12:12px; --sp-16:16px;
   --sp-20:20px; --sp-24:24px; --sp-32:32px; --sp-48:48px;
@@ -409,18 +410,7 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
   border-radius:8px;
 }
 .alcHeader__date .dateIcon{font-size:1rem}
-/* Alcool Units - grille alignée colonnes tableau */
-.alcUnitsRow{
-  display:grid;
-  grid-template-columns:repeat(6, minmax(0,1fr));
-  column-gap:var(--week-gap);
-  padding:0 8px 12px;
-}
-.alcUnitsRow .alcUnitChip{justify-self:center}
-.alcUnitsRow .alcUnitChip:nth-child(1){grid-column:3}
-.alcUnitsRow .alcUnitChip:nth-child(2){grid-column:4}
-.alcUnitsRow .alcUnitChip:nth-child(3){grid-column:5}
-.alcUnitsRow .alcUnitChip:nth-child(4){grid-column:6}
+/* Alcool Units Chips */
 .alcUnitChip{
   display:flex;
   align-items:center;
@@ -452,6 +442,13 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
 .alcUnitChip--strong .alcUnitChip__label{color:rgba(255,180,80,.9)}
 .alcUnitChip--pure{border-color:rgba(56,189,248,.35); background:linear-gradient(135deg, rgba(56,189,248,.1), rgba(16,22,29,.7))}
 .alcUnitChip--pure .alcUnitChip__label{color:rgba(56,189,248,.9)}
+/* Chips dans header tableau */
+.alcUnitChip--header{padding:6px 8px; border-radius:8px}
+.alcUnitChip--header .alcUnitChip__icon{font-size:1rem}
+.alcUnitChip--header .alcUnitChip__svg{width:18px; height:18px}
+.alcUnitChip--header .alcUnitChip__label{font-size:.6rem}
+.alcUnitChip--header .alcUnitChip__value{font-size:.65rem}
+.alcUnitChip--header:hover{transform:none}
 /* Date chip */
 .alcDateChip{
   display:flex;
@@ -1213,7 +1210,6 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 .weeksTable{
   --week-gap:8px;
   --delta-col:96px;
-  --delta-pill:72px;
   display:flex; flex-direction:column; gap:8px;
   width:100%;
 }
@@ -1233,7 +1229,6 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 .weekRow.head{
   background:rgba(16,22,29,.7); border-color:rgba(255,255,255,.08);
 }
-.weekLine.headLine .weekDelta{color:var(--muted);font-weight:600;font-size:.75rem;background:transparent;border-color:transparent;box-shadow:none}
 /* [WEB] font-size .875rem */
 .weekCell{font-size:.875rem; color:var(--text)}
 .weekCell.num{
@@ -1261,16 +1256,16 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 .weekCell.doseCell .doseBox{
   text-align:center;
 }
+.whisky-icon{display:inline-block;width:20px;height:20px;vertical-align:middle;margin-right:3px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
+.alc-icon{font-size:1rem;margin-right:2px;vertical-align:middle}
 .weekDelta{
-  /* [WEB] padding 8px, radius 8px, font .75rem */
   display:flex; align-items:center; padding:8px; border-radius:8px;
   font-size:.75rem; font-weight:700; letter-spacing:.2px; font-variant-numeric:tabular-nums;
   border:1px solid rgba(255,255,255,.15);
   width:100%; justify-content:center; text-align:center;
   justify-self:stretch; box-sizing:border-box;
 }
-.whisky-icon{display:inline-block;width:20px;height:20px;vertical-align:middle;margin-right:3px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
-.alc-icon{font-size:1rem;margin-right:2px;vertical-align:middle}
+.weekLine.headLine .weekDelta{background:transparent;border-color:transparent}
 .weekRow.head .weekCell{color:var(--text); font-weight:700; letter-spacing:.3px}
 .weekRow:not(.head) .weekCell{color:var(--text)}
 .weekRow:not(.head) .weekCell.olderWeek{color:var(--muted)}
@@ -1958,44 +1953,9 @@ body{
     <div class="alcHeader">
       <div class="alcHeader__left">
         <h2><span class="alcTitleIcon" aria-hidden="true">&#127866;</span>Alcool</h2>
-        <span class="alcHeader__badge">Semaine en cours</span>
-      </div>
-      <div class="alcHeader__date">
-        <span class="dateIcon" aria-hidden="true">&#128197;</span>
-        <span>__TODAY__</span>
       </div>
     </div>
     <div class="weeksTable">
-      <div class="alcUnitsRow">
-        <div class="alcUnitChip alcUnitChip--beer">
-          <span class="alcUnitChip__icon" aria-hidden="true">&#127866;</span>
-          <div class="alcUnitChip__content">
-            <span class="alcUnitChip__label">Bi&egrave;re</span>
-            <span class="alcUnitChip__value">1 can. = __BEER_UNIT__ L</span>
-          </div>
-        </div>
-        <div class="alcUnitChip alcUnitChip--wine">
-          <span class="alcUnitChip__icon" aria-hidden="true">&#127863;</span>
-          <div class="alcUnitChip__content">
-            <span class="alcUnitChip__label">Vin</span>
-            <span class="alcUnitChip__value">1 verre = __WINE_UNIT__ L</span>
-          </div>
-        </div>
-        <div class="alcUnitChip alcUnitChip--strong">
-          <svg class="alcUnitChip__svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 4 L4 20 Q4 22 6 22 L18 22 Q20 22 20 20 L20 4 Z" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/><rect x="4" y="20" width="16" height="2" rx="0.5" fill="rgba(255,255,255,.15)"/><path d="M5 14 L5 20 Q5 21 6 21 L18 21 Q19 21 19 20 L19 14 Z" fill="#c17f24"/><rect x="5.5" y="6" width="7" height="9" rx="1.5" fill="#a8e0f0"/><rect x="11" y="8" width="7" height="8" rx="1.5" fill="#8ed0e8"/><path d="M6 7 L11.5 7 L11 12 L6.5 12 Z" fill="rgba(255,255,255,.55)"/><path d="M11.5 9 L17 9 L16.5 14 L12 14 Z" fill="rgba(255,255,255,.45)"/></svg>
-          <div class="alcUnitChip__content">
-            <span class="alcUnitChip__label">Fort</span>
-            <span class="alcUnitChip__value">1 verre = __STRONG_UNIT__ L</span>
-          </div>
-        </div>
-        <div class="alcUnitChip alcUnitChip--pure">
-          <span class="alcUnitChip__icon" aria-hidden="true">&#128167;</span>
-          <div class="alcUnitChip__content">
-            <span class="alcUnitChip__label">Pure</span>
-            <span class="alcUnitChip__value">alcool pur (g)</span>
-          </div>
-        </div>
-      </div>
       __ALC_WEEKS__
     </div>
   </div>
