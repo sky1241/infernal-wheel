@@ -468,6 +468,98 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .btn.cmd-ok{--cmd-border:rgba(255,79,216,.98); --cmd-bg:rgba(255,79,216,.3); --cmd-glow:rgba(255,79,216,.45)}
 .btn.cmd-dodo{--cmd-border:rgba(102,126,234,.98); --cmd-bg:rgba(102,126,234,.3); --cmd-glow:rgba(102,126,234,.45)}
 .btn.cmd-jpp{--cmd-border:rgba(255,77,77,.98); --cmd-bg:rgba(255,77,77,.3); --cmd-glow:rgba(255,77,77,.45)}
+
+/* ========================================
+   [UX PRO] Commandes Card - Glassmorphism Sub-cards
+   - Spacing system 4px (--sp-8, --sp-16, etc.)
+   - Touch targets 44px min
+   - Cards padding 16px, radius 8px, shadow
+   - HSB hover/active states
+   ======================================== */
+.commandsCard{ display:flex; flex-direction:column; gap:var(--sp-16) }
+.cmdBadge{ background:linear-gradient(135deg, rgba(53,217,154,.2), rgba(91,178,255,.2)); border-color:rgba(53,217,154,.4); font-size:.7rem }
+
+/* Sub-cards glassmorphism */
+.cmdSubCard{
+  background:linear-gradient(135deg, rgba(16,22,29,.75), rgba(16,22,29,.55));
+  backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:var(--sp-12);
+  padding:var(--sp-16);
+  transition:all .25s cubic-bezier(.4,0,.2,1);
+}
+.cmdSubCard:hover{
+  border-color:rgba(255,255,255,.15);
+  box-shadow:0 8px 32px rgba(0,0,0,.25);
+}
+.cmdSubCard__header{
+  display:flex; align-items:center; gap:var(--sp-8);
+  margin-bottom:var(--sp-12);
+  padding-bottom:var(--sp-8);
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+.cmdSubCard__icon{ font-size:1.1rem; opacity:.85 }
+.cmdSubCard__title{ font-weight:700; font-size:.95rem; letter-spacing:.3px }
+
+/* Primary sub-card (Start/Work/Dodo) - accent border */
+.cmdSubCard--primary{
+  border-color:rgba(53,217,154,.25);
+  background:linear-gradient(135deg, rgba(53,217,154,.08), rgba(16,22,29,.65));
+}
+.cmdSubCard--primary:hover{ border-color:rgba(53,217,154,.45) }
+
+/* Actions sub-card - yellow accent */
+.cmdSubCard--actions{
+  border-color:rgba(255,210,0,.2);
+  background:linear-gradient(135deg, rgba(255,210,0,.05), rgba(16,22,29,.6));
+}
+.cmdSubCard--actions:hover{ border-color:rgba(255,210,0,.4) }
+
+/* Alcohol sub-card - amber/orange accent */
+.cmdSubCard--alcohol{
+  border-color:rgba(255,153,85,.2);
+  background:linear-gradient(135deg, rgba(255,153,85,.05), rgba(16,22,29,.6));
+}
+.cmdSubCard--alcohol:hover{ border-color:rgba(255,153,85,.4) }
+
+/* System sub-card - blue accent */
+.cmdSubCard--system{
+  border-color:rgba(91,178,255,.15);
+  background:linear-gradient(135deg, rgba(91,178,255,.04), rgba(16,22,29,.55));
+}
+.cmdSubCard--system:hover{ border-color:rgba(91,178,255,.35) }
+
+/* Command buttons with icons */
+.cmdGrid{ display:grid; grid-template-columns:repeat(3,1fr); gap:var(--sp-12) }
+@media(max-width:640px){ .cmdGrid{ grid-template-columns:1fr } }
+.cmdBtn{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:var(--sp-4); min-height:4.5rem; padding:var(--sp-12) var(--sp-16);
+  border-radius:var(--sp-12);
+}
+.cmdBtn__icon{ font-size:1.5rem; line-height:1 }
+.cmdBtn__label{ font-size:.85rem; font-weight:700; letter-spacing:.5px }
+
+/* Alcohol buttons */
+.alcFieldRow{ margin-top:var(--sp-8); gap:var(--sp-8) }
+.alcBtn{
+  display:inline-flex; align-items:center; gap:var(--sp-4);
+  padding:var(--sp-8) var(--sp-12); min-height:2.75rem;
+  background:rgba(255,153,85,.12); border-color:rgba(255,153,85,.5);
+}
+.alcBtn:hover{
+  background:rgba(255,153,85,.25); border-color:rgba(255,153,85,.8);
+  box-shadow:0 4px 16px rgba(255,153,85,.25);
+}
+.alcStatus{ margin-left:auto; color:var(--muted) }
+.alcAdjustToggle{ margin-top:var(--sp-8) }
+.alcAdjustWrap{ margin-top:var(--sp-8); padding:var(--sp-12); background:rgba(0,0,0,.2); border-radius:var(--sp-8) }
+.alcSelect{ width:auto; min-width:140px }
+
+/* System row */
+.cmdStatusRow{ margin-top:var(--sp-8) }
+.cmdStatusPill{ font-size:.85rem }
+
 /* [WEB] gap 16px */
 .kpi{display:flex; gap:16px; flex-wrap:wrap}
 .kpi .box{
@@ -1735,57 +1827,89 @@ body{
     </div>
   </div>
 
-  <div class="card reveal d4">
+  <!-- [UX] Commandes PRO - cards glassmorphism, icons, spacing 4px, touch 44px -->
+  <div class="card reveal d4 commandsCard">
     <div class="section-header">
       <h2><span class="section-header-icon" aria-hidden="true">&#9881;&#65039;</span>Commandes</h2>
-    </div>
-    <div class="grid">
-      <button class="btn cmd cmd-start tooltip" data-tooltip="D&eacute;marrer la journ&eacute;e" onclick="send('start', this)">START</button>
-      <button class="btn cmd cmd-work tooltip" data-tooltip="Commencer &agrave; travailler" onclick="send('work', this)">WORK</button>
-      <button class="btn cmd cmd-dodo tooltip" data-tooltip="Mode sommeil" onclick="send('dodo', this)">DODO</button>
+      <span class="section-header-badge cmdBadge">Centre de controle</span>
     </div>
 
-    <div class="box-divider"></div>
-    <div class="section-header" style="margin-bottom:var(--sp-8)">
-      <h2 style="font-size:1rem"><span class="section-header-icon" aria-hidden="true">&#9889;</span>Actions<span class="help" data-tip="Actions rapides (pauses, activites).">?</span></h2>
+    <!-- [UX] Sub-card: Commandes principales -->
+    <div class="cmdSubCard cmdSubCard--primary">
+      <div class="cmdSubCard__header">
+        <span class="cmdSubCard__icon" aria-hidden="true">&#9654;</span>
+        <span class="cmdSubCard__title">Demarrage</span>
+      </div>
+      <div class="cmdGrid">
+        <button class="btn cmd cmd-start tooltip cmdBtn" data-tooltip="Demarrer la journee" onclick="send('start', this)">
+          <span class="cmdBtn__icon" aria-hidden="true">&#9654;</span>
+          <span class="cmdBtn__label">START</span>
+        </button>
+        <button class="btn cmd cmd-work tooltip cmdBtn" data-tooltip="Commencer a travailler" onclick="send('work', this)">
+          <span class="cmdBtn__icon" aria-hidden="true">&#128188;</span>
+          <span class="cmdBtn__label">WORK</span>
+        </button>
+        <button class="btn cmd cmd-dodo tooltip cmdBtn" data-tooltip="Mode sommeil" onclick="send('dodo', this)">
+          <span class="cmdBtn__icon" aria-hidden="true">&#127769;</span>
+          <span class="cmdBtn__label">DODO</span>
+        </button>
+      </div>
     </div>
-    <div class="grid" id="actionsGrid"></div>
 
-    <div class="box-divider"></div>
-    <div class="section-header" style="margin-bottom:var(--sp-8)">
-      <h2 style="font-size:1rem"><span class="section-header-icon" aria-hidden="true">&#127867;</span>Comptage alcool<span class="help" data-tip="Ajoute ou ajuste les consommations du jour.">?</span></h2>
+    <!-- [UX] Sub-card: Actions rapides -->
+    <div class="cmdSubCard cmdSubCard--actions">
+      <div class="cmdSubCard__header">
+        <span class="cmdSubCard__icon" aria-hidden="true">&#9889;</span>
+        <span class="cmdSubCard__title">Actions rapides</span>
+        <span class="help" data-tip="Pauses, activites et routines.">?</span>
+      </div>
+      <div class="grid" id="actionsGrid"></div>
     </div>
+
+    <!-- [UX] Sub-card: Comptage alcool -->
+    <div class="cmdSubCard cmdSubCard--alcohol">
+      <div class="cmdSubCard__header">
+        <span class="cmdSubCard__icon" aria-hidden="true">&#127867;</span>
+        <span class="cmdSubCard__title">Comptage alcool</span>
+        <span class="help" data-tip="Ajoute ou ajuste les consommations du jour.">?</span>
+      </div>
       <!-- [UX_BEHAVIORAL_PDF C11] Labels visibles au-dessus des champs -->
-      <div class="fieldRow" style="margin-top:10px">
+      <div class="fieldRow alcFieldRow">
         <div class="fieldGroup">
           <label for="drinkN" class="fieldLabel">Quantite</label>
-          <input id="drinkN" class="input drinkInput" type="number" min="1" step="1" value="1" style="width:90px" aria-describedby="drinkHint"/>
+          <input id="drinkN" class="input drinkInput" type="number" min="1" step="1" value="1" aria-describedby="drinkHint"/>
         </div>
-        <button class="btn tooltip" data-tooltip="Ajouter canette(s) de biere" data-drink-btn="1" onclick="addDrink('beer')">+ BIERE</button>
-        <button class="btn tooltip" data-tooltip="Ajouter verre(s) d'alcool fort" data-drink-btn="1" onclick="addDrink('strong')">+ ALCOOL FORT</button>
-        <button class="btn tooltip" data-tooltip="Ajouter verre(s) de vin" data-drink-btn="1" onclick="addDrink('wine')">+ VIN</button>
-        <small id="drinkStatus" role="status" aria-live="polite">-</small>
+        <button class="btn alcBtn tooltip" data-tooltip="Ajouter canette(s) de biere" data-drink-btn="1" onclick="addDrink('beer')">
+          <span aria-hidden="true">&#127866;</span> BIERE
+        </button>
+        <button class="btn alcBtn tooltip" data-tooltip="Ajouter verre(s) d'alcool fort" data-drink-btn="1" onclick="addDrink('strong')">
+          <span aria-hidden="true">&#129380;</span> FORT
+        </button>
+        <button class="btn alcBtn tooltip" data-tooltip="Ajouter verre(s) de vin" data-drink-btn="1" onclick="addDrink('wine')">
+          <span aria-hidden="true">&#127863;</span> VIN
+        </button>
+        <small id="drinkStatus" role="status" aria-live="polite" class="alcStatus">-</small>
       </div>
       <small id="drinkHint" class="fieldHint">Quantite minimum : 1</small>
-      <div style="margin-top:8px">
-        <button class="btn ghost" id="adjustToggle" aria-expanded="false" aria-controls="adjustWrap">Afficher ajustements</button>
+      <div class="alcAdjustToggle">
+        <button class="btn ghost" id="adjustToggle" aria-expanded="false" aria-controls="adjustWrap">&#9881; Ajustements</button>
       </div>
-      <div id="adjustWrap" class="disclose" style="margin-top:8px">
+      <div id="adjustWrap" class="disclose alcAdjustWrap">
         <!-- [UX_BEHAVIORAL_PDF C11] Labels visibles au-dessus des champs -->
         <div class="fieldRow">
           <div class="fieldGroup">
             <label for="adjustType" class="fieldLabel">Type</label>
-            <select id="adjustType" class="input" style="width:140px">
-              <option value="beer" selected>Total biere</option>
-              <option value="wine">Total vin</option>
-              <option value="strong">Total alcool fort</option>
+            <select id="adjustType" class="input alcSelect">
+              <option value="beer" selected>&#127866; Biere</option>
+              <option value="wine">&#127863; Vin</option>
+              <option value="strong">&#129380; Alcool fort</option>
             </select>
           </div>
           <div class="fieldGroup">
             <label for="adjustTotal" class="fieldLabel">Nouveau total</label>
-            <input id="adjustTotal" class="input adjustInput" type="number" min="0" step="1" value="0" style="width:90px" aria-describedby="adjustHint"/>
+            <input id="adjustTotal" class="input adjustInput" type="number" min="0" step="1" value="0" aria-describedby="adjustHint"/>
           </div>
-          <button class="btn tooltip" data-tooltip="Ajuster le total du jour" data-adjust-btn="1" onclick="adjustDrink()">Ajuster</button>
+          <button class="btn primary tooltip" data-tooltip="Ajuster le total du jour" data-adjust-btn="1" onclick="adjustDrink()">Ajuster</button>
           <small id="adjustStatus" role="status" aria-live="polite">-</small>
         </div>
         <small class="muted">Ajuste le total du jour (ajoute seulement la difference).</small>
@@ -1794,13 +1918,19 @@ body{
       <div id="drinkRecent" class="recentList"></div>
     </div>
 
-    <div class="row" style="margin-top:10px">
-      <button class="btn tooltip" data-tooltip="Redémarrer le moteur de suivi" onclick="restartEngine()">Restart Engine</button>
-      <small id="engineStatus" role="status" aria-live="polite">-</small>
-    </div>
-
-    <div class="row" style="margin-top:10px">
-      <span id="status" class="pill" role="status" aria-live="polite">-</span>
+    <!-- [UX] Sub-card: Systeme -->
+    <div class="cmdSubCard cmdSubCard--system">
+      <div class="cmdSubCard__header">
+        <span class="cmdSubCard__icon" aria-hidden="true">&#128736;</span>
+        <span class="cmdSubCard__title">Systeme</span>
+      </div>
+      <div class="row">
+        <button class="btn ghost tooltip" data-tooltip="Redemarrer le moteur de suivi" onclick="restartEngine()">&#128260; Restart Engine</button>
+        <small id="engineStatus" role="status" aria-live="polite">-</small>
+      </div>
+      <div class="row cmdStatusRow">
+        <span id="status" class="pill cmdStatusPill" role="status" aria-live="polite">-</span>
+      </div>
     </div>
   </div>
 
