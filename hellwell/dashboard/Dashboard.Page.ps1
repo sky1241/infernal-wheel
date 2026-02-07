@@ -421,6 +421,7 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
   align-items:center;
   gap:10px;
   padding:10px 14px;
+  min-width:140px;
   border-radius:12px;
   border:1px solid rgba(255,255,255,.12);
   background:rgba(16,22,29,.7);
@@ -1986,8 +1987,8 @@ body{
       <div class="alcUnitChip alcUnitChip--pure">
         <span class="alcUnitChip__icon" aria-hidden="true">&#128167;</span>
         <div class="alcUnitChip__content">
-          <span class="alcUnitChip__label">Dose pure</span>
-          <span class="alcUnitChip__value">= alcool pur (g)</span>
+          <span class="alcUnitChip__label">Pure</span>
+          <span class="alcUnitChip__value">Somme alcool (g)</span>
         </div>
       </div>
     </div>
