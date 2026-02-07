@@ -220,6 +220,20 @@ function New-PageHtml([string]$ym) {
     $weeksHtml += "</div></div>"
   }
 
+  # Calculate global alcohol total from all weeks
+  $allWeeks = Get-WeeklyAlcoholLiters
+  $globalAlcoholTotal = 0
+  $globalBeerTotal = 0
+  $globalWineTotal = 0
+  $globalStrongTotal = 0
+  foreach ($wk in $allWeeks) {
+    try { $globalAlcoholTotal += [double]$wk.PureLiters } catch {}
+    try { $globalBeerTotal += [int]$wk.BeerCans } catch {}
+    try { $globalWineTotal += [int]$wk.WineGlasses } catch {}
+    try { $globalStrongTotal += [int]$wk.StrongGlasses } catch {}
+  }
+  $globalAlcoholTotalStr = $globalAlcoholTotal.ToString("0.###")
+
   $hbClass = if ($hb.status -eq "ONLINE") { "online" } elseif ($hb.status -eq "STALE") { "stale" } else { "offline" }
 
   $tpl = @'
@@ -433,6 +447,50 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
   height:2px;
   background:linear-gradient(90deg, rgba(255,255,255,.2), rgba(255,255,255,.08));
   margin:8px 0;
+}
+/* Alcool Total Card */
+.alcTotalCard{
+  display:grid;
+  grid-template-columns:repeat(4, 1fr);
+  gap:12px;
+  margin-top:16px;
+  padding:16px;
+  border-radius:var(--r);
+  border:1px solid rgba(255,180,50,.35);
+  background:linear-gradient(135deg, rgba(255,180,50,.08), rgba(16,22,29,.6));
+  box-shadow:0 4px 16px rgba(0,0,0,.25), 0 0 20px rgba(255,180,50,.08);
+}
+.alcTotalItem{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:4px;
+  padding:12px 8px;
+  border-radius:8px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+}
+.alcTotalItem__icon{font-size:1.5rem}
+.alcTotalItem__value{
+  font-size:1.25rem;
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  color:var(--text);
+}
+.alcTotalItem__label{
+  font-size:.75rem;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:.3px;
+}
+.alcTotalItem--main{
+  border-color:rgba(255,180,50,.5);
+  background:linear-gradient(135deg, rgba(255,180,50,.15), rgba(255,180,50,.05));
+}
+.alcTotalItem--main .alcTotalItem__value{
+  color:rgba(255,200,80,.95);
+  font-size:1.5rem;
 }
 .card{
   /* Glass morphism renforcé */
@@ -1202,10 +1260,10 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
   align-items:center;
   justify-content:flex-end;
 }
-.wkCount{min-width:12px; display:inline-block; text-align:center}
+.wkCount{min-width:12px; display:inline-block; text-align:center; font-variant-numeric:tabular-nums; font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 .trend-arrow{font-size:.75em; margin-left:2px; opacity:.9}
 .wkLiters{min-width:0; color:var(--muted)}
-.doseBox{display:inline-block; width:13ch}
+.doseBox{display:inline-block; width:13ch; font-variant-numeric:tabular-nums; font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 .weekCell.doseHead .doseBox{
   text-align:right;
 }
@@ -1925,6 +1983,30 @@ body{
     <div class="alcDivider"></div>
     <div style="margin-top:10px">
       __ALC_WEEKS__
+    </div>
+    <div class="alcDivider"></div>
+    <div class="alcSectionLabel">Alcool Total (historique complet)</div>
+    <div class="alcTotalCard">
+      <div class="alcTotalItem alcTotalItem--main">
+        <span class="alcTotalItem__icon" aria-hidden="true">&#128167;</span>
+        <span class="alcTotalItem__value">__GLOBAL_ALCOHOL_TOTAL__ L</span>
+        <span class="alcTotalItem__label">Dose pure</span>
+      </div>
+      <div class="alcTotalItem">
+        <span class="alcTotalItem__icon" aria-hidden="true">&#127866;</span>
+        <span class="alcTotalItem__value">__GLOBAL_BEER_TOTAL__</span>
+        <span class="alcTotalItem__label">Bi&egrave;res</span>
+      </div>
+      <div class="alcTotalItem">
+        <span class="alcTotalItem__icon" aria-hidden="true">&#127863;</span>
+        <span class="alcTotalItem__value">__GLOBAL_WINE_TOTAL__</span>
+        <span class="alcTotalItem__label">Vins</span>
+      </div>
+      <div class="alcTotalItem">
+        <span class="alcTotalItem__icon" aria-hidden="true">&#129380;</span>
+        <span class="alcTotalItem__value">__GLOBAL_STRONG_TOTAL__</span>
+        <span class="alcTotalItem__label">Forts</span>
+      </div>
     </div>
   </div>
 
@@ -3465,6 +3547,10 @@ document.addEventListener('click', () => {
     Replace("__STRONG_B__", ($monthly.StrongBottles).ToString()).
     Replace("__ALC_TOTAL__", ($monthly.TotalLiters).ToString()).
     Replace("__ALC_WEEKS__", $weeksHtml).
+    Replace("__GLOBAL_ALCOHOL_TOTAL__", $globalAlcoholTotalStr).
+    Replace("__GLOBAL_BEER_TOTAL__", $globalBeerTotal.ToString()).
+    Replace("__GLOBAL_WINE_TOTAL__", $globalWineTotal.ToString()).
+    Replace("__GLOBAL_STRONG_TOTAL__", $globalStrongTotal.ToString()).
     Replace("__WINE_UNIT__", $wineUnit).
     Replace("__BEER_UNIT__", $beerUnit).
     Replace("__STRONG_UNIT__", $strongUnit).
