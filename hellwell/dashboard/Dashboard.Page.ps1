@@ -104,13 +104,14 @@ function New-PageHtml([string]$ym) {
       $actsHtml = "<div class='dacts'><span class='dacts-toggle'>&#128203; $actsCount activit" + $(if ($actsCount -gt 1) { "és" } else { "é" }) + "</span><div class='dacts-details'>$actsDetails</div></div>"
     }
 
-    # ARIA + today class
+    # ARIA + today class + badge
     $ariaLabel = "$day $($d.ToString('MMMM'))"
     $todayClass = if ($dk -eq $todayCalKey) { " today" } else { "" }
+    $todayBadge = if ($dk -eq $todayCalKey) { "<span class='dtoday-badge'>Aujourd'hui</span>" } else { "" }
 
     # === BUILD CELL ===
     $cellHtml = "<td class='day$todayClass' data-weekday='$weekdayName' aria-label='$ariaLabel'>"
-    $cellHtml += "<div class='dhead'><span class='dnum'>$($d.Day)</span>$workBadge</div>"
+    $cellHtml += "<div class='dhead'><div class='dhead-left'><span class='dnum'>$($d.Day)</span>$todayBadge</div>$workBadge</div>"
     if ($statsHtml) { $cellHtml += "<div class='dstats'>$statsHtml</div>" }
     $cellHtml += $actsHtml
     $cellHtml += "<div class='dlink'><a href='/notes?d=$dk' aria-label='Notes du $day'>&#128221; Notes</a></div>"
@@ -855,6 +856,7 @@ table{
   border-spacing:6px;
   width:100%;
   table-layout:fixed;
+  overflow:visible;
 }
 
 /* Headers compacts */
@@ -881,7 +883,7 @@ td.day{
   position:relative;
   box-shadow:0 2px 8px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.03);
   transition:all .2s cubic-bezier(.4,0,.2,1);
-  overflow:hidden;
+  overflow:visible; /* Permet au tooltip de dépasser */
 }
 td.day::after{
   content:"";
@@ -905,25 +907,25 @@ td.day:focus-within{
   outline-offset:2px;
 }
 
-/* TODAY = accent fort avec badge */
+/* TODAY = accent fort */
 td.day.today{
   background:linear-gradient(145deg, rgba(53,217,154,.08), rgba(16,22,29,.9));
   border:1.5px solid rgba(53,217,154,.4);
   box-shadow:0 0 20px rgba(53,217,154,.1), 0 4px 12px rgba(0,0,0,.2);
 }
-td.day.today::before{
-  content:"Aujourd'hui";
-  position:absolute;
-  top:8px;
-  right:8px;
-  font-size:.6rem;
+/* Badge "Aujourd'hui" dans le HTML */
+.dtoday-badge{
+  display:inline-flex;
+  align-items:center;
+  font-size:.55rem;
   font-weight:800;
   color:var(--accent);
   background:rgba(53,217,154,.12);
   padding:3px 8px;
-  border-radius:6px;
-  letter-spacing:.3px;
+  border-radius:5px;
+  letter-spacing:.4px;
   text-transform:uppercase;
+  margin-left:6px;
 }
 
 /* Empty days */
@@ -935,12 +937,19 @@ td.day.empty{
 }
 td.day.empty:hover{transform:none;box-shadow:none}
 
-/* ═══ HEADER: Numéro + Travail ═══ */
+/* ═══ HEADER: Numéro + Badge + Travail ═══ */
 .dhead{
   display:flex;
-  align-items:flex-start;
+  align-items:center;
   justify-content:space-between;
-  margin-bottom:8px;
+  gap:6px;
+  margin-bottom:10px;
+  flex-wrap:wrap;
+}
+.dhead-left{
+  display:flex;
+  align-items:center;
+  gap:6px;
 }
 .dnum{
   font-size:1.75rem;
@@ -957,13 +966,14 @@ td.day.today .dnum{
   display:flex;
   align-items:center;
   gap:4px;
-  font-size:.7rem;
+  font-size:.65rem;
   font-weight:700;
   color:rgba(255,79,216,.9);
-  background:rgba(255,79,216,.12);
+  background:rgba(255,79,216,.1);
   padding:4px 8px;
   border-radius:6px;
   border:1px solid rgba(255,79,216,.2);
+  flex-shrink:0;
 }
 .dwork:empty{display:none}
 
@@ -1026,41 +1036,43 @@ td.day.today .dnum{
 /* Tooltip des actions au hover */
 .dacts-details{
   position:absolute;
-  bottom:calc(100% + 6px);
-  left:0;
-  right:0;
-  background:rgba(16,22,29,.97);
-  border:1px solid rgba(255,255,255,.12);
-  border-radius:8px;
-  padding:10px;
-  font-size:.65rem;
+  bottom:calc(100% + 8px);
+  left:50%;
+  transform:translateX(-50%) translateY(4px);
+  width:max-content;
+  min-width:140px;
+  max-width:180px;
+  background:rgba(12,16,22,.98);
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:10px;
+  padding:12px;
+  font-size:.7rem;
   color:var(--text);
   line-height:1.5;
-  box-shadow:0 8px 24px rgba(0,0,0,.4);
+  box-shadow:0 12px 40px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05);
   opacity:0;
   visibility:hidden;
-  transform:translateY(4px);
   transition:all .2s ease;
-  z-index:100;
-  max-width:200px;
+  z-index:9999;
   pointer-events:none;
 }
 .dacts:hover .dacts-details{
   opacity:1;
   visibility:visible;
-  transform:translateY(0);
+  transform:translateX(-50%) translateY(0);
   pointer-events:auto;
 }
 .dacts-details::after{
   content:"";
   position:absolute;
   bottom:-6px;
-  left:16px;
+  left:50%;
+  margin-left:-5px;
   width:10px;
   height:10px;
-  background:rgba(16,22,29,.97);
-  border-right:1px solid rgba(255,255,255,.12);
-  border-bottom:1px solid rgba(255,255,255,.12);
+  background:rgba(12,16,22,.98);
+  border-right:1px solid rgba(255,255,255,.15);
+  border-bottom:1px solid rgba(255,255,255,.15);
   transform:rotate(45deg);
 }
 .dact-item{
@@ -1125,11 +1137,8 @@ td.day.today .dnum{
     min-height:100px;
     padding:10px;
   }
-  td.day.today::before{
-    font-size:.55rem;
-    padding:2px 6px;
-  }
   .dnum{font-size:1.4rem}
+  .dtoday-badge{font-size:.5rem;padding:2px 5px;margin-left:4px}
   .dstats{gap:4px}
   .dstat{font-size:.6rem;padding:2px 5px}
   .dwork{font-size:.6rem;padding:3px 6px}
@@ -1199,6 +1208,7 @@ td.day.today .dnum{
   border-color:rgba(91,178,255,.2);
   background:linear-gradient(135deg, rgba(91,178,255,.05), rgba(16,22,29,.65));
   padding:var(--sp-12);
+  overflow:visible; /* Permet aux tooltips de dépasser */
 }
 .calSubCard--grid:hover{ border-color:rgba(91,178,255,.4) }
 
