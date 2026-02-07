@@ -1988,7 +1988,7 @@ body{
         <span class="alcUnitChip__icon" aria-hidden="true">&#128167;</span>
         <div class="alcUnitChip__content">
           <span class="alcUnitChip__label">Pure</span>
-          <span class="alcUnitChip__value">Somme alcool (g)</span>
+          <span class="alcUnitChip__value">alcool (g)</span>
         </div>
       </div>
     </div>
