@@ -416,6 +416,7 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
   column-gap:var(--week-gap);
   padding:0 8px 12px;
 }
+.alcUnitsRow .alcUnitChip{justify-self:center}
 .alcUnitsRow .alcUnitChip:nth-child(1){grid-column:3}
 .alcUnitsRow .alcUnitChip:nth-child(2){grid-column:4}
 .alcUnitsRow .alcUnitChip:nth-child(3){grid-column:5}
@@ -423,8 +424,8 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
 .alcUnitChip{
   display:flex;
   align-items:center;
-  gap:8px;
-  padding:10px 12px;
+  gap:6px;
+  padding:8px 10px;
   box-sizing:border-box;
   border-radius:12px;
   border:1px solid rgba(255,255,255,.12);
@@ -437,11 +438,11 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
   transform:translateY(-2px);
   box-shadow:0 6px 16px rgba(0,0,0,.25), 0 0 0 1px rgba(255,255,255,.08) inset;
 }
-.alcUnitChip__icon{font-size:1.5rem; filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
-.alcUnitChip__svg{width:28px; height:28px; flex-shrink:0; filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
-.alcUnitChip__content{display:flex; flex-direction:column; gap:2px}
-.alcUnitChip__label{font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted)}
-.alcUnitChip__value{font-size:.875rem; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums}
+.alcUnitChip__icon{font-size:1.2rem; filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+.alcUnitChip__svg{width:22px; height:22px; flex-shrink:0; filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+.alcUnitChip__content{display:flex; flex-direction:column; gap:1px}
+.alcUnitChip__label{font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted)}
+.alcUnitChip__value{font-size:.75rem; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums}
 /* Chip color accents */
 .alcUnitChip--beer{border-color:rgba(255,193,7,.35); background:linear-gradient(135deg, rgba(255,193,7,.1), rgba(16,22,29,.7))}
 .alcUnitChip--beer .alcUnitChip__label{color:rgba(255,193,7,.9)}
