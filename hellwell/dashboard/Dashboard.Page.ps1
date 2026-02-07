@@ -881,6 +881,76 @@ td.day.today .dnum{
   td.day.today{border:3px solid Highlight}
   .dlink a{border:2px solid LinkText}
 }
+
+/* ========================================
+   [UX PRO] Calendrier Card - Glassmorphism Sub-cards
+   - Spacing system 4px
+   - Touch targets 44px min
+   - Cards padding 16px, radius 8px, shadow
+   - HSB hover/active states
+   ======================================== */
+.calendarCard{ display:flex; flex-direction:column; gap:var(--sp-16) }
+.calBadge{
+  background:linear-gradient(135deg, rgba(91,178,255,.2), rgba(102,126,234,.2));
+  border-color:rgba(91,178,255,.4);
+  font-weight:700;
+}
+
+/* Calendar sub-cards */
+.calSubCard{
+  background:linear-gradient(135deg, rgba(16,22,29,.75), rgba(16,22,29,.55));
+  backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:var(--sp-12);
+  padding:var(--sp-16);
+  transition:all .25s cubic-bezier(.4,0,.2,1);
+}
+.calSubCard:hover{
+  border-color:rgba(255,255,255,.15);
+  box-shadow:0 8px 32px rgba(0,0,0,.25);
+}
+
+/* Grid sub-card - blue accent */
+.calSubCard--grid{
+  border-color:rgba(91,178,255,.2);
+  background:linear-gradient(135deg, rgba(91,178,255,.05), rgba(16,22,29,.65));
+  padding:var(--sp-12);
+}
+.calSubCard--grid:hover{ border-color:rgba(91,178,255,.4) }
+
+/* Legend sub-card - muted accent */
+.calSubCard--legend{
+  border-color:rgba(255,255,255,.1);
+  background:linear-gradient(135deg, rgba(255,255,255,.03), rgba(16,22,29,.5));
+  padding:var(--sp-12);
+}
+
+/* Table headers with icons */
+.calTh__icon{ font-size:.65rem; opacity:.6; margin-right:2px }
+.calTh--weekend{ color:rgba(255,153,85,.85) !important }
+
+/* Legend items */
+.calLegend{
+  display:flex;
+  flex-wrap:wrap;
+  gap:var(--sp-16);
+  justify-content:center;
+}
+.calLegend__item{
+  display:flex;
+  align-items:center;
+  gap:var(--sp-4);
+  font-size:.8rem;
+  color:var(--muted);
+}
+.calLegend__icon{ font-size:1rem; opacity:.85 }
+.calLegend__text strong{ color:var(--accent); font-weight:700 }
+
+@media(max-width:640px){
+  .calLegend{ gap:var(--sp-8); justify-content:flex-start }
+  .calLegend__item{ font-size:.75rem }
+}
+
 /* Section headers UX */
 .section-header{display:flex;align-items:center;gap:var(--sp-8);margin-bottom:var(--sp-16)}
 .section-header h2{margin:0;font-size:1.25rem;font-weight:800;color:var(--text);display:flex;align-items:center;gap:var(--sp-8)}
@@ -1934,16 +2004,62 @@ body{
     </div>
   </div>
 
-  <div class="card reveal d5">
+  <!-- [UX PRO] Calendrier - sub-cards glassmorphism, icons, spacing 4px -->
+  <div class="card reveal d5 calendarCard">
     <div class="section-header">
       <h2><span class="section-header-icon" aria-hidden="true">&#128197;</span>Calendrier</h2>
-      <span class="section-header-badge">__YM__</span>
+      <span class="section-header-badge calBadge">__YM__</span>
     </div>
-    <table role="grid" aria-label="Calendrier mensuel">
-      <tr><th scope="col">Lun</th><th scope="col">Mar</th><th scope="col">Mer</th><th scope="col">Jeu</th><th scope="col">Ven</th><th scope="col">Sam</th><th scope="col">Dim</th></tr>
-      __CALROWS__
-    </table>
-    <small class="muted">InfernalDay commence &agrave; 04:00.</small>
+
+    <!-- [UX] Sub-card: Grille calendrier -->
+    <div class="calSubCard calSubCard--grid">
+      <table role="grid" aria-label="Calendrier mensuel">
+        <thead>
+          <tr>
+            <th scope="col"><span class="calTh__icon" aria-hidden="true">&#128197;</span> Lun</th>
+            <th scope="col"><span class="calTh__icon" aria-hidden="true">&#128197;</span> Mar</th>
+            <th scope="col"><span class="calTh__icon" aria-hidden="true">&#128197;</span> Mer</th>
+            <th scope="col"><span class="calTh__icon" aria-hidden="true">&#128197;</span> Jeu</th>
+            <th scope="col"><span class="calTh__icon" aria-hidden="true">&#128197;</span> Ven</th>
+            <th scope="col" class="calTh--weekend"><span class="calTh__icon" aria-hidden="true">&#127774;</span> Sam</th>
+            <th scope="col" class="calTh--weekend"><span class="calTh__icon" aria-hidden="true">&#127774;</span> Dim</th>
+          </tr>
+        </thead>
+        <tbody>
+          __CALROWS__
+        </tbody>
+      </table>
+    </div>
+
+    <!-- [UX] Sub-card: Legende -->
+    <div class="calSubCard calSubCard--legend">
+      <div class="calLegend">
+        <div class="calLegend__item">
+          <span class="calLegend__icon" aria-hidden="true">&#9200;</span>
+          <span class="calLegend__text">InfernalDay commence a <strong>04:00</strong></span>
+        </div>
+        <div class="calLegend__item">
+          <span class="calLegend__icon" aria-hidden="true">&#127866;</span>
+          <span class="calLegend__text">Biere</span>
+        </div>
+        <div class="calLegend__item">
+          <span class="calLegend__icon" aria-hidden="true">&#127863;</span>
+          <span class="calLegend__text">Vin</span>
+        </div>
+        <div class="calLegend__item">
+          <span class="calLegend__icon" aria-hidden="true">&#129380;</span>
+          <span class="calLegend__text">Alcool fort</span>
+        </div>
+        <div class="calLegend__item">
+          <span class="calLegend__icon" aria-hidden="true">&#128187;</span>
+          <span class="calLegend__text">Travail</span>
+        </div>
+        <div class="calLegend__item">
+          <span class="calLegend__icon" aria-hidden="true">&#128164;</span>
+          <span class="calLegend__text">Sommeil</span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="card reveal d6">
