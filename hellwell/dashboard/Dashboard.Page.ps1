@@ -364,20 +364,27 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
   display:inline-flex; align-items:center;
   transition:border-color .15s ease, background .15s ease;
 }
-/* Alcool Date Row - centré au-dessus */
-.alcDateRow{
-  display:flex;
-  justify-content:center;
-  padding:8px 0;
+/* Alcool Header Grid - date alignée sur colonne Vin (4) */
+.alcHeaderGrid{
+  display:grid;
+  grid-template-columns:repeat(6, minmax(0,1fr)) var(--delta-col);
+  gap:var(--week-gap);
+  padding:8px 8px 4px;
 }
-/* Alcool Units Row - 3 chips centrés */
-.alcUnitsRow{
-  display:flex;
-  justify-content:center;
-  gap:12px;
-  padding:4px 0 12px;
-  flex-wrap:wrap;
+.alcHeaderGrid .alcDateChip{
+  grid-column:4;
+  justify-self:center;
 }
+/* Alcool Units Grid - chips alignés sur colonnes Bière(3)/Vin(4)/Fort(5) */
+.alcUnitsGrid{
+  display:grid;
+  grid-template-columns:repeat(6, minmax(0,1fr)) var(--delta-col);
+  gap:var(--week-gap);
+  padding:4px 8px 12px;
+}
+.alcUnitsGrid .alcUnitChip:nth-child(1){grid-column:3}
+.alcUnitsGrid .alcUnitChip:nth-child(2){grid-column:4}
+.alcUnitsGrid .alcUnitChip:nth-child(3){grid-column:5}
 .alcUnitChip{
   display:flex;
   align-items:center;
@@ -1914,13 +1921,13 @@ body{
       <span class="section-header-badge alcBadge">Semaine en cours</span>
     </div>
 
-    <div class="alcDateRow">
+    <div class="alcHeaderGrid">
       <div class="alcDateChip">
         <span class="alcDateChip__icon" aria-hidden="true">&#128197;</span>
         <span class="alcDateChip__value">__TODAY__</span>
       </div>
     </div>
-    <div class="alcUnitsRow">
+    <div class="alcUnitsGrid">
       <div class="alcUnitChip alcUnitChip--beer">
         <span class="alcUnitChip__icon" aria-hidden="true">&#127866;</span>
         <div class="alcUnitChip__content">
