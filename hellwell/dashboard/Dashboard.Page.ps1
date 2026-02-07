@@ -215,7 +215,8 @@ function New-PageHtml([string]$ym) {
         $doseTrend = Get-Trend $currDose $prevDose 0.5
       }
 
-      $weeksHtml += "<div class='weekLine'><div class='$rowClass'><div class='$cellClass'>$($w.WeekKey)</div><div class='$cellClass'>$range</div><div class='$cellNumClass'><span class='wkCount' $($beerTrend.Style)>$($w.BeerCans)$($beerTrend.Arrow)</span></div><div class='$cellNumClass'><span class='wkCount' $($wineTrend.Style)>$($w.WineGlasses)$($wineTrend.Arrow)</span></div><div class='$cellNumClass'><span class='wkCount' $($strongTrend.Style)>$($w.StrongGlasses)$($strongTrend.Arrow)</span></div><div class='$cellDoseClass'><span class='doseBox' $($doseTrend.Style)>$($w.PureLiters)$($doseTrend.Arrow)</span></div></div><div class='weekDelta' $deltaStyle>$deltaLabel$deltaArrow</div></div>"
+      $deltaClass = if ($deltaLabel -eq "") { "weekDelta weekDelta--empty" } else { "weekDelta" }
+      $weeksHtml += "<div class='weekLine'><div class='$rowClass'><div class='$cellClass'>$($w.WeekKey)</div><div class='$cellClass'>$range</div><div class='$cellNumClass'><span class='wkCount' $($beerTrend.Style)>$($w.BeerCans)$($beerTrend.Arrow)</span></div><div class='$cellNumClass'><span class='wkCount' $($wineTrend.Style)>$($w.WineGlasses)$($wineTrend.Arrow)</span></div><div class='$cellNumClass'><span class='wkCount' $($strongTrend.Style)>$($w.StrongGlasses)$($strongTrend.Arrow)</span></div><div class='$cellDoseClass'><span class='doseBox' $($doseTrend.Style)>$($w.PureLiters)$($doseTrend.Arrow)</span></div></div><div class='$deltaClass' $deltaStyle>$deltaLabel$deltaArrow</div></div>"
       $i++
     }
     $weeksHtml += "</div></div>"
@@ -1274,6 +1275,9 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 }
 .weekLine.headLine .weekDelta{
   background:transparent; border-color:transparent; min-height:auto;
+}
+.weekDelta--empty{
+  background:transparent; border-color:transparent; box-shadow:none;
 }
 .weekRow.head .weekCell{color:var(--text); font-weight:700; letter-spacing:.3px}
 .weekRow:not(.head) .weekCell{color:var(--text)}
