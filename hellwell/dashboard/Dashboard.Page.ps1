@@ -385,6 +385,7 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
 .alcUnitsGrid .alcUnitChip:nth-child(1){grid-column:3}
 .alcUnitsGrid .alcUnitChip:nth-child(2){grid-column:4}
 .alcUnitsGrid .alcUnitChip:nth-child(3){grid-column:5}
+.alcUnitsGrid .alcUnitChip:nth-child(4){grid-column:6}
 .alcUnitChip{
   display:flex;
   align-items:center;
@@ -413,6 +414,9 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
 .alcUnitChip--wine .alcUnitChip__label{color:rgba(220,100,120,.9)}
 .alcUnitChip--strong{border-color:rgba(255,152,0,.35); background:linear-gradient(135deg, rgba(255,152,0,.1), rgba(16,22,29,.7))}
 .alcUnitChip--strong .alcUnitChip__label{color:rgba(255,180,80,.9)}
+.alcUnitChip--pure{border-color:rgba(56,189,248,.35); background:linear-gradient(135deg, rgba(56,189,248,.1), rgba(16,22,29,.7))}
+.alcUnitChip--pure .alcUnitChip__label{color:rgba(56,189,248,.9)}
+.alcUnitChip--pure .alcUnitChip__value{font-size:.75rem; line-height:1.3}
 /* Date chip */
 .alcDateChip{
   display:flex;
@@ -1947,6 +1951,13 @@ body{
         <div class="alcUnitChip__content">
           <span class="alcUnitChip__label">Fort</span>
           <span class="alcUnitChip__value">1 verre = __STRONG_UNIT__ L</span>
+        </div>
+      </div>
+      <div class="alcUnitChip alcUnitChip--pure">
+        <span class="alcUnitChip__icon" aria-hidden="true">&#128167;</span>
+        <div class="alcUnitChip__content">
+          <span class="alcUnitChip__label">Dose pure</span>
+          <span class="alcUnitChip__value">Alcool pur total<br>(vol &times; degr&eacute; &times; 0.8)</span>
         </div>
       </div>
     </div>
