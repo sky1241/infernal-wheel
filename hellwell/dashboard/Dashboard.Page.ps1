@@ -364,79 +364,67 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
   display:inline-flex; align-items:center;
   transition:border-color .15s ease, background .15s ease;
 }
-/* Alcool Header - structure weekLine/weekRow */
-.alcHeaderLine{
-  display:grid;
-  grid-template-columns:minmax(0,1fr) var(--delta-col);
-  column-gap:8px;
-  align-items:center;
-  padding:8px 0;
-}
-.alcHeaderInner{
-  display:grid;
-  grid-template-columns:repeat(6, minmax(0,1fr));
-  column-gap:var(--week-gap);
-  align-items:center;
-  padding:0 8px;
-}
-.alcHeaderInner__title{
-  grid-column:1 / span 2;
+/* Alcool Header - style moderne */
+.alcHeader{
   display:flex;
   align-items:center;
-  gap:10px;
+  justify-content:space-between;
+  padding:16px 16px 12px;
+  gap:16px;
 }
-.alcHeaderInner__title h2{
+.alcHeader__left{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.alcHeader__left h2{
   margin:0;
-  font-size:1.25rem;
+  font-size:1.35rem;
   font-weight:800;
   color:var(--text);
   display:flex;
   align-items:center;
-  gap:8px;
+  gap:10px;
 }
-.alcHeaderInner__title .alcTitleIcon{font-size:1.3rem}
-.alcHeaderInner__date{
-  grid-column:4;
-  justify-self:center;
-}
-.alcHeaderInner__badge{
-  grid-column:6;
-  justify-self:center;
-  font-size:.7rem;
-  color:rgba(56,189,248,.9);
-  background:rgba(56,189,248,.1);
-  border:1px solid rgba(56,189,248,.25);
-  padding:6px 12px;
-  border-radius:20px;
+.alcHeader__left .alcTitleIcon{font-size:1.4rem}
+.alcHeader__badge{
+  font-size:.65rem;
+  color:#10b981;
+  background:rgba(16,185,129,.12);
+  border:1px solid rgba(16,185,129,.3);
+  padding:5px 10px;
+  border-radius:16px;
   font-weight:600;
   text-transform:uppercase;
-  letter-spacing:.5px;
+  letter-spacing:.6px;
 }
-/* Alcool Units Row - même structure que weekLine/weekRow */
-.alcUnitsLine{
-  display:grid;
-  grid-template-columns:minmax(0,1fr) var(--delta-col);
-  column-gap:8px;
-  align-items:stretch;
-  padding:4px 0 12px;
-}
-.alcUnitsRow{
-  display:grid;
-  grid-template-columns:repeat(6, minmax(0,1fr));
-  column-gap:var(--week-gap);
+.alcHeader__date{
+  font-size:.85rem;
+  color:var(--muted);
+  display:flex;
   align-items:center;
-  padding:0 8px;
+  gap:6px;
+  padding:6px 12px;
+  background:rgba(255,255,255,.04);
+  border-radius:8px;
 }
-.alcUnitsRow .alcUnitChip:nth-child(1){grid-column:3; justify-self:center}
-.alcUnitsRow .alcUnitChip:nth-child(2){grid-column:4; justify-self:center}
-.alcUnitsRow .alcUnitChip:nth-child(3){grid-column:5; justify-self:center}
-.alcUnitsRow .alcUnitChip:nth-child(4){grid-column:6; justify-self:end}
+.alcHeader__date .dateIcon{font-size:1rem}
+/* Alcool Units - ligne flex uniforme */
+.alcUnitsBar{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  padding:0 16px 16px;
+  flex-wrap:wrap;
+}
 .alcUnitChip{
   display:flex;
   align-items:center;
   gap:8px;
-  padding:8px 12px;
-  width:130px;
+  padding:10px 14px;
+  flex:1 1 0;
+  max-width:160px;
+  min-width:140px;
   box-sizing:border-box;
   border-radius:12px;
   border:1px solid rgba(255,255,255,.12);
@@ -1966,55 +1954,47 @@ body{
   </div>
 
   <div class="card reveal d3 alcCard">
+    <div class="alcHeader">
+      <div class="alcHeader__left">
+        <h2><span class="alcTitleIcon" aria-hidden="true">&#127866;</span>Alcool</h2>
+        <span class="alcHeader__badge">Semaine en cours</span>
+      </div>
+      <div class="alcHeader__date">
+        <span class="dateIcon" aria-hidden="true">&#128197;</span>
+        <span>__TODAY__</span>
+      </div>
+    </div>
+    <div class="alcUnitsBar">
+      <div class="alcUnitChip alcUnitChip--beer">
+        <span class="alcUnitChip__icon" aria-hidden="true">&#127866;</span>
+        <div class="alcUnitChip__content">
+          <span class="alcUnitChip__label">Bi&egrave;re</span>
+          <span class="alcUnitChip__value">1 can. = __BEER_UNIT__ L</span>
+        </div>
+      </div>
+      <div class="alcUnitChip alcUnitChip--wine">
+        <span class="alcUnitChip__icon" aria-hidden="true">&#127863;</span>
+        <div class="alcUnitChip__content">
+          <span class="alcUnitChip__label">Vin</span>
+          <span class="alcUnitChip__value">1 verre = __WINE_UNIT__ L</span>
+        </div>
+      </div>
+      <div class="alcUnitChip alcUnitChip--strong">
+        <svg class="alcUnitChip__svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 4 L4 20 Q4 22 6 22 L18 22 Q20 22 20 20 L20 4 Z" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/><rect x="4" y="20" width="16" height="2" rx="0.5" fill="rgba(255,255,255,.15)"/><path d="M5 14 L5 20 Q5 21 6 21 L18 21 Q19 21 19 20 L19 14 Z" fill="#c17f24"/><rect x="5.5" y="6" width="7" height="9" rx="1.5" fill="#a8e0f0"/><rect x="11" y="8" width="7" height="8" rx="1.5" fill="#8ed0e8"/><path d="M6 7 L11.5 7 L11 12 L6.5 12 Z" fill="rgba(255,255,255,.55)"/><path d="M11.5 9 L17 9 L16.5 14 L12 14 Z" fill="rgba(255,255,255,.45)"/></svg>
+        <div class="alcUnitChip__content">
+          <span class="alcUnitChip__label">Fort</span>
+          <span class="alcUnitChip__value">1 verre = __STRONG_UNIT__ L</span>
+        </div>
+      </div>
+      <div class="alcUnitChip alcUnitChip--pure">
+        <span class="alcUnitChip__icon" aria-hidden="true">&#128167;</span>
+        <div class="alcUnitChip__content">
+          <span class="alcUnitChip__label">Pure</span>
+          <span class="alcUnitChip__value">alcool pur (g)</span>
+        </div>
+      </div>
+    </div>
     <div class="weeksTable">
-      <div class="alcHeaderLine">
-        <div class="alcHeaderInner">
-          <div class="alcHeaderInner__title">
-            <h2><span class="alcTitleIcon" aria-hidden="true">&#127866;</span>Alcool</h2>
-          </div>
-          <div class="alcHeaderInner__date">
-            <div class="alcDateChip">
-              <span class="alcDateChip__icon" aria-hidden="true">&#128197;</span>
-              <span class="alcDateChip__value">__TODAY__</span>
-            </div>
-          </div>
-          <span class="alcHeaderInner__badge">Semaine en cours</span>
-        </div>
-        <div></div>
-      </div>
-      <div class="alcUnitsLine">
-        <div class="alcUnitsRow">
-          <div class="alcUnitChip alcUnitChip--beer">
-            <span class="alcUnitChip__icon" aria-hidden="true">&#127866;</span>
-            <div class="alcUnitChip__content">
-              <span class="alcUnitChip__label">Bi&egrave;re</span>
-              <span class="alcUnitChip__value">1 can. = __BEER_UNIT__ L</span>
-            </div>
-          </div>
-          <div class="alcUnitChip alcUnitChip--wine">
-            <span class="alcUnitChip__icon" aria-hidden="true">&#127863;</span>
-            <div class="alcUnitChip__content">
-              <span class="alcUnitChip__label">Vin</span>
-              <span class="alcUnitChip__value">1 verre = __WINE_UNIT__ L</span>
-            </div>
-          </div>
-          <div class="alcUnitChip alcUnitChip--strong">
-            <svg class="alcUnitChip__svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 4 L4 20 Q4 22 6 22 L18 22 Q20 22 20 20 L20 4 Z" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/><rect x="4" y="20" width="16" height="2" rx="0.5" fill="rgba(255,255,255,.15)"/><path d="M5 14 L5 20 Q5 21 6 21 L18 21 Q19 21 19 20 L19 14 Z" fill="#c17f24"/><rect x="5.5" y="6" width="7" height="9" rx="1.5" fill="#a8e0f0"/><rect x="11" y="8" width="7" height="8" rx="1.5" fill="#8ed0e8"/><path d="M6 7 L11.5 7 L11 12 L6.5 12 Z" fill="rgba(255,255,255,.55)"/><path d="M11.5 9 L17 9 L16.5 14 L12 14 Z" fill="rgba(255,255,255,.45)"/></svg>
-            <div class="alcUnitChip__content">
-              <span class="alcUnitChip__label">Fort</span>
-              <span class="alcUnitChip__value">1 verre = __STRONG_UNIT__ L</span>
-            </div>
-          </div>
-          <div class="alcUnitChip alcUnitChip--pure">
-            <span class="alcUnitChip__icon" aria-hidden="true">&#128167;</span>
-            <div class="alcUnitChip__content">
-              <span class="alcUnitChip__label">Pure</span>
-              <span class="alcUnitChip__value">alcool (g)</span>
-            </div>
-          </div>
-        </div>
-        <div></div>
-      </div>
       __ALC_WEEKS__
     </div>
   </div>
