@@ -364,13 +364,19 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
   display:inline-flex; align-items:center;
   transition:border-color .15s ease, background .15s ease;
 }
-/* Alcool Units Grid - aligné avec colonnes du tableau */
-.alcUnitsGrid{
-  display:grid;
-  grid-template-columns:repeat(5, 1fr) var(--delta-col);
-  gap:8px;
-  padding:4px 8px 8px;
-  align-items:stretch;
+/* Alcool Date Row - centré au-dessus */
+.alcDateRow{
+  display:flex;
+  justify-content:center;
+  padding:8px 0;
+}
+/* Alcool Units Row - 3 chips centrés */
+.alcUnitsRow{
+  display:flex;
+  justify-content:center;
+  gap:12px;
+  padding:4px 0 12px;
+  flex-wrap:wrap;
 }
 .alcUnitChip{
   display:flex;
@@ -1908,11 +1914,13 @@ body{
       <span class="section-header-badge alcBadge">Semaine en cours</span>
     </div>
 
-    <div class="alcUnitsGrid">
-      <div class="alcDateChip" style="grid-column:1/3">
+    <div class="alcDateRow">
+      <div class="alcDateChip">
         <span class="alcDateChip__icon" aria-hidden="true">&#128197;</span>
         <span class="alcDateChip__value">__TODAY__</span>
       </div>
+    </div>
+    <div class="alcUnitsRow">
       <div class="alcUnitChip alcUnitChip--beer">
         <span class="alcUnitChip__icon" aria-hidden="true">&#127866;</span>
         <div class="alcUnitChip__content">
