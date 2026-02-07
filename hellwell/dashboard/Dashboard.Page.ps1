@@ -604,17 +604,28 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 table{border-collapse:collapse;width:100%;table-layout:fixed}
 td,th{border:1px solid var(--border); padding:.5rem; vertical-align:top; width:14.285%}
 th{background:rgba(16,22,29,.6); text-align:left; color:var(--muted)}
-.day{min-height:5.75rem; height:auto; overflow:hidden}
+/* Calendar UX improvements */
+.day{min-height:5.75rem;height:auto;overflow:hidden;transition:background .2s,box-shadow .2s}
+.day:not(.empty):hover{background:rgba(53,217,154,.05);box-shadow:inset 0 0 0 1px rgba(53,217,154,.2)}
+.day.today{background:rgba(53,217,154,.08);border-color:rgba(53,217,154,.3)}
 @media(max-width:640px){
   table,thead,tbody,tr,td,th{display:block;width:100%}
   thead tr{position:absolute;top:-9999px;left:-9999px}
   td.day{min-height:auto;height:auto;padding:.75rem;margin-bottom:.5rem;border-radius:8px}
   td.day.empty{display:none}
 }
-.dnum{font-weight:900}
-.dmeta{margin-top:6px; font-size:.75rem; color:var(--muted); overflow-wrap:anywhere}
-.dlink{margin-top:6px; font-size:.75rem; overflow-wrap:anywhere}
+.dnum{font-weight:900;font-size:1.1rem;color:var(--text)}
+.dmeta{margin-top:6px;font-size:.7rem;color:var(--muted);overflow-wrap:anywhere;line-height:1.4}
+.dlink{margin-top:8px;font-size:.75rem;overflow-wrap:anywhere}
+.dlink a{color:var(--accent);text-decoration:none;padding:4px 8px;border-radius:6px;background:rgba(53,217,154,.08);transition:background .2s}
+.dlink a:hover{background:rgba(53,217,154,.15)}
+.dlink a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .day.empty{background:transparent}
+/* Section headers UX */
+.section-header{display:flex;align-items:center;gap:var(--sp-8);margin-bottom:var(--sp-16)}
+.section-header h2{margin:0;font-size:1.25rem;font-weight:800;color:var(--text);display:flex;align-items:center;gap:var(--sp-8)}
+.section-header-icon{font-size:1.3rem}
+.section-header-badge{font-size:.75rem;color:var(--muted);background:rgba(255,255,255,.05);padding:4px 10px;border-radius:12px;font-weight:500}
 /* [WEB] radius 8px, padding 12px */
 .seg{border:1px solid var(--seg-border, var(--border)); border-radius:8px; padding:12px; margin:8px 0; background:var(--seg-bg, rgba(16,22,29,.55)); position:relative; box-shadow:0 0 0 1px rgba(255,255,255,.02) inset}
 .seg::before{
@@ -895,11 +906,14 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 /* [WEB] gap 16px, margin 8px */
 .legend{display:flex; gap:16px; flex-wrap:wrap; font-size:.875rem; color:var(--muted); margin-top:8px}
 .legendDot{width:8px; height:8px; border-radius:999px; display:inline-block; margin-right:8px}
-.kpiGrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(168px,1fr)); gap:8px; margin-top:8px}
-.kpiTile{border:1px solid var(--border); border-radius:8px; padding:12px; background:rgba(16,22,29,.6)}
-.kpiLabel{font-size:.875rem; color:var(--muted)}
-.kpiVal{font-size:1.125rem; font-weight:800}
-.kpiDelta{font-size:.875rem; color:var(--muted)}
+.kpiGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:var(--sp-12);margin-top:var(--sp-16)}
+.kpiTile{border:1px solid var(--border);border-radius:var(--r);padding:var(--sp-16);background:linear-gradient(135deg,rgba(16,22,29,.7),rgba(16,22,29,.5));transition:transform .2s,box-shadow .2s}
+.kpiTile:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.3)}
+.kpiLabel{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:var(--sp-4)}
+.kpiVal{font-size:1.5rem;font-weight:900;background:linear-gradient(135deg,#fff,rgba(255,255,255,.8));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.kpiDelta{font-size:.75rem;color:var(--muted);margin-top:var(--sp-4)}
+.kpiDelta.up{color:var(--danger)}
+.kpiDelta.down{color:var(--accent)}
 .notesBox{margin-top:8px; border:1px solid var(--border); border-radius:8px; padding:12px; background:rgba(16,22,29,.6)}
 .notesLine{font-size:.875rem; color:var(--muted); margin:4px 0}
 .loadingBar{position:fixed; top:0; left:0; right:0; height:3px; background:rgba(255,255,255,.06); opacity:0; pointer-events:none; z-index:2000; transition:opacity .2s ease}
@@ -1281,20 +1295,25 @@ body{
   </div>
 
   <div class="card reveal d4">
-    <h2>Commandes</h2>
+    <div class="section-header">
+      <h2><span class="section-header-icon" aria-hidden="true">&#9881;&#65039;</span>Commandes</h2>
+    </div>
     <div class="grid">
-      <button class="btn cmd cmd-start tooltip" data-tooltip="Démarrer la journée" onclick="send('start', this)">START</button>
-      <button class="btn cmd cmd-work tooltip" data-tooltip="Commencer à travailler" onclick="send('work', this)">WORK</button>
+      <button class="btn cmd cmd-start tooltip" data-tooltip="D&eacute;marrer la journ&eacute;e" onclick="send('start', this)">START</button>
+      <button class="btn cmd cmd-work tooltip" data-tooltip="Commencer &agrave; travailler" onclick="send('work', this)">WORK</button>
       <button class="btn cmd cmd-dodo tooltip" data-tooltip="Mode sommeil" onclick="send('dodo', this)">DODO</button>
     </div>
 
-    <div style="margin-top:12px">
-      <b>Actions</b><span class="help" data-tip="Actions rapides (pauses, activites).">?</span><br/>
-      <div class="grid" id="actionsGrid" style="margin-top:10px"></div>
+    <div class="box-divider"></div>
+    <div class="section-header" style="margin-bottom:var(--sp-8)">
+      <h2 style="font-size:1rem"><span class="section-header-icon" aria-hidden="true">&#9889;</span>Actions<span class="help" data-tip="Actions rapides (pauses, activites).">?</span></h2>
     </div>
+    <div class="grid" id="actionsGrid"></div>
 
-    <div style="margin-top:12px">
-      <b>Comptage alcool</b><span class="help" data-tip="Ajoute ou ajuste les consommations du jour.">?</span>
+    <div class="box-divider"></div>
+    <div class="section-header" style="margin-bottom:var(--sp-8)">
+      <h2 style="font-size:1rem"><span class="section-header-icon" aria-hidden="true">&#127867;</span>Comptage alcool<span class="help" data-tip="Ajoute ou ajuste les consommations du jour.">?</span></h2>
+    </div>
       <!-- [UX_BEHAVIORAL_PDF C11] Labels visibles au-dessus des champs -->
       <div class="fieldRow" style="margin-top:10px">
         <div class="fieldGroup">
@@ -1345,21 +1364,27 @@ body{
   </div>
 
   <div class="card reveal d5">
-    <h2>Calendrier - __YM__</h2>
-    <table>
-      <tr><th>Lun</th><th>Mar</th><th>Mer</th><th>Jeu</th><th>Ven</th><th>Sam</th><th>Dim</th></tr>
+    <div class="section-header">
+      <h2><span class="section-header-icon" aria-hidden="true">&#128197;</span>Calendrier</h2>
+      <span class="section-header-badge">__YM__</span>
+    </div>
+    <table role="grid" aria-label="Calendrier mensuel">
+      <tr><th scope="col">Lun</th><th scope="col">Mar</th><th scope="col">Mer</th><th scope="col">Jeu</th><th scope="col">Ven</th><th scope="col">Sam</th><th scope="col">Dim</th></tr>
       __CALROWS__
     </table>
-    <small>InfernalDay commence a 04:00.</small>
+    <small class="muted">InfernalDay commence &agrave; 04:00.</small>
   </div>
 
   <div class="card reveal d6">
-    <h2>Rapport mensuel - __YM__ <span class="help" data-tip="Vue d'ensemble du mois avec tendances et variations.">?</span></h2>
-    <div class="chartWrap">
-      <canvas id="monthChart"></canvas>
+    <div class="section-header">
+      <h2><span class="section-header-icon" aria-hidden="true">&#128202;</span>Rapport mensuel<span class="help" data-tip="Vue d'ensemble du mois avec tendances et variations.">?</span></h2>
+      <span class="section-header-badge">__YM__</span>
     </div>
-    <div class="legend" id="monthLegend"></div>
-    <div class="kpiGrid" id="monthKpis"></div>
+    <div class="chartWrap">
+      <canvas id="monthChart" aria-label="Graphique mensuel"></canvas>
+    </div>
+    <div class="legend" id="monthLegend" role="list" aria-label="L&eacute;gende"></div>
+    <div class="kpiGrid" id="monthKpis" role="list" aria-label="Indicateurs"></div>
     <div class="notesBox" id="monthNotes"></div>
   </div>
 
