@@ -1628,7 +1628,7 @@ async function getJSON(url){
 let fullContent = ""; // Contenu complet avec métriques (pour export)
 const metricPatterns = [
   /^(qualit[eé]\s*sommeil|[eé]nergie|motivation|douleur|humeur(\s*soir)?|anxi[eé]t[eé]|irritabilit[eé]|clart[eé]|stress|focus|fatigue|fiert[eé]|intensit[eé]|[eé]motion|id[eé]es?\s*noires?|score\s*global|relations?)\s*[:=]\s*.+$/i,
-  /^(minimum|priorit[eé]\s*[123]|d[eé]clencheur|pensee|alternative)\s*[:=]\s*.+$/i
+  /^(minimum\s*vital|minimum|priorit[eé]\s*[123]|d[eé]clencheur|pens[eé]e|alternative)\s*[:=]\s*.+$/i
 ];
 function isMetricLine(line) {
   const trimmed = line.trim();
@@ -2164,91 +2164,159 @@ function initRatingSteppers() {
   });
 }
 
-/* Export day data as text file */
+/* Export day data - Format HTML page A4 pour psy */
 function exportDayData(){
   const date = "$d";
   const dayName = "$dayName";
-  const notes = document.getElementById("t").value || "(aucune note)";
+  const rawNotes = document.getElementById("t").value || "";
+  const notes = filterMetrics(rawNotes).trim();
 
-  // Collect all check-in values
-  const fields = {};
+  // Collect values
+  const f = {};
   document.querySelectorAll("[data-field]").forEach(el => {
     const key = el.getAttribute("data-field");
-    let val = "";
-    if (el.type === "checkbox") val = el.checked ? "Oui" : "Non";
-    else val = el.value || "-";
-    fields[key] = val;
+    if (el.type === "checkbox") { if (el.checked) f[key] = true; }
+    else if (el.value && el.value.trim() && el.value.trim() !== "-") f[key] = el.value.trim();
   });
 
-  // Build readable text
-  let txt = "=".repeat(50) + "\\n";
-  txt += "JOURNAL - " + dayName + " " + date + "\\n";
-  txt += "=".repeat(50) + "\\n\\n";
+  // Helper: score row with bar
+  const scoreRow = (label, val, max=10) => {
+    if (!val) return "";
+    const n = Math.round(parseFloat(val));
+    const pct = Math.min(100, (n / max) * 100);
+    const color = n <= 3 ? "#e74c3c" : n <= 6 ? "#f39c12" : "#27ae60";
+    return "<tr><td>" + label + "</td><td><strong>" + val + "/" + max + "</strong></td><td style='width:100px'><div style='background:#eee;border-radius:4px;height:12px'><div style='background:" + color + ";width:" + pct + "%;height:100%;border-radius:4px'></div></div></td></tr>";
+  };
 
-  txt += "--- NOTES LIBRES ---\\n";
-  txt += notes + "\\n\\n";
+  let html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Journal " + date + "</title>";
+  html += "<style>";
+  html += "body{font-family:Arial,sans-serif;max-width:700px;margin:40px auto;padding:20px;color:#333;line-height:1.6}";
+  html += "h1{color:#2c3e50;border-bottom:3px solid #3498db;padding-bottom:10px;margin-bottom:20px}";
+  html += "h2{color:#34495e;font-size:1.1em;margin:25px 0 10px;padding:8px 12px;background:#ecf0f1;border-left:4px solid #3498db;border-radius:0 4px 4px 0}";
+  html += "table{width:100%;border-collapse:collapse;margin:10px 0}";
+  html += "td{padding:6px 10px;border-bottom:1px solid #eee}";
+  html += "td:first-child{color:#7f8c8d;width:120px}";
+  html += ".notes{background:#fffbeb;border:1px solid #f1c40f;border-radius:6px;padding:15px;margin:15px 0;white-space:pre-wrap}";
+  html += ".footer{margin-top:30px;padding-top:15px;border-top:1px solid #ddd;color:#95a5a6;font-size:0.85em;text-align:center}";
+  html += ".priorities{list-style:none;padding:0;margin:10px 0}";
+  html += ".priorities li{padding:8px 12px;margin:5px 0;background:#f8f9fa;border-radius:4px;border-left:3px solid #3498db}";
+  html += ".priorities li.vital{border-left-color:#e74c3c;background:#fdf2f2}";
+  html += "@media print{body{margin:0;padding:15px}h1{font-size:1.3em}h2{font-size:1em;margin:15px 0 8px}}";
+  html += "</style></head><body>";
 
-  txt += "--- DONNÉES AUTO ---\\n";
-  txt += "Sommeil (hier): $sleepStrYesterday\\n";
-  txt += "Travail: $workStr\\n";
-  txt += "Clopes: $clopeCount\\n";
-  txt += "Alcool: $alcDisplayStr\\n";
-  txt += "Sport: ${sportMin}\\n";
-  txt += "Glandouille: ${glandouilleMin}\\n\\n";
+  html += "<h1>Journal - " + dayName + " " + date + "</h1>";
 
-  txt += "--- CHECK-IN MATIN ---\\n";
-  txt += "Qualité sommeil: " + (fields.qualite || "-") + "/10\\n";
-  txt += "Énergie: " + (fields.energie || "-") + "/10\\n";
-  txt += "Motivation: " + (fields.motivation || "-") + "/10\\n";
-  txt += "Douleur: " + (fields.douleur || "-") + "/10\\n\\n";
+  // NOTES
+  if (notes) {
+    html += "<h2>Notes</h2>";
+    html += "<div class='notes'>" + notes.replace(/\\n/g, "<br>") + "</div>";
+  }
 
-  txt += "--- ÉTAT MENTAL ---\\n";
-  txt += "Humeur: " + (fields.humeur || "-") + "/10\\n";
-  txt += "Anxiété: " + (fields.anxiete || "-") + "/10\\n";
-  txt += "Irritabilité: " + (fields.irritabilite || "-") + "/10\\n";
-  txt += "Clarté: " + (fields.clarte || "-") + "/10\\n\\n";
+  // DONNEES AUTO
+  html += "<h2>Donnees du jour</h2>";
+  html += "<table>";
+  html += "<tr><td>Sommeil</td><td><strong>$sleepStrYesterday</strong></td><td></td></tr>";
+  html += "<tr><td>Travail</td><td><strong>$workStr</strong></td><td></td></tr>";
+  html += "<tr><td>Clopes</td><td><strong>$clopeCount</strong></td><td></td></tr>";
+  html += "<tr><td>Alcool</td><td><strong>$alcDisplayStr</strong></td><td></td></tr>";
+  html += "<tr><td>Sport</td><td><strong>${sportMin} min</strong></td><td></td></tr>";
+  html += "<tr><td>Glandouille</td><td><strong>${glandouilleMin} min</strong></td><td></td></tr>";
+  html += "</table>";
 
-  txt += "--- PLAN TDAH ---\\n";
-  txt += "Priorité 1: " + (fields.priorite1 || "-") + "\\n";
-  txt += "Priorité 2: " + (fields.priorite2 || "-") + "\\n";
-  txt += "Priorité 3: " + (fields.priorite3 || "-") + "\\n";
-  txt += "Minimum vital: " + (fields.minimum || "-") + "\\n\\n";
+  // CHECK-IN MATIN
+  if (f.qualite || f.energie || f.motivation || f.douleur) {
+    html += "<h2>Check-in Matin</h2><table>";
+    html += scoreRow("Sommeil", f.qualite);
+    html += scoreRow("Energie", f.energie);
+    html += scoreRow("Motivation", f.motivation);
+    html += scoreRow("Douleur", f.douleur);
+    html += "</table>";
+  }
 
-  txt += "--- JOURNAL SOIR ---\\n";
-  txt += "Humeur soir: " + (fields.humeur_soir || "-") + "/10\\n";
-  txt += "Stress: " + (fields.stress || "-") + "/10\\n";
-  txt += "Focus: " + (fields.focus || "-") + "/10\\n";
-  txt += "Fatigue: " + (fields.fatigue || "-") + "/10\\n";
-  txt += "Fierté: " + (fields.fierte || "-") + "/10\\n\\n";
+  // ETAT MENTAL
+  if (f.humeur || f.anxiete || f.irritabilite || f.clarte) {
+    html += "<h2>Etat Mental</h2><table>";
+    html += scoreRow("Humeur", f.humeur);
+    html += scoreRow("Anxiete", f.anxiete);
+    html += scoreRow("Irritabilite", f.irritabilite);
+    html += scoreRow("Clarte", f.clarte);
+    html += "</table>";
+  }
 
-  txt += "--- COLÈRE ---\\n";
-  txt += "Intensité: " + (fields.intensite || "-") + "/10\\n";
-  txt += "Déclencheur: " + (fields.declencheur || "-") + "\\n";
-  txt += "Pause 90s: " + (fields.pause90 || "Non") + "\\n";
-  txt += "Respiration: " + (fields.respiration || "Non") + "\\n";
-  txt += "Sortir: " + (fields.sortir || "Non") + "\\n\\n";
+  // PLAN TDAH
+  if (f.priorite1 || f.priorite2 || f.priorite3 || f.minimum) {
+    html += "<h2>Plan TDAH</h2><ul class='priorities'>";
+    if (f.priorite1) html += "<li><strong>1.</strong> " + f.priorite1 + "</li>";
+    if (f.priorite2) html += "<li><strong>2.</strong> " + f.priorite2 + "</li>";
+    if (f.priorite3) html += "<li><strong>3.</strong> " + f.priorite3 + "</li>";
+    if (f.minimum)   html += "<li class='vital'><strong>Minimum vital:</strong> " + f.minimum + "</li>";
+    html += "</ul>";
+  }
 
-  txt += "--- CBT ---\\n";
-  txt += "Émotion: " + (fields.emotion || "-") + "/10\\n";
-  txt += "Idées noires: " + (fields.idees_noires || "-") + "/10\\n";
-  txt += "Score global: " + (fields.score_global || "-") + "/10\\n";
-  txt += "Relations: " + (fields.relations || "-") + "/10\\n\\n";
+  // JOURNAL SOIR
+  if (f.humeur_soir || f.stress || f.focus || f.fatigue || f.fierte) {
+    html += "<h2>Journal Soir</h2><table>";
+    html += scoreRow("Humeur", f.humeur_soir);
+    html += scoreRow("Stress", f.stress);
+    html += scoreRow("Focus", f.focus);
+    html += scoreRow("Fatigue", f.fatigue);
+    html += scoreRow("Fierte", f.fierte);
+    html += "</table>";
+  }
 
-  txt += "=".repeat(50) + "\\n";
-  txt += "Exporté le " + new Date().toLocaleString("fr-FR") + "\\n";
+  // COLERE
+  if (f.intensite || f.declencheur || f.pause90 || f.respiration || f.sortir) {
+    html += "<h2>Colere</h2><table>";
+    html += scoreRow("Intensite", f.intensite);
+    if (f.declencheur) html += "<tr><td>Declencheur</td><td colspan='2'>" + f.declencheur + "</td></tr>";
+    html += "</table>";
+    if (f.pause90 || f.respiration || f.sortir) {
+      html += "<p style='margin:10px 0;color:#27ae60'>";
+      if (f.pause90) html += "&#10003; Pause 90s ";
+      if (f.respiration) html += "&#10003; Respiration ";
+      if (f.sortir) html += "&#10003; Sorti marcher";
+      html += "</p>";
+    }
+  }
 
-  // Download as file
-  const blob = new Blob([txt], {type: "text/plain;charset=utf-8"});
+  // CBT
+  if (f.emotion || f.pensee || f.alternative) {
+    html += "<h2>CBT Rapide</h2><table>";
+    html += scoreRow("Emotion", f.emotion);
+    if (f.pensee) html += "<tr><td>Pensee</td><td colspan='2'>" + f.pensee + "</td></tr>";
+    if (f.alternative) html += "<tr><td>Alternative</td><td colspan='2'>" + f.alternative + "</td></tr>";
+    html += "</table>";
+  }
+
+  // GARDE-FOU
+  if (f.ideesnoires) {
+    html += "<h2 style='border-left-color:#e74c3c'>Garde-fou</h2><table>";
+    html += scoreRow("Idees noires", f.ideesnoires);
+    html += "</table>";
+  }
+
+  // BILAN
+  if (f.score || f.relations) {
+    html += "<h2>Bilan</h2><table>";
+    html += scoreRow("Score global", f.score);
+    html += scoreRow("Relations", f.relations, 6);
+    html += "</table>";
+  }
+
+  html += "<div class='footer'>Exporte le " + new Date().toLocaleString("fr-FR") + "</div>";
+  html += "</body></html>";
+
+  // Download HTML
+  const blob = new Blob([html], {type: "text/html;charset=utf-8"});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "journal_" + date + ".txt";
+  a.download = "journal_" + date + ".html";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-
-  showToast("Fichier exporté: journal_" + date + ".txt", "success", "Export");
+  showToast("Exporte: journal_" + date + ".html", "success", "Export");
 }
 
 /* Init */
