@@ -1072,10 +1072,10 @@ body{
 .clickable:hover{background:rgba(107,188,255,.2);transform:translateX(2px);filter:brightness(1.1) saturate(1.3)}
 .tpl-list li.clickable:hover{background:rgba(107,188,255,.25)}
 
-/* Wrapper textarea + bouton correction */
-.notesTaWrap{position:relative;height:100%}
+/* Wrapper textarea + toolbar */
+.notesTaWrap{display:flex;flex-direction:column;height:100%;gap:var(--sp-8)}
+.notesTaToolbar{display:flex;justify-content:flex-end;align-items:center}
 .spell-btn{
-  position:absolute;top:var(--sp-12);right:var(--sp-12);z-index:10;
   display:inline-flex;align-items:center;gap:6px;
   background:var(--blue);border:none;color:#fff;
   padding:var(--sp-8) var(--sp-16);min-height:44px;
@@ -1362,12 +1362,14 @@ a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 
       <div class="notesRow">
         <div class="notesTaWrap">
-          <button type="button" class="spell-btn" onclick="correctSpelling()" title="Corriger l'orthographe automatiquement">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
-            <span>Corriger</span>
-          </button>
+          <div class="notesTaToolbar">
+            <button type="button" class="spell-btn" onclick="correctSpelling()" title="Corriger l'orthographe automatiquement">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+              <span>Corriger</span>
+            </button>
+          </div>
           <label for="t" class="sr-only">Notes du jour</label>
-          <textarea id="t" class="notesTa" placeholder="Parle, défoule-toi, note ce que tu veux... Cet espace est à toi." aria-label="Notes du jour" spellcheck="true" lang="fr"></textarea>
+          <textarea id="t" class="notesTa" placeholder="Parle, défoule-toi, note ce que tu veux... Cet espace est à toi." aria-label="Notes du jour" spellcheck="false"></textarea>
         </div>
         <aside class="notesBox" aria-label="Template de check-in">
           <!-- DONNÉES AUTO -->
