@@ -126,6 +126,45 @@ while ($true) {
         Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true; notes=$allNotes} | ConvertTo-Json -Depth 12))
         continue
       }
+      if ($path -eq "/api/consumption/all") {
+        # Aggregate drinks and smokes by day
+        $consumption = @{}
+
+        # Read drinks.csv
+        $drinksPath = Join-Path $DataDir "drinks.csv"
+        if (Test-Path $drinksPath) {
+          $drinks = Import-Csv $drinksPath -ErrorAction SilentlyContinue
+          foreach ($d in $drinks) {
+            $day = $d.InfernalDay
+            if (-not $consumption[$day]) { $consumption[$day] = @{ wine=0; beer=0; strong=0; smokes=0 } }
+            $consumption[$day].wine += [int]$d.Wine
+            $consumption[$day].beer += [int]$d.Beer
+            $consumption[$day].strong += [int]$d.Strong
+          }
+        }
+
+        # Read log.csv for smokes
+        $logPath = Join-Path $DataDir "log.csv"
+        if (Test-Path $logPath) {
+          $logs = Import-Csv $logPath -ErrorAction SilentlyContinue
+          foreach ($l in $logs) {
+            if ($l.Name -eq "clope") {
+              $day = $l.InfernalDay
+              if (-not $consumption[$day]) { $consumption[$day] = @{ wine=0; beer=0; strong=0; smokes=0 } }
+              $consumption[$day].smokes += 1
+            }
+          }
+        }
+
+        # Convert to array
+        $result = @()
+        foreach ($day in $consumption.Keys | Sort-Object -Descending) {
+          $result += @{ day = $day; wine = $consumption[$day].wine; beer = $consumption[$day].beer; strong = $consumption[$day].strong; smokes = $consumption[$day].smokes }
+        }
+
+        Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true; data=$result} | ConvertTo-Json -Depth 12))
+        continue
+      }
       if ($path -eq "/api/quicknote") {
         $content = Get-QuickNote
         Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true; content=$content} | ConvertTo-Json -Depth 6))
@@ -2534,11 +2573,25 @@ async function exportAllData() {
   showToast("Chargement de l'historique...", "warn", "Export");
 
   try {
-    const resp = await fetch("/api/notes/all");
-    const data = await resp.json();
+    // Load notes and consumption data in parallel
+    const [notesResp, consResp] = await Promise.all([
+      fetch("/api/notes/all"),
+      fetch("/api/consumption/all")
+    ]);
+    const data = await notesResp.json();
+    const consData = await consResp.json();
+
     if (!data.ok || !data.notes || data.notes.length === 0) {
       showToast("Aucune donnee trouvee", "error", "Export");
       return;
+    }
+
+    // Build consumption lookup by day
+    const consumption = {};
+    if (consData.ok && consData.data) {
+      for (const c of consData.data) {
+        consumption[c.day] = c;
+      }
     }
 
     // Parse note content to extract values
@@ -2594,6 +2647,13 @@ async function exportAllData() {
     html += ".toc li{margin:4px 0}";
     html += ".toc a{color:#3498db;text-decoration:none}";
     html += ".toc a:hover{text-decoration:underline}";
+    html += ".consumption{display:flex;gap:15px;flex-wrap:wrap;margin:10px 0}";
+    html += ".cons-badge{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:20px;font-size:.9em;font-weight:500}";
+    html += ".cons-badge.wine{background:#f8e6ff;color:#8e44ad}";
+    html += ".cons-badge.beer{background:#fff3cd;color:#d68910}";
+    html += ".cons-badge.strong{background:#fde8e8;color:#c0392b}";
+    html += ".cons-badge.smoke{background:#f5f5f5;color:#7f8c8d}";
+    html += ".cons-badge .icon{font-size:1.1em}";
     html += "@media print{.day-section{break-inside:avoid}body{margin:0;padding:15px}}";
     html += "</style></head><body>";
 
@@ -2623,6 +2683,18 @@ async function exportAllData() {
       if (f._notes) {
         html += "<h3>Notes</h3>";
         html += "<div class='notes'>" + f._notes.replace(/\\n/g, "<br>") + "</div>";
+      }
+
+      // Consommation
+      const cons = consumption[note.day];
+      if (cons && (cons.wine || cons.beer || cons.strong || cons.smokes)) {
+        html += "<h3>Consommation</h3>";
+        html += "<div class='consumption'>";
+        if (cons.wine) html += "<span class='cons-badge wine'><span class='icon'>🍷</span> " + cons.wine + " vin</span>";
+        if (cons.beer) html += "<span class='cons-badge beer'><span class='icon'>🍺</span> " + cons.beer + " bière" + (cons.beer > 1 ? "s" : "") + "</span>";
+        if (cons.strong) html += "<span class='cons-badge strong'><span class='icon'>🥃</span> " + cons.strong + " fort" + (cons.strong > 1 ? "s" : "") + "</span>";
+        if (cons.smokes) html += "<span class='cons-badge smoke'><span class='icon'>🚬</span> " + cons.smokes + " clope" + (cons.smokes > 1 ? "s" : "") + "</span>";
+        html += "</div>";
       }
 
       // Check-in Matin
@@ -2761,12 +2833,25 @@ async function exportDateRange() {
   showToast("Chargement...", "warn", "Export");
 
   try {
-    const resp = await fetch("/api/notes/all");
-    const data = await resp.json();
+    // Load notes and consumption data in parallel
+    const [notesResp, consResp] = await Promise.all([
+      fetch("/api/notes/all"),
+      fetch("/api/consumption/all")
+    ]);
+    const data = await notesResp.json();
+    const consData = await consResp.json();
 
     if (!data.ok || !data.notes) {
       showToast("Erreur chargement données", "error", "Export");
       return;
+    }
+
+    // Build consumption lookup by day
+    const consumption = {};
+    if (consData.ok && consData.data) {
+      for (const c of consData.data) {
+        consumption[c.day] = c;
+      }
     }
 
     // Filter notes by date range
@@ -2837,6 +2922,13 @@ async function exportDateRange() {
     html += ".toc li{margin:4px 0}";
     html += ".toc a{color:#3498db;text-decoration:none}";
     html += ".toc a:hover{text-decoration:underline}";
+    html += ".consumption{display:flex;gap:15px;flex-wrap:wrap;margin:10px 0}";
+    html += ".cons-badge{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:20px;font-size:.9em;font-weight:500}";
+    html += ".cons-badge.wine{background:#f8e6ff;color:#8e44ad}";
+    html += ".cons-badge.beer{background:#fff3cd;color:#d68910}";
+    html += ".cons-badge.strong{background:#fde8e8;color:#c0392b}";
+    html += ".cons-badge.smoke{background:#f5f5f5;color:#7f8c8d}";
+    html += ".cons-badge .icon{font-size:1.1em}";
     html += "@media print{.day-section{break-inside:avoid}body{margin:0;padding:15px}}";
     html += "</style></head><body>";
 
@@ -2865,6 +2957,18 @@ async function exportDateRange() {
       if (f._notes) {
         html += "<h3>Notes</h3>";
         html += "<div class='notes'>" + f._notes.replace(/\\n/g, "<br>") + "</div>";
+      }
+
+      // Consommation
+      const cons = consumption[note.day];
+      if (cons && (cons.wine || cons.beer || cons.strong || cons.smokes)) {
+        html += "<h3>Consommation</h3>";
+        html += "<div class='consumption'>";
+        if (cons.wine) html += "<span class='cons-badge wine'><span class='icon'>🍷</span> " + cons.wine + " vin</span>";
+        if (cons.beer) html += "<span class='cons-badge beer'><span class='icon'>🍺</span> " + cons.beer + " bière" + (cons.beer > 1 ? "s" : "") + "</span>";
+        if (cons.strong) html += "<span class='cons-badge strong'><span class='icon'>🥃</span> " + cons.strong + " fort" + (cons.strong > 1 ? "s" : "") + "</span>";
+        if (cons.smokes) html += "<span class='cons-badge smoke'><span class='icon'>🚬</span> " + cons.smokes + " clope" + (cons.smokes > 1 ? "s" : "") + "</span>";
+        html += "</div>";
       }
 
       if (f.qualite_sommeil || f.energie || f.motivation || f.douleur) {
