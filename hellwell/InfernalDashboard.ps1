@@ -112,6 +112,20 @@ while ($true) {
         Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true; day=$d; content=$content} | ConvertTo-Json -Depth 6))
         continue
       }
+      if ($path -eq "/api/notes/all") {
+        # Return all notes with their content
+        $allNotes = @()
+        $noteFiles = Get-ChildItem -Path $NotesDir -Filter "*.txt" -ErrorAction SilentlyContinue | Sort-Object Name -Descending
+        foreach ($f in $noteFiles) {
+          $dayKey = $f.BaseName
+          $content = Get-Content $f.FullName -Raw -ErrorAction SilentlyContinue
+          if ($content) {
+            $allNotes += @{ day = $dayKey; content = $content }
+          }
+        }
+        Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true; notes=$allNotes} | ConvertTo-Json -Depth 12))
+        continue
+      }
       if ($path -eq "/api/quicknote") {
         $content = Get-QuickNote
         Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true; content=$content} | ConvertTo-Json -Depth 6))
@@ -1158,6 +1172,77 @@ body{
 .btn:disabled{cursor:not-allowed;opacity:.38;filter:grayscale(30%)}
 .btn:disabled:hover{transform:none;box-shadow:0 1px 2px rgba(0,0,0,.18)}
 
+/* Export dropdown */
+.export-wrap{position:relative;display:inline-block}
+.export-menu{
+  position:absolute;top:100%;right:0;margin-top:4px;
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r);
+  box-shadow:0 8px 24px rgba(0,0,0,.4);min-width:180px;z-index:100;
+  opacity:0;visibility:hidden;transform:translateY(-8px);
+  transition:all .2s ease;
+}
+.export-wrap.open .export-menu{opacity:1;visibility:visible;transform:translateY(0)}
+.export-menu button{
+  display:flex;align-items:center;gap:8px;width:100%;
+  background:none;border:none;color:var(--text);padding:12px 16px;
+  font-size:.875rem;cursor:pointer;text-align:left;
+  transition:background .15s ease;
+}
+.export-menu button:hover{background:rgba(255,255,255,.08)}
+.export-menu button:first-child{border-radius:var(--r) var(--r) 0 0}
+.export-menu button:last-child{border-radius:0 0 var(--r) var(--r)}
+.export-menu svg{width:16px;height:16px;opacity:.7}
+
+/* Date Range Modal */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);
+  display:flex;align-items:center;justify-content:center;z-index:1000;
+  opacity:0;visibility:hidden;transition:all .25s ease;
+}
+.modal-overlay.open{opacity:1;visibility:visible}
+.modal-content{
+  background:var(--card);border:1px solid var(--border);border-radius:12px;
+  width:90%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.5);
+  transform:translateY(-20px) scale(.95);transition:transform .25s ease;
+}
+.modal-overlay.open .modal-content{transform:translateY(0) scale(1)}
+.modal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:var(--sp-16) var(--sp-20);border-bottom:1px solid var(--border);
+}
+.modal-header h3{margin:0;font-size:1.1rem;color:var(--text)}
+.modal-close{
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  transition:all .15s ease;
+}
+.modal-close:hover{background:rgba(255,255,255,.1);color:var(--text)}
+.modal-close svg{width:20px;height:20px}
+.modal-body{padding:var(--sp-20)}
+.date-range-fields{display:flex;gap:var(--sp-16)}
+.date-field{flex:1;display:flex;flex-direction:column;gap:var(--sp-8)}
+.date-field label{font-size:.875rem;color:var(--muted);font-weight:500}
+.date-input{
+  width:100%;padding:var(--sp-12);min-height:48px;
+  background:rgba(16,22,29,.6);border:1px solid var(--border);border-radius:var(--r);
+  color:var(--text);font-size:1rem;cursor:pointer;
+  transition:border-color .15s ease;
+}
+.date-input:hover{border-color:rgba(255,255,255,.2)}
+.date-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(53,217,154,.2)}
+.date-hint{
+  margin:var(--sp-16) 0 0;padding:var(--sp-12);
+  background:rgba(107,188,255,.1);border-radius:var(--r);
+  font-size:.875rem;color:var(--blue);text-align:center;
+}
+.date-hint.success{background:rgba(53,217,154,.1);color:var(--accent)}
+.date-hint.error{background:rgba(255,122,122,.1);color:var(--danger)}
+.modal-footer{
+  display:flex;gap:var(--sp-12);justify-content:flex-end;
+  padding:var(--sp-16) var(--sp-20);border-top:1px solid var(--border);
+}
+.modal-footer .btn{min-height:44px}
+
 /* [UX] Export button - accent color */
 .export-btn{
   display:inline-flex;align-items:center;
@@ -1352,10 +1437,27 @@ a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
           </div>
           <div class="pageMeta">
             <span id="noteStatus" class="status" role="status" aria-live="polite">-</span>
-            <button type="button" class="btn export-btn" onclick="exportDayData()" title="Exporter les données du jour">
-              <svg style="width:16px;height:16px;margin-right:4px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Exporter
-            </button>
+            <div class="export-wrap" id="exportWrap">
+              <button type="button" class="btn export-btn" onclick="toggleExportMenu()" title="Exporter les données">
+                <svg style="width:16px;height:16px;margin-right:4px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Exporter
+                <svg style="width:12px;height:12px;margin-left:4px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="export-menu">
+                <button onclick="exportDayData();toggleExportMenu()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  Ce jour
+                </button>
+                <button onclick="openDateRangePicker();toggleExportMenu()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
+                  Période personnalisée
+                </button>
+                <button onclick="exportAllData();toggleExportMenu()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                  Tout l'historique
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1482,6 +1584,38 @@ a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
         </aside>
       </div>
     </div>
+    </div>
+
+    <!-- Date Range Picker Modal -->
+    <div class="modal-overlay" id="dateRangeModal" onclick="closeDateRangeModal(event)">
+      <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Exporter une période</h3>
+          <button class="modal-close" onclick="closeDateRangeModal()" aria-label="Fermer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="date-range-fields">
+            <div class="date-field">
+              <label for="dateFrom">Du</label>
+              <input type="date" id="dateFrom" class="date-input">
+            </div>
+            <div class="date-field">
+              <label for="dateTo">Au</label>
+              <input type="date" id="dateTo" class="date-input">
+            </div>
+          </div>
+          <p class="date-hint" id="dateHint">Sélectionnez les dates pour voir le nombre de jours</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn ghost" onclick="closeDateRangeModal()">Annuler</button>
+          <button class="btn export-btn" id="exportRangeBtn" onclick="exportDateRange()">
+            <svg style="width:16px;height:16px;margin-right:4px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exporter
+          </button>
+        </div>
+      </div>
     </div>
   </main>
 
@@ -2384,6 +2518,415 @@ function exportDayData(){
   URL.revokeObjectURL(url);
   showToast("Exporte: journal_" + date + ".html", "success", "Export");
 }
+
+/* Export menu toggle */
+function toggleExportMenu() {
+  document.getElementById("exportWrap").classList.toggle("open");
+}
+// Close menu on click outside
+document.addEventListener("click", e => {
+  const wrap = document.getElementById("exportWrap");
+  if (wrap && !wrap.contains(e.target)) wrap.classList.remove("open");
+});
+
+/* Export ALL data - Full history */
+async function exportAllData() {
+  showToast("Chargement de l'historique...", "warn", "Export");
+
+  try {
+    const resp = await fetch("/api/notes/all");
+    const data = await resp.json();
+    if (!data.ok || !data.notes || data.notes.length === 0) {
+      showToast("Aucune donnee trouvee", "error", "Export");
+      return;
+    }
+
+    // Parse note content to extract values
+    const parseNote = (content) => {
+      const f = {};
+      const lines = content.split(/\\r?\\n/);
+      let freeText = [];
+      for (const line of lines) {
+        const m = line.match(/^([^:]+):\s*(.+)$/);
+        if (m) {
+          const key = m[1].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g,"_");
+          f[key] = m[2].trim();
+        } else if (line.trim()) {
+          freeText.push(line);
+        }
+      }
+      f._notes = freeText.join("\\n");
+      return f;
+    };
+
+    // French day names
+    const dayNames = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+    const months = ["janvier","fevrier","mars","avril","mai","juin","juillet","aout","septembre","octobre","novembre","decembre"];
+
+    // Score row helper
+    const scoreRow = (label, val, max=10) => {
+      if (!val) return "";
+      const n = Math.round(parseFloat(val));
+      const pct = Math.min(100, (n / max) * 100);
+      const color = n <= 3 ? "#e74c3c" : n <= 6 ? "#f39c12" : "#27ae60";
+      return "<tr><td>" + label + "</td><td><strong>" + val + "/" + max + "</strong></td><td style='width:100px'><div style='background:#eee;border-radius:4px;height:12px'><div style='background:" + color + ";width:" + pct + "%;height:100%;border-radius:4px'></div></div></td></tr>";
+    };
+
+    // Build HTML
+    let html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Journal Complet</title>";
+    html += "<style>";
+    html += "body{font-family:Arial,sans-serif;max-width:700px;margin:40px auto;padding:20px;color:#333;line-height:1.6}";
+    html += "h1{color:#2c3e50;border-bottom:3px solid #3498db;padding-bottom:10px;margin-bottom:30px;text-align:center}";
+    html += ".day-section{margin-bottom:40px;padding:20px;background:#f8f9fa;border-radius:8px;border-left:4px solid #3498db;page-break-inside:avoid}";
+    html += ".day-title{color:#2c3e50;font-size:1.2em;margin:0 0 15px;padding-bottom:10px;border-bottom:1px solid #ddd}";
+    html += "h3{color:#34495e;font-size:1em;margin:20px 0 8px;padding:6px 10px;background:#ecf0f1;border-left:3px solid #3498db;border-radius:0 4px 4px 0}";
+    html += "table{width:100%;border-collapse:collapse;margin:8px 0}";
+    html += "td{padding:5px 8px;border-bottom:1px solid #eee}";
+    html += "td:first-child{color:#7f8c8d;width:110px}";
+    html += ".notes{background:#fffbeb;border:1px solid #f1c40f;border-radius:6px;padding:12px;margin:10px 0;white-space:pre-wrap;font-size:.9em}";
+    html += ".priorities{list-style:none;padding:0;margin:8px 0}";
+    html += ".priorities li{padding:6px 10px;margin:4px 0;background:#fff;border-radius:4px;border-left:3px solid #3498db;font-size:.9em}";
+    html += ".priorities li.vital{border-left-color:#e74c3c;background:#fdf2f2}";
+    html += ".footer{margin-top:40px;padding-top:15px;border-top:2px solid #ddd;color:#95a5a6;font-size:0.85em;text-align:center}";
+    html += ".toc{background:#fff;padding:20px;border-radius:8px;margin-bottom:30px}";
+    html += ".toc h2{margin:0 0 10px;font-size:1.1em;color:#34495e}";
+    html += ".toc ul{margin:0;padding:0 0 0 20px}";
+    html += ".toc li{margin:4px 0}";
+    html += ".toc a{color:#3498db;text-decoration:none}";
+    html += ".toc a:hover{text-decoration:underline}";
+    html += "@media print{.day-section{break-inside:avoid}body{margin:0;padding:15px}}";
+    html += "</style></head><body>";
+
+    html += "<h1>Journal Complet</h1>";
+
+    // Table of contents
+    html += "<div class='toc'><h2>Sommaire (" + data.notes.length + " jours)</h2><ul>";
+    for (const note of data.notes) {
+      const d = new Date(note.day + "T12:00:00");
+      const dayName = dayNames[d.getDay()];
+      const dateStr = d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+      html += "<li><a href='#day-" + note.day + "'>" + dayName + " " + dateStr + "</a></li>";
+    }
+    html += "</ul></div>";
+
+    // Each day
+    for (const note of data.notes) {
+      const d = new Date(note.day + "T12:00:00");
+      const dayName = dayNames[d.getDay()];
+      const dateStr = d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+      const f = parseNote(note.content);
+
+      html += "<div class='day-section' id='day-" + note.day + "'>";
+      html += "<h2 class='day-title'>" + dayName + " " + dateStr + "</h2>";
+
+      // Notes libres
+      if (f._notes) {
+        html += "<h3>Notes</h3>";
+        html += "<div class='notes'>" + f._notes.replace(/\\n/g, "<br>") + "</div>";
+      }
+
+      // Check-in Matin
+      if (f.qualite_sommeil || f.energie || f.motivation || f.douleur) {
+        html += "<h3>Check-in Matin</h3><table>";
+        html += scoreRow("Sommeil", f.qualite_sommeil);
+        html += scoreRow("Energie", f.energie);
+        html += scoreRow("Motivation", f.motivation);
+        html += scoreRow("Douleur", f.douleur);
+        html += "</table>";
+      }
+
+      // Etat Mental
+      if (f.humeur || f.anxiete || f.irritabilite || f.clarte) {
+        html += "<h3>Etat Mental</h3><table>";
+        html += scoreRow("Humeur", f.humeur);
+        html += scoreRow("Anxiete", f.anxiete);
+        html += scoreRow("Irritabilite", f.irritabilite);
+        html += scoreRow("Clarte", f.clarte);
+        html += "</table>";
+      }
+
+      // Plan TDAH
+      if (f.priorite_1 || f.priorite_2 || f.priorite_3 || f.minimum_vital) {
+        html += "<h3>Plan TDAH</h3><ul class='priorities'>";
+        if (f.priorite_1) html += "<li><strong>1.</strong> " + f.priorite_1 + "</li>";
+        if (f.priorite_2) html += "<li><strong>2.</strong> " + f.priorite_2 + "</li>";
+        if (f.priorite_3) html += "<li><strong>3.</strong> " + f.priorite_3 + "</li>";
+        if (f.minimum_vital) html += "<li class='vital'><strong>Minimum vital:</strong> " + f.minimum_vital + "</li>";
+        html += "</ul>";
+      }
+
+      // Score global
+      if (f.score_global) {
+        html += "<h3>Bilan</h3><table>";
+        html += scoreRow("Score global", f.score_global);
+        html += "</table>";
+      }
+
+      html += "</div>";
+    }
+
+    html += "<div class='footer'>Exporte le " + new Date().toLocaleString("fr-FR") + " - " + data.notes.length + " jours</div>";
+    html += "</body></html>";
+
+    // Download
+    const blob = new Blob([html], {type: "text/html;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "journal_complet_" + new Date().toISOString().slice(0,10) + ".html";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("Exporte: " + data.notes.length + " jours", "success", "Export");
+
+  } catch (err) {
+    console.error("Export all error:", err);
+    showToast("Erreur export: " + err.message, "error", "Export");
+  }
+}
+
+/* Date Range Picker */
+function openDateRangePicker() {
+  const modal = document.getElementById("dateRangeModal");
+  const dateFrom = document.getElementById("dateFrom");
+  const dateTo = document.getElementById("dateTo");
+
+  // Default: last 30 days
+  const today = new Date();
+  const thirtyDaysAgo = new Date(today);
+  thirtyDaysAgo.setDate(today.getDate() - 30);
+
+  dateTo.value = today.toISOString().slice(0, 10);
+  dateFrom.value = thirtyDaysAgo.toISOString().slice(0, 10);
+
+  updateDateHint();
+  modal.classList.add("open");
+  dateFrom.focus();
+}
+
+function closeDateRangeModal(e) {
+  if (e && e.target !== e.currentTarget) return;
+  document.getElementById("dateRangeModal").classList.remove("open");
+}
+
+// Update hint when dates change
+document.addEventListener("DOMContentLoaded", () => {
+  const dateFrom = document.getElementById("dateFrom");
+  const dateTo = document.getElementById("dateTo");
+  if (dateFrom) dateFrom.addEventListener("change", updateDateHint);
+  if (dateTo) dateTo.addEventListener("change", updateDateHint);
+});
+
+function updateDateHint() {
+  const dateFrom = document.getElementById("dateFrom").value;
+  const dateTo = document.getElementById("dateTo").value;
+  const hint = document.getElementById("dateHint");
+  const btn = document.getElementById("exportRangeBtn");
+
+  if (!dateFrom || !dateTo) {
+    hint.textContent = "Sélectionnez les deux dates";
+    hint.className = "date-hint";
+    btn.disabled = true;
+    return;
+  }
+
+  const from = new Date(dateFrom);
+  const to = new Date(dateTo);
+
+  if (from > to) {
+    hint.textContent = "La date de début doit être avant la date de fin";
+    hint.className = "date-hint error";
+    btn.disabled = true;
+    return;
+  }
+
+  const days = Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1;
+  hint.textContent = days + " jour" + (days > 1 ? "s" : "") + " sélectionné" + (days > 1 ? "s" : "");
+  hint.className = "date-hint success";
+  btn.disabled = false;
+}
+
+/* Export date range */
+async function exportDateRange() {
+  const dateFrom = document.getElementById("dateFrom").value;
+  const dateTo = document.getElementById("dateTo").value;
+
+  if (!dateFrom || !dateTo) {
+    showToast("Sélectionnez les deux dates", "error", "Export");
+    return;
+  }
+
+  closeDateRangeModal();
+  showToast("Chargement...", "warn", "Export");
+
+  try {
+    const resp = await fetch("/api/notes/all");
+    const data = await resp.json();
+
+    if (!data.ok || !data.notes) {
+      showToast("Erreur chargement données", "error", "Export");
+      return;
+    }
+
+    // Filter notes by date range
+    const fromDate = new Date(dateFrom);
+    const toDate = new Date(dateTo);
+    const filtered = data.notes.filter(n => {
+      const d = new Date(n.day);
+      return d >= fromDate && d <= toDate;
+    });
+
+    if (filtered.length === 0) {
+      showToast("Aucune donnée dans cette période", "error", "Export");
+      return;
+    }
+
+    // Reuse export logic from exportAllData
+    const parseNote = (content) => {
+      const f = {};
+      const lines = content.split(/\\r?\\n/);
+      let freeText = [];
+      for (const line of lines) {
+        const m = line.match(/^([^:]+):\s*(.+)$/);
+        if (m) {
+          const key = m[1].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g,"_");
+          f[key] = m[2].trim();
+        } else if (line.trim()) {
+          freeText.push(line);
+        }
+      }
+      f._notes = freeText.join("\\n");
+      return f;
+    };
+
+    const dayNames = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+    const months = ["janvier","fevrier","mars","avril","mai","juin","juillet","aout","septembre","octobre","novembre","decembre"];
+
+    const scoreRow = (label, val, max=10) => {
+      if (!val) return "";
+      const n = Math.round(parseFloat(val));
+      const pct = Math.min(100, (n / max) * 100);
+      const color = n <= 3 ? "#e74c3c" : n <= 6 ? "#f39c12" : "#27ae60";
+      return "<tr><td>" + label + "</td><td><strong>" + val + "/" + max + "</strong></td><td style='width:100px'><div style='background:#eee;border-radius:4px;height:12px'><div style='background:" + color + ";width:" + pct + "%;height:100%;border-radius:4px'></div></div></td></tr>";
+    };
+
+    // Format date range for title
+    const fromD = new Date(dateFrom);
+    const toD = new Date(dateTo);
+    const rangeTitle = fromD.getDate() + " " + months[fromD.getMonth()] + " - " + toD.getDate() + " " + months[toD.getMonth()] + " " + toD.getFullYear();
+
+    let html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Journal " + rangeTitle + "</title>";
+    html += "<style>";
+    html += "body{font-family:Arial,sans-serif;max-width:700px;margin:40px auto;padding:20px;color:#333;line-height:1.6}";
+    html += "h1{color:#2c3e50;border-bottom:3px solid #3498db;padding-bottom:10px;margin-bottom:30px;text-align:center}";
+    html += ".day-section{margin-bottom:40px;padding:20px;background:#f8f9fa;border-radius:8px;border-left:4px solid #3498db;page-break-inside:avoid}";
+    html += ".day-title{color:#2c3e50;font-size:1.2em;margin:0 0 15px;padding-bottom:10px;border-bottom:1px solid #ddd}";
+    html += "h3{color:#34495e;font-size:1em;margin:20px 0 8px;padding:6px 10px;background:#ecf0f1;border-left:3px solid #3498db;border-radius:0 4px 4px 0}";
+    html += "table{width:100%;border-collapse:collapse;margin:8px 0}";
+    html += "td{padding:5px 8px;border-bottom:1px solid #eee}";
+    html += "td:first-child{color:#7f8c8d;width:110px}";
+    html += ".notes{background:#fffbeb;border:1px solid #f1c40f;border-radius:6px;padding:12px;margin:10px 0;white-space:pre-wrap;font-size:.9em}";
+    html += ".priorities{list-style:none;padding:0;margin:8px 0}";
+    html += ".priorities li{padding:6px 10px;margin:4px 0;background:#fff;border-radius:4px;border-left:3px solid #3498db;font-size:.9em}";
+    html += ".priorities li.vital{border-left-color:#e74c3c;background:#fdf2f2}";
+    html += ".footer{margin-top:40px;padding-top:15px;border-top:2px solid #ddd;color:#95a5a6;font-size:0.85em;text-align:center}";
+    html += ".toc{background:#fff;padding:20px;border-radius:8px;margin-bottom:30px}";
+    html += ".toc h2{margin:0 0 10px;font-size:1.1em;color:#34495e}";
+    html += ".toc ul{margin:0;padding:0 0 0 20px}";
+    html += ".toc li{margin:4px 0}";
+    html += ".toc a{color:#3498db;text-decoration:none}";
+    html += ".toc a:hover{text-decoration:underline}";
+    html += "@media print{.day-section{break-inside:avoid}body{margin:0;padding:15px}}";
+    html += "</style></head><body>";
+
+    html += "<h1>Journal: " + rangeTitle + "</h1>";
+
+    // Table of contents
+    html += "<div class='toc'><h2>Sommaire (" + filtered.length + " jours)</h2><ul>";
+    for (const note of filtered) {
+      const d = new Date(note.day + "T12:00:00");
+      const dayName = dayNames[d.getDay()];
+      const dateStr = d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+      html += "<li><a href='#day-" + note.day + "'>" + dayName + " " + dateStr + "</a></li>";
+    }
+    html += "</ul></div>";
+
+    // Each day
+    for (const note of filtered) {
+      const d = new Date(note.day + "T12:00:00");
+      const dayName = dayNames[d.getDay()];
+      const dateStr = d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+      const f = parseNote(note.content);
+
+      html += "<div class='day-section' id='day-" + note.day + "'>";
+      html += "<h2 class='day-title'>" + dayName + " " + dateStr + "</h2>";
+
+      if (f._notes) {
+        html += "<h3>Notes</h3>";
+        html += "<div class='notes'>" + f._notes.replace(/\\n/g, "<br>") + "</div>";
+      }
+
+      if (f.qualite_sommeil || f.energie || f.motivation || f.douleur) {
+        html += "<h3>Check-in Matin</h3><table>";
+        html += scoreRow("Sommeil", f.qualite_sommeil);
+        html += scoreRow("Energie", f.energie);
+        html += scoreRow("Motivation", f.motivation);
+        html += scoreRow("Douleur", f.douleur);
+        html += "</table>";
+      }
+
+      if (f.humeur || f.anxiete || f.irritabilite || f.clarte) {
+        html += "<h3>Etat Mental</h3><table>";
+        html += scoreRow("Humeur", f.humeur);
+        html += scoreRow("Anxiete", f.anxiete);
+        html += scoreRow("Irritabilite", f.irritabilite);
+        html += scoreRow("Clarte", f.clarte);
+        html += "</table>";
+      }
+
+      if (f.priorite_1 || f.priorite_2 || f.priorite_3 || f.minimum_vital) {
+        html += "<h3>Plan TDAH</h3><ul class='priorities'>";
+        if (f.priorite_1) html += "<li><strong>1.</strong> " + f.priorite_1 + "</li>";
+        if (f.priorite_2) html += "<li><strong>2.</strong> " + f.priorite_2 + "</li>";
+        if (f.priorite_3) html += "<li><strong>3.</strong> " + f.priorite_3 + "</li>";
+        if (f.minimum_vital) html += "<li class='vital'><strong>Minimum vital:</strong> " + f.minimum_vital + "</li>";
+        html += "</ul>";
+      }
+
+      if (f.score_global) {
+        html += "<h3>Bilan</h3><table>";
+        html += scoreRow("Score global", f.score_global);
+        html += "</table>";
+      }
+
+      html += "</div>";
+    }
+
+    html += "<div class='footer'>Exporte le " + new Date().toLocaleString("fr-FR") + " - " + filtered.length + " jours</div>";
+    html += "</body></html>";
+
+    const blob = new Blob([html], {type: "text/html;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "journal_" + dateFrom + "_" + dateTo + ".html";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("Exporté: " + filtered.length + " jours", "success", "Export");
+
+  } catch (err) {
+    console.error("Export range error:", err);
+    showToast("Erreur: " + err.message, "error", "Export");
+  }
+}
+
+// Close modal with Escape key
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeDateRangeModal();
+});
 
 /* Init */
 console.log('[INIT] Starting initialization...');
