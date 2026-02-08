@@ -1853,14 +1853,16 @@ function updateTemplate(values, checks) {
 }
 
 function syncTemplate() {
-  const text = ta.value || '';
+  // BUGFIX: Use fullContent (with metrics) not ta.value (filtered text only)
+  // This prevents erasing loaded values
+  const text = fullContent || ta.value || '';
   const { values, checks } = parseNoteContent(text);
   updateTemplate(values, checks);
 }
 
 // Sync au chargement et à chaque modification
 ta.addEventListener('input', syncTemplate);
-setTimeout(syncTemplate, 500); // Sync après chargement initial
+// REMOVED: setTimeout(syncTemplate, 500) - was erasing values loaded by loadNote()
 
 /* Clic sur un champ = insère dans la textarea */
 function initClickableFields() {
@@ -1905,12 +1907,15 @@ function buildTextFromInputs() {
     const val = input.value;
     console.log('[BUILD] field:', field, 'value:', val);
     if (val && val.trim() !== '') {
-      // Trouve le label correspondant
-      const item = input.closest('.tpl-item');
-      let label = field;
-      if (item) {
-        const labelEl = item.querySelector('.label');
-        if (labelEl) label = labelEl.textContent;
+      // BUGFIX: Use data-label first (set by initRatingSteppers before DOM move)
+      // Fallback to searching .tpl-item or .tpl-item-text
+      let label = input.dataset.label || field;
+      if (!input.dataset.label) {
+        const item = input.closest('.tpl-item') || input.closest('.tpl-item-text');
+        if (item) {
+          const labelEl = item.querySelector('.label');
+          if (labelEl) label = labelEl.textContent;
+        }
       }
       console.log('[BUILD] Adding:', label, ':', val);
       lines.push(label + ': ' + val);
@@ -1930,9 +1935,13 @@ function buildTextFromInputs() {
 }
 
 function syncInputToTextarea() {
-  // Désactivé: ne plus afficher les métriques dans le textarea
-  // Les données sont sauvegardées via fullContent pour l'export
-  return;
+  // Marque dirty pour déclencher l'autosave (max 2 sec)
+  console.log('[SYNC] syncInputToTextarea called, setting dirty=true');
+  dirty = true;
+  setNoteStatus("en cours...", "saving");
+  // Force immediate save attempt
+  const metricsNow = buildTextFromInputs();
+  console.log('[SYNC] Current metrics:', metricsNow);
 }
 
 /* Champs inversés (bas = bien) */
@@ -2099,6 +2108,16 @@ function initRatingSteppers() {
     console.log('[INIT STEPPERS]', idx, 'field:', input ? input.dataset.field : 'NO INPUT');
     if (!input) return;
 
+    // BUGFIX: Store label BEFORE moving the field out of .tpl-item
+    const tplItem = field.closest('.tpl-item');
+    if (tplItem) {
+      const labelEl = tplItem.querySelector('.label');
+      if (labelEl) {
+        input.dataset.label = labelEl.textContent;
+        console.log('[INIT STEPPERS] Stored label:', input.dataset.label);
+      }
+    }
+
     // Create wrapper segment
     const wrap = document.createElement('div');
     wrap.className = 'rating-wrap';
@@ -2242,6 +2261,8 @@ initRatingSteppers();
 console.log('[INIT] initRatingSteppers done');
 initInputListeners();
 console.log('[INIT] initInputListeners done - ALL READY');
+// DEBUG: Afficher toast pour confirmer nouveau code
+setTimeout(() => showToast("Code v2 charge - Check-in sauvegarde active", "success", "Debug"), 500);
 </script>
 </body></html>
 "@
