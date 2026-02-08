@@ -460,8 +460,8 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
 .alcUnitChip__label{font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted)}
 .alcUnitChip__value{font-size:.75rem; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums}
 /* Chip color accents */
-.alcUnitChip--beer{border-color:rgba(255,193,7,.35); background:linear-gradient(135deg, rgba(255,193,7,.1), rgba(16,22,29,.7))}
-.alcUnitChip--beer .alcUnitChip__label{color:rgba(255,193,7,.9)}
+.alcUnitChip--beer{border-color:rgba(255,235,59,.35); background:linear-gradient(135deg, rgba(255,235,59,.1), rgba(16,22,29,.7))}
+.alcUnitChip--beer .alcUnitChip__label{color:rgba(255,235,59,.9)}
 .alcUnitChip--wine{border-color:rgba(220,53,69,.35); background:linear-gradient(135deg, rgba(220,53,69,.1), rgba(16,22,29,.7))}
 .alcUnitChip--wine .alcUnitChip__label{color:rgba(220,100,120,.9)}
 .alcUnitChip--strong{border-color:rgba(255,152,0,.35); background:linear-gradient(135deg, rgba(255,152,0,.1), rgba(16,22,29,.7))}
@@ -2140,7 +2140,7 @@ body{
   <div class="card reveal d3 alcCard">
     <div class="alcHeader">
       <div class="alcHeader__left">
-        <h2><span class="alcTitleIcon" aria-hidden="true">&#127866;</span>Alcool</h2>
+        <h2><span class="alcTitleIcon" aria-hidden="true">&#127864;</span>Alcool</h2>
       </div>
     </div>
     <div class="weeksTable">

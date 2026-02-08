@@ -3042,8 +3042,6 @@ initRatingSteppers();
 console.log('[INIT] initRatingSteppers done');
 initInputListeners();
 console.log('[INIT] initInputListeners done - ALL READY');
-// DEBUG: Afficher toast pour confirmer nouveau code
-setTimeout(() => showToast("Code v2 charge - Check-in sauvegarde active", "success", "Debug"), 500);
 </script>
 </body></html>
 "@
