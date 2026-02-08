@@ -1073,8 +1073,8 @@ body{
 .tpl-list li.clickable:hover{background:rgba(107,188,255,.25)}
 
 /* Wrapper textarea + toolbar */
-.notesTaWrap{display:flex;flex-direction:column;height:100%;gap:var(--sp-8)}
-.notesTaToolbar{display:flex;justify-content:flex-end;align-items:center}
+.notesTaWrap{position:relative;height:100%}
+.notesTaToolbar{position:absolute;top:var(--sp-12);right:var(--sp-12);z-index:10}
 .spell-btn{
   display:inline-flex;align-items:center;gap:6px;
   background:var(--blue);border:none;color:#fff;
