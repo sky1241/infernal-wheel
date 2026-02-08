@@ -1072,6 +1072,23 @@ body{
 .clickable:hover{background:rgba(107,188,255,.2);transform:translateX(2px);filter:brightness(1.1) saturate(1.3)}
 .tpl-list li.clickable:hover{background:rgba(107,188,255,.25)}
 
+/* Wrapper textarea + bouton correction */
+.notesTaWrap{position:relative;height:100%}
+.spell-btn{
+  position:absolute;top:var(--sp-12);right:var(--sp-12);z-index:10;
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--blue);border:none;color:#fff;
+  padding:var(--sp-8) var(--sp-16);min-height:44px;
+  font-size:.875rem;font-weight:600;border-radius:var(--r);
+  cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1);
+  box-shadow:0 2px 8px rgba(107,188,255,.3);
+}
+.spell-btn:hover{background:#5bb2ff;transform:translateY(-1px);box-shadow:0 4px 12px rgba(107,188,255,.4)}
+.spell-btn:active{transform:translateY(0);box-shadow:0 1px 4px rgba(107,188,255,.3)}
+.spell-btn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.spell-btn:disabled{opacity:.6;cursor:wait;transform:none}
+.spell-btn svg{width:18px;height:18px}
+
 /* [PDF] Textarea/Input - même hauteur que sidebar */
 .notesTa{
   width:100%; height:100%; min-height:400px; resize:none;
@@ -1154,6 +1171,7 @@ body{
 .btn{position:relative;overflow:hidden}
 .ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,.4);transform:scale(0);animation:rippleAnim .5s ease-out;pointer-events:none}
 @keyframes rippleAnim{to{transform:scale(4);opacity:0}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
 /* Links */
 a{color:var(--blue);text-decoration:none;transition:color var(--transition-fast) ease}
@@ -1343,7 +1361,11 @@ a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
         </div>
 
       <div class="notesRow">
-        <div>
+        <div class="notesTaWrap">
+          <button type="button" class="spell-btn" onclick="correctSpelling()" title="Corriger l'orthographe automatiquement">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+            <span>Corriger</span>
+          </button>
           <label for="t" class="sr-only">Notes du jour</label>
           <textarea id="t" class="notesTa" placeholder="Parle, défoule-toi, note ce que tu veux... Cet espace est à toi." aria-label="Notes du jour" spellcheck="true" lang="fr"></textarea>
         </div>
@@ -2162,6 +2184,51 @@ function initRatingSteppers() {
     wrap.appendChild(field);
     wrap.appendChild(btnPlus);
   });
+}
+
+/* Correcteur orthographique via LanguageTool API */
+async function correctSpelling() {
+  const ta = document.getElementById("t");
+  const btn = document.querySelector(".spell-btn");
+  const text = ta.value.trim();
+  if (!text) { showToast("Rien a corriger", "warn", "Ortho"); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<svg style="animation:spin 1s linear infinite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span>...</span>';
+
+  try {
+    const resp = await fetch("https://api.languagetool.org/v2/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "text=" + encodeURIComponent(text) + "&language=fr"
+    });
+    const data = await resp.json();
+
+    if (data.matches && data.matches.length > 0) {
+      let corrected = text;
+      let offset = 0;
+      data.matches.forEach(m => {
+        if (m.replacements && m.replacements.length > 0) {
+          const start = m.offset + offset;
+          const end = start + m.length;
+          const replacement = m.replacements[0].value;
+          corrected = corrected.slice(0, start) + replacement + corrected.slice(end);
+          offset += replacement.length - m.length;
+        }
+      });
+      ta.value = corrected;
+      dirty = true;
+      showToast(data.matches.length + " correction(s)", "success", "Ortho");
+    } else {
+      showToast("Aucune faute trouvee", "success", "Ortho");
+    }
+  } catch (e) {
+    console.error("[SPELL]", e);
+    showToast("Erreur API", "error", "Ortho");
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg><span>Corriger</span>';
 }
 
 /* Export day data - Format HTML page A4 pour psy */
