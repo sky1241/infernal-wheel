@@ -4,7 +4,57 @@ function Write-EngineError([string]$Context, [System.Exception]$Exception) {
   Write-ErrorLog -Path $EngineLogPath -Context $Context -Exception $Exception
 }
 
+# === WAKE-BASED DAY SYSTEM ===
+# Le jour commence au réveil (passage sleep → work), pas à 4h fixe
+
+function Get-WakesPath() {
+  return (Join-Path $DataDir "wakes.csv")
+}
+
+function Add-WakeEntry([datetime]$wakeTime, [string]$source = "manual") {
+  $wakesPath = Get-WakesPath
+  if (-not (Test-Path $wakesPath)) {
+    Set-Content -Path $wakesPath -Value "timestamp,source" -Encoding UTF8
+  }
+  $line = "{0},{1}" -f $wakeTime.ToString("yyyy-MM-dd HH:mm:ss"), $source
+  Add-Content -Path $wakesPath -Value $line -Encoding UTF8
+}
+
+function Get-LastWakeBefore([datetime]$dt) {
+  # Retourne le dernier réveil avant $dt, ou $null si aucun
+  $wakesPath = Get-WakesPath
+  if (-not (Test-Path $wakesPath)) { return $null }
+
+  $lastWake = $null
+  try {
+    $lines = Get-Content $wakesPath -ErrorAction SilentlyContinue | Select-Object -Skip 1
+    foreach ($line in $lines) {
+      if (-not $line) { continue }
+      $parts = $line -split ","
+      if ($parts.Count -lt 1) { continue }
+      try {
+        $wakeTime = [datetime]::Parse($parts[0])
+        if ($wakeTime -le $dt) {
+          if ($null -eq $lastWake -or $wakeTime -gt $lastWake) {
+            $lastWake = $wakeTime
+          }
+        }
+      } catch {}
+    }
+  } catch {}
+  return $lastWake
+}
+
 function Get-InfernalDayKey([datetime]$dt) {
+  # Nouvelle logique: le jour = date du dernier réveil
+  $lastWake = Get-LastWakeBefore $dt
+
+  if ($null -ne $lastWake) {
+    # Le jour est la date du réveil
+    return $lastWake.ToString("yyyy-MM-dd")
+  }
+
+  # Fallback: ancienne logique 4h si pas de réveil enregistré
   $dayStart = Get-Date -Year $dt.Year -Month $dt.Month -Day $dt.Day -Hour 4 -Minute 0 -Second 0
   if ($dt -lt $dayStart) { return $dt.AddDays(-1).ToString("yyyy-MM-dd") }
   return $dt.ToString("yyyy-MM-dd")
@@ -238,6 +288,16 @@ function Get-LastSleepOfflineEnd {
 function Switch-Segment([string]$name, [int]$minutes, [bool]$isWork, [bool]$isSleep, [bool]$requireOkOnEnd) {
   $now = Get-Date
   Add-LogRow $script:segStart $now $script:segName $script:segWork $script:segSleep
+
+  # === DÉTECTION DU RÉVEIL ===
+  # Si on était en sommeil et on passe à work/autre chose = RÉVEIL
+  if ($script:segSleep -eq $true -and $isSleep -eq $false) {
+    Add-WakeEntry $now "manual"
+    # Reset des compteurs journaliers car nouveau jour
+    $s.DayClopeCount = 0
+    $s.DayWorkSeconds = 0
+    $s.DaySleepSeconds = 0
+  }
 
   if ($script:segName -eq "clope") {
     $s.TotalClopeCount += 1
