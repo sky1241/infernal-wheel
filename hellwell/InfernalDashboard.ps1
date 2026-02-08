@@ -1345,7 +1345,7 @@ a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
       <div class="notesRow">
         <div>
           <label for="t" class="sr-only">Notes du jour</label>
-          <textarea id="t" class="notesTa" placeholder="Parle, défoule-toi, note ce que tu veux... Cet espace est à toi." aria-label="Notes du jour"></textarea>
+          <textarea id="t" class="notesTa" placeholder="Parle, défoule-toi, note ce que tu veux... Cet espace est à toi." aria-label="Notes du jour" spellcheck="true" lang="fr"></textarea>
         </div>
         <aside class="notesBox" aria-label="Template de check-in">
           <!-- DONNÉES AUTO -->
