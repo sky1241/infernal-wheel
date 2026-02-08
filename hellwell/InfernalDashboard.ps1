@@ -1072,9 +1072,8 @@ body{
 .clickable:hover{background:rgba(107,188,255,.2);transform:translateX(2px);filter:brightness(1.1) saturate(1.3)}
 .tpl-list li.clickable:hover{background:rgba(107,188,255,.25)}
 
-/* Wrapper textarea + toolbar */
-.notesTaWrap{position:relative;height:100%}
-.notesTaToolbar{position:absolute;top:var(--sp-12);right:var(--sp-12);z-index:10}
+/* Wrapper textarea */
+.notesTaWrap{height:100%}
 .spell-btn{
   display:inline-flex;align-items:center;gap:6px;
   background:var(--blue);border:none;color:#fff;
@@ -1353,6 +1352,10 @@ a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
           </div>
           <div class="pageMeta">
             <span id="noteStatus" class="status" role="status" aria-live="polite">-</span>
+            <button type="button" class="spell-btn" onclick="correctSpelling()" title="Corriger l'orthographe automatiquement">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+              <span>Corriger</span>
+            </button>
             <button type="button" class="btn export-btn" onclick="exportDayData()" title="Exporter les données du jour">
               <svg style="width:16px;height:16px;margin-right:4px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Exporter
@@ -1362,12 +1365,6 @@ a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 
       <div class="notesRow">
         <div class="notesTaWrap">
-          <div class="notesTaToolbar">
-            <button type="button" class="spell-btn" onclick="correctSpelling()" title="Corriger l'orthographe automatiquement">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
-              <span>Corriger</span>
-            </button>
-          </div>
           <label for="t" class="sr-only">Notes du jour</label>
           <textarea id="t" class="notesTa" placeholder="Parle, défoule-toi, note ce que tu veux... Cet espace est à toi." aria-label="Notes du jour" spellcheck="false"></textarea>
         </div>
