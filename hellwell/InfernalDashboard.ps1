@@ -2390,19 +2390,26 @@ async function correctSpelling() {
 
     if (data.matches && data.matches.length > 0) {
       let corrected = text;
-      let offset = 0;
-      data.matches.forEach(m => {
-        if (m.replacements && m.replacements.length > 0) {
-          const start = m.offset + offset;
-          const end = start + m.length;
-          const replacement = m.replacements[0].value;
+      // BUGFIX: Trier par offset décroissant et appliquer de la fin vers le début
+      // Ainsi les positions ne sont jamais décalées par les corrections précédentes
+      const sortedMatches = data.matches
+        .filter(m => m.replacements && m.replacements.length > 0)
+        .sort((a, b) => b.offset - a.offset);
+
+      let appliedCount = 0;
+      sortedMatches.forEach(m => {
+        const start = m.offset;
+        const end = start + m.length;
+        const replacement = m.replacements[0].value;
+        // Vérifier que la position est valide
+        if (start >= 0 && end <= corrected.length) {
           corrected = corrected.slice(0, start) + replacement + corrected.slice(end);
-          offset += replacement.length - m.length;
+          appliedCount++;
         }
       });
       ta.value = corrected;
       dirty = true;
-      showToast(data.matches.length + " correction(s)", "success", "Ortho");
+      showToast(appliedCount + " correction(s)", "success", "Ortho");
     } else {
       showToast("Aucune faute trouvee", "success", "Ortho");
     }
