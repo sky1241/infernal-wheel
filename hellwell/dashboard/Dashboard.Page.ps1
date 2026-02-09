@@ -1402,7 +1402,8 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 .weeksTableHeader{
   --week-gap:12px;
   --delta-col:88px;
-  margin-bottom:8px; /* Gap between header and data */
+  margin-bottom:8px; margin-right:-8px; /* Gap + align with scroll */
+  padding:0 16px 0 12px; /* Same horizontal padding as scroll content */
 }
 .weeksTableScroll{
   max-height:180px; /* Exactly 3 rows */
@@ -1493,12 +1494,12 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 .weekRow.currentWeek{
   border-color:rgba(91,178,255,.45);
   background:linear-gradient(135deg, rgba(91,178,255,.08), rgba(16,22,29,.55));
-  box-shadow:0 0 0 1px rgba(91,178,255,.12) inset, 0 8px 24px rgba(0,0,0,.3), 0 0 20px rgba(91,178,255,.15);
+  box-shadow:0 0 0 1px rgba(91,178,255,.12) inset, 0 4px 12px rgba(0,0,0,.2), 0 0 10px rgba(91,178,255,.12);
   animation:currentWeekPulse 3s ease-in-out infinite;
 }
 @keyframes currentWeekPulse{
-  0%,100%{box-shadow:0 0 0 1px rgba(91,178,255,.12) inset, 0 8px 24px rgba(0,0,0,.3), 0 0 20px rgba(91,178,255,.15)}
-  50%{box-shadow:0 0 0 1px rgba(91,178,255,.18) inset, 0 8px 24px rgba(0,0,0,.3), 0 0 35px rgba(91,178,255,.25)}
+  0%,100%{box-shadow:0 0 0 1px rgba(91,178,255,.12) inset, 0 4px 12px rgba(0,0,0,.2), 0 0 10px rgba(91,178,255,.12)}
+  50%{box-shadow:0 0 0 1px rgba(91,178,255,.18) inset, 0 4px 12px rgba(0,0,0,.2), 0 0 15px rgba(91,178,255,.18)}
 }
 .weekRow.currentWeek::before{
   content:""; position:absolute; left:0; top:12px; bottom:12px; width:3px;
