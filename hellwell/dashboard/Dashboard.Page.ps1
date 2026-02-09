@@ -1398,24 +1398,25 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 .recentItem{display:flex; justify-content:space-between; gap:10px; font-size:.75rem; color:var(--muted)}
 .recentItem b{color:var(--text)}
 /* [WEB] margin/gap 8px */
-.weeksWrap{margin-top:8px; width:100%}
+.weeksWrap{margin-top:8px; width:100%; position:relative}
 .weeksTableHeader{
   --week-gap:12px;
   --delta-col:88px;
   margin-bottom:8px; /* Gap between header and data */
 }
 .weeksTableScroll{
-  max-height:200px; /* ~3 data rows visible */
+  max-height:180px; /* Exactly 3 rows */
   overflow-y:auto;
-  overflow-x:hidden;
-  padding-right:4px; /* Space for scrollbar */
-  scrollbar-width:auto;
-  scrollbar-color:rgba(53,217,154,.5) rgba(255,255,255,.05);
+  overflow-x:visible;
+  padding:20px 16px 0 12px; /* 20px top for halo glow */
+  margin-right:-8px;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(91,178,255,.4) transparent;
 }
-.weeksTableScroll::-webkit-scrollbar{width:10px}
-.weeksTableScroll::-webkit-scrollbar-track{background:rgba(255,255,255,.05); border-radius:5px}
-.weeksTableScroll::-webkit-scrollbar-thumb{background:rgba(53,217,154,.5); border-radius:5px; border:2px solid transparent; background-clip:padding-box}
-.weeksTableScroll::-webkit-scrollbar-thumb:hover{background:rgba(53,217,154,.7)}
+.weeksTableScroll::-webkit-scrollbar{width:6px; margin-right:4px}
+.weeksTableScroll::-webkit-scrollbar-track{background:transparent}
+.weeksTableScroll::-webkit-scrollbar-thumb{background:rgba(91,178,255,.35); border-radius:3px}
+.weeksTableScroll::-webkit-scrollbar-thumb:hover{background:rgba(91,178,255,.55)}
 .weeksTable{
   --week-gap:12px;
   --delta-col:88px;
