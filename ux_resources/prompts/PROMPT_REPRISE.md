@@ -1,6 +1,64 @@
 # InfernalWheel - Prompt de Reprise
 
-> **FATIGUE?** → Utilise `PROMPT_REPRISE_ULTIME.md` (mode autonome)
+> **FATIGUE?** → Va direct a la section "MODE AUTONOME" ci-dessous
+
+---
+
+## MODE AUTONOME (Quand t'es crevé)
+
+Tu es en mode **"je te donne, tu decides"**. L'utilisateur est fatigue, il veut:
+- Donner une screenshot ou une demande vague
+- Que tu analyses et proposes
+- Valider ou refuser, c'est tout
+
+### Raccourcis Magiques
+
+| Tu dis | Claude fait |
+|--------|-------------|
+| "screenshot" + image | Analyse complete + propositions |
+| "c'est moche" | Mode holistique, redesign creatif |
+| "optimise" | Audit complet vs regles UX |
+| "ok" / "go" / "oui" | Execute les propositions |
+| "non" / "stop" | Arrete et demande quoi changer |
+| "push" | Commit + push GitHub |
+| "relance" | Restart serveur |
+
+### Workflow Autonome
+
+1. **Lire** `ux_resources/DESIGN_TREE.md` (identifier la phase 0-7)
+2. **Grep** dans `WEB.md` + `MOBILE.md` par keywords
+3. **Lire** le code concerné
+4. **Proposer** avec ce format:
+```
+## Analyse
+[Ce que j'ai vu]
+
+## Problemes
+1. [Probleme] → [Regle violee] → [Solution]
+
+## Actions Proposees
+- [ ] Action 1
+- [ ] Action 2
+
+Tu valides? (oui/non/modifie)
+```
+5. **Executer** si validation
+6. **Commit + Push** si ok
+
+### Valeurs Cles (Memo Rapide)
+
+| Quoi | Valeur |
+|------|--------|
+| Touch target | 44px minimum |
+| Spacing base | 4px (8, 12, 16, 24, 32, 48) |
+| Contraste texte | 4.5:1 |
+| Contraste UI | 3:1 |
+| Focus | 2px solid + offset 2px |
+| Animation micro | 100-200ms |
+| Animation standard | 250-350ms |
+| Spring bounce | 0.15 subtil, 0.30 visible |
+
+---
 
 ## Contexte Projet
 
@@ -64,8 +122,6 @@ Quand l'utilisateur dit **"intègre les règles UX"** ou mentionne un élément 
 ### Étape 2: Grep les fichiers UX avec les bons mots-clés
 
 ```bash
-# Pour chaque type, chercher dans WEB.md ET MOBILE.md:
-
 # BUTTON
 Grep -i "button|touch.target|click|tap|hover|active|disabled|focus" ux_resources/WEB.md
 Grep -i "button|touch.target|44.*pt|48.*dp|press|tap" ux_resources/MOBILE.md
@@ -115,26 +171,6 @@ Lire les résultats du Grep et appliquer chaque règle:
 - Feedback (animations, transitions, toasts)
 - Accessibilité (contrast, ARIA, focus visible)
 
-### Exemple concret
-
-User dit: "améliore ce bouton"
-
-1. Type = `BUTTON`
-2. Grep:
-   ```bash
-   Grep -i "button|touch.target|click|hover|active|disabled|focus" ux_resources/WEB.md
-   Grep -i "button|touch.target|44.*pt|48.*dp|press" ux_resources/MOBILE.md
-   ```
-3. Règles trouvées à appliquer:
-   - min-height: 44px (touch target)
-   - padding: 12px 24px
-   - border-radius: 8px
-   - hover: brightness(1.1)
-   - active: scale(0.98)
-   - focus: outline 2px solid + offset 2px
-   - disabled: opacity 0.5 + cursor not-allowed
-   - transition: all 0.2s ease
-
 ---
 
 ## REGLE #2 - TOUJOURS RELANCER LE SERVEUR
@@ -175,8 +211,7 @@ EOF
 )" && git push
 ```
 
-**Pourquoi:** Pour pouvoir REVENIR EN ARRIERE avec `git checkout` si ca ne plait pas!
-
+**Annuler si besoin:**
 ```bash
 # Annuler modifications non commitees:
 git checkout -- hellwell/dashboard/Dashboard.Page.ps1
@@ -188,21 +223,7 @@ git checkout <hash> -- hellwell/dashboard/Dashboard.Page.ps1
 
 ---
 
-## Workflow Complet
-
-1. **Lire** `ux_resources/WEB.md` + `ux_resources/MOBILE.md` (les melanger!)
-2. **Lire** le fichier `hellwell/dashboard/Dashboard.Page.ps1` (section concernee)
-3. **Modifier** le CSS et/ou HTML PowerShell
-4. **Relancer** le serveur (OBLIGATOIRE)
-5. **Dire** a l'utilisateur de faire Ctrl+F5
-6. **Attendre** validation utilisateur
-7. **Commit + Push** sur GitHub
-
----
-
 ## Structure du Fichier Dashboard.Page.ps1
-
-Le fichier est organise ainsi (approximatif):
 
 | Lignes | Contenu |
 |--------|---------|
@@ -229,16 +250,14 @@ Grep "getElementById.*monId" Dashboard.Page.ps1
 
 ---
 
-## Structure Cellule Calendrier (Refonte 2026-02)
-
-Chaque cellule du calendrier suit cette structure:
+## Structure Cellule Calendrier
 
 ```html
 <td class="day today">
   <div class="dhead">
     <div class="dhead-left">
       <span class="dnum">7</span>
-      <span class="dtoday-badge">Aujourd'hui</span>  <!-- si today -->
+      <span class="dtoday-badge">Aujourd'hui</span>
     </div>
     <span class="dwork">💻 7h51m</span>
   </div>
@@ -257,7 +276,7 @@ Chaque cellule du calendrier suit cette structure:
 </td>
 ```
 
-### Classes CSS importantes calendrier
+### Classes CSS calendrier
 
 | Classe | Role |
 |--------|------|
@@ -271,8 +290,6 @@ Chaque cellule du calendrier suit cette structure:
 | `.dstat--alc` | Badge alcool (jaune/or) |
 | `.dstat--smoke` | Badge clopes (rouge) |
 | `.dacts` | Conteneur activites avec tooltip |
-| `.dacts-toggle` | Texte "X activites" |
-| `.dacts-details` | Tooltip details (hover) |
 | `.dlink` | Bouton Notes en bas |
 
 ---
@@ -281,38 +298,30 @@ Chaque cellule du calendrier suit cette structure:
 
 ### 1. Tooltips coupes
 ```css
-/* PROBLEME: tooltip coupe par le parent */
+/* PROBLEME */
 td.day { overflow: hidden; }
 
-/* SOLUTION: permettre le depassement */
+/* SOLUTION */
 td.day { overflow: visible; }
 table { overflow: visible; }
-.calSubCard--grid { overflow: visible; }
 .tooltip { z-index: 9999; }
 ```
 
 ### 2. Position absolue qui chevauche
 ```css
-/* PROBLEME: ::before en position absolue peut chevaucher d'autres elements */
-td.day.today::before {
-  content: "Aujourd'hui";
-  position: absolute;
-  top: 8px; right: 8px;  /* chevauche le badge travail! */
-}
+/* PROBLEME: ::before chevauche d'autres elements */
+td.day.today::before { position: absolute; top: 8px; right: 8px; }
 
 /* SOLUTION: integrer dans le flux HTML */
-.dtoday-badge {
-  display: inline-flex;
-  /* pas de position absolute */
-}
+.dtoday-badge { display: inline-flex; /* pas de position absolute */ }
 ```
 
-### 3. Flexbox justify-content avec elements manquants
+### 3. Flexbox avec elements manquants
 ```css
-/* PROBLEME: si un element est vide, l'alignement casse */
+/* PROBLEME: si element vide, alignement casse */
 .dhead { justify-content: space-between; }
 
-/* SOLUTION: wrapper les elements gauche */
+/* SOLUTION: wrapper les elements */
 .dhead-left { display: flex; gap: 6px; }
 ```
 
@@ -339,13 +348,13 @@ td.day.today::before {
 
 | Element | Couleur | CSS |
 |---------|---------|-----|
-| Accent (succes) | Vert | `--accent: #35d99a` / `rgba(53,217,154,...)` |
+| Accent (succes) | Vert | `--accent: #35d99a` |
 | Travail | Rose/Magenta | `rgba(255,79,216,...)` |
 | Sommeil | Bleu/Violet | `rgba(102,126,234,...)` |
 | Alcool | Jaune/Or | `rgba(246,183,60,...)` |
 | Clopes | Rouge | `rgba(255,77,77,...)` |
 | Muted | Gris clair | `var(--muted)` |
-| Border | Blanc tres transparent | `rgba(255,255,255,.06-.12)` |
+| Border | Blanc transparent | `rgba(255,255,255,.06-.12)` |
 
 ---
 
@@ -360,42 +369,29 @@ td.day.today::before {
 
 ---
 
-## Ameliorations Futures Identifiees
-
-- [ ] **Responsive calendrier** - Actuellement 2 colonnes mobile, pourrait etre 1 colonne avec cards plus grandes
-- [ ] **Dark/Light mode toggle** - Actuellement dark only
-- [ ] **Animations entree** - Les `.reveal` cards pourraient avoir un stagger delay
-- [ ] **Graphiques interactifs** - Hover sur chart.js pour details
-- [ ] **Filtres calendrier** - Voir seulement jours avec alcool, ou seulement jours travailles
-- [ ] **Export PDF** - Rapport mensuel exportable
-
----
-
 ## Fichiers Cles
 
 ```
 c:\Users\ludov\.infernal_wheel\
   hellwell\
     dashboard\
-      Dashboard.Page.ps1    <- UI principale (HTML/CSS/JS) ~2800 lignes
+      Dashboard.Page.ps1    <- UI principale (~2800 lignes)
     start_dashboard.ps1     <- Script de demarrage
   ux_resources\
     DESIGN_TREE.md          <- ARBRE DE DECISION (lire en premier!)
-    WEB.md                  <- ~260 regles web (maj 2026-02-09)
-    MOBILE.md               <- ~320 regles mobile (maj 2026-02-09)
-  PROMPT_REPRISE.md         <- CE FICHIER
+    WEB.md                  <- ~260 regles web
+    MOBILE.md               <- ~320 regles mobile
+    prompts\
+      PROMPT_REPRISE.md     <- CE FICHIER
+      PROMPT_CSSFIX.md      <- Mode CSS fix rapide
+      PROMPT_CALENDRIER_CREATIF.md <- Mode calendrier
+    COMMANDES.txt           <- Liste des commandes disponibles
 ```
 
 ---
 
-## WORKFLOW OPTIMAL
+## Arbre Mental
 
-### Ordre de Lecture
-1. **DESIGN_TREE.md** - L'arbre de decision (structure mentale)
-2. **WEB.md** ou **MOBILE.md** - Les regles detaillees selon la plateforme
-3. **Dashboard.Page.ps1** - Le code a modifier
-
-### Arbre Mental Resume
 ```
                          DESIGN
                            |
@@ -427,15 +423,4 @@ c:\Users\ludov\.infernal_wheel\
 ---
 
 *Derniere mise a jour: 2026-02-09*
-
----
-
-## MOTS MAGIQUES
-
-| Phrase utilisateur | Action Claude |
-|--------------------|---------------|
-| "intègre les règles UX" | Exécuter REGLE #1.5 - Recherche intelligente |
-| "mode holistique" | Lire WEB.md + MOBILE.md en entier |
-| "c'est moche" / "améliore" | Mode holistique + propositions créatives |
-| "push sur git" | Commit + push immédiat |
-| "relance le serveur" | Exécuter commande restart |
+*Mode autonome - Tu donnes, je decide, tu valides.*

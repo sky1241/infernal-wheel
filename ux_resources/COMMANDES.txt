@@ -8,7 +8,29 @@ COMMENT UTILISER:
 
 --------------------------------------------
 
-1. MODE CSS FIX
+1. MODE REPRISE (ou MODE AUTONOME)
+   Fichier: prompts/PROMPT_REPRISE.md
+
+   QUAND: Tu reprends le projet apres une pause
+          OU t'es fatigue et tu veux juste valider
+
+   COMMENT:
+   - Dis "Mode reprise" ou "Mode autonome"
+   - Claude relit le contexte et les regles UX
+   - Si fatigue: il propose, tu dis "ok" ou "non"
+   - Pret a bosser
+
+   RACCOURCIS (mode autonome):
+   | Tu dis    | Claude fait                    |
+   |-----------|--------------------------------|
+   | "ok"/"go" | Execute les propositions       |
+   | "non"     | Arrete et demande quoi changer |
+   | "push"    | Commit + push GitHub           |
+   | "relance" | Restart serveur                |
+
+--------------------------------------------
+
+2. MODE CSS FIX
    Fichier: prompts/PROMPT_CSSFIX.md
 
    QUAND: Bug visuel (alignement, spacing, overflow)
@@ -21,32 +43,7 @@ COMMENT UTILISER:
 
 --------------------------------------------
 
-2. MODE REPRISE
-   Fichier: prompts/PROMPT_REPRISE.md
-
-   QUAND: Tu reprends le projet apres une pause
-
-   COMMENT:
-   - Dis "Mode reprise"
-   - Claude relit le contexte et les regles UX
-   - Pret a bosser
-
---------------------------------------------
-
-3. MODE AUTONOME (fatigue)
-   Fichier: prompts/PROMPT_REPRISE_ULTIME.md
-
-   QUAND: T'es fatigue, tu veux pas reflechir
-
-   COMMENT:
-   - Dis "Mode autonome" + screenshot ou demande vague
-   - Claude analyse et propose
-   - Tu dis juste "ok" ou "non"
-   - Il fait tout
-
---------------------------------------------
-
-4. MODE CALENDRIER
+3. MODE CALENDRIER
    Fichier: prompts/PROMPT_CALENDRIER_CREATIF.md
 
    QUAND: Modifier le calendrier specifiquement
@@ -66,11 +63,31 @@ FICHIERS UX DE REFERENCE:
 
 --------------------------------------------
 
-RACCOURCIS RAPIDES:
+RACCOURCIS RAPIDES (utilisables a tout moment):
 
 "go"      = execute ce que tu as propose
 "push"    = commit + push sur github
 "relance" = redemarre le serveur
 "ok"      = valide et continue
+"c'est moche" = mode holistique, redesign creatif
+"optimise" = audit complet vs regles UX
+"integre les regles UX" = grep intelligent dans WEB+MOBILE
 
+--------------------------------------------
+
+STRUCTURE DES FICHIERS:
+
+c:\Users\ludov\.infernal_wheel\
+  ux_resources\
+    DESIGN_TREE.md        <- Arbre decision
+    WEB.md                <- Regles web
+    MOBILE.md             <- Regles mobile
+    COMMANDES.txt         <- CE FICHIER
+    prompts\
+      PROMPT_REPRISE.md   <- Mode reprise + autonome
+      PROMPT_CSSFIX.md    <- Mode CSS fix
+      PROMPT_CALENDRIER_CREATIF.md <- Mode calendrier
+
+============================================
+Derniere mise a jour: 2026-02-09
 ============================================
