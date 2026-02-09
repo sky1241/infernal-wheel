@@ -1347,3 +1347,120 @@ Pour mesurer les marges/containers de sites de référence:
 | Checkout avg | 5.1 steps, 11.3 fields | Baymard 2024 |
 | Cart abandon | 70.22% | Baymard 2025 |
 | INP (Core Vital) | Remplace FID depuis 2024-03-12 | web.dev |
+
+---
+
+## PREMIUM FEEL - Règles Evidence-Backed (2024-2026)
+
+*Source: ChatGPT Deep Research - Premium-Feeling Product UI*
+
+### 60. 10 Erreurs qui font "meh"
+
+| Erreur | Pourquoi c'est meh |
+|--------|-------------------|
+| Over-bouncy springs partout | Navigation devient "jouet" |
+| Animation sans cause | Perçu comme délai/décoration |
+| Pas de density rails | Chaque surface invente son padding |
+| Thèmes en espaces non-uniformes | Custom themes look "off" |
+| Tokens sans on-color pairs | Régressions contraste constantes |
+| Tiny touch targets | Précision UI = cheap sur tactile |
+| Validation prématurée | Punit l'utilisateur mid-entry |
+| Guest checkout caché | Users assume forced registration |
+| Perf qui ignore responsiveness | Fast load, sluggish interactions |
+| Onboarding tutorial-heavy | Interrompt, vite oublié |
+
+### 61. Label vs Copy (Vercel Geist Pattern)
+
+| Type | Usage | Line-height | Pourquoi |
+|------|-------|-------------|----------|
+| **Label** | Single-line, menus, boutons | 1.2 | Alignement icônes |
+| **Copy** | Multi-line, paragraphes | 1.5 | Lisibilité |
+
+```css
+:root {
+  --lh-label: 1.2;  /* dense menus, icon alignment */
+  --lh-copy: 1.5;   /* readable paragraphs */
+}
+.label { line-height: var(--lh-label); }
+.copy { line-height: var(--lh-copy); }
+```
+
+### 62. Reduced Motion (Graceful Degradation)
+
+```css
+:root {
+  --dur-fast: 150ms;
+  --dur-med: 250ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-med: 0ms;
+  }
+  * { scroll-behavior: auto !important; }
+}
+```
+
+**Règle:** Garder clarté du changement d'état, supprimer flourish kinétique.
+
+### 63. Haptics Budget (Mobile)
+
+| Quand | Type | Exemple |
+|-------|------|---------|
+| Success | Notification | Paiement confirmé |
+| Error | Notification | Action échouée |
+| Boundary | Impact light | Snap dans picker |
+| **JAMAIS** | Décoration | Chaque tap |
+
+**Règle:** Budget haptics comme notifications. Max ~1 haptic/few seconds.
+
+### 64. Micro-Celebrations
+
+| DO | DON'T |
+|----|-------|
+| Confetti sur milestone (workflow complet) | Confetti sur chaque action |
+| Success mark bref (500ms) | Animation qui bloque |
+| Transition vers next state | Célébration gratuite |
+
+*Source: Notion 2026 - confetti uniquement sur automations*
+
+### 65. DOM Measurement Script
+
+```javascript
+// Mesurer marges réelles d'un site de référence
+(() => {
+  const el = document.querySelector("main") || document.body;
+  const r = el.getBoundingClientRect();
+  return {
+    viewport: { w: window.innerWidth, h: window.innerHeight },
+    mainRect: { x: r.x, y: r.y, w: r.width, h: r.height },
+    leftMargin: Math.round(r.x),
+    rightMargin: Math.round(window.innerWidth - (r.x + r.width)),
+  };
+})();
+// Répéter à 375, 768, 1024, 1440, 1920px
+```
+
+### 66. Checklist Premium Tomorrow
+
+**Motion & Feedback:**
+- [ ] 3 motion tokens (crisp/subtle/playful) - ban one-offs
+- [ ] Motion = cause visible (jamais ambient)
+- [ ] Haptics only at decision points
+- [ ] Respect prefers-reduced-motion
+
+**Density & Typography:**
+- [ ] Spacing unit + small scale (0,2,4,8,16,24,32,48)
+- [ ] Label vs Copy line-height séparés
+- [ ] Stress-test WCAG text-spacing (1.5× line-height, 0.12× letter)
+
+**Color & Accessibility:**
+- [ ] Semantic tokens + on-color accessible pairs
+- [ ] High contrast = paramètre first-class
+- [ ] Thèmes générés en LCH
+
+**Forms:**
+- [ ] Field burden > step count
+- [ ] Guest checkout prominent
+- [ ] Inline validation: no premature, remove on fix, positive feedback
