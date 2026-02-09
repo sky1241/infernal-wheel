@@ -1,5 +1,7 @@
 # InfernalWheel - Prompt de Reprise
 
+> **FATIGUE?** → Utilise `PROMPT_REPRISE_ULTIME.md` (mode autonome)
+
 ## Contexte Projet
 
 Dashboard PowerShell generant HTML/CSS/JS pour tracker les addictions (alcool, tabac).
@@ -37,6 +39,101 @@ Quand je dis "j'aime pas", "c'est moche", "ameliore", "retouche":
 - Appliquer les regles mecaniquement
 - Faire le minimum
 - Etre trop litteral
+
+---
+
+## REGLE #1.5 - RECHERCHE UX INTELLIGENTE (OBLIGATOIRE)
+
+Quand l'utilisateur dit **"intègre les règles UX"** ou mentionne un élément UI:
+
+### Étape 1: Identifier le type d'élément
+
+| Élément mentionné | Type |
+|-------------------|------|
+| bouton, btn, click, action | `BUTTON` |
+| input, champ, formulaire, form, saisie | `FORM` |
+| modal, popup, dialog, overlay | `MODAL` |
+| menu, dropdown, navigation, nav | `NAV` |
+| liste, table, grille, cards | `LIST` |
+| toast, notification, alert, feedback | `FEEDBACK` |
+| loading, spinner, skeleton | `LOADING` |
+| couleur, color, contrast, theme | `COLOR` |
+| spacing, margin, padding, gap | `SPACING` |
+| texte, typo, font, label | `TYPO` |
+
+### Étape 2: Grep les fichiers UX avec les bons mots-clés
+
+```bash
+# Pour chaque type, chercher dans WEB.md ET MOBILE.md:
+
+# BUTTON
+Grep -i "button|touch.target|click|tap|hover|active|disabled|focus" ux_resources/WEB.md
+Grep -i "button|touch.target|44.*pt|48.*dp|press|tap" ux_resources/MOBILE.md
+
+# FORM
+Grep -i "input|form|validation|label|placeholder|error|field" ux_resources/WEB.md
+Grep -i "input|form|keyboard|text.field|picker" ux_resources/MOBILE.md
+
+# MODAL
+Grep -i "modal|dialog|overlay|backdrop|dismiss|escape" ux_resources/WEB.md
+Grep -i "modal|sheet|dialog|overlay|present" ux_resources/MOBILE.md
+
+# NAV
+Grep -i "navigation|menu|dropdown|breadcrumb|tab|link" ux_resources/WEB.md
+Grep -i "navigation|tab.bar|bottom|drawer|back" ux_resources/MOBILE.md
+
+# LIST
+Grep -i "list|table|grid|card|item|row|cell" ux_resources/WEB.md
+Grep -i "list|table|collection|cell|swipe" ux_resources/MOBILE.md
+
+# FEEDBACK
+Grep -i "toast|snackbar|notification|alert|success|error" ux_resources/WEB.md
+Grep -i "toast|snackbar|haptic|feedback|banner" ux_resources/MOBILE.md
+
+# LOADING
+Grep -i "loading|spinner|skeleton|progress|async" ux_resources/WEB.md
+Grep -i "loading|spinner|skeleton|indicator|activity" ux_resources/MOBILE.md
+
+# COLOR
+Grep -i "color|contrast|wcag|theme|dark|light|accent" ux_resources/WEB.md
+Grep -i "color|dynamic|system|palette|semantic" ux_resources/MOBILE.md
+
+# SPACING
+Grep -i "spacing|margin|padding|gap|grid|layout" ux_resources/WEB.md
+Grep -i "spacing|margin|padding|safe.area|inset" ux_resources/MOBILE.md
+
+# TYPO
+Grep -i "typography|font|text|label|size|weight|line" ux_resources/WEB.md
+Grep -i "typography|font|dynamic.type|text.style|sf.pro" ux_resources/MOBILE.md
+```
+
+### Étape 3: Appliquer TOUTES les règles trouvées
+
+Lire les résultats du Grep et appliquer chaque règle:
+- Valeurs concrètes (44px, 4.5:1, etc.)
+- États (hover, active, disabled, focus, loading)
+- Feedback (animations, transitions, toasts)
+- Accessibilité (contrast, ARIA, focus visible)
+
+### Exemple concret
+
+User dit: "améliore ce bouton"
+
+1. Type = `BUTTON`
+2. Grep:
+   ```bash
+   Grep -i "button|touch.target|click|hover|active|disabled|focus" ux_resources/WEB.md
+   Grep -i "button|touch.target|44.*pt|48.*dp|press" ux_resources/MOBILE.md
+   ```
+3. Règles trouvées à appliquer:
+   - min-height: 44px (touch target)
+   - padding: 12px 24px
+   - border-radius: 8px
+   - hover: brightness(1.1)
+   - active: scale(0.98)
+   - focus: outline 2px solid + offset 2px
+   - disabled: opacity 0.5 + cursor not-allowed
+   - transition: all 0.2s ease
 
 ---
 
@@ -283,11 +380,62 @@ c:\Users\ludov\.infernal_wheel\
       Dashboard.Page.ps1    <- UI principale (HTML/CSS/JS) ~2800 lignes
     start_dashboard.ps1     <- Script de demarrage
   ux_resources\
-    WEB.md                  <- ~200 regles web
-    MOBILE.md               <- ~300 regles mobile
+    DESIGN_TREE.md          <- ARBRE DE DECISION (lire en premier!)
+    WEB.md                  <- ~260 regles web (maj 2026-02-09)
+    MOBILE.md               <- ~320 regles mobile (maj 2026-02-09)
   PROMPT_REPRISE.md         <- CE FICHIER
 ```
 
 ---
 
-*Derniere mise a jour: 2026-02-07*
+## WORKFLOW OPTIMAL
+
+### Ordre de Lecture
+1. **DESIGN_TREE.md** - L'arbre de decision (structure mentale)
+2. **WEB.md** ou **MOBILE.md** - Les regles detaillees selon la plateforme
+3. **Dashboard.Page.ps1** - Le code a modifier
+
+### Arbre Mental Resume
+```
+                         DESIGN
+                           |
+              +------------+------------+
+              |            |            |
+           TOKENS       LAYOUT      COMPONENTS
+              |            |            |
+         Spacing 4px   Responsive    Touch 44px+
+         Colors 4.5:1  Navigation    Focus visible
+         Typography    Density       States clairs
+              |            |            |
+              +------+-----+-----+------+
+                     |           |
+                 FEEDBACK    ACCESSIBILITY
+                     |           |
+                 < 100ms     WCAG AA
+                 skeleton    Keyboard
+                 validation  Screen reader
+                     |           |
+                     +-----+-----+
+                           |
+                      CONVERSION
+                           |
+                    Field burden
+                    Guest checkout
+                    Trust signals
+```
+
+---
+
+*Derniere mise a jour: 2026-02-09*
+
+---
+
+## MOTS MAGIQUES
+
+| Phrase utilisateur | Action Claude |
+|--------------------|---------------|
+| "intègre les règles UX" | Exécuter REGLE #1.5 - Recherche intelligente |
+| "mode holistique" | Lire WEB.md + MOBILE.md en entier |
+| "c'est moche" / "améliore" | Mode holistique + propositions créatives |
+| "push sur git" | Commit + push immédiat |
+| "relance le serveur" | Exécuter commande restart |

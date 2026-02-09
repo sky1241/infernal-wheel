@@ -1,0 +1,76 @@
+============================================
+       COMMANDES DISPONIBLES - INFERNAL WHEEL
+============================================
+
+COMMENT UTILISER:
+- Copie-colle le nom de la commande a Claude
+- Ou juste dis "utilise [commande]"
+
+--------------------------------------------
+
+1. MODE CSS FIX
+   Fichier: prompts/PROMPT_CSSFIX.md
+
+   QUAND: Bug visuel (alignement, spacing, overflow)
+
+   COMMENT:
+   - Dis "Mode CSS FIX" + envoie screenshot
+   - Claude liste les problemes
+   - Tu dis "go"
+   - Il corrige tout d'un coup
+
+--------------------------------------------
+
+2. MODE REPRISE
+   Fichier: prompts/PROMPT_REPRISE.md
+
+   QUAND: Tu reprends le projet apres une pause
+
+   COMMENT:
+   - Dis "Mode reprise"
+   - Claude relit le contexte et les regles UX
+   - Pret a bosser
+
+--------------------------------------------
+
+3. MODE AUTONOME (fatigue)
+   Fichier: prompts/PROMPT_REPRISE_ULTIME.md
+
+   QUAND: T'es fatigue, tu veux pas reflechir
+
+   COMMENT:
+   - Dis "Mode autonome" + screenshot ou demande vague
+   - Claude analyse et propose
+   - Tu dis juste "ok" ou "non"
+   - Il fait tout
+
+--------------------------------------------
+
+4. MODE CALENDRIER
+   Fichier: prompts/PROMPT_CALENDRIER_CREATIF.md
+
+   QUAND: Modifier le calendrier specifiquement
+
+   COMMENT:
+   - Dis "Mode calendrier"
+   - Claude charge les regles + le CSS du calendrier
+   - Tu demandes ce que tu veux
+
+--------------------------------------------
+
+FICHIERS UX DE REFERENCE:
+
+- DESIGN_TREE.md  = Arbre de decision (lire EN PREMIER)
+- WEB.md          = ~260 regles web
+- MOBILE.md       = ~320 regles mobile
+
+--------------------------------------------
+
+RACCOURCIS RAPIDES:
+
+"go"      = execute ce que tu as propose
+"push"    = commit + push sur github
+"relance" = redemarre le serveur
+"ok"      = valide et continue
+
+============================================

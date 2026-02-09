@@ -1348,6 +1348,177 @@ fun FoldAwareScreen(windowInfoTracker: WindowInfoTracker) {
 
 ---
 
-*Document mis à jour le 2026-02-06*
-*Complément de: UX_WEB_COMPLET.md*
-*Total: 42 sections, ~300 règles MOBILE*
+*Document mis à jour le 2026-02-09*
+*Complément de: WEB.md + DESIGN_TREE.md*
+*Total: 46 sections, ~320 règles MOBILE*
+
+---
+
+## T. Ajouts 2024-2026 (Sources Premium)
+
+### 43. iOS Spring Animation Values (Apple WWDC)
+
+| Bounce | Effet | Usage |
+|--------|-------|-------|
+| ~0.15 | Subtil | Plupart des interactions quotidiennes |
+| ~0.30 | Noticeable | Feedback important, confirmations |
+| ~0.40+ | Caution | Peut causer motion sickness |
+
+**SwiftUI Presets:**
+```swift
+// Standard subtil
+.animation(.spring(bounce: 0.15))
+
+// Snappy preset (default 0.5s)
+.animation(.snappy)
+
+// Avec extra bounce
+.animation(.snappy(extraBounce: 0.1))
+
+// Smooth (moins de rebond)
+.animation(.smooth(duration: 0.35))
+```
+
+**Règle:** Commencer par bounce 0.15, augmenter uniquement si feedback important.
+
+---
+
+### 44. Cross-Environment Navigation (Linear Pattern)
+
+Quand une app tourne sur Electron + Browser + Mobile:
+
+| Principe | Description |
+|----------|-------------|
+| Mental model unique | Même navigation partout |
+| History contract | Back fait la même chose dans tous les contextes |
+| Environment-aware | Swipe-back iOS, bouton Android, Ctrl+[ Electron |
+
+**Anti-pattern:** Back qui fait quelque chose de différent selon le contexte (browser vs app shell).
+
+```swift
+// iOS: JAMAIS désactiver swipe-back sauf raison majeure
+navigationController?.interactivePopGestureRecognizer?.isEnabled = true
+```
+
+---
+
+### 45. Onboarding Contextuel (NNG 2023)
+
+| Type | Problème | Alternative |
+|------|----------|-------------|
+| Tutorials | Interrompent, oubliés vite | Contextual help |
+| Coach marks en cascade | Cognitive overload | Just-in-time hints |
+| Tours obligatoires | Frustration | Empty states avec CTA |
+
+**Pattern Notion (2026):**
+- Confetti attaché aux automations (milestone significatif)
+- Pas confetti pour usage générique
+
+**Règle:**
+> "Teach by letting users do real work, with guardrails."
+
+```swift
+// Empty state avec single best next action
+struct EmptyState: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "doc.badge.plus")
+                .font(.system(size: 48))
+            Text("Pas encore de documents")
+                .font(.headline)
+            Text("Créez votre premier document pour commencer")
+                .foregroundStyle(.secondary)
+            Button("Créer un document") { /* action */ }
+                .buttonStyle(.borderedProminent)
+        }
+    }
+}
+```
+
+---
+
+### 46. Command Palette Mobile
+
+Sur mobile, le command palette devient:
+
+| Mobile | Desktop |
+|--------|---------|
+| Search bar persistent | Cmd+K anywhere |
+| Quick actions dans search | Palette overlay |
+| Suggestions contextuelles | Full command list |
+
+```swift
+// iOS: Spotlight-style search
+struct MobileCommandBar: View {
+    @State private var query = ""
+
+    var body: some View {
+        VStack {
+            HStack {
+                Image(systemName: "magnifyingglass")
+                TextField("Rechercher ou taper une commande...", text: $query)
+            }
+            .padding(12)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            // Quick actions
+            if query.isEmpty {
+                QuickActionsGrid()
+            } else {
+                SearchResults(query: query)
+            }
+        }
+    }
+}
+```
+
+---
+
+## U. Quick Reference Mobile
+
+### Valeurs Critiques
+
+| Élément | iOS | Android | Source |
+|---------|-----|---------|--------|
+| Touch target | 44pt | 48dp | HIG / M3 |
+| Navigation bar | 44pt / 96pt (large) | 64dp | System |
+| Tab bar / Bottom nav | 49pt | 80dp | System |
+| FAB | - | 56dp (40/96 variants) | M3 |
+| Spacing base | 4pt | 4dp (8dp grid) | Universal |
+| Animation micro | 0.20-0.25s | 50-200ms | HIG / M3 |
+| Animation standard | 0.30-0.35s | 250-400ms | HIG / M3 |
+| Spring bounce subtle | 0.15 | - | Apple |
+| Spring bounce noticeable | 0.30 | - | Apple |
+
+### Checklist Ultime Mobile
+
+**Touch & Gesture:**
+- [ ] Toutes cibles >= 44pt (iOS) / 48dp (Android)
+- [ ] Swipe-back activé (iOS)
+- [ ] Edge gestures non bloqués
+- [ ] Gestes custom ont alternative visible
+
+**Navigation:**
+- [ ] Tab bar / Bottom nav <= 5 items
+- [ ] Labels TOUJOURS présents (pas icons seuls)
+- [ ] Back préserve état (scroll, filtres)
+- [ ] Deep links fonctionnels
+
+**Feedback:**
+- [ ] Haptics à usage sémantique (pas décoration)
+- [ ] Spring bounce <= 0.30 pour la plupart
+- [ ] Reduce motion respecté
+- [ ] Toast/Snackbar au-dessus de la navigation
+
+**Accessibilité:**
+- [ ] VoiceOver / TalkBack testés
+- [ ] Dynamic Type / Font scale supportés
+- [ ] Safe areas respectées
+- [ ] Labels accessibles sur tous éléments interactifs
+
+**Forms:**
+- [ ] Keyboard type approprié (email, tel, etc.)
+- [ ] textContentType / autofill hints
+- [ ] Clavier ne masque pas le champ focusé
+- [ ] Validation pas rouge pendant la frappe

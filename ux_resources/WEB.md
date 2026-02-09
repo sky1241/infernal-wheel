@@ -1055,4 +1055,295 @@ Le fichier `UNIVERSAL UI RULEBOOK V1 — Audit & Matrice V3 (Web + iOS + Android
 
 ---
 
-*Document généré le 2026-02-06*
+*Document généré le 2026-02-09*
+*Mis à jour avec: Linear 2024, Vercel Geist, Stripe Elements, Baymard 2024-2026*
+
+---
+
+## J. Ajouts 2024-2026 (Sources Premium)
+
+### 49. Définition de la Densité (Linear 2024)
+
+> "Density is not smaller spacing. Density is more information per pixel without increasing visual entropy."
+
+| Composante | Description | Anti-pattern |
+|------------|-------------|--------------|
+| Alignment | Grille 4px stricte | Éléments mal alignés |
+| Baselines | Line-height consistant | Heights variables |
+| Typographic roles | Label vs Copy distinction | Tout en Body |
+| Contrast ramps | Max 3-4 niveaux | 10 nuances de gris |
+
+**Checklist Densité:**
+- [ ] Grille 4px respectée partout
+- [ ] Line-heights consistants par rôle
+- [ ] Labels (single-line) vs Copy (multi-line) distingués
+- [ ] Maximum 4 niveaux de contraste texte
+
+---
+
+### 50. Distinction Label vs Copy (Vercel Geist)
+
+| Rôle | Usage | Line-height | Poids |
+|------|-------|-------------|-------|
+| **Label** | Single-line, boutons, nav, chips | 1.2 | Medium (500) |
+| **Copy** | Multi-line, paragraphes, descriptions | 1.5 | Regular (400) |
+
+**Pourquoi c'est important:**
+- Labels avec line-height 1.5 = menus qui paraissent cramped
+- Copy avec line-height 1.2 = paragraphes illisibles
+
+```css
+/* Labels (single-line) */
+.label, .btn, .nav-item, .chip {
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+/* Copy (multi-line) */
+.body, .description, .paragraph {
+  line-height: 1.5;
+  font-weight: 400;
+}
+```
+
+---
+
+### 51. Typography Fluide (Clamp Pattern)
+
+```css
+:root {
+  /* Body text - scales 15px → 18px */
+  --text-body: clamp(15px, 0.95rem + 0.2vw, 18px);
+
+  /* Headings - scales with viewport */
+  --text-h1: clamp(28px, 1.5rem + 2vw, 48px);
+  --text-h2: clamp(22px, 1.2rem + 1.2vw, 36px);
+  --text-h3: clamp(18px, 1rem + 0.8vw, 24px);
+
+  /* Line heights robustes WCAG 1.4.12 */
+  --lh-body: 1.5;  /* Tolère override 1.5x */
+}
+
+body {
+  font-size: var(--text-body);
+  line-height: var(--lh-body);
+}
+```
+
+**Règle premium:** Choisir des defaults déjà robustes sous le stress-test WCAG text-spacing.
+
+---
+
+### 52. Tokens de Couleur Accessibles (Stripe Pattern)
+
+```css
+:root {
+  /* Base colors */
+  --color-primary: #35d99a;
+  --color-background: #1a1a2e;
+  --color-text: #ffffff;
+  --color-danger: #ff4d4d;
+
+  /* Accessible ON-colors (garantit contraste 4.5:1) */
+  --accessible-on-primary: #000000;
+  --accessible-on-danger: #ffffff;
+  --accessible-on-background: #ffffff;
+}
+
+/* Usage */
+.btn-primary {
+  background: var(--color-primary);
+  color: var(--accessible-on-primary); /* Toujours lisible */
+}
+```
+
+**Anti-pattern:** Choisir une couleur "jolie" sans vérifier le contraste du texte dessus.
+
+---
+
+### 53. LCH pour Dark Mode (Linear Pattern)
+
+| Espace | Avantage | Usage |
+|--------|----------|-------|
+| **HSB** | Intuitif | Variations simples |
+| **LCH** | Perceptuellement uniforme | Thèmes, rampes |
+
+**Dark mode = hiérarchie de surfaces, pas juste #000 + #fff:**
+
+```css
+:root[data-theme="dark"] {
+  --surface-0: hsl(240 10% 8%);   /* Background */
+  --surface-1: hsl(240 10% 12%);  /* Cards */
+  --surface-2: hsl(240 10% 16%);  /* Elevated */
+  --surface-3: hsl(240 10% 20%);  /* Dialogs */
+}
+```
+
+**Règle:** Générer les surfaces en LCH pour des "steps égaux" perceptuellement.
+
+---
+
+### 54. Command Palettes (Pattern 2024)
+
+| Principe | Description |
+|----------|-------------|
+| Disponible partout | Cmd+K / Ctrl+K sur toute l'app |
+| Shortcut prévisible | Toujours la même touche |
+| Scoped | Résultats filtrés par contexte |
+| Ranked | Triés par pertinence/fréquence |
+
+**Implémentation:**
+```html
+<dialog id="command-palette" role="dialog" aria-modal="true">
+  <input type="search" placeholder="Rechercher..." aria-label="Commande">
+  <ul role="listbox" aria-label="Résultats">
+    <!-- Résultats dynamiques -->
+  </ul>
+</dialog>
+```
+
+**Pourquoi c'est premium:** Permet UI calm + toutes features accessibles.
+
+---
+
+### 55. Benchmarks Checkout (Baymard 2024-2026)
+
+| Métrique | Valeur | Source |
+|----------|--------|--------|
+| Steps moyen | 5.1 | Baymard 2024 |
+| Champs moyen | 11.3 | Baymard 2024 |
+| Abandon cause complexité | 18% | Baymard 2024 |
+| Cart abandonment global | 70.22% | Baymard 2025 (50 études) |
+
+**Règle critique:**
+> "Your checkout doesn't win by being one page; it wins by lowering field management cost."
+
+**Field burden > step count:**
+- Réduire les CHAMPS importe plus que réduire les étapes
+- Minimiser typing + verifying + fixing errors
+
+---
+
+### 56. Guest Checkout Prominent
+
+| Stat | Valeur |
+|------|--------|
+| Sites qui cachent guest checkout | 62% |
+| Impact | Users cherchent, certains abandonnent |
+
+**Pattern correct:**
+```
+[ ] Créer un compte (optionnel)
+[●] Continuer en tant qu'invité  ← DEFAULT, PREMIER
+
+[Continuer →]
+```
+
+**Delayed account creation:** Proposer création compte APRÈS paiement confirmé.
+
+---
+
+### 57. Two-Stage Validation (Credit Card)
+
+| Stage | Quoi | Pourquoi |
+|-------|------|----------|
+| 1. Front-end | Format, expiry, CVV length | Évite re-saisie si erreur serveur |
+| 2. Serveur | Carte réelle | Validation finale |
+
+```javascript
+// Stage 1: Front-end (non-sensitive)
+function validateCardFormat(card) {
+  const cleanNumber = card.replace(/\s/g, '');
+  if (!/^\d{13,19}$/.test(cleanNumber)) return false;
+  return luhnCheck(cleanNumber);
+}
+
+// Stage 2: Serveur
+// Si échec, NE PAS effacer les champs
+// Message: "Carte refusée. Vérifiez les informations ou essayez une autre carte."
+```
+
+---
+
+### 58. Density Variants (Stripe Elements)
+
+| Variant | spacingUnit | Labels | Usage |
+|---------|-------------|--------|-------|
+| **Spaced** | 16px | Above inputs | Formulaires simples |
+| **Condensed** | 12px | Floating | Checkouts, dashboards |
+
+```css
+/* Spaced (default) */
+[data-density="spaced"] {
+  --input-spacing: 16px;
+  --label-position: above;
+}
+
+/* Condensed */
+[data-density="condensed"] {
+  --input-spacing: 12px;
+  --label-position: floating;
+}
+```
+
+---
+
+### 59. iOS Spring Animation Values
+
+| Bounce | Effet | Usage |
+|--------|-------|-------|
+| ~0.15 | Subtil | Plupart des interactions |
+| ~0.30 | Noticeable | Feedback important |
+| ~0.40+ | Caution | Peut être excessif |
+
+```swift
+// SwiftUI preset
+.animation(.snappy) // duration: 0.5s, default bounce
+
+// Custom subtle
+.animation(.spring(bounce: 0.15))
+
+// Noticeable feedback
+.animation(.spring(bounce: 0.30))
+```
+
+---
+
+### 60. DOM Measurement (Sites Production)
+
+Pour mesurer les marges/containers de sites de référence:
+
+```javascript
+// Exécuter dans DevTools sur le site cible
+(() => {
+  const el = document.querySelector("main") || document.body;
+  const r = el.getBoundingClientRect();
+  return {
+    viewport: { w: window.innerWidth, h: window.innerHeight },
+    mainRect: { x: r.x, y: r.y, w: r.width, h: r.height },
+    leftMargin: Math.round(r.x),
+    rightMargin: Math.round(window.innerWidth - (r.x + r.width)),
+  };
+})();
+
+// Répéter à: 375, 768, 1024, 1440, 1920px
+// Puis encoder dans vos tokens
+```
+
+---
+
+## Récapitulatif Quick Table
+
+| Domaine | Rail Premium | Source |
+|---------|--------------|--------|
+| iOS springs | bounce 0.15/0.30/0.40 | Apple WWDC |
+| SwiftUI snappy | 0.5s default | Apple docs |
+| Stripe spacing | 0,2,4,8,16,24,32,48px | Stripe Apps |
+| Stripe density | spacingUnit base | Stripe Elements |
+| Vercel type | Headings 72→14, Copy 24→13 | Geist docs |
+| Text spacing | line-height 1.5×, letter 0.12× | WCAG 1.4.12 |
+| Touch targets | 24×24 min, 44×44 enhanced | WCAG 2.5.8 |
+| Android slider | 48dp thumb touch | Material |
+| Checkout avg | 5.1 steps, 11.3 fields | Baymard 2024 |
+| Cart abandon | 70.22% | Baymard 2025 |
+| INP (Core Vital) | Remplace FID depuis 2024-03-12 | web.dev |

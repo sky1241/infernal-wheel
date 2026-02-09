@@ -1,0 +1,77 @@
+{
+  "@@locale": "pseudo",
+  "@@description": "Pseudo-locale pour tester l'UI avec textes allonges (+30-50%)",
+
+  "appName": "[ÏnférnàlWhéél ~~~]",
+  "today": "[Àûjöûrd'hûï ~~~]",
+  "yesterday": "[Hïér ~~]",
+  "thisWeek": "[Çétté sémàïné ~~~~]",
+  "thisMonth": "[Çé möïs ~~~]",
+
+  "cigarettes": "[Çïgàréttés ~~~~]",
+  "beers": "[Bïérés ~~~]",
+  "wine": "[Vérrés dé vïn ~~~~]",
+  "spirits": "[Àlçööl fört ~~~~]",
+
+  "cigarettesCount": "{count, plural, =0{[Àûçûné çïgàrétté ~~~~~]} =1{[1 çïgàrétté ~~~~]} other{[{count} çïgàréttés ~~~~~]}}",
+  "beersCount": "{count, plural, =0{[Àûçûné bïéré ~~~~]} =1{[1 bïéré ~~~]} other{[{count} bïérés ~~~~]}}",
+  "wineCount": "{count, plural, =0{[Àûçûn vérré ~~~~]} =1{[1 vérré dé vïn ~~~~~]} other{[{count} vérrés dé vïn ~~~~~~]}}",
+  "spiritsCount": "{count, plural, =0{[Àûçûn vérré ~~~~]} =1{[1 vérré ~~~]} other{[{count} vérrés ~~~~]}}",
+
+  "sleep": "[Sömmééïl ~~~~]",
+  "wakeTime": "[Révéïl ~~~]",
+  "bedTime": "[Çöûçhér ~~~]",
+  "duration": "[Dûréé ~~~]",
+  "quality": "[Qûàlïté ~~~]",
+
+  "sleepQualityBad": "[Màûvàïs ~~~]",
+  "sleepQualityPoor": "[Ïnsûffïsànt ~~~~]",
+  "sleepQualityOkay": "[Möyén ~~~]",
+  "sleepQualityGood": "[Bön ~~]",
+  "sleepQualityGreat": "[Éxçéllént ~~~~]",
+
+  "sleepDurationFormat": "[{hours}h{minutes} ~~~]",
+
+  "journal": "[Jöûrnàl ~~~]",
+  "settings": "[Pàràmétrés ~~~~~]",
+  "export": "[Éxpörtér ~~~]",
+  "support": "[Söûténïr ~~~]",
+
+  "increment": "[Àjöûtér ~~~]",
+  "decrement": "[Rétïrér ~~~]",
+  "save": "[Énréggïstrér ~~~~~]",
+  "cancel": "[Ànnûlér ~~~]",
+  "close": "[Férmér ~~~]",
+  "retry": "[Réééssàyér ~~~~]",
+
+  "noData": "[Àûçûné dönnéé ~~~~~]",
+  "noSleepData": "[Pàs dé dönnéés sömmééïl ~~~~~~~]",
+  "manualEntry": "[Sàïsïé mànûéllé ~~~~~~]",
+  "autoDetected": "[Détéçtïön àûtö ~~~~~]",
+
+  "errorSaveFailed": "[Sàûvégàrdé ïmpössïblé ~~~~~~~]",
+  "errorLoadFailed": "[Çhàrgémént éçhöûé ~~~~~~]",
+  "errorNetworkFailed": "[Érréûr réséàû ~~~~~]",
+  "errorUnknown": "[Érréûr ïnçönnûé ~~~~~]",
+
+  "supportTitle": "[Söûténïr ÏnférnàlWhéél ? ~~~~~~~~]",
+  "supportDesc": "[Çétté àpp ést 100% gràtûïté ét sàns tràçkïng. ~~~~~~~~~~~~~~~~]",
+  "donate": "[Fàïré ûn dön ~~~~]",
+  "watchAd": "[Régàrdér ûné pûb ~~~~~~]",
+  "noThanks": "[Nön mérçï ~~~~]",
+
+  "bugReportTitle": "[Pröbléméş détéçtés ~~~~~~~]",
+  "bugReportDesc": "{count, plural, =1{[1 prôbléme détécté àûjöûrd'hûï ~~~~~~~~~~]} other{[{count} prôblémes détéctés àûjöûrd'hûï ~~~~~~~~~~~~]}}",
+  "bugReportView": "[Vöïr détàïls ~~~~~]",
+  "bugReportIgnore": "[Ïgnörér pöûr 24h ~~~~~~]",
+
+  "settingsSleepGoal": "[Öbjéçtïf sömmééïl ~~~~~~~]",
+  "settingsAddictions": "[Més àddïçtïöns ~~~~~~]",
+  "settingsNotifications": "[Nötïfïçàtïöns ~~~~~~~]",
+  "settingsLanguage": "[Làngûé ~~~]",
+  "settingsTheme": "[Thémé ~~~]",
+  "settingsExportData": "[Éxpörtér més dönnéés ~~~~~~~~]",
+  "settingsAbout": "[À pröpös ~~~~]",
+
+  "dateFormatted": "[{date} ~~~]"
+}
