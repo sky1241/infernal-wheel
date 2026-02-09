@@ -1,0 +1,83 @@
+============================================
+       TODO - MONETISER LE UX RULEBOOK
+============================================
+
+Objectif: Rentrer dans les 200$/mois de Claude 😏
+
+--------------------------------------------
+PHASE 1: MVP GITHUB (3h total)
+--------------------------------------------
+
+[ ] 1. README sexy (1-2h)
+    - Titre accrocheur
+    - Description claire "580 regles UX grepables"
+    - Screenshot ou exemple
+    - Comment utiliser (grep examples)
+    - Sources citees (Apple, Google, Baymard, etc.)
+
+[ ] 2. Activer GitHub Sponsors (15 min)
+    - Settings > Sponsors > Enable
+    - Creer 2-3 tiers ($5, $15, $50)
+
+[ ] 3. Nettoyer le repo (30 min)
+    - Verifier que les fichiers UX sont bien ranges
+    - Supprimer les trucs perso (infernal wheel specifique?)
+    - Ou creer un NOUVEAU repo juste pour le UX rulebook
+
+[ ] 4. Premier post (30 min)
+    - Twitter: "J'ai compile 580 regles UX en fichiers grepables..."
+    - Reddit: r/webdev, r/UI_Design, r/Frontend
+    - Dev.to article?
+
+--------------------------------------------
+PHASE 2: VERSION PRO (8-10h total)
+--------------------------------------------
+
+[ ] 5. Reformater en PDF (2-3h)
+    - Mise en page propre
+    - Table des matieres
+    - Couleurs et typo pro
+
+[ ] 6. Creer exemples visuels (4-6h)
+    - 10-15 before/after screenshots
+    - Montrer une regle appliquee
+    - Annoter les images
+
+[ ] 7. Page Gumroad (1h)
+    - Titre: "UX Rulebook Pro"
+    - Prix: $29-49
+    - Description + preview
+
+--------------------------------------------
+PHASE 3: MARKETING (ongoing)
+--------------------------------------------
+
+[ ] 8. Product Hunt launch
+    - Preparer assets (logo, screenshots)
+    - Choisir un mardi (meilleur jour)
+    - Demander upvotes a des potes
+
+[ ] 9. Hacker News
+    - Post "Show HN: 580 UX rules in grep-able format"
+    - Repondre aux commentaires
+
+[ ] 10. Contenu regulier
+    - 1 tweet/semaine avec une regle interessante
+    - Exemples concrets
+    - Build in public
+
+--------------------------------------------
+NOTES
+--------------------------------------------
+
+Repo actuel: github.com/sky1241/infernal-wheel
+Option: creer un nouveau repo "ux-rulebook" separe?
+
+Prix de reference:
+- Refactoring UI: $99-149
+- Baymard: $200-500/an
+- Ton truc: $29-49 (accessible)
+
+============================================
+Derniere maj: 2026-02-09
+============================================
