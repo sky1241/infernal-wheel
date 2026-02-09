@@ -16,48 +16,8 @@ function Get-AlcoholUnits {
   return [Math]::Round($units, 2)
 }
 
-# === WAKE-BASED DAY SYSTEM ===
-# Le jour commence au réveil (passage sleep → work), pas à 4h fixe
-
-function Get-WakesPath() {
-  return (Join-Path $DataDir "wakes.csv")
-}
-
-function Get-LastWakeBefore([datetime]$dt) {
-  # Retourne le dernier réveil avant $dt, ou $null si aucun
-  $wakesPath = Get-WakesPath
-  if (-not (Test-Path $wakesPath)) { return $null }
-
-  $lastWake = $null
-  try {
-    $lines = Get-Content $wakesPath -ErrorAction SilentlyContinue | Select-Object -Skip 1
-    foreach ($line in $lines) {
-      if (-not $line) { continue }
-      $parts = $line -split ","
-      if ($parts.Count -lt 1) { continue }
-      try {
-        $wakeTime = [datetime]::Parse($parts[0])
-        if ($wakeTime -le $dt) {
-          if ($null -eq $lastWake -or $wakeTime -gt $lastWake) {
-            $lastWake = $wakeTime
-          }
-        }
-      } catch {}
-    }
-  } catch {}
-  return $lastWake
-}
-
+# Jour = 4h du matin → 3h59 le lendemain
 function Get-InfernalDayKey([datetime]$dt) {
-  # Nouvelle logique: le jour = date du dernier réveil
-  $lastWake = Get-LastWakeBefore $dt
-
-  if ($null -ne $lastWake) {
-    # Le jour est la date du réveil
-    return $lastWake.ToString("yyyy-MM-dd")
-  }
-
-  # Fallback: ancienne logique 4h si pas de réveil enregistré
   $dayStart = Get-Date -Year $dt.Year -Month $dt.Month -Day $dt.Day -Hour 4 -Minute 0 -Second 0
   if ($dt -lt $dayStart) { return $dt.AddDays(-1).ToString("yyyy-MM-dd") }
   return $dt.ToString("yyyy-MM-dd")
@@ -153,6 +113,12 @@ function Get-WeeklyAlcoholLiters {
       $weeks[$wk].beer   += [int]($r.Beer   ?? 0)
       $weeks[$wk].strong += [int]($r.Strong ?? 0)
     } catch {}
+  }
+
+  # Always include current week even if empty
+  $currentWeekKey = Get-ISOWeekKey (Get-Date)
+  if (-not $weeks.ContainsKey($currentWeekKey)) {
+    $weeks[$currentWeekKey] = @{ wine=0; beer=0; strong=0 }
   }
 
   $out = @()

@@ -153,12 +153,12 @@ function New-PageHtml([string]$ym) {
   $wineBottle = $WINE_BOTTLE_L.ToString("0.##")
   $strongBottle = $STRONG_BOTTLE_L.ToString("0.##")
   $weeks = Get-WeeklyAlcoholLiters | Sort-Object WeekKey -Descending
-  $weeksTail = @($weeks | Select-Object -First 6)
+  $weeksTail = @($weeks)  # All weeks - scroll handles visibility
   $weeksHtml = ""
   if ($weeksTail.Count -eq 0) {
     $weeksHtml = "<div class='muted'>Aucune entree.</div>"
   } else {
-    $weeksHtml = "<div class='weeksWrap'><div class='weeksTable'>"
+    $weeksHtml = "<div class='weeksWrap'><div class='weeksTableScroll'><div class='weeksTable'>"
     $whiskySvg = "<svg class='whisky-icon' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg' aria-hidden='true'><path d='M4 4 L4 20 Q4 22 6 22 L18 22 Q20 22 20 20 L20 4 Z' fill='rgba(255,255,255,.08)' stroke='rgba(255,255,255,.4)' stroke-width='1.2'/><rect x='4' y='20' width='16' height='2' rx='0.5' fill='rgba(255,255,255,.15)'/><path d='M5 14 L5 20 Q5 21 6 21 L18 21 Q19 21 19 20 L19 14 Z' fill='#c17f24'/><rect x='5.5' y='6' width='7' height='9' rx='1.5' fill='#a8e0f0'/><rect x='11' y='8' width='7' height='8' rx='1.5' fill='#8ed0e8'/><path d='M6 7 L11.5 7 L11 12 L6.5 12 Z' fill='rgba(255,255,255,.55)'/><path d='M11.5 9 L17 9 L16.5 14 L12 14 Z' fill='rgba(255,255,255,.45)'/></svg>"
     $beerChip = "<div class='alcUnitChip alcUnitChip--beer alcUnitChip--header'><span class='alcUnitChip__icon' aria-hidden='true'>&#127866;</span><div class='alcUnitChip__content'><span class='alcUnitChip__label'>Bi&egrave;re</span><span class='alcUnitChip__value'>1 can. = __BEER_UNIT__ L</span></div></div>"
     $wineChip = "<div class='alcUnitChip alcUnitChip--wine alcUnitChip--header'><span class='alcUnitChip__icon' aria-hidden='true'>&#127863;</span><div class='alcUnitChip__content'><span class='alcUnitChip__label'>Vin</span><span class='alcUnitChip__value'>1 verre = __WINE_UNIT__ L</span></div></div>"
@@ -244,7 +244,7 @@ function New-PageHtml([string]$ym) {
       $weeksHtml += "<div class='weekLine'><div class='$rowClass'><div class='$cellClass'>$($w.WeekKey)</div><div class='$cellClass'>$range</div><div class='$cellNumClass'><span class='wkCount' $($beerTrend.Style)>$($w.BeerCans)$($beerTrend.Arrow)</span></div><div class='$cellNumClass'><span class='wkCount' $($wineTrend.Style)>$($w.WineGlasses)$($wineTrend.Arrow)</span></div><div class='$cellNumClass'><span class='wkCount' $($strongTrend.Style)>$($w.StrongGlasses)$($strongTrend.Arrow)</span></div><div class='$cellDoseClass'><span class='doseBox' $($doseTrend.Style)>$($w.PureLiters)$($doseTrend.Arrow)</span></div></div><div class='$deltaClass' $deltaStyle>$deltaLabel$deltaArrow</div></div>"
       $i++
     }
-    $weeksHtml += "</div></div>"
+    $weeksHtml += "</div></div></div>"  # Close weeksTable + weeksTableScroll + weeksWrap
   }
 
   $hbClass = if ($hb.status -eq "ONLINE") { "online" } elseif ($hb.status -eq "STALE") { "stale" } else { "offline" }
@@ -672,16 +672,26 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .cmdBtn__icon{ font-size:1.5rem; line-height:1 }
 .cmdBtn__label{ font-size:.85rem; font-weight:700; letter-spacing:.5px }
 
-/* Alcohol buttons */
-.alcFieldRow{ margin-top:var(--sp-8); gap:var(--sp-8) }
+/* Alcohol buttons - redesign avec volumes */
+.alcFieldRow{ margin-top:var(--sp-8); gap:var(--sp-12) }
 .alcBtn{
-  display:inline-flex; align-items:center; gap:var(--sp-4);
-  padding:var(--sp-8) var(--sp-12); min-height:2.75rem;
-  background:rgba(255,153,85,.12); border-color:rgba(255,153,85,.5);
+  display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:2px; padding:var(--sp-8) var(--sp-16); min-height:3.25rem; min-width:7rem;
+  background:rgba(18,22,28,.85); border:1.5px solid rgba(200,160,60,.6); border-radius:8px;
 }
 .alcBtn:hover{
-  background:rgba(255,153,85,.25); border-color:rgba(255,153,85,.8);
-  box-shadow:0 4px 16px rgba(255,153,85,.25);
+  background:rgba(30,35,42,.9); border-color:rgba(220,180,80,.9);
+  box-shadow:0 4px 20px rgba(200,160,60,.3);
+}
+.alcBtn .alcLabel{ display:flex; align-items:center; gap:6px; font-weight:600; font-size:.95rem }
+.alcBtn .alcVol{ font-size:.7rem; color:var(--muted); font-weight:400 }
+/* VIN - fond bordeaux */
+.alcBtn.alcBtn--wine{
+  background:rgba(120,30,50,.65); border-color:rgba(180,60,90,.7);
+}
+.alcBtn.alcBtn--wine:hover{
+  background:rgba(140,40,65,.75); border-color:rgba(200,80,110,.9);
+  box-shadow:0 4px 20px rgba(180,60,90,.35);
 }
 .alcStatus{ margin-left:auto; color:var(--muted) }
 .alcAdjustToggle{ margin-top:var(--sp-8) }
@@ -1386,7 +1396,18 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 .recentItem{display:flex; justify-content:space-between; gap:10px; font-size:.75rem; color:var(--muted)}
 .recentItem b{color:var(--text)}
 /* [WEB] margin/gap 8px */
-.weeksWrap{overflow-x:auto; margin-top:8px; padding-bottom:4px; width:100%}
+.weeksWrap{margin-top:8px; width:100%}
+.weeksTableScroll{
+  max-height:240px; /* ~3 rows visible */
+  overflow-y:auto;
+  overflow-x:hidden;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,.2) transparent;
+}
+.weeksTableScroll::-webkit-scrollbar{width:6px}
+.weeksTableScroll::-webkit-scrollbar-track{background:transparent}
+.weeksTableScroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2); border-radius:3px}
+.weeksTableScroll::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.3)}
 .weeksTable{
   --week-gap:12px;
   --delta-col:88px;
@@ -1447,6 +1468,10 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
   border:1px solid rgba(255,255,255,.12);
   background:rgba(16,22,29,.4);
   min-height:48px; box-sizing:border-box;
+}
+.weekLine.headLine{
+  position:sticky; top:0; z-index:2;
+  background:var(--surface);
 }
 .weekLine.headLine .weekDelta{
   background:transparent; border-color:transparent; min-height:auto;
@@ -2201,13 +2226,16 @@ body{
           <input id="drinkN" class="input drinkInput" type="number" min="1" step="1" value="1" aria-describedby="drinkHint"/>
         </div>
         <button class="btn alcBtn tooltip" data-tooltip="Ajouter canette(s) de biere" data-drink-btn="1" onclick="addDrink('beer')">
-          <span aria-hidden="true">&#127866;</span> BIERE
+          <span class="alcLabel"><span aria-hidden="true">&#127866;</span> BIERE</span>
+          <span class="alcVol">1 can. = 0.5 L</span>
+        </button>
+        <button class="btn alcBtn alcBtn--wine tooltip" data-tooltip="Ajouter verre(s) de vin" data-drink-btn="1" onclick="addDrink('wine')">
+          <span class="alcLabel"><span aria-hidden="true">&#127863;</span> VIN</span>
+          <span class="alcVol">1 verre = 0.2 L</span>
         </button>
         <button class="btn alcBtn tooltip" data-tooltip="Ajouter verre(s) d'alcool fort" data-drink-btn="1" onclick="addDrink('strong')">
-          <span aria-hidden="true">&#129380;</span> FORT
-        </button>
-        <button class="btn alcBtn tooltip" data-tooltip="Ajouter verre(s) de vin" data-drink-btn="1" onclick="addDrink('wine')">
-          <span aria-hidden="true">&#127863;</span> VIN
+          <span class="alcLabel"><span aria-hidden="true">&#127864;</span> FORT</span>
+          <span class="alcVol">1 verre = 0.2 L</span>
         </button>
         <small id="drinkStatus" role="status" aria-live="polite" class="alcStatus">-</small>
       </div>
