@@ -944,11 +944,25 @@ fun LoginForm() {
 | Signal | Couleur + texte (jamais couleur seule) |
 | Correction | Retirer l'erreur quand corrigé |
 
+**Labels vs Placeholders:**
+| Élément | Rôle | Mobile |
+|---------|------|--------|
+| Label | Identifier le champ | Toujours visible (au-dessus ou floating) |
+| Placeholder | Exemple/hint | <15 caractères, disparaît au focus |
+| Helper Text | Format/tips | Sous le champ si nécessaire |
+
+**Formule message d'erreur:** "What + Why + Fix"
+- Exemple: "Invalid email. Please enter a valid email address."
+- Ton: "We couldn't..." (pas "You failed...")
+- Max: ~80 caractères
+
 **Checklist Forms:**
 - [ ] Chaque input déclare sa signification sémantique (email/password/OTP) pour autofill
 - [ ] États d'erreur adjacents au champ et pas "couleur seule"
 - [ ] IME/Return actions correspondent au flux (Next/Done)
 - [ ] Validation pas aggressivement "rouge pendant la frappe"
+- [ ] Label toujours visible, placeholder <15 chars
+- [ ] Messages d'erreur: quoi + pourquoi + comment corriger
 
 **Anti-patterns:**
 - Champ rouge à chaque keystroke
@@ -956,6 +970,7 @@ fun LoginForm() {
 - Empêcher le paste pour OTP
 - Masking qui bloque sélection/curseur
 - Erreurs cachées en haut de page loin du champ
+- Messages d'erreur qui blâment l'utilisateur
 
 ---
 
@@ -1187,11 +1202,20 @@ struct EmptyStateView: View {
 }
 ```
 
+**Templates Copy Empty States:**
+| Type | Titre | Body | CTA |
+|------|-------|------|-----|
+| First-Use | "Welcome to [App]" | "Let's set up your first [item]." | "Get Started" |
+| No-Results | "No results found" | "Try different keywords or filters." | "Clear filters" |
+| Data-Absent | "No [items] yet" | "Your [items] will appear here." | "Add [item]" |
+| Error/Offline | "Something went wrong" | "Check your connection and try again." | "Retry" |
+
 **Checklist Empty States:**
 - [ ] Empty states expliquent ce qui se passe et ce qui apparaîtra
 - [ ] Si user peut corriger: CTA primaire; sinon: help/learn more
 - [ ] Empty states offline clairement labellés (pas confondus avec "no results")
 - [ ] Ton adapté au contexte (first use vs error)
+- [ ] 1 CTA principal max (2 si vraiment nécessaire)
 
 **Anti-patterns:**
 - Écrans blancs
@@ -1522,3 +1546,99 @@ struct MobileCommandBar: View {
 - [ ] textContentType / autofill hints
 - [ ] Clavier ne masque pas le champ focusé
 - [ ] Validation pas rouge pendant la frappe
+
+---
+
+## V. Internationalisation & Localisation Mobile
+
+### 47. Expansion de Texte
+
+| Langue | Expansion vs Anglais | Action |
+|--------|---------------------|--------|
+| Allemand (DE) | +30-35% | Containers flexibles, auto-layout |
+| Russe (RU) | +30-35% | Containers flexibles, auto-layout |
+| Français (FR) | +20% | Containers flexibles |
+| Espagnol (ES) | +20% | Containers flexibles |
+| Chinois (ZH) | -30% caractères | Peut nécessiter plus de hauteur |
+| Japonais (JA) | -30% caractères | Peut nécessiter plus de hauteur |
+
+**iOS:** Utiliser Auto Layout avec contraintes flexibles
+**Android:** Utiliser ConstraintLayout + wrap_content
+
+---
+
+### 48. Support RTL (Arabe, Hébreu)
+
+| Aspect | iOS | Android |
+|--------|-----|---------|
+| Direction | `semanticContentAttribute = .forceRightToLeft` | `android:supportsRtl="true"` + `layoutDirection` |
+| Auto-flip | UIKit: `DirectionalLayoutMargins` | `start/end` au lieu de `left/right` |
+| Icônes | Flip avec `imageFlipped(for:)` | `autoMirrored="true"` |
+
+**Éléments à flipper:**
+- Flèches de navigation
+- Progress bars
+- Sliders
+- Chevrons
+
+**Éléments à NE PAS flipper:**
+- Logos
+- Graphs/charts
+- Checkmarks
+- Icônes non-directionnelles (phone, search)
+
+**Code iOS:**
+```swift
+// Flip layout pour RTL
+view.semanticContentAttribute = .forceRightToLeft
+
+// Icône miroir automatique
+let config = UIImage.SymbolConfiguration(paletteColors: [.label])
+let image = UIImage(systemName: "arrow.right")?
+    .withConfiguration(config)
+    .imageFlipped(for: .rightToLeft)
+```
+
+**Code Android:**
+```xml
+<!-- AndroidManifest.xml -->
+<application android:supportsRtl="true">
+
+<!-- Layout - utiliser start/end -->
+<TextView
+    android:layout_marginStart="16dp"
+    android:layout_marginEnd="16dp" />
+
+<!-- Icône avec auto-mirror -->
+<ImageView
+    android:src="@drawable/ic_arrow"
+    android:autoMirrored="true" />
+```
+
+---
+
+### 49. Formats Localisés Mobile
+
+| Donnée | iOS | Android |
+|--------|-----|---------|
+| Dates | `DateFormatter` avec `locale` | `DateFormat.getDateInstance(locale)` |
+| Nombres | `NumberFormatter` avec `locale` | `NumberFormat.getInstance(locale)` |
+| Monnaie | `NumberFormatter.Style.currency` | `NumberFormat.getCurrencyInstance(locale)` |
+
+**Code iOS:**
+```swift
+let formatter = DateFormatter()
+formatter.locale = Locale.current // Respecte locale système
+formatter.dateStyle = .medium
+formatter.timeStyle = .short
+let dateString = formatter.string(from: Date())
+```
+
+**Checklist i18n Mobile:**
+- [ ] Auto Layout / ConstraintLayout flexibles pour expansion texte
+- [ ] RTL supporté (`supportsRtl`, `semanticContentAttribute`)
+- [ ] Icônes directionnelles flippées (flèches, progress)
+- [ ] Icônes non-directionnelles NON flippées (logos, charts)
+- [ ] Dates/nombres formatés avec locale système
+- [ ] String resources externalisées (pas de hardcode)
+- [ ] Tests avec pseudo-locale pour détecter problèmes

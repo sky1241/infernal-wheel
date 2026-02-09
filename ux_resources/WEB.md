@@ -36,12 +36,21 @@
 | Zéro données vs zéro résultats | Distinguer "rien créé" de "recherche vide"; Recommandations adaptées | Même copie pour tous les vides | [NN/g Heuristic #9](https://media.nngroup.com/media/reports/free/Heuristic_9_help_users_recognize_diagnose_recover_from_errors.pdf) |
 | Onboarding checklist | Mini-checklist (2-4 étapes) vers le "moment aha" | Tour imposé non skippable; Checklist trop longue | [Laws of UX Zeigarnik](https://lawsofux.com/zeigarnik-effect/) |
 
+**Templates Empty State Copy:**
+| Type | Titre | Body | CTA |
+|------|-------|------|-----|
+| First-Use | "Welcome to [App]" | "Let's set up your first project." | "Create Project" |
+| No-Results | "No results found" | "We couldn't find anything matching your filters." | "Clear filters" |
+| Data-Absent | "You have no [items]" | "Your [items] will appear here." | "Add [item]" |
+| Error/Offline | "Something went wrong" | "Check your connection and retry." | "Retry" |
+
 **Checklist:**
 - [ ] Le vide explique la cause et propose une action primaire
 - [ ] Ton adapté (first-use vs no-results vs permission vs offline)
 - [ ] Actions permettent vraie récupération (reset filtres, suggestions)
 - [ ] Illustration ne vole pas l'attention au CTA
 - [ ] Progression vers "moment aha" (checklist courte)
+- [ ] 1 CTA principal max (2 si vraiment nécessaire)
 
 ---
 
@@ -55,12 +64,23 @@
 | Retry + offline | Action "Réessayer"; État offline explicite; Préserver saisie | Perdre données; Retry silencieux; Erreur réseau = erreur métier | [Apple HIG Loading](https://developer.apple.com/design/human-interface-guidelines/loading) |
 | Prévention | Guider avant saisie (mask, exemple, contraintes); État attendu visible | Deviner le format; Règles masquées jusqu'à l'échec | [Smashing Magazine Forms](https://www.smashingmagazine.com/2018/08/best-practices-for-mobile-form-design/) |
 
+**Formule message d'erreur:** "What happened" + "Why" + "How to fix"
+- Exemple: "Unable to save your photo because you have no internet connection. Please check your connection and try again."
+
+**Ton des erreurs:**
+- Utiliser "We couldn't..." au lieu de "You did..." (ne pas blâmer)
+- Langage neutre, empathique
+- Pas d'humour ni sarcasme dans les erreurs
+- Max ~80 caractères (1-2 phrases courtes)
+
 **Checklist:**
 - [ ] Canal d'erreur correspond à l'impact
 - [ ] Chaque message indique quoi, pourquoi, comment corriger
 - [ ] Validation inline non prématurée
 - [ ] Récupération possible (retry, offline state, conservation)
 - [ ] Prévention en amont (formats, exemples, contraintes)
+- [ ] Ton neutre "We couldn't" (pas "You failed")
+- [ ] Message ≤80 caractères
 
 ---
 
@@ -211,12 +231,21 @@
 | Auto-focus & clavier | Auto-focus si action principale claire; Tab order logique | Auto-focus sur champ secondaire; Tab order incohérent | [Apple HIG Accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility) |
 | Prévenir abandon | Minimiser champs; Autofill; Pré-remplir; Chunker formulaires longs | Infos non nécessaires; Formulaire long une page sans repères | [Laws of UX Hick's](https://lawsofux.com/hicks-law/) |
 
+**Labels vs Placeholders vs Helper Text:**
+| Élément | Rôle | Persistence | Valeur |
+|---------|------|-------------|--------|
+| Label | Identifier le champ | Toujours visible | Au-dessus ou à gauche du champ |
+| Placeholder | Exemple/hint | Disparaît au focus | <15 caractères, jamais seul identifiant |
+| Helper Text | Format, restrictions, tips | Toujours visible | En-dessous du champ, 1 phrase |
+
 **Checklist:**
 - [ ] Labels persistants, placeholders = exemples
 - [ ] Convention required/optional cohérente et explicitée
 - [ ] Validation inline non prématurée + disparition quand corrigé
 - [ ] Auto-focus et tab order respectent l'intention
 - [ ] Formulaires minimisés, pré-remplis, chunkés
+- [ ] Placeholder <15 caractères, jamais comme seul label
+- [ ] Helper text si format complexe (ex: "8-16 caractères")
 
 ---
 
@@ -230,12 +259,28 @@
 | Bulk actions | Afficher count sélectionné; Permettre annuler sélection; Résumer impact | Action masse sans feedback; Pas de "deselect all" | [Laws of UX Von Restorff](https://lawsofux.com/von-restorff-effect/) |
 | Disabled submit | Indiquer raison précise (champs manquants); Guider correction | Submit grisé silencieux; Erreur après tentatives répétées | [Baymard Inline Validation](https://baymard.com/blog/inline-form-validation) |
 
+**Ordre boutons dans dialogs:**
+| Plateforme | Bouton primaire | Cancel |
+|------------|-----------------|--------|
+| Desktop/Android | À droite | À gauche |
+| iOS (non-destructif) | À droite | À gauche |
+| iOS (destructif) | À gauche | À droite |
+
+**Règles dialogs de confirmation:**
+- Uniquement pour actions irréversibles/haut risque
+- Si Undo possible → snackbar avec Undo plutôt que dialog
+- Titre ≤7 mots ("Delete file?")
+- Body ≤80 caractères (conséquences en 1-2 phrases)
+- Bouton destructif style distinct (ex: rouge)
+
 **Checklist:**
 - [ ] Confirmation si irréversible/haut risque; sinon Undo
 - [ ] Undo visible, fiable, fenêtre claire
 - [ ] Boutons libellés avec verbes spécifiques
 - [ ] Bulk actions: count + annuler sélection + impact clair
 - [ ] Disabled submit explique quoi corriger
+- [ ] Ordre boutons: primaire à droite (sauf iOS destructif)
+- [ ] Dialog: titre ≤7 mots, body ≤80 chars
 
 ---
 
@@ -1391,3 +1436,293 @@ Pour mesurer les marges/containers de sites de référence:
 - [ ] Field burden > step count
 - [ ] Guest checkout prominent
 - [ ] Inline validation: no premature, remove on fix, positive feedback
+
+---
+
+## K. Data Visualization
+
+### 62. Choix de Type de Graphique
+
+| Type | Quand utiliser | Valeur / Note | Source |
+|------|----------------|---------------|--------|
+| Bar Chart | Comparaison catégories discrètes | Meilleur que pie pour comparaisons | [NN/g Chart Types](https://www.nngroup.com/articles/choosing-chart-types/) |
+| Line Chart | Tendances temporelles, données continues | Séries temporelles, métriques continues | [NN/g Chart Types](https://www.nngroup.com/articles/choosing-chart-types/) |
+| Scatter Plot | Relation/corrélation entre 2 variables | Corrélations X vs Y | [NN/g Chart Types](https://www.nngroup.com/articles/choosing-chart-types/) |
+| Pie Chart | Parts d'un tout (peu de slices) | ≤5 catégories max; difficile à comparer | [NN/g Chart Types](https://www.nngroup.com/articles/choosing-chart-types/) |
+| Area Chart | Volume sous une courbe de tendance | Éviter trop de stacks; peut tromper si overlap | [NN/g Chart Types](https://www.nngroup.com/articles/choosing-chart-types/) |
+| Stacked Bar | Composition dans catégories (2-3 stacks) | Utiliser sparingly; taux d'erreur élevé | [NN/g Chart Types](https://www.nngroup.com/articles/choosing-chart-types/) |
+| Horizontal Bar | Labels longs ou nombreux | Meilleure lisibilité | [NN/g Chart Types](https://www.nngroup.com/articles/choosing-chart-types/) |
+
+**Checklist:**
+- [ ] Chart type correspond aux données: tendances→line, comparaisons→bar, corrélation→scatter
+- [ ] Pie charts ≤5 slices; sinon bar chart
+- [ ] Horizontal bars si labels longs
+- [ ] Éviter stacking >2 séries sans légende claire
+
+---
+
+### 63. Palettes de Couleurs Data
+
+| Palette | Quand utiliser | Valeur / Guidance | Source |
+|---------|----------------|-------------------|--------|
+| Sequential | Données ordonnées/numériques (intensité) | Gradient mono-teinte (clair→foncé) | [Atlassian Data Viz](https://www.atlassian.com/data/charts/how-to-choose-colors-data-visualization) |
+| Diverging | Données avec point médian significatif | 2 teintes contrastées + neutre au milieu | [Atlassian Data Viz](https://www.atlassian.com/data/charts/how-to-choose-colors-data-visualization) |
+| Categorical | Groupes/catégories distinctes | ≤8-10 couleurs distinguables; <8 pour colorblind | [Atlassian Data Viz](https://www.atlassian.com/data/charts/how-to-choose-colors-data-visualization) |
+
+**Règles d'accessibilité couleurs:**
+- Palettes colorblind-friendly (ColorBrewer)
+- Contraste ≥6:1 entre texte et fond
+- Ne jamais se fier uniquement au rouge/vert
+- Ajouter patterns (rayures, points) si couleur seule insuffisante
+- Tester avec simulateur daltonisme
+
+**Checklist:**
+- [ ] Sequential: 1 teinte, variation de luminosité (ex: #eef → #114)
+- [ ] Diverging: 2 teintes distinctes (ex: bleu↔blanc↔rouge)
+- [ ] Categorical: ≤8 couleurs hautement distinguables
+- [ ] Palette testée avec simulateur colorblind
+
+---
+
+### 64. Accessibilité des Graphiques
+
+| Aspect | Règle | Valeur | Source |
+|--------|-------|--------|--------|
+| Pattern Fills | En plus de la couleur, textures/formes | Rayures, points pour différencier séries | [Plaid Design A11y](https://medium.com/plaid-design/visually-accessible-data-visualization-ff884121479b) |
+| Taille Labels | Texte lisible (axes, légendes) | ≥12pt (~16px) pour charts écran | [RSS DataVis Guide](https://royal-statistical-society.github.io/datavisguide/docs/styling.html) |
+| Contraste Texte | Labels et légendes | ≥4.5:1 contre fond | [WCAG 1.4.3](https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum) |
+| Contraste Non-texte | Lignes, barres | ≥3:1 contre fond | [WCAG 1.4.11](https://www.w3.org/WAI/WCAG21/Understanding/non-text-contrast) |
+| Screen Reader SVG | Wrapper et descriptions | `<figure>` + `<figcaption>` ou `aria-label` | [USWDS Data Viz](https://designsystem.digital.gov/components/data-visualizations/) |
+| Alt Text | Info clé dans description | Titre, axes, ce que le chart montre | [USWDS Data Viz](https://designsystem.digital.gov/components/data-visualizations/) |
+
+**Code SVG accessible:**
+```html
+<figure>
+  <svg role="img" aria-labelledby="chartTitle" aria-describedby="chartDesc">
+    <!-- chart drawing -->
+  </svg>
+  <figcaption id="chartDesc">Bar chart des ventes trimestrielles...</figcaption>
+</figure>
+```
+
+**Checklist:**
+- [ ] Labels externes (pas placeholders) pour données
+- [ ] Taille texte ≥16px, contraste ≥4.5:1
+- [ ] Charts complexes: résumé texte ou table pour screen readers
+- [ ] Tester avec screen reader: titre et données annoncés
+
+---
+
+### 65. Layout Dashboard
+
+| Aspect | Quand utiliser | Valeur / Guidance | Source |
+|--------|----------------|-------------------|--------|
+| Hiérarchie Info | Design dashboard | KPIs importants en haut-gauche (F-pattern) | [Quanthub Dashboard](https://www.quanthub.com/how-do-you-design-the-layout-for-your-dashboard/) |
+| Ratio Cards | Cards avec média (images/charts) | 16:9 ou 1:1 pour cohérence | [Material Cards](https://m1.material.io/components/cards.html) |
+| Auto-Refresh | Dashboards live/opérationnels | Afficher "Dernière MAJ: [heure]" + spinner pendant refresh | [Julius AI Dashboard](https://julius.ai/articles/business-intelligence-dashboard-design-best-practices) |
+| Fréquence Refresh | Données temps réel | Opérationnel: 1-5s; Analytique: <5min | [Julius AI Dashboard](https://julius.ai/articles/business-intelligence-dashboard-design-best-practices) |
+
+**Placement contenu:**
+- F-pattern: info critique (KPI principal) en haut-gauche
+- Données secondaires vers droite/bas (tendances, comparaisons)
+- Données critiques au-dessus du fold
+
+**Checklist:**
+- [ ] Top 3 KPIs positionnés en haut-gauche
+- [ ] Ratio 16:9 pour média/cards images
+- [ ] Timestamp "Dernière MAJ" visible sur dashboard live
+- [ ] Loading indicator si fetch >300ms
+- [ ] Données critiques visibles sans scroll
+
+---
+
+### 66. Sparklines
+
+| Aspect | Règle | Valeur | Source |
+|--------|-------|--------|--------|
+| Dimensions | Très petites, inline avec texte | Hauteur ~15-30px | [Evidence Sparkline](https://docs.evidence.dev/components/charts/sparkline) |
+| Stroke Width | Ligne fine pour données | ~1px pour data, 1.5-2px pour baseline | [Evidence Sparkline](https://docs.evidence.dev/components/charts/sparkline) |
+| Contraste | Ligne vs fond | ≥3:1 | [WCAG 1.4.11](https://www.w3.org/WAI/WCAG21/Understanding/non-text-contrast) |
+| Usage | Tendance simple (mini stock chart) | Pas d'axes ni labels | [Evidence Sparkline](https://docs.evidence.dev/components/charts/sparkline) |
+
+**Checklist:**
+- [ ] Hauteur ~15px, stroke ~1px
+- [ ] Pas de labels d'axes (défait le gain de place)
+- [ ] Gridlines subtiles si besoin (<30% opacité)
+- [ ] Utiliser sparingly - uniquement si tendance immédiate ajoute clarté
+
+---
+
+### 67. Charts Responsives
+
+| Aspect | Règle | Valeur | Source |
+|--------|-------|--------|--------|
+| Breakpoints | Adapter charts aux écrans | 0-600px (mobile): 1 colonne; 600-900px: 2 cols; >900px: multi-col | [MUI Breakpoints](https://mui.com/material-ui/customization/breakpoints/) |
+| Layout Mobile | Petits écrans (<400px) | Remplacer charts détaillés par résumés ou top 3; stack vertical | [Datafloq Responsive](https://datafloq.com/responsive-design-for-data-visualizations-ultimate-guide/) |
+| Touch Targets | Éléments interactifs (points, légende) | ≥44×44px zone de tap | [WCAG 2.5.8](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum) |
+| Tooltips Mobile | Remplacer hover | Tap-to-show au lieu de hover | [Datafloq Responsive](https://datafloq.com/responsive-design-for-data-visualizations-ultimate-guide/) |
+
+**Checklist:**
+- [ ] Breakpoints définis (600px, 900px) avec reflow layout
+- [ ] Points/icônes interactifs ≥44px tap area
+- [ ] Mobile: tooltips tap au lieu de hover
+- [ ] Tester gestes touch (zoom, pan) sur devices
+
+---
+
+### 68. Animation des Charts
+
+| Aspect | Règle | Valeur | Source |
+|--------|-------|--------|--------|
+| Durée Transition | Transitions charts (nouvelles données) | 200-400ms (viser ~300ms ease-in-out) | [Chart.js Animations](https://www.chartjs.org/docs/latest/configuration/animations.html) |
+| Micro-interaction | Highlight barre, point | ~150ms | [Chart.js Animations](https://www.chartjs.org/docs/latest/configuration/animations.html) |
+| Easing | Courbe naturelle | ease-in-out: `cubic-bezier(0.42,0,0.58,1)` | [Chart.js Animations](https://www.chartjs.org/docs/latest/configuration/animations.html) |
+| Stagger | Multiple éléments (barres, points) | Délai ~50-100ms entre items | [Chart.js Animations](https://www.chartjs.org/docs/latest/configuration/animations.html) |
+
+**CSS exemple:**
+```css
+.bar {
+  transition: height 300ms ease-in-out;
+}
+```
+
+**Checklist:**
+- [ ] Durée animation ~300ms (250-350ms) pour changements majeurs
+- [ ] Easing linear ou ease-in-out (pas de start/stop abrupt)
+- [ ] Stagger ~50ms par item pour effet cascade
+- [ ] Pas d'animations en boucle auto-play (seulement load/data change)
+
+---
+
+### 69. Densité des Données
+
+| Aspect | Règle | Valeur | Source |
+|--------|-------|--------|--------|
+| Métrique par Chart | Une métrique principale par chart | Pas de métriques non liées dans même chart | [Standing Partnership](https://standingpartnership.com/bad-data-visualizations-and-how-to-avoid-them/) |
+| Limite Points | Points visibles gérables | ≤50-100 points sans agrégation/zoom | [Standing Partnership](https://standingpartnership.com/bad-data-visualizations-and-how-to-avoid-them/) |
+| Agrégation | Données denses | Binning, averaging (ex: daily→weekly) | [Standing Partnership](https://standingpartnership.com/bad-data-visualizations-and-how-to-avoid-them/) |
+| Small Multiples | Données multivariées | Plusieurs petits charts plutôt qu'un surchargé | [Standing Partnership](https://standingpartnership.com/bad-data-visualizations-and-how-to-avoid-them/) |
+
+**Checklist:**
+- [ ] 1 série de données principale par chart (+contextuel comme goal line OK)
+- [ ] Si >100 points: agréger ou permettre zoom
+- [ ] Variables multiples: small multiples plutôt qu'un chart surchargé
+- [ ] Échelles d'axes appropriées (pas de compression extrême)
+
+---
+
+## L. Microcopy & UX Writing
+
+### 70. Labels de Boutons
+
+| Aspect | Règle | Valeur | Source |
+|--------|-------|--------|--------|
+| Ordre des mots | Verbe en premier (action-focused) | "Save Document", "Add to Cart" | [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/) |
+| Casse iOS | Title Case | "Save Changes" | [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/) |
+| Casse Web/Android | Sentence case | "Save changes" | [Intuit Content Design](https://contentdesign.intuit.com/product-and-ui/actions/) |
+| Longueur | Court et spécifique | ≤24 caractères (2-4 mots) | [UX StackExchange](https://ux.stackexchange.com/questions/147132/what-are-the-best-practices-to-decide-the-length-of-label-characters-on-the-butt) |
+| ALL CAPS | Jamais | Considéré comme crier, mauvaise accessibilité | [Intuit Content Design](https://contentdesign.intuit.com/product-and-ui/actions/) |
+
+**Exemples:**
+```html
+<button>Save Document</button>  <!-- iOS: Title Case -->
+<button>Save document</button>  <!-- Web/Android: Sentence case -->
+<button>Add to Cart</button>    <!-- Verbe + objet -->
+```
+
+**Checklist:**
+- [ ] Commencer par verbe clair (Add, Save, Delete, etc.)
+- [ ] ≤24 caractères, 2-4 mots
+- [ ] Title Case sur iOS, Sentence case ailleurs
+- [ ] Jamais ALL CAPS
+- [ ] Tester largeur bouton sur petits écrans
+
+---
+
+### 71. Spectre de Tonalité
+
+| Contexte | Ton | Exemple | Source |
+|----------|-----|---------|--------|
+| Finance, Santé, Legal | Formel | "Transfer completed successfully" | [NN/g Tone Dimensions](https://www.nngroup.com/articles/tone-of-voice-dimensions/) |
+| Consumer, Entertainment | Casual | "All set – you're rockin' it!" | [NN/g Tone Dimensions](https://www.nngroup.com/articles/tone-of-voice-dimensions/) |
+| B2B, Professional | Semi-formel | "Your report is ready to download" | [NN/g Tone Dimensions](https://www.nngroup.com/articles/tone-of-voice-dimensions/) |
+
+**Règles:**
+- Déterminer audience: B2B/pro → formel; B2C/entertainment → casual
+- Rester cohérent une fois le ton choisi
+- Éviter slang/jargon dans apps sérieuses
+- Emojis sparingly dans contextes casual uniquement
+
+**Checklist:**
+- [ ] Ton défini selon audience (formel vs casual)
+- [ ] Ton appliqué de manière cohérente partout
+- [ ] Pas d'humour dans interfaces médicales/légales/financières
+- [ ] Pas de langage trop rigide dans apps fun
+
+---
+
+## M. Internationalisation & Localisation
+
+### 72. Expansion de Texte
+
+| Langue | Expansion vs Anglais | Buffer CSS | Source |
+|--------|---------------------|------------|--------|
+| Allemand (DE) | +30-35% | min-width: 130% | [UX Collective i18n](https://uxdesign.cc/ignoring-character-limits-can-wreck-your-products-ux-3c2dc3b6b24a) |
+| Russe (RU) | +30-35% | min-width: 130% | [UX Collective i18n](https://uxdesign.cc/ignoring-character-limits-can-wreck-your-products-ux-3c2dc3b6b24a) |
+| Français (FR) | +20% | min-width: 120% | [UX Collective i18n](https://uxdesign.cc/ignoring-character-limits-can-wreck-your-products-ux-3c2dc3b6b24a) |
+| Espagnol (ES) | +20% | min-width: 120% | [UX Collective i18n](https://uxdesign.cc/ignoring-character-limits-can-wreck-your-products-ux-3c2dc3b6b24a) |
+| Chinois (ZH) | -30% caractères | Peut nécessiter plus de hauteur | [UX Collective i18n](https://uxdesign.cc/ignoring-character-limits-can-wreck-your-products-ux-3c2dc3b6b24a) |
+| Japonais (JA) | -30% caractères | Peut nécessiter plus de hauteur | [UX Collective i18n](https://uxdesign.cc/ignoring-character-limits-can-wreck-your-products-ux-3c2dc3b6b24a) |
+
+**Règle pratique:** Designer containers 50% plus larges que texte anglais, ou permettre wrapping.
+
+---
+
+### 73. Support RTL (Arabe, Hébreu)
+
+| Aspect | Action | Code/Valeur | Source |
+|--------|--------|-------------|--------|
+| Direction layout | Flip direction | `dir="rtl"` sur `<html>` | [UX Collective RTL](https://uxdesign.cc/mobile-app-design-for-right-to-left-languages-57c63f136749) |
+| Navigation | Mirror UI flow | Droite-à-gauche | [UX Collective RTL](https://uxdesign.cc/mobile-app-design-for-right-to-left-languages-57c63f136749) |
+| Icônes directionnelles | Flip | Flèches, progress bars, sliders | [UX Collective RTL](https://uxdesign.cc/mobile-app-design-for-right-to-left-languages-57c63f136749) |
+| Icônes non-directionnelles | Ne pas flip | Logos, charts, check marks | [UX Collective RTL](https://uxdesign.cc/mobile-app-design-for-right-to-left-languages-57c63f136749) |
+| Alignement texte | Labels alignés droite | `text-align: right` (auto avec RTL) | [UX Collective RTL](https://uxdesign.cc/mobile-app-design-for-right-to-left-languages-57c63f136749) |
+
+**CSS RTL:**
+```css
+[dir="rtl"] {
+  direction: rtl;
+}
+[dir="rtl"] .icon-arrow {
+  transform: scaleX(-1); /* Flip horizontal */
+}
+```
+
+---
+
+### 74. Formats Localisés
+
+| Donnée | Méthode | Exemple | Source |
+|--------|---------|---------|--------|
+| Dates | `Intl.DateTimeFormat` | US: MM/DD/YYYY; EU: DD/MM/YYYY; ISO: YYYY-MM-DD | [MDN Intl](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl) |
+| Nombres | `Intl.NumberFormat` | US: 1,234.56; FR: 1 234,56; DE: 1.234,56 | [MDN Intl](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl) |
+| Monnaie | `Intl.NumberFormat` + currency | $1,234 vs 1.234 € vs ¥1,234 | [MDN Intl](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl) |
+
+**Code JS:**
+```javascript
+// Date locale
+new Intl.DateTimeFormat('fr-FR').format(date) // "09/02/2026"
+
+// Nombre locale
+new Intl.NumberFormat('de-DE').format(1234.56) // "1.234,56"
+
+// Monnaie locale
+new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(1234)
+```
+
+**Checklist Localisation:**
+- [ ] UI elements expandent gracefully (+20-35% pour DE/RU)
+- [ ] Layout flip pour langues RTL (`direction: rtl`)
+- [ ] Dates/nombres formatés via API locale (`Intl`)
+- [ ] Images/texte localisés (pas de hardcode anglais)
+- [ ] Tests avec native speakers pour erreurs culturelles

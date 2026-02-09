@@ -58,8 +58,14 @@ COMMENT UTILISER:
 FICHIERS UX DE REFERENCE:
 
 - DESIGN_TREE.md  = Arbre de decision (lire EN PREMIER)
-- WEB.md          = ~260 regles web
-- MOBILE.md       = ~320 regles mobile
+- WEB.md          = ~280 regles web (74 sections)
+  - Sections A-J: Etats, Flux, Interactions, Info, Confiance, WCAG, Couleurs, Spacing
+  - Section K: Data Visualization (charts, dashboards, sparklines)
+  - Section L: Microcopy & UX Writing (boutons, ton)
+  - Section M: Internationalisation (expansion texte, RTL, formats)
+- MOBILE.md       = ~340 regles mobile (49 sections)
+  - Sections A-U: iOS, Android, Patterns, Navigation, Accessibilite, etc.
+  - Section V: Internationalisation mobile (RTL, localization)
 
 --------------------------------------------
 
