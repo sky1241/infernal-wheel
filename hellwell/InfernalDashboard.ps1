@@ -1829,8 +1829,20 @@ function isMetricLine(line) {
   if (!trimmed) return false;
   return metricPatterns.some(p => p.test(trimmed));
 }
+// Lignes de checkboxes à filtrer du textarea (mais garder dans fichier)
+const checkboxLinePatterns = [
+  /^(pause\s*90|90\s*sec)/i,
+  /^(respiration|respi\s*4[- ]?6)/i,
+  /^(sortir|marcher|sortir\s*\/\s*marcher)/i,
+  /^([eé]crire|[eé]crit)/i
+];
+function isCheckboxLine(line) {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  return checkboxLinePatterns.some(p => p.test(trimmed));
+}
 function filterMetrics(text) {
-  return text.split(/\r?\n/).filter(line => !isMetricLine(line)).join('\n').trim();
+  return text.split(/\r?\n/).filter(line => !isMetricLine(line) && !isCheckboxLine(line)).join('\n').trim();
 }
 async function loadNote(){
   setNoteStatus("loading...", "saving");
