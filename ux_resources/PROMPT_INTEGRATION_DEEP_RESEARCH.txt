@@ -1,0 +1,137 @@
+============================================
+   PROMPT POUR CLAUDE - INTEGRATION DEEP RESEARCH
+============================================
+
+Copie-colle ce prompt au prochain Claude pour qu'il
+intègre correctement le résultat du deep research.
+
+============================================
+DEBUT DU PROMPT (copier à partir d'ici)
+============================================
+
+# CONTEXTE
+
+J'ai un projet de UX Rulebook avec des règles consolidées de design.
+Tu vas m'aider à intégrer un nouveau fichier de règles UX obtenu via ChatGPT Deep Research.
+
+## STRUCTURE ACTUELLE
+
+```
+c:\Users\ludov\.infernal_wheel\ux_resources\
+  WEB.md           ← ~260 règles web (WCAG, patterns, accessibility)
+  MOBILE.md        ← ~320 règles mobile (iOS HIG, Material 3)
+  DESIGN_TREE.md   ← Arbres de décision ASCII (mind map)
+  COMMANDES.txt    ← Doc utilisateur
+  prompts\
+    PROMPT_REPRISE.md  ← Prompt de reprise projet
+```
+
+## FORMAT DES FICHIERS EXISTANTS
+
+Les fichiers utilisent ce format grep-able:
+
+```markdown
+### X. Titre Section
+
+| Pattern | Règle | Valeur | Source |
+|---------|-------|--------|--------|
+| ... | ... | ... | ... |
+
+**Checklist:**
+- [ ] Item 1
+- [ ] Item 2
+```
+
+Avec:
+- Numérotation des sections (### 1., ### 2., etc.)
+- Tables markdown pour les règles
+- Valeurs CONCRÈTES (pixels, ms, ratios) - jamais de "approprié" ou "suffisant"
+- Sources citées
+- Checklists avec [ ]
+
+## CE QUE TU DOIS FAIRE
+
+1. **Lire le fichier de deep research** que je vais te donner
+
+2. **Vérifier les doublons** - ne pas ajouter ce qui existe déjà dans WEB.md ou MOBILE.md
+   - Grep dans les fichiers existants avant d'ajouter
+   - Si doublon: garder la version la plus complète/récente
+
+3. **Intégrer les nouvelles règles** selon le sujet:
+   - Data Visualization → WEB.md (nouvelle section)
+   - Microcopy → WEB.md (nouvelle section)
+   - Gamification/Habits → MOBILE.md (nouvelle section)
+   - Perceived Performance → WEB.md (ajouter à section existante ou nouvelle)
+   - i18n/RTL → WEB.md + MOBILE.md (les deux)
+   - Multi-device → WEB.md (nouvelle section)
+   - AI/ML UX → WEB.md (nouvelle section)
+   - Error Recovery/Undo → WEB.md (nouvelle section)
+   - Cognitive Accessibility → WEB.md (ajouter après WCAG)
+   - Advanced Motion → MOBILE.md (ajouter après section motion existante)
+
+4. **Reformater si nécessaire** pour matcher le style existant:
+   - Ajouter numéros de section qui suivent la numérotation actuelle
+   - Convertir en tables markdown si pas déjà fait
+   - S'assurer que les valeurs sont concrètes
+
+5. **Mettre à jour DESIGN_TREE.md** si nouvelles décisions à ajouter (arbres ASCII)
+
+6. **Mettre à jour PROMPT_REPRISE.md** si nouvelles sections importantes
+
+## WORKFLOW
+
+1. D'abord: lis les fichiers actuels pour connaître la structure
+   ```
+   Read ux_resources/WEB.md
+   Read ux_resources/MOBILE.md
+   ```
+
+2. Ensuite: je te donne le fichier deep research
+
+3. Tu analyses et me proposes un plan d'intégration:
+   - Quelles nouvelles sections
+   - Où les mettre
+   - Ce qui est doublon à ignorer
+
+4. J'approuve, tu intègres
+
+5. Tu push sur GitHub
+
+## ATTENTION
+
+- **NE PAS tout lire d'un coup** - les fichiers sont longs (~1400 lignes chacun)
+- **Grep d'abord** pour vérifier si un sujet existe
+- **Intégrer par petits morceaux** pour éviter les erreurs
+- **Demander confirmation** avant de modifier
+
+## VALEURS CLÉS À CONNAÎTRE (déjà dans les fichiers)
+
+| Quoi | Valeur | Fichier |
+|------|--------|---------|
+| Touch iOS | 44pt | MOBILE.md |
+| Touch Android | 48dp | MOBILE.md |
+| Touch Web | 24px min, 44px ideal | WEB.md |
+| Spacing base | 4px | WEB.md |
+| Contraste texte | 4.5:1 | WEB.md |
+| Contraste UI | 3:1 | WEB.md |
+| Focus | 2px solid + offset 2px | WEB.md |
+| Anim micro | 100-200ms | WEB.md + MOBILE.md |
+| Anim standard | 250-350ms | WEB.md + MOBILE.md |
+| Spring subtle | 0.15 | MOBILE.md |
+| Spring visible | 0.30 | MOBILE.md |
+
+## PRÊT?
+
+Dis "ok" et je te donne le fichier deep research à intégrer.
+
+============================================
+FIN DU PROMPT
+============================================
+
+NOTES:
+- Ce prompt prépare Claude à intégrer correctement
+- Il connaîtra la structure sans avoir à tout relire
+- Il saura où mettre chaque sujet
+- Il vérifiera les doublons
+
+============================================
