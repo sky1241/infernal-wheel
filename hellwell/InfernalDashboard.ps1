@@ -2390,26 +2390,143 @@ async function correctSpelling() {
 
     if (data.matches && data.matches.length > 0) {
       let corrected = text;
+
+      // Fonction pour normaliser (enlever accents) pour comparaison
+      const normalize = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+      // Distance de Levenshtein simplifiée
+      const levenshtein = (a, b) => {
+        if (a.length === 0) return b.length;
+        if (b.length === 0) return a.length;
+        const matrix = [];
+        for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+        for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+        for (let i = 1; i <= b.length; i++) {
+          for (let j = 1; j <= a.length; j++) {
+            matrix[i][j] = b[i-1] === a[j-1] ? matrix[i-1][j-1] : Math.min(matrix[i-1][j-1]+1, matrix[i][j-1]+1, matrix[i-1][j]+1);
+          }
+        }
+        return matrix[b.length][a.length];
+      };
+
+      // Mots à ne jamais corriger (trop courts, abréviations, etc.)
+      const skipWords = new Set([
+        // Mots courts français
+        'je', 'tu', 'il', 'on', 'de', 'du', 'la', 'le', 'les', 'un', 'une', 'des', 'et', 'ou', 'ni', 'ne', 'pas', 'plus',
+        'a', 'à', 'y', 'en', 'au', 'aux', 'ce', 'ca', 'ça', 'se', 'sa', 'si', 'ma', 'ta', 'me', 'te', 'nous', 'vous',
+        // Abréviations courantes
+        'etc', 'svp', 'stp', 'btw', 'aka', 'vs', 'ok', 'ko', 'rv', 'rdv', 'cv', 'qq', 'qqch', 'bcp', 'pb', 'pr', 'ds', 'ns',
+        // Internet/SMS
+        'mdr', 'lol', 'ptdr', 'xd', 'omg', 'wtf', 'ftw', 'gg', 'wp', 'bg', 'tg', 'jpp', 'jsp', 'jsais', 'chui', 'chuis',
+        // Onomatopées
+        'ah', 'oh', 'eh', 'hm', 'hmm', 'haha', 'hihi', 'hehe', 'meh', 'bah', 'pff', 'pfff', 'argh', 'ouf', 'ouais', 'nan', 'nah',
+        // Tech
+        'api', 'url', 'html', 'css', 'js', 'php', 'sql', 'json', 'xml', 'http', 'https', 'www', 'id', 'ui', 'ux'
+      ]);
+
+      // Mots bannis dans les remplacements
+      const bannedWords = [
+        'érection', 'éjacul', 'sexe', 'pénis', 'vagin', 'clitor', 'anus', 'sodom',
+        'bite', 'couille', 'chatte', 'nichon', 'téton', 'fesse',
+        'cul', 'merde', 'putain', 'connard', 'connasse', 'salope', 'salaud', 'enculé', 'nique', 'foutre',
+        'nazi', 'hitler', 'genocide', 'viol', 'pédophil', 'incest'
+      ];
+
+      // Filtre anti-corrections douteuses
+      const isValidCorrection = (original, replacement) => {
+        const origLower = original.toLowerCase();
+        const replLower = replacement.toLowerCase();
+        const origNorm = normalize(original);
+        const replNorm = normalize(replacement);
+
+        // === FAST TRACK: Corrections d'accents uniquement ===
+        // Si seuls les accents changent (pere→père, ca→ça), TOUJOURS accepter
+        if (origNorm === replNorm && original !== replacement) {
+          // Vérifier quand même les mots bannis
+          if (bannedWords.some(w => replLower.includes(w))) return false;
+          return true; // Correction d'accent OK
+        }
+
+        // === FAST TRACK: Correction mineure (1 lettre de différence) ===
+        const dist = levenshtein(origNorm, replNorm);
+        if (dist === 1 && original.length >= 3) {
+          // Correction d'une seule lettre (typo simple)
+          if (bannedWords.some(w => replLower.includes(w))) return false;
+          if (/^[dlnmtscj]['']/.test(replLower) && !/^[dlnmtscj]['']/.test(origLower)) return false;
+          return true; // Typo simple OK
+        }
+
+        // === FILTRES STRICTS pour les autres corrections ===
+
+        // 1. Ne pas corriger les mots dans la liste skipWords
+        if (skipWords.has(origLower) || skipWords.has(origNorm)) return false;
+
+        // 2. Ne pas corriger les mots trop courts (1-2 lettres)
+        if (original.length <= 2) return false;
+
+        // 3. Ne pas toucher aux URLs, emails, chemins
+        if (/^(https?:\/\/|www\.|[a-z]+@|[a-z]:\\|\/)/i.test(original)) return false;
+
+        // 4. Ne pas toucher aux nombres, dates, heures
+        if (/^\d+([.,/:h-]\d+)*$/.test(original)) return false;
+
+        // 5. Rejeter si apostrophe ajoutée au début (d'érection, l'exemple)
+        if (/^[dlnmtscj]['']/.test(replLower) && !/^[dlnmtscj]['']/.test(origLower)) return false;
+
+        // 6. Rejeter si première lettre différente (après normalisation)
+        if (origNorm.length > 0 && replNorm.length > 0 && origNorm[0] !== replNorm[0]) return false;
+
+        // 7. Rejeter si longueur trop différente (>50% de différence)
+        const lenDiff = Math.abs(original.length - replacement.length);
+        if (lenDiff > Math.max(original.length, replacement.length) * 0.5) return false;
+
+        // 8. Rejeter si distance Levenshtein trop grande (>40% de la longueur)
+        if (dist > Math.max(origNorm.length, replNorm.length) * 0.4) return false;
+
+        // 9. Rejeter si mot banni dans le remplacement
+        if (bannedWords.some(w => replLower.includes(w))) return false;
+
+        // 10. Rejeter si le remplacement fragmente le mot (ajoute espace)
+        if (replacement.includes(' ') && !original.includes(' ')) return false;
+
+        // 11. Rejeter si le remplacement fusionne des mots (enlève espace)
+        if (!replacement.includes(' ') && original.includes(' ')) return false;
+
+        // 12. Ne pas toucher aux mots avec chiffres (variables, codes)
+        if (/\d/.test(original)) return false;
+
+        // 13. Ne pas toucher aux mots tout en majuscules (acronymes)
+        if (/^[A-ZÀÂÄÉÈÊËÏÎÔÙÛÜÇ]{2,}$/.test(original)) return false;
+
+        return true;
+      };
+
       // BUGFIX: Trier par offset décroissant et appliquer de la fin vers le début
-      // Ainsi les positions ne sont jamais décalées par les corrections précédentes
       const sortedMatches = data.matches
         .filter(m => m.replacements && m.replacements.length > 0)
         .sort((a, b) => b.offset - a.offset);
 
       let appliedCount = 0;
+      let skippedCount = 0;
       sortedMatches.forEach(m => {
         const start = m.offset;
         const end = start + m.length;
+        const original = corrected.slice(start, end);
         const replacement = m.replacements[0].value;
-        // Vérifier que la position est valide
-        if (start >= 0 && end <= corrected.length) {
+
+        // Vérifier position valide ET correction acceptable
+        if (start >= 0 && end <= corrected.length && isValidCorrection(original, replacement)) {
           corrected = corrected.slice(0, start) + replacement + corrected.slice(end);
           appliedCount++;
+        } else {
+          skippedCount++;
+          console.log("[SPELL] Skipped:", original, "->", replacement);
         }
       });
       ta.value = corrected;
       dirty = true;
-      showToast(appliedCount + " correction(s)", "success", "Ortho");
+      const msg = appliedCount + " correction(s)" + (skippedCount ? " (" + skippedCount + " ignoree(s))" : "");
+      showToast(msg, "success", "Ortho");
     } else {
       showToast("Aucune faute trouvee", "success", "Ortho");
     }
@@ -3078,7 +3195,7 @@ console.log('[INIT] initInputListeners done - ALL READY');
       try { $data = $body | ConvertFrom-Json } catch { $data = $null }
 
       if ($path -eq "/api/cmd") {
-        $cmd = [string]($data.cmd ?? "")
+        $cmd = if ($data.cmd) { [string]$data.cmd } else { "" }
         if (-not $cmd.Trim()) {
           Write-HttpResponse $ctx 400 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error="empty cmd"} | ConvertTo-Json))
           continue
@@ -3089,9 +3206,9 @@ console.log('[INIT] initInputListeners done - ALL READY');
         continue
       }
       if ($path -eq "/api/drinks/add") {
-        $type = [string]($data.type ?? "")
+        $type = if ($data.type) { [string]$data.type } else { "" }
         $n = 1
-        try { $n = [int]($data.n ?? 1) } catch { $n = 1 }
+        try { $n = if ($data.n) { [int]$data.n } else { 1 } } catch { $n = 1 }
         if ($n -lt 1) { $n = 1 }
 
         try {
@@ -3117,16 +3234,16 @@ console.log('[INIT] initInputListeners done - ALL READY');
           $currTotals = Get-DailyAlcoholTotals $dayKey
           Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true; type=$type; n=$n; day=$dayKey; totals=$currTotals; line=$line} | ConvertTo-Json))
         } catch {
-          Add-DrinkLog ("error type={0} n={1} msg={2}" -f $type, $n, ($_.Exception.Message ?? "unknown"))
+          Add-DrinkLog ("error type={0} n={1} msg={2}" -f $type, $n, $(if ($_.Exception.Message) { $_.Exception.Message } else { "unknown" }))
           Write-ErrorLog -Path $DashLogPath -Context "api/drinks/add" -Exception $_.Exception
           Write-HttpResponse $ctx 500 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error="write failed"} | ConvertTo-Json))
         }
         continue
       }
       if ($path -eq "/api/drinks/adjust") {
-        $type = [string]($data.type ?? "")
+        $type = if ($data.type) { [string]$data.type } else { "" }
         $total = 0
-        try { $total = [int]($data.total ?? 0) } catch { $total = 0 }
+        try { $total = if ($data.total) { [int]$data.total } else { 0 } } catch { $total = 0 }
         if ($total -lt 0) { $total = 0 }
 
         try {
@@ -3134,9 +3251,9 @@ console.log('[INIT] initInputListeners done - ALL READY');
           $curr = Get-DailyAlcoholTotals $dayKey
           $current = 0
           switch ($type.ToLowerInvariant()) {
-            "wine"   { $current = [int]($curr.wine ?? 0) }
-            "beer"   { $current = [int]($curr.beer ?? 0) }
-            "strong" { $current = [int]($curr.strong ?? 0) }
+            "wine"   { $current = if ($curr.wine) { [int]$curr.wine } else { 0 } }
+            "beer"   { $current = if ($curr.beer) { [int]$curr.beer } else { 0 } }
+            "strong" { $current = if ($curr.strong) { [int]$curr.strong } else { 0 } }
             default  {
               Add-DrinkLog ("adjust reject type={0} total={1}" -f $type, $total)
               Write-HttpResponse $ctx 400 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error="type must be wine|beer|strong"} | ConvertTo-Json))
@@ -3156,7 +3273,7 @@ console.log('[INIT] initInputListeners done - ALL READY');
 
           Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true; total=$total; current=$current; added=$added} | ConvertTo-Json))
         } catch {
-          Add-DrinkLog ("adjust error type={0} total={1} msg={2}" -f $type, $total, ($_.Exception.Message ?? "unknown"))
+          Add-DrinkLog ("adjust error type={0} total={1} msg={2}" -f $type, $total, $(if ($_.Exception.Message) { $_.Exception.Message } else { "unknown" }))
           Write-ErrorLog -Path $DashLogPath -Context "api/drinks/adjust" -Exception $_.Exception
           Write-HttpResponse $ctx 500 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error="write failed"} | ConvertTo-Json))
         }
@@ -3175,8 +3292,8 @@ console.log('[INIT] initInputListeners done - ALL READY');
       }
 
       if ($path -eq "/api/note") {
-        $day = [string]($data.day ?? (Get-InfernalDayKey (Get-Date)))
-        $content = [string]($data.content ?? "")
+        $day = if ($data.day) { [string]$data.day } else { Get-InfernalDayKey (Get-Date) }
+        $content = if ($data.content) { [string]$data.content } else { "" }
         try {
           Set-NoteContent $day $content
           Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true} | ConvertTo-Json))
@@ -3187,7 +3304,7 @@ console.log('[INIT] initInputListeners done - ALL READY');
         continue
       }
       if ($path -eq "/api/quicknote") {
-        $content = [string]($data.content ?? "")
+        $content = if ($data.content) { [string]$data.content } else { "" }
         try {
           Set-QuickNote $content
           Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true} | ConvertTo-Json))
@@ -3198,7 +3315,7 @@ console.log('[INIT] initInputListeners done - ALL READY');
         continue
       }
       if ($path -eq "/api/actionnote") {
-        $content = [string]($data.content ?? "")
+        $content = if ($data.content) { [string]$data.content } else { "" }
         try {
           Set-ActionNote $content
           Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true} | ConvertTo-Json))
