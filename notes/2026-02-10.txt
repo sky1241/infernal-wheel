@@ -1,0 +1,14 @@
+﻿Qualité sommeil: 1
+Énergie: 2
+Motivation: 3
+Douleur: 9
+Humeur: 5
+Anxiété: 5
+Irritabilité: 2
+Clarté: 3
+Priorité 1: polish algo creation variable rouage
+Minimum vital: manger a midi
+Score global: 3.6
+
+Super journée hier tout content des résultats obtenu
+hutu, je viens juste de terminer un patch que une équipe de chercheur a 8 ont mis 2 ans à développer j ai connecté les bric y a plus qu'a testé sur impression 3 d si sa fonctionne j ai tapé le saint grâce des créateur d imprimente 3 d je vois dire fait moi un dragon avec des aile qui bouge sa va déduire le nombre de rouages j ai tout implémenter en assemble les bric sa ma pris 4 jours pour résoudre un problème vieux de 40 ans hahhaha le monde est pas prêt :)

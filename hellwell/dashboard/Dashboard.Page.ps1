@@ -715,6 +715,15 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
   box-shadow:0 8px 32px rgba(0,0,0,.35);
   transition:all .3s cubic-bezier(.4,0,.2,1);
 }
+/* WORK Remaining box aurora glow */
+.kpi .box[aria-label="Travail restant"]{
+  border-color:rgba(168,237,234,.2);
+  background:linear-gradient(135deg,rgba(168,237,234,.08),rgba(254,214,227,.06),rgba(212,165,255,.08),rgba(168,237,234,.06));
+  background-size:400% 400%;
+  animation:auroraBox 12s ease-in-out infinite;
+  box-shadow:0 8px 32px rgba(0,0,0,.25),0 0 40px rgba(168,237,234,.08);
+}
+@keyframes auroraBox{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
 .kpi .box:hover{
   transform:translateY(-2px);
   box-shadow:0 12px 40px rgba(0,0,0,.45);
@@ -751,6 +760,8 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .box-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:var(--sp-12);border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:var(--sp-16)}
 .box-title{font-weight:800;font-size:1.1rem;color:var(--text);display:flex;align-items:center;gap:var(--sp-8);letter-spacing:-.3px}
 .box-title-icon{font-size:1.3rem;filter:drop-shadow(0 0 8px rgba(255,255,255,.3))}
+.box-title-icon.progressEmoji{font-size:1.6rem;animation:emojiFloat 4s ease-in-out infinite}
+@keyframes emojiFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 .box-subtitle{font-size:.75rem;color:var(--muted);font-weight:500;background:rgba(255,255,255,.05);padding:4px 10px;border-radius:12px}
 .box-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-12);padding:var(--sp-16) 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:var(--sp-16)}
 .box-stat{text-align:center;padding:var(--sp-8);border-radius:var(--r);background:rgba(255,255,255,.02);transition:background .2s}
@@ -758,15 +769,16 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .box-stat-icon{font-size:1rem;margin-bottom:4px;opacity:.7}
 .box-stat-value{font-size:1.25rem;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.2}
 .box-stat-label{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:2px}
-.box-stat-value.accent{color:var(--accent);text-shadow:0 0 20px rgba(53,217,154,.4)}
-.box-stat-value.warn{color:var(--warn);text-shadow:0 0 20px rgba(247,191,84,.4)}
+.box-stat-value.accent{color:#a8edea;text-shadow:0 0 20px rgba(168,237,234,.3)}
+.box-stat-value.warn{color:#d4a5ff;text-shadow:0 0 20px rgba(212,165,255,.3)}
 .box-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent);margin:var(--sp-16) 0}
 .box-remain{text-align:center;padding:var(--sp-16) 0}
-.box-remain-value{font-size:3rem;font-weight:900;background:linear-gradient(135deg,#fff,rgba(255,255,255,.85));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-2px;line-height:1}
+.box-remain-value{font-size:3.5rem;font-weight:800;background:linear-gradient(90deg,#a8edea,#fed6e3,#d4a5ff,#a8edea);background-size:300% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-1px;line-height:1;animation:auroraText 8s ease-in-out infinite}
+@keyframes auroraText{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
 .box-remain-label{font-size:.75rem;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:1px}
-.box-progress{position:relative;height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;margin-top:var(--sp-12)}
-.box-progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),#6bbcff,var(--accent));background-size:200% 100%;border-radius:4px;transition:width .5s ease;animation:progressShimmer 2s linear infinite}
-@keyframes progressShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.box-progress{position:relative;height:10px;background:rgba(255,255,255,.06);border-radius:20px;overflow:hidden;margin-top:var(--sp-16)}
+.box-progress-bar{height:100%;background:linear-gradient(90deg,#a8edea,#fed6e3,#d4a5ff,#a8edea);background-size:300% 100%;border-radius:8px;transition:width .5s ease;animation:auroraBar 8s ease-in-out infinite;box-shadow:0 0 12px rgba(168,237,234,.3)}
+@keyframes auroraBar{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
 .box-progress-pct{position:absolute;right:0;top:-18px;font-size:.7rem;color:var(--muted);font-weight:600}
 .box-action-row{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-12) 0;flex-wrap:wrap;gap:var(--sp-8)}
 .box-action-main{font-size:2rem;font-weight:900;color:var(--text);letter-spacing:-1px;text-shadow:0 0 30px rgba(255,255,255,.15)}
@@ -2108,7 +2120,7 @@ body{
     <div class="kpi">
       <div class="box" role="region" aria-label="Travail restant">
         <div class="box-header">
-          <div class="box-title"><span class="box-title-icon" aria-hidden="true">&#128337;</span><span>WORK Remaining</span></div>
+          <div class="box-title"><span class="box-title-icon progressEmoji" id="progressEmoji" aria-hidden="true">&#128564;</span><span>WORK Remaining</span></div>
           <span class="box-subtitle">minutes</span>
         </div>
         <div class="box-stats">
@@ -3412,6 +3424,17 @@ async function refreshLive(){
     document.getElementById("bar").style.width = pct.toFixed(1) + "%";
     const pctEl = document.getElementById("progressPct");
     if(pctEl) pctEl.textContent = pct.toFixed(0) + "%";
+
+    // Dynamic emoji based on progress
+    const emojiEl = document.getElementById("progressEmoji");
+    if(emojiEl) {
+      let emoji = "\u{1F634}"; // 0-25%: sleeping
+      if(pct >= 25 && pct < 50) emoji = "\u{1F525}"; // 25-50%: fire
+      else if(pct >= 50 && pct < 75) emoji = "\u{26A1}"; // 50-75%: lightning
+      else if(pct >= 75 && pct < 100) emoji = "\u{1F680}"; // 75-99%: rocket
+      else if(pct >= 100) emoji = "\u{1F389}"; // 100%: party
+      emojiEl.textContent = emoji;
+    }
 
     const seg = (j.currentName || "idle").toUpperCase();
     document.getElementById("kSeg").textContent = seg;
