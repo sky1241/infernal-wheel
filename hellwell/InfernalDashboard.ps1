@@ -2371,14 +2371,56 @@ function initRatingSteppers() {
 }
 
 /* Correcteur orthographique via LanguageTool API */
+
+// Pré-traitement: corrige les bugs clavier USB/layout AVANT LanguageTool
+function fixKeyboardBugs(text) {
+  let fixed = text;
+
+  // Bug clavier: ö et ü au lieu de e (layout QWERTZ/USB glitch)
+  // On remplace seulement dans les mots qui ressemblent à du français
+  fixed = fixed.replace(/\b(\w*)ö(\w*)\b/g, (match, before, after) => {
+    // Si le mot avec 'e' existe probablement en français, remplacer
+    const withE = before + 'e' + after;
+    // Liste de patterns français courants
+    if (/^(j|t|il|elle|on|nous|vous|ils|elles|le|la|les|de|du|des|un|une|ce|cette|ces|mon|ton|son|ma|ta|sa|mes|tes|ses|notre|votre|leur|je|tu|ne|se|me|te|que|qui|ou|et|en|y|ai|as|a|ont|est|sont|fait|fais|peut|peux|veut|veux|dois|doit|suis|es|sommes|etes|etre|avoir|faire|voir|dire|aller|venir|prendre|mettre|savoir|pouvoir|vouloir|devoir|falloir|croire|penser|trouver|donner|parler|aimer|manger|boire|lire|ecrire|ouvrir|finir|choisir|reussir|partir|sortir|dormir|sentir|tenir|venir)/i.test(withE) ||
+        /[aeiou]/.test(before) || /[aeiou]/.test(after)) {
+      return withE;
+    }
+    return match;
+  });
+
+  // Même chose pour ü
+  fixed = fixed.replace(/\b(\w*)ü(\w*)\b/g, (match, before, after) => {
+    const withE = before + 'e' + after;
+    if (/[aeiou]/.test(before) || /[aeiou]/.test(after) || before.length > 0 || after.length > 0) {
+      return withE;
+    }
+    return match;
+  });
+
+  // Bug: lettres triplées ou plus → doubler max (errreur → erreur)
+  fixed = fixed.replace(/(.)\1{2,}/g, '$1$1');
+
+  // Bug: 'bp' au début de mot → 'b' seul ou contexte (bpoure → bourré difficile, on laisse LanguageTool)
+  // Bug: espaces multiples → espace simple
+  fixed = fixed.replace(/  +/g, ' ');
+
+  return fixed;
+}
+
 async function correctSpelling() {
   const ta = document.getElementById("t");
   const btn = document.querySelector(".spell-btn");
-  const text = ta.value.trim();
+  let text = ta.value.trim();
   if (!text) { showToast("Rien a corriger", "warn", "Ortho"); return; }
 
   btn.disabled = true;
   btn.innerHTML = '<svg style="animation:spin 1s linear infinite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span>...</span>';
+
+  // Étape 1: Pré-traitement bugs clavier
+  const preFixed = fixKeyboardBugs(text);
+  const keyboardFixes = preFixed !== text ? 1 : 0;
+  text = preFixed;
 
   try {
     const resp = await fetch("https://api.languagetool.org/v2/check", {
@@ -2525,10 +2567,19 @@ async function correctSpelling() {
       });
       ta.value = corrected;
       dirty = true;
-      const msg = appliedCount + " correction(s)" + (skippedCount ? " (" + skippedCount + " ignoree(s))" : "");
+      let msg = appliedCount + " correction(s)";
+      if (keyboardFixes) msg = "Clavier + " + msg;
+      if (skippedCount) msg += " (" + skippedCount + " ignoree(s))";
       showToast(msg, "success", "Ortho");
     } else {
-      showToast("Aucune faute trouvee", "success", "Ortho");
+      // Même si LanguageTool trouve rien, appliquer les fixes clavier
+      if (keyboardFixes) {
+        ta.value = text; // text a déjà été pré-fixé
+        dirty = true;
+        showToast("Clavier corrige", "success", "Ortho");
+      } else {
+        showToast("Aucune faute trouvee", "success", "Ortho");
+      }
     }
   } catch (e) {
     console.error("[SPELL]", e);
