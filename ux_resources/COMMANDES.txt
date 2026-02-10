@@ -55,17 +55,66 @@ COMMENT UTILISER:
 
 --------------------------------------------
 
+4. MODE INTEGRATION DEEP RESEARCH
+   Fichier: prompts/PROMPT_INTEGRATION_DEEP_RESEARCH.md
+
+   QUAND: Tu recois les resultats de ChatGPT Deep Research
+
+   COMMENT:
+   - Dis "integre la deep research" + colle les resultats
+   - Claude detecte les doublons avec WEB.md/MOBILE.md
+   - Claude complete avec WebSearch si besoin
+   - Claude integre proprement section par section
+   - Met a jour les compteurs
+
+   RACCOURCIS:
+   | Tu dis              | Claude fait                        |
+   |---------------------|-----------------------------------|
+   | "integre tout"      | Workflow complet                   |
+   | "verifie doublons"  | Juste detection doublons           |
+   | "complete [section]"| WebSearch + integration 1 section  |
+
+   ANTI-DOUBLONS: Claude grep avant d'ajouter quoi que ce soit
+
+--------------------------------------------
+
+5. PROMPT DEEP RESEARCH MASSIVE
+   Fichier: prompts/PROMPT_DEEP_RESEARCH_MASSIVE.md
+
+   QUAND: Tu veux lancer une nouvelle Deep Research (~100 pages)
+
+   COMMENT:
+   - Copie le contenu du fichier
+   - Colle dans ChatGPT Deep Research
+   - Attends les resultats
+   - Utilise "MODE INTEGRATION" pour integrer
+
+--------------------------------------------
+
 FICHIERS UX DE REFERENCE:
 
 - DESIGN_TREE.md  = Arbre de decision (lire EN PREMIER)
-- WEB.md          = ~280 regles web (74 sections)
+- WEB.md          = ~450 regles web (108 sections)
   - Sections A-J: Etats, Flux, Interactions, Info, Confiance, WCAG, Couleurs, Spacing
   - Section K: Data Visualization (charts, dashboards, sparklines)
   - Section L: Microcopy & UX Writing (boutons, ton)
   - Section M: Internationalisation (expansion texte, RTL, formats)
-- MOBILE.md       = ~340 regles mobile (49 sections)
+  - Section N: Gamification & Engagement (streaks, PBL, loops)
+  - Section O: Tables & Data Grids (anatomy, sort, pagination, responsive)
+  - Section P: Settings & Preferences (architecture, toggles, destructive)
+  - Section Q: Search UX (input, autocomplete, filters, no results)
+  - Section R: Loading & Performance (skeleton, optimistic UI, offline)
+  - Section S: Dark Mode (surfaces, elevation, implementation)
+  - Section T: Modals & Overlays (types, sizing, bottom sheets, a11y)
+  - Section U: Animations (timing, easing, micro-interactions)
+  - Section V: Onboarding (permissions, empty states, progressive)
+- MOBILE.md       = ~420 regles mobile (61 sections)
   - Sections A-U: iOS, Android, Patterns, Navigation, Accessibilite, etc.
   - Section V: Internationalisation mobile (RTL, localization)
+  - Section W: Gamification Mobile (streaks, PBL, engagement loops)
+  - Section X: Settings Mobile (architecture, toggles, destructive)
+  - Section Y: Search Mobile (input, autocomplete, no results)
+  - Section Z: Animations Mobile (timing iOS/Android, micro-interactions, reduced motion)
 
 --------------------------------------------
 
@@ -93,6 +142,8 @@ c:\Users\ludov\.infernal_wheel\
       PROMPT_REPRISE.md   <- Mode reprise + autonome
       PROMPT_CSSFIX.md    <- Mode CSS fix
       PROMPT_CALENDRIER_CREATIF.md <- Mode calendrier
+      PROMPT_INTEGRATION_DEEP_RESEARCH.md <- Integration resultats
+      PROMPT_DEEP_RESEARCH_MASSIVE.md <- Prompt pour ChatGPT (~100 pages)
 
 ============================================
 Derniere mise a jour: 2026-02-09

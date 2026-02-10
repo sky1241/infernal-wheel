@@ -1726,3 +1726,740 @@ new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(12
 - [ ] Dates/nombres formatés via API locale (`Intl`)
 - [ ] Images/texte localisés (pas de hardcode anglais)
 - [ ] Tests avec native speakers pour erreurs culturelles
+
+---
+
+## N. Gamification & Engagement
+
+### 75. Streaks (Séries)
+
+| Aspect | Valeur | Source |
+|--------|--------|--------|
+| Seuil clé | 7 jours consécutifs (+3.6× rétention) | [UX Magazine](https://uxmag.com/articles/the-psychology-of-hot-streak-game-design-how-to-keep-players-coming-back-every-day-without-shame) |
+| Grace period | 1-2 jours (incident technique, voyage) | [Duolingo Blog](https://blog.duolingo.com/widget-feature/) |
+| Streak Freeze | Mécanisme payant ou earned (1-3 freezes) | Duolingo, Snapchat |
+| Affichage | Flamme, anneau, calendrier de contributions | GitHub, Wordle |
+
+**Apps utilisant ce pattern:** Duolingo, Snapchat, Wordle, GitHub, Headspace
+
+**Quand utiliser:** Engagement quotidien, formation d'habitudes (langues, fitness, santé)
+**Quand éviter:** Contenu non quotidien, risque d'anxiété (streak perçu comme pénalité)
+
+**Checklist:**
+- [ ] Indicateur visuel clair (flamme, anneau, calendrier)
+- [ ] Mécanisme de récupération (Streak Freeze, rattrapage)
+- [ ] Grace period pour incidents (1-2 jours)
+- [ ] Règles de maintien expliquées clairement
+- [ ] Pas de notifications abusives (éviter la pression)
+
+**Code CSS:**
+```css
+/* Anneau de progression pour streak */
+.streak-ring {
+  stroke-dasharray: 100;
+  stroke-dashoffset: calc(100 - var(--progress));
+  transition: stroke-dashoffset 0.5s ease-out;
+}
+```
+
+---
+
+### 76. Points, Badges & Leaderboards (PBL)
+
+| Élément | Règle | Source |
+|---------|-------|--------|
+| Points | Earning rates définis, éviter l'inflation | [Yukai Chou](https://yukaichou.com/advanced-gamification/how-to-design-effective-leaderboards-boosting-motivation-and-engagement/) |
+| Badges tiers | Common → Rare → Epic → Legendary | [IxDF](https://www.interaction-design.org/literature/topics/leaderboards) |
+| Leaderboard default | Weekly ou Daily (pas All-time) | [UI Patterns](https://ui-patterns.com/patterns/leaderboard) |
+| Leaderboard views | Global, Friends, Local | [Mockplus](https://www.mockplus.com/blog/post/gamification-ui-ux-design-guide) |
+
+**Leaderboard Best Practices:**
+- Afficher le rank de l'utilisateur + joueurs immédiatement au-dessus/en-dessous
+- Proposer vues: Friends > Weekly > Global (Friends par défaut si disponible)
+- Reset hebdomadaire/mensuel pour donner des "fresh starts"
+- Éviter pour données sensibles (finance, santé personnelle)
+
+**Checklist:**
+- [ ] Points avec valeur claire (1 action = X points)
+- [ ] Badges avec conditions de déblocage explicites
+- [ ] Leaderboard friends-first si social disponible
+- [ ] Vue weekly par défaut (pas all-time)
+- [ ] Position de l'utilisateur toujours visible
+
+---
+
+### 77. Engagement Loops
+
+| Modèle | Composants | Source |
+|--------|------------|--------|
+| Hook Model (Nir Eyal) | Trigger → Action → Variable Reward → Investment | [Hooked Book](https://www.nirandfar.com/hooked/) |
+| Fogg Behavior | Motivation × Ability × Prompt | [BJ Fogg](https://behaviormodel.org/) |
+| Impact | Apps gamifiées: +20-30% engagement | [Statista 2024](https://arounda.agency/blog/gamification-in-product-design-in-2024-ui-ux) |
+
+**Variable Rewards Types:**
+- Rewards of the Tribe (social validation)
+- Rewards of the Hunt (resources, money)
+- Rewards of the Self (mastery, completion)
+
+**Checklist:**
+- [ ] Core behavior identifié (que répéter? check-ins, achats, partages)
+- [ ] Rewards court-terme (daily) + long-terme (30-day streaks)
+- [ ] Variable rewards pour éviter la fatigue de prédictibilité
+- [ ] Investment qui augmente la valeur (personnalisation, contenu)
+
+---
+
+## O. Tables & Data Grids
+
+### 78. Anatomie des Tables
+
+| Élément | Valeur | Source |
+|---------|--------|--------|
+| Row height compact | 32-36px | [Pencil & Paper](https://www.pencilandpaper.io/articles/ux-pattern-analysis-enterprise-data-tables) |
+| Row height default | 40-52px | [UX Shark](https://www.uxshark.com/designing-user-friendly-data-tables/) |
+| Row height comfortable | 52-64px | Material Design |
+| Header height | 56px | Material Design |
+| Cell padding | 16-24px | [IBM Carbon](https://carbondesignsystem.com/components/data-table/style/) |
+
+**Alignement:**
+- Texte: aligné à gauche
+- Nombres: alignés à droite
+- Dates: centre ou gauche
+- Actions: droite
+
+**Checklist:**
+- [ ] Headers sticky sur scroll vertical
+- [ ] Zebra striping subtil OU dividers (pas les deux)
+- [ ] Density toggle si beaucoup de données (compact/default/comfortable)
+- [ ] Min-width sur colonnes pour éviter le wrapping excessif
+
+---
+
+### 79. Sorting & Filtering
+
+| Pattern | Règle | Source |
+|---------|-------|--------|
+| Sort indicator | Chevron/flèche dans le header | [UX Booth](https://uxbooth.com/articles/designing-user-friendly-data-tables/) |
+| Multi-column sort | Shift+click pour sort secondaire | Convention |
+| Filter position | Proche des colonnes qu'ils contrôlent | [Pencil & Paper](https://www.pencilandpaper.io/articles/ux-pattern-analysis-enterprise-data-tables) |
+| Filter chips | Au-dessus de la table, avec X pour clear | Pattern standard |
+
+**Client-side vs Server-side:**
+- < 1000 rows: client-side (meilleure UX)
+- > 1000 rows: server-side (performance)
+
+**Checklist:**
+- [ ] Sort indicator visible sur colonne active
+- [ ] Direction de tri claire (A-Z, Z-A, 1-9, 9-1)
+- [ ] Filters avec "Clear all" toujours accessible
+- [ ] Saved views/filters pour power users
+
+---
+
+### 80. Pagination
+
+| Pattern | Quand utiliser | Source |
+|---------|----------------|--------|
+| Pagination | Référence à pages spécifiques, comparaison | [Mann Howie](https://mannhowie.com/data-table-ux) |
+| Infinite scroll | Feeds, timelines (pas analytical) | [UX Planet](https://uxplanet.org/best-practices-for-usable-and-efficient-data-table-in-applications-4a1d1fb29550) |
+| Load more | Compromis entre les deux | Mobile-friendly |
+
+**Page sizes recommandés:** 10, 25, 50, 100
+
+**Pattern:** "Showing X-Y of Z items"
+
+**Checklist:**
+- [ ] Page size selector (10/25/50/100)
+- [ ] "Showing X-Y of Z" toujours visible
+- [ ] Navigation first/prev/next/last
+- [ ] Loading state (skeleton rows ou spinner overlay)
+
+---
+
+### 81. Responsive Tables
+
+| Pattern | Description | Source |
+|---------|-------------|--------|
+| Horizontal scroll | Sticky first column + scroll | [Tenscope](https://www.tenscope.com/post/table-ux-best-practices) |
+| Column priority | Hide less important columns on mobile | [Denovers](https://www.denovers.com/blog/enterprise-table-ux-design) |
+| Collapse to cards | Table → stack de cards sur mobile | [Justinmind](https://www.justinmind.com/ui-design/data-table) |
+| Expandable rows | Click pour voir détails | Pattern standard |
+
+**Checklist:**
+- [ ] Colonnes prioritaires toujours visibles
+- [ ] Geste horizontal évident (scroll hint)
+- [ ] Touch-friendly row actions (swipe ou long press)
+- [ ] Test sur 320px width minimum
+
+---
+
+### 82. Table Accessibility
+
+| Aspect | Règle | Source |
+|--------|-------|--------|
+| Sémantique | `<table>`, `<thead>`, `<tbody>`, `<th>` | [WCAG](https://www.w3.org/WAI/tutorials/tables/) |
+| Headers | `scope="col"` ou `scope="row"` | WCAG |
+| Keyboard | Arrow keys pour navigation cellules | [IBM Carbon](https://carbondesignsystem.com/components/data-table/style/) |
+| Annonces | Screen reader annonce sort/filter changes | ARIA live |
+
+**Code HTML:**
+```html
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Nom</th>
+      <th scope="col" class="numeric">Montant</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Exemple</td>
+      <td class="numeric">€123,45</td>
+    </tr>
+  </tbody>
+</table>
+```
+
+**Checklist:**
+- [ ] Semantic HTML (`<table>` pas CSS grid pour data)
+- [ ] `scope` sur tous les `<th>`
+- [ ] Keyboard navigation (Tab, arrows)
+- [ ] Focus visible sur cellule/row active
+
+---
+
+## P. Settings & Preferences
+
+### 83. Architecture des Settings
+
+| Aspect | Règle | Source |
+|--------|-------|--------|
+| Grouping | Par fonction, fréquence, ou workflow | [Toptal](https://www.toptal.com/designers/ux/settings-ux) |
+| Hierarchy depth | Max 2-3 niveaux | [Netguru](https://www.netguru.com/blog/how-to-improve-app-settings-ux) |
+| Search | Essential pour apps complexes | [SetProduct](https://www.setproduct.com/blog/settings-ui-design) |
+| Two-level | Basic (default) + Advanced (opt-in) | [Toptal](https://www.toptal.com/designers/ux/settings-ux) |
+
+**Checklist:**
+- [ ] Settings groupés logiquement (Account, Notifications, Privacy, etc.)
+- [ ] Max 2-3 niveaux de profondeur
+- [ ] Search si > 20 settings
+- [ ] Basic vs Advanced separation si complexe
+
+---
+
+### 84. Toggle vs Checkbox
+
+| Control | Quand utiliser | Source |
+|---------|----------------|--------|
+| Toggle | Effet immédiat, binaire, mobile | [NN/g](https://www.nngroup.com/articles/toggle-switch-guidelines/) |
+| Checkbox | Partie d'un form, save explicit, indeterminate possible | [Eleken](https://www.eleken.co/blog-posts/checkbox-ux) |
+
+**Tailles recommandées:**
+- iOS: 51×31pt
+- Android: 52×32dp
+- Web: 44×24px minimum
+
+**Règle d'or:** Toggle = effet immédiat, pas de bouton Save
+
+**Checklist:**
+- [ ] Toggle pour on/off avec effet immédiat
+- [ ] Checkbox dans forms avec bouton Save
+- [ ] Labels clairs (pas de double négation)
+- [ ] État actuel toujours évident (ON vs OFF visible)
+
+---
+
+### 85. Destructive Settings
+
+| Pattern | Usage | Source |
+|---------|-------|--------|
+| Type to confirm | "Tapez DELETE pour confirmer" | GitHub pattern |
+| Countdown | Bouton désactivé 5-10 secondes | Prevent accidental clicks |
+| Checkbox confirm | "Je comprends que c'est irréversible" | GDPR standard |
+| Data export | Proposer export avant deletion | GDPR requirement |
+
+**Account deletion (GDPR):**
+- DOIT être possible (pas caché)
+- PEUT avoir friction raisonnable
+- DOIT offrir export de données
+- PEUT avoir cooling-off period (7-30 jours)
+
+**Checklist:**
+- [ ] Warning clair "This cannot be undone"
+- [ ] Confirmation explicite (type, checkbox, countdown)
+- [ ] Export de données proposé avant deletion
+- [ ] Pas de dark patterns (bouton caché, friction excessive)
+
+---
+
+## Q. Search UX
+
+### 86. Search Input
+
+| Aspect | Valeur | Source |
+|--------|--------|--------|
+| Width desktop | 200-600px | [LogRocket](https://blog.logrocket.com/ux-design/design-search-bar-intuitive-autocomplete/) |
+| Width mobile | Full-width | Convention |
+| Placeholder | "Search..." ou contextuel "Search products..." | [Baymard](https://baymard.com/blog/autocomplete-design) |
+| Icon position | Gauche (standard) | Convention |
+| Shortcut | Cmd/Ctrl+K ou / | Spotlight pattern |
+
+**Checklist:**
+- [ ] Clear button (X) quand texte présent
+- [ ] Keyboard shortcut visible (badge "⌘K")
+- [ ] Focus auto-select all text ou cursor at end
+- [ ] Voice search icon si supporté
+
+---
+
+### 87. Autocomplete & Suggestions
+
+| Aspect | Valeur | Source |
+|--------|--------|--------|
+| Max suggestions | 5-10 items (8 sur mobile) | [Baymard](https://baymard.com/blog/autocomplete-design) |
+| Debounce | 150-300ms | [Smart Interface Patterns](https://smart-interface-design-patterns.com/articles/autocomplete-ux/) |
+| Show on focus | OUI (avant même de taper) | [Baymard](https://baymard.com/blog/autocomplete-design) |
+| Sources | Recent, Popular, Personalized, Preview | [UX Patterns Dev](https://uxpatterns.dev/patterns/forms/autocomplete) |
+
+**Seulement 19% des sites implémentent correctement l'autocomplete** - [Baymard](https://baymard.com/blog/autocomplete-design)
+
+**Mixed suggestions:** Keywords + Categories + Products + Pages
+
+**Checklist:**
+- [ ] Suggestions dès le focus (pas seulement après frappe)
+- [ ] Max 10 items desktop, 8 mobile
+- [ ] Highlight matching text (bold query terms)
+- [ ] Keyboard nav (arrows, Enter, Escape)
+- [ ] Recent searches en premier si disponibles
+
+---
+
+### 88. No Results State
+
+| Pattern | Description | Source |
+|---------|-------------|--------|
+| Message friendly | "No results for 'xyz'" | [Algolia](https://www.algolia.com/doc/guides/building-search-ui/ui-and-ux-patterns/query-suggestions/ios/) |
+| Spell correction | "Did you mean: [corrected]?" | Google pattern |
+| Suggestions | Vérifier orthographe, essayer autres mots | Standard |
+| Alternatives | Popular items, related content | E-commerce pattern |
+
+**Checklist:**
+- [ ] Message clair sans blâmer l'utilisateur
+- [ ] Spell correction si applicable
+- [ ] Suggestions alternatives (popular, related)
+- [ ] Clear search CTA pour recommencer
+- [ ] Contact support si critique
+
+---
+
+### 89. Faceted Search / Filters
+
+| Pattern | Desktop | Mobile | Source |
+|---------|---------|--------|--------|
+| Position | Sidebar gauche | Button → Sheet/Drawer | [Smashing](https://smashingconf.com/online-workshops/workshops/search-ux-vitaly-friedman) |
+| Active filters | Chips au-dessus des résultats | Chips | Standard |
+| Clear all | Toujours visible | Toujours visible | UX requirement |
+| Counts | "(42)" à côté de chaque option | Optionnel sur mobile | [StackOverflow pattern](https://stackoverflow.com/) |
+
+**Checklist:**
+- [ ] Filters proches du contenu qu'ils filtrent
+- [ ] Active filters visibles en permanence (chips)
+- [ ] "Clear all" accessible facilement
+- [ ] Counts pour montrer impact du filtre
+- [ ] Collapsible sections pour filtres nombreux
+
+---
+
+## R. Loading & Performance
+
+### 90. Response Time Thresholds
+
+| Durée | Perception | Action UX | Source |
+|-------|------------|-----------|--------|
+| 0-100ms | Instant | Aucun feedback nécessaire | [Nielsen](https://www.nngroup.com/articles/response-times-3-important-limits/) |
+| 100-300ms | Légère pause | Subtle indicator OK | Convention |
+| 300ms-1s | Noticeable | Spinner ou skeleton | [LogRocket](https://blog.logrocket.com/ux-design/skeleton-loading-screen-design/) |
+| 1-10s | Long | Progress + explanation | [Clay](https://clay.global/blog/skeleton-screen) |
+| 10s+ | Très long | Background task + notification | Convention |
+
+---
+
+### 91. Skeleton Screens
+
+| Aspect | Valeur | Source |
+|--------|--------|--------|
+| Perception | +20-30% plus rapide que spinner | [UI Deploy](https://ui-deploy.com/blog/skeleton-screens-vs-spinners-optimizing-perceived-performance) |
+| Facebook finding | 300ms faster perceived load | [Medium](https://medium.com/@elenech/the-psychology-of-waiting-skeletons-ca3b309e12a2) |
+| Animation | Shimmer left-to-right, 1.5-2s | [SitePoint](https://www.sitepoint.com/how-to-speed-up-your-ux-with-skeleton-screens/) |
+| Colors | Light gray (#E0E0E0 light / #333 dark) | Material Design |
+
+**Quand utiliser:**
+- Layout connu à l'avance
+- Load time < 3s
+- Content-heavy pages
+
+**Quand NE PAS utiliser:**
+- Layout imprévisible
+- Loads très rapides (< 300ms)
+- Actions instantanées
+
+**Checklist:**
+- [ ] Shapes qui mimiquent le contenu réel
+- [ ] Animation shimmer subtile
+- [ ] Pas de skeleton pour < 300ms loads
+- [ ] Transition smooth vers contenu réel
+
+**Code CSS:**
+```css
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #e0e0e0 25%,
+    #f0f0f0 50%,
+    #e0e0e0 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+```
+
+---
+
+### 92. Optimistic UI
+
+| Pattern | Description | Source |
+|---------|-------------|--------|
+| Principe | Update UI immédiatement, sync en background | [Flowwies](https://flowwies.blog/psychology-of-loading-states-reduce-perceived-wait-c6da1afa2d28) |
+| Use cases | Likes, saves, toggles, add to list | Social apps |
+| Failure | Revert + error toast | Standard |
+| Indicator | Opacity réduite ou pending icon | Subtle feedback |
+
+**Checklist:**
+- [ ] Actions simples et réversibles uniquement
+- [ ] Feedback visuel de pending state (subtle)
+- [ ] Rollback graceful si échec
+- [ ] Error toast explicatif
+
+---
+
+### 93. Offline & Error States
+
+| State | Pattern | Source |
+|-------|---------|--------|
+| Offline detected | Banner en haut "You're offline" | Convention |
+| Cached content | Montrer + badge "Offline" | PWA standard |
+| Queue actions | Sync quand online | IndexedDB pattern |
+| Last updated | "Updated 5 min ago" | Trust indicator |
+
+**Checklist:**
+- [ ] Offline indicator visible mais non-intrusif
+- [ ] Contenu cached accessible
+- [ ] Actions queued pour sync
+- [ ] "Retry" button pour actions failed
+
+---
+
+## S. Dark Mode
+
+### 94. Surfaces & Elevation
+
+| Elevation | Color (Material) | Usage | Source |
+|-----------|------------------|-------|--------|
+| 0dp | #121212 | Background | [Material Design](https://codelabs.developers.google.com/codelabs/design-material-darktheme) |
+| 1dp | #1E1E1E | Cards, sheets | Material |
+| 2dp | #222222 | Menus | Material |
+| 4dp | #272727 | App bars | Material |
+| 8dp | #2E2E2E | Dialogs | Material |
+| 16dp | #363636 | Navigation drawer | Material |
+
+**Règle:** Plus élevé = plus clair (inverse du light mode)
+
+---
+
+### 95. Text Colors Dark Mode
+
+| Type | Opacity/Color | Source |
+|------|---------------|--------|
+| Primary | #FFF at 87% (ou #E0E0E0) | [Toptal](https://www.toptal.com/designers/ui/dark-ui-design) |
+| Secondary | #FFF at 60% (ou #A0A0A0) | Material |
+| Disabled | #FFF at 38% | Material |
+| Contrast ratio | Min 15.8:1 white on dark | [403 Design](https://www.fourzerothree.in/p/scalable-accessible-dark-mode) |
+
+**Règle:** Jamais pure white (#FFF) sur pure black (#000) - trop harsh
+
+---
+
+### 96. Dark Mode Implementation
+
+| Aspect | Méthode | Source |
+|--------|---------|--------|
+| Detection | `prefers-color-scheme: dark` | [MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme) |
+| Toggle | Class `.dark-mode` + localStorage | Standard |
+| Transition | 300ms pour éviter flash | [UI Deploy](https://ui-deploy.com/blog/complete-dark-mode-design-guide-ui-patterns-and-implementation-best-practices-2025) |
+| Options | Light / Dark / System | User choice |
+
+**Code CSS:**
+```css
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #121212;
+    --text-primary: rgba(255,255,255,0.87);
+    --text-secondary: rgba(255,255,255,0.60);
+  }
+}
+
+/* Smooth transition */
+:root {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+```
+
+**Checklist:**
+- [ ] System preference detection
+- [ ] Manual toggle avec persistence
+- [ ] Transition smooth (pas de flash)
+- [ ] Images/illustrations adaptées
+- [ ] Accent colors ajustées (moins saturées)
+
+---
+
+## T. Modals & Overlays
+
+### 97. Types de Modals
+
+| Type | Use Case | Dismissal | Source |
+|------|----------|-----------|--------|
+| Alert/Dialog | Info critique, confirmation | Buttons only | [NN/g](https://www.nngroup.com/articles/bottom-sheet/) |
+| Modal | Forms, contenu complexe | X, outside click | Standard |
+| Bottom Sheet | Actions, filters (mobile) | Swipe down, X | [LogRocket](https://blog.logrocket.com/ux-design/bottom-sheets-optimized-ux/) |
+| Drawer | Navigation, panels | X, outside click | Material |
+| Popover | Info contextuelle, menus | Outside click, Esc | Standard |
+
+---
+
+### 98. Modal Sizing
+
+| Size | Max-width | Use Case | Source |
+|------|-----------|----------|--------|
+| Small | 400px | Alerts, confirmations | [Mobbin](https://mobbin.com/glossary/bottom-sheet) |
+| Medium | 600px | Forms, simple content | Standard |
+| Large | 800px | Complex content | Standard |
+| Fullscreen | 100% | Mobile default, complex forms | Convention |
+| Max-height | 90vh | Avec scroll interne | UX requirement |
+
+---
+
+### 99. Bottom Sheets
+
+| Platform | Detents | Source |
+|----------|---------|--------|
+| iOS | Small (~25%), Medium (~50%), Large (~90%) | [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/sheets) |
+| Android | Standard (content), Modal (blocks), Expanding | [Material](https://m3.material.io/components/bottom-sheets) |
+| Dismiss | Swipe down (threshold ~100px), X button | [NN/g](https://www.nngroup.com/articles/bottom-sheet/) |
+
+**Touch target minimum:** 44×44px (48×48px recommandé web.dev)
+
+**Checklist:**
+- [ ] Close affordance visible (X ou drag indicator)
+- [ ] Swipe to dismiss supporté
+- [ ] Back button pour dismiss (Android/web)
+- [ ] Safe area padding en bas
+- [ ] Focus trap si modal
+
+---
+
+### 100. Modal Accessibility
+
+| Aspect | Règle | Source |
+|--------|-------|--------|
+| Focus trap | Tab cycle dans le modal | [WAI-ARIA](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/) |
+| Initial focus | First interactive ou close button | WCAG |
+| Escape | Ferme le modal | Convention |
+| Return focus | Retour au trigger on close | WCAG |
+| ARIA | `role="dialog"` + `aria-modal="true"` | WAI-ARIA |
+
+**Code HTML:**
+```html
+<div role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <h2 id="modal-title">Modal Title</h2>
+  <button class="close" aria-label="Close">×</button>
+  <!-- Content -->
+</div>
+```
+
+**Checklist:**
+- [ ] Focus trap implémenté
+- [ ] Escape key handler
+- [ ] Return focus on close
+- [ ] ARIA attributes corrects
+- [ ] Screen reader annonce le titre
+
+---
+
+## U. Animations & Micro-interactions
+
+### 101. Timing Standards
+
+| Catégorie | Durée | Use Case | Source |
+|-----------|-------|----------|--------|
+| Instant | 50-100ms | Button press, toggle | [DesignerUp](https://designerup.co/blog/complete-guide-to-ui-animations-micro-interactions-and-tools/) |
+| Fast | 100-200ms | Hover, focus, small reveals | [Primotech](https://primotech.com/ui-ux-evolution-2026-why-micro-interactions-and-motion-matter-more-than-ever/) |
+| Medium | 200-400ms | Page transitions, modals | Standard |
+| Slow | 400-700ms | Complex reveals, celebrations | Sparingly |
+
+**Most UI actions: 150-250ms**
+
+---
+
+### 102. Easing Functions
+
+| Easing | Usage | Source |
+|--------|-------|--------|
+| ease-out | Entering elements, modals opening | [Ruixen](https://www.ruixen.com/blog/ux-micro-interactions-for-devs) |
+| ease-in | Exiting elements, modals closing | Standard |
+| ease-in-out | Elements moving on screen | Standard |
+| linear | Progress bars, continuous motion | Never for UI elements |
+| spring | iOS-style bouncy feel | [Josh Comeau](https://www.joshwcomeau.com/animation/linear-timing-function/) |
+
+**Code CSS:**
+```css
+/* iOS-like spring */
+.spring-animation {
+  transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Subtle bounce */
+.bounce-animation {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Standard ease-out */
+.ease-out {
+  transition: all 0.2s ease-out;
+}
+```
+
+---
+
+### 103. Common Micro-interactions
+
+| Interaction | Animation | Source |
+|-------------|-----------|--------|
+| Button press | scale(0.95-0.98) + darken | [Vev](https://www.vev.design/blog/micro-interaction-examples/) |
+| Toggle | Slide + color change | Standard |
+| Checkbox | Scale bounce + checkmark draw | [AT](https://www.at.ge/2024/11/16/mastering-microinteractions-deep-technical-strategies-to-optimize-mobile-user-experience/) |
+| Like/heart | Scale pop + color + particles | Twitter/Instagram |
+| Delete | Fade + collapse | Standard |
+| Reorder | Drag shadow + insertion indicator | Standard |
+
+**Checklist:**
+- [ ] Feedback < 100ms pour actions utilisateur
+- [ ] Easing approprié (ease-out pour entrée)
+- [ ] Reduced motion respecté
+- [ ] Animations non-bloquantes
+
+---
+
+### 104. Reduced Motion
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+```
+
+**Règles:**
+- Fade OK, motion NOT OK
+- Simplifier, pas supprimer
+- Essential animations: réduire durée
+- Respecter préférence système
+
+---
+
+## V. Onboarding
+
+### 105. Types d'Onboarding
+
+| Type | Efficacité | Source |
+|------|-----------|--------|
+| Feature tour (carousel) | Faible - souvent skippé | [Toptal](https://www.toptal.com/designers/product-design/guide-to-onboarding-ux) |
+| Progressive | Haute - learn as you go | [Appcues](https://www.appcues.com/blog/user-onboarding-ui-ux-patterns) |
+| Empty state | Haute - first-use prompts | [Chameleon](https://www.chameleon.io/blog/mobile-user-onboarding) |
+| Interactive tutorial | Moyenne-Haute - guided first task | [Adapty](https://adapty.io/blog/mobile-app-onboarding/) |
+
+**72% des users veulent onboarding < 60 secondes** - [Clutch 2017](https://www.appcues.com/blog/essential-guide-mobile-user-onboarding-ui-ux)
+
+---
+
+### 106. Permission Requests
+
+| Timing | Règle | Source |
+|--------|-------|--------|
+| Contextual | Demander quand la feature est utilisée | [UserOnboard](https://www.useronboard.com/onboarding-ux-patterns/permission-priming/) |
+| Pre-permission | Expliquer POURQUOI avant le system dialog | [Appcues](https://www.appcues.com/blog/mobile-permission-priming) |
+| Benefits | Montrer ce que l'user gagne | [Adapty](https://adapty.io/blog/mobile-app-onboarding/) |
+| Denied recovery | Expliquer comment activer dans Settings | Standard |
+
+**Permission Timing:**
+| Permission | Quand demander |
+|------------|----------------|
+| Push notifs | Après premier "value moment" |
+| Location | Quand feature location utilisée |
+| Camera | Quand user tap photo |
+| Contacts | Quand user veut inviter |
+
+**Checklist:**
+- [ ] Jamais demander toutes les permissions au launch
+- [ ] Pre-permission screen avant system dialog
+- [ ] Bénéfice clair expliqué
+- [ ] Handle "denied" gracefully
+
+---
+
+### 107. Empty States as Onboarding
+
+| Élément | Description | Source |
+|---------|-------------|--------|
+| Title | Ce que cette zone fait | [NN/g](https://www.nngroup.com/articles/empty-state-interface-design/) |
+| Description | Pourquoi c'est utile | Standard |
+| CTA | Action claire pour commencer | UX requirement |
+| Illustration | Optionnel, ajoute personnalité | Design polish |
+
+**Exemple:** "No projects yet. Create your first project to get started. [+ New Project]"
+
+**Checklist:**
+- [ ] Titre clair (pas "Empty" ou "No data")
+- [ ] Description de la valeur
+- [ ] CTA visible et actionable
+- [ ] Pas de culpabilisation
+
+---
+
+### 108. Progressive Disclosure
+
+| Pattern | Description | Source |
+|---------|-------------|--------|
+| Coach marks | Tooltips pointant vers UI elements | [Appcues](https://www.appcues.com/blog/user-onboarding-ui-ux-patterns) |
+| Hotspots | Indicators pulsing sur nouvelles features | [UX Team](https://www.uxteam.com/the-5-best-onboarding-flows-weve-seen-so-far-in-2024/) |
+| Just-in-time | Tips au moment où l'action est pertinente | Best practice |
+
+**Règles:**
+- Un tip à la fois
+- Dismissible (ne pas forcer)
+- Remember dismissed state
+- Re-accessible via Help menu
+
+**Checklist:**
+- [ ] Un élément à la fois
+- [ ] Peut être skip/dismiss
+- [ ] State persisté (pas re-montrer)
+- [ ] Help accessible pour revoir

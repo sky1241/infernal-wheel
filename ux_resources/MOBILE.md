@@ -1642,3 +1642,437 @@ let dateString = formatter.string(from: Date())
 - [ ] Dates/nombres formatés avec locale système
 - [ ] String resources externalisées (pas de hardcode)
 - [ ] Tests avec pseudo-locale pour détecter problèmes
+
+---
+
+## W. Gamification Mobile
+
+### 50. Streaks & Progress (Mobile)
+
+| Aspect | iOS | Android | Source |
+|--------|-----|---------|--------|
+| Widget streak | Home Screen widget | Home Screen widget | [Duolingo](https://blog.duolingo.com/widget-feature/) |
+| Retention boost | 7 jours = +3.6× rétention | Idem | [UX Magazine](https://uxmag.com/articles/the-psychology-of-hot-streak-game-design-how-to-keep-players-coming-back-every-day-without-shame) |
+| Notification timing | Morning optimal (8-10h) | Personnalisable via ML | Best practice |
+| Streak Freeze | In-app purchase ou earned | Idem | Duolingo, Snapchat |
+
+**Visual Patterns:**
+- Flamme animée (Duolingo)
+- Calendrier de contributions (GitHub)
+- Anneau de progression (Apple Fitness)
+- Compteur numérique + icône
+
+**Code iOS - Widget:**
+```swift
+struct StreakWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "streak", provider: StreakProvider()) { entry in
+            StreakWidgetView(streak: entry.streakCount)
+        }
+        .configurationDisplayName("Daily Streak")
+        .supportedFamilies([.systemSmall])
+    }
+}
+```
+
+**Checklist:**
+- [ ] Widget home screen pour rappel visuel
+- [ ] Streak Freeze disponible (earned ou acheté)
+- [ ] Grace period 24-48h pour incidents
+- [ ] Animation de célébration aux milestones (7, 30, 100, 365 jours)
+- [ ] Notification de rappel non-agressive
+
+---
+
+### 51. Points, Badges & Leaderboards Mobile
+
+| Élément | iOS | Android | Source |
+|---------|-----|---------|--------|
+| Badge unlock | HIG: Haptic feedback (success) | Material: confetti animation | Platform conventions |
+| Leaderboard | Game Center optionnel | Play Games optionnel | Native integration |
+| Points display | Tab bar badge ou card | Bottom nav badge ou card | App-specific |
+
+**Leaderboard Views:**
+1. **Friends** (default si social) - Plus motivant
+2. **Weekly** - Fresh starts réguliers
+3. **Global** - Pour compétiteurs hardcore
+4. **Local** - Nearby users (fitness apps)
+
+**Best Practices:**
+- Montrer position de l'utilisateur + 2 au-dessus/en-dessous
+- Reset hebdo/mensuel pour égaliser les chances
+- Éviter pour données sensibles (finance, santé privée)
+
+**Checklist:**
+- [ ] Haptic feedback sur badge unlock (iOS: `.success`)
+- [ ] Animation de célébration (scale + particles)
+- [ ] Leaderboard friends-first si données sociales
+- [ ] Position utilisateur toujours visible
+
+---
+
+### 52. Engagement Loops Mobile
+
+| Pattern | Mobile-specific | Source |
+|---------|-----------------|--------|
+| Push notifications | Trigger principal de retour | [Hooked](https://www.nirandfar.com/hooked/) |
+| App badges | Unread count sur icône | iOS/Android native |
+| Widgets | Glanceable progress | iOS 14+, Android 12+ |
+| Daily rewards | Login bonus calendrier | Gaming pattern |
+
+**Hook Model (Nir Eyal) adapté mobile:**
+1. **Trigger**: Push notification, Widget, App badge
+2. **Action**: Ouvrir app, tap simple (< 2 taps to value)
+3. **Variable Reward**: Points aléatoires, surprises, social validation
+4. **Investment**: Personnalisation, streak, données
+
+**Code Android - App Badge:**
+```kotlin
+// Update app icon badge (launcher specific)
+ShortcutBadger.applyCount(context, unreadCount)
+
+// Or via NotificationCompat
+val notification = NotificationCompat.Builder(context, channelId)
+    .setNumber(badgeCount)
+    .build()
+```
+
+**Checklist:**
+- [ ] Push notifications avec deep linking vers action
+- [ ] App badge count pour unread/pending
+- [ ] Widget pour progress at-a-glance
+- [ ] < 2 taps pour atteindre la valeur principale
+
+---
+
+## X. Settings Mobile
+
+### 53. Architecture Settings Mobile
+
+| Aspect | iOS | Android | Source |
+|--------|-----|---------|--------|
+| Pattern | List avec disclosure indicators | Preference fragments | [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/settings) / [Android](https://developer.android.com/design/ui/mobile/guides/patterns/settings) |
+| Grouping | Sections avec headers | Categories avec dividers | Platform standard |
+| Search | iOS 15+ search bar intégré | Toolbar search | Available natively |
+| Hierarchy | Max 2-3 niveaux | Max 2-3 niveaux | [Toptal](https://www.toptal.com/designers/ux/settings-ux) |
+
+**iOS Pattern:**
+```swift
+struct SettingsView: View {
+    var body: some View {
+        List {
+            Section("Account") {
+                NavigationLink("Profile", destination: ProfileView())
+                NavigationLink("Privacy", destination: PrivacyView())
+            }
+            Section("Notifications") {
+                Toggle("Push Notifications", isOn: $pushEnabled)
+                Toggle("Email Digest", isOn: $emailEnabled)
+            }
+        }
+        .searchable(text: $searchText) // iOS 15+
+    }
+}
+```
+
+**Android Pattern:**
+```kotlin
+// PreferenceScreen in XML
+<PreferenceScreen>
+    <PreferenceCategory app:title="Account">
+        <Preference app:key="profile" app:title="Profile"/>
+        <SwitchPreferenceCompat app:key="notifications" app:title="Push Notifications"/>
+    </PreferenceCategory>
+</PreferenceScreen>
+```
+
+**Checklist:**
+- [ ] Utiliser composants natifs (List iOS, PreferenceFragment Android)
+- [ ] Grouping logique avec headers/categories
+- [ ] Max 2-3 niveaux de profondeur
+- [ ] Search si > 15 settings
+
+---
+
+### 54. Toggle & Switch Mobile
+
+| Aspect | iOS | Android | Source |
+|--------|-----|---------|--------|
+| Visual size | 51×31pt | 52×32dp | [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/toggles) / [Material](https://m3.material.io/components/switch) |
+| Touch target | 44×44pt minimum | 48×48dp minimum | WCAG |
+| Effet | Immédiat (pas de Save) | Immédiat | [NN/g](https://www.nngroup.com/articles/toggle-switch-guidelines/) |
+| Label position | Gauche du toggle | Gauche du switch | Convention |
+
+**Règle d'or:** Toggle/Switch = effet immédiat, pas de bouton "Save"
+
+**Code iOS:**
+```swift
+Toggle("Enable Dark Mode", isOn: $isDarkMode)
+    .toggleStyle(SwitchToggleStyle())
+    .onChange(of: isDarkMode) { newValue in
+        // Effet immédiat
+        applyTheme(isDark: newValue)
+    }
+```
+
+**Code Android:**
+```kotlin
+SwitchPreferenceCompat(context).apply {
+    key = "dark_mode"
+    title = "Enable Dark Mode"
+    setOnPreferenceChangeListener { _, newValue ->
+        applyTheme(isDark = newValue as Boolean)
+        true
+    }
+}
+```
+
+**Checklist:**
+- [ ] Touch target ≥ 44pt (iOS) / 48dp (Android)
+- [ ] Label clair à gauche
+- [ ] Effet immédiat (pas de bouton Save)
+- [ ] État visuellement évident (ON vert, OFF gris)
+
+---
+
+### 55. Destructive Settings Mobile
+
+| Pattern | iOS | Android | Source |
+|---------|-----|---------|--------|
+| Confirmation | Alert avec bouton destructif rouge | AlertDialog avec bouton accent | Platform standard |
+| Position | Bas de la liste settings | Bas de la liste | Convention |
+| Text | Rouge pour actions destructives | Couleur error (rouge) | Platform convention |
+
+**Account Deletion (GDPR/App Store):**
+- DOIT être accessible (pas caché)
+- PEUT avoir friction raisonnable (confirmation, typing)
+- DOIT offrir export de données avant
+- Apple App Store: REQUIS depuis 2022
+
+**Code iOS:**
+```swift
+Button("Delete Account", role: .destructive) {
+    showDeleteConfirmation = true
+}
+.alert("Delete Account?", isPresented: $showDeleteConfirmation) {
+    Button("Cancel", role: .cancel) { }
+    Button("Delete", role: .destructive) {
+        deleteAccount()
+    }
+} message: {
+    Text("This action cannot be undone. All your data will be permanently deleted.")
+}
+```
+
+**Checklist:**
+- [ ] Couleur destructive (rouge)
+- [ ] Confirmation avec explication claire
+- [ ] Export de données proposé avant deletion
+- [ ] Accessible (pas de dark patterns)
+
+---
+
+## Y. Search Mobile
+
+### 56. Search Input Mobile
+
+| Aspect | iOS | Android | Source |
+|--------|-----|---------|--------|
+| Height | 36pt (in nav bar) | 56dp (toolbar) | [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/search-fields) / [Material](https://m3.material.io/components/search) |
+| Position | Navigation bar ou pull-down | Toolbar ou expandable | Platform standard |
+| Cancel button | "Cancel" text à droite | X icon | Convention |
+| Keyboard | Auto-show on focus | Auto-show on focus | UX standard |
+
+**iOS Patterns:**
+1. **Navigation bar search** - Persistent, always visible
+2. **Pull-down search** - Scroll down pour révéler
+3. **Search tab** - Tab dédié à la recherche
+
+**Code iOS:**
+```swift
+NavigationStack {
+    List(filteredItems) { item in
+        ItemRow(item: item)
+    }
+    .searchable(text: $searchText, prompt: "Search items...")
+    .searchSuggestions {
+        ForEach(suggestions, id: \.self) { suggestion in
+            Text(suggestion).searchCompletion(suggestion)
+        }
+    }
+}
+```
+
+**Code Android:**
+```kotlin
+SearchBar(
+    query = searchQuery,
+    onQueryChange = { searchQuery = it },
+    onSearch = { performSearch(searchQuery) },
+    active = isSearchActive,
+    onActiveChange = { isSearchActive = it },
+    placeholder = { Text("Search...") }
+) {
+    // Search suggestions
+    suggestions.forEach { suggestion ->
+        ListItem(
+            headlineContent = { Text(suggestion) },
+            modifier = Modifier.clickable { searchQuery = suggestion }
+        )
+    }
+}
+```
+
+**Checklist:**
+- [ ] Keyboard apparaît automatiquement au focus
+- [ ] Clear button (X) quand texte présent
+- [ ] Cancel/dismiss accessible
+- [ ] Voice search si pertinent (microphone icon)
+
+---
+
+### 57. Autocomplete Mobile
+
+| Aspect | iOS | Android | Source |
+|--------|-----|---------|--------|
+| Max suggestions | 6-8 items (écran limité) | 6-8 items | [Baymard](https://baymard.com/blog/autocomplete-design) |
+| Recent searches | En premier, avec X pour supprimer | Idem | Standard |
+| Keyboard nav | Non applicable (touch) | Non applicable | Mobile-specific |
+| Debounce | 200-300ms | 200-300ms | Performance |
+
+**Suggestion Types:**
+1. **Recent searches** - Historique utilisateur
+2. **Popular/Trending** - Recherches populaires
+3. **Personalized** - Basées sur comportement
+4. **Content preview** - Résultats inline (images, prix)
+
+**Checklist:**
+- [ ] Max 6-8 suggestions visibles
+- [ ] Recent searches avec option de suppression
+- [ ] Highlight du texte matché (bold)
+- [ ] Tap = recherche, pas navigation directe
+- [ ] Clear all history option
+
+---
+
+### 58. No Results Mobile
+
+| Pattern | Description | Source |
+|---------|-------------|--------|
+| Message friendly | "No results for 'xyz'" | Standard |
+| Illustration | Image/icon sympathique | Design polish |
+| Suggestions | "Try different keywords" | UX best practice |
+| Popular items | Montrer alternatives | E-commerce pattern |
+
+**Éléments d'un bon empty search state:**
+1. Message clair (pas de blâme utilisateur)
+2. Illustration optionnelle
+3. Suggestions concrètes
+4. Alternatives (popular, related)
+5. CTA pour clear/retry
+
+**Checklist:**
+- [ ] Message friendly sans blâmer
+- [ ] Suggestions alternatives
+- [ ] Easy clear pour réessayer
+- [ ] Ne pas montrer une page vide
+
+---
+
+## Z. Animations Mobile
+
+### 59. Timing iOS vs Android
+
+| Type | iOS | Android | Source |
+|------|-----|---------|--------|
+| Micro | 200-250ms | 150-200ms | [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/motion) / [Material Motion](https://m3.material.io/styles/motion) |
+| Standard | 300-350ms | 250-350ms | Platform guidelines |
+| Complex | 400-500ms | 300-400ms | Page transitions |
+| Spring default | duration: 0.5, bounce: 0.15-0.30 | N/A (use Interpolator) | Apple WWDC |
+
+**iOS Spring Values:**
+- Subtle: bounce 0.15
+- Noticeable: bounce 0.30
+- Playful: bounce 0.40+ (avec prudence)
+
+**Android Easing:**
+- `FastOutSlowInInterpolator` - Standard
+- `LinearOutSlowInInterpolator` - Entering
+- `FastOutLinearInInterpolator` - Exiting
+
+---
+
+### 60. Micro-interactions Mobile
+
+| Interaction | iOS | Android | Source |
+|-------------|-----|---------|--------|
+| Button press | scale(0.96) + haptic | Ripple effect | Platform convention |
+| Pull-to-refresh | Native UIRefreshControl | SwipeRefreshLayout | System component |
+| Swipe action | Reveal avec spring | Reveal avec material motion | [Mobbin](https://mobbin.com/) |
+| Like/heart | Scale pop + haptic | Scale + ripple | Social apps |
+
+**Haptic Feedback Types (iOS):**
+```swift
+// Success (badge unlock, completion)
+UIImpactFeedbackGenerator(style: .success).impactOccurred()
+
+// Light (subtle tap)
+UIImpactFeedbackGenerator(style: .light).impactOccurred()
+
+// Medium (toggle, selection)
+UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+
+// Heavy (important action)
+UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+```
+
+**Checklist:**
+- [ ] Haptic feedback sémantique (pas décoratif)
+- [ ] Button press feedback < 100ms
+- [ ] Animations interruptibles (pas bloquantes)
+- [ ] Reduced motion respecté (`UIAccessibility.isReduceMotionEnabled`)
+
+---
+
+### 61. Reduced Motion Mobile
+
+| Platform | Detection | Alternative |
+|----------|-----------|-------------|
+| iOS | `UIAccessibility.isReduceMotionEnabled` | Crossfade au lieu de slide |
+| Android | `Settings.Global.ANIMATOR_DURATION_SCALE` | Réduire durée à 0 |
+
+**Code iOS:**
+```swift
+if UIAccessibility.isReduceMotionEnabled {
+    // Crossfade instead of slide
+    withAnimation(.easeInOut(duration: 0.2)) {
+        showContent = true
+    }
+} else {
+    // Normal spring animation
+    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+        showContent = true
+    }
+}
+```
+
+**Code Android:**
+```kotlin
+val animatorScale = Settings.Global.getFloat(
+    contentResolver,
+    Settings.Global.ANIMATOR_DURATION_SCALE,
+    1.0f
+)
+if (animatorScale == 0f) {
+    // Skip animations
+    view.alpha = 1f
+} else {
+    view.animate().alpha(1f).setDuration((300 * animatorScale).toLong())
+}
+```
+
+**Checklist:**
+- [ ] Vérifier `isReduceMotionEnabled` (iOS) / `ANIMATOR_DURATION_SCALE` (Android)
+- [ ] Crossfade au lieu de motion complexe
+- [ ] Animations essentielles: simplifier, pas supprimer
+- [ ] Tester avec settings système activés
