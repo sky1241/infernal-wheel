@@ -58,28 +58,33 @@ function New-PageHtml([string]$ym) {
     # === LABELS + COMBINED BAR ===
     $maxRef = 720  # 12h = 100%
 
-    # Labels row: 💻 Xh (left) ... 😴 Xh (right)
+    # Labels row: 💻 Xh Ym (left) ... 😴 Xh Ym (right)
     $labelsHtml = ""
     $wDisp = ""; $sDisp = ""
     if ($workMin -gt 0) {
       $wH = [Math]::Floor($workMin / 60)
-      $wDisp = if ($wH -gt 0) { "${wH}h" } else { "${workMin}m" }
+      $wM = $workMin % 60
+      $wDisp = if ($wH -gt 0) { "${wH}h$(if($wM -gt 0){"$wM"})" } else { "${workMin}m" }
     }
     if ($sleepMin -gt 0) {
       $sH = [Math]::Floor($sleepMin / 60)
-      $sDisp = if ($sH -gt 0) { "${sH}h" } else { "${sleepMin}m" }
+      $sM = $sleepMin % 60
+      $sDisp = if ($sH -gt 0) { "${sH}h$(if($sM -gt 0){"$sM"})" } else { "${sleepMin}m" }
     }
     if ($workMin -gt 0 -or $sleepMin -gt 0) {
       $leftLabel = if ($workMin -gt 0) { "<span class='dlbl dlbl--work'>&#128187;$wDisp</span>" } else { "" }
-      $rightLabel = if ($sleepMin -gt 0) { "<span class='dlbl dlbl--sleep'>&#128564;$sDisp</span>" } else { "" }
+      $rightLabel = if ($sleepMin -gt 0) { "<span class='dlbl dlbl--sleep'>&#127769;$sDisp</span>" } else { "" }
       $labelsHtml = "<div class='dlabels'>$leftLabel$rightLabel</div>"
     }
 
     # Combined bar
     $barHtml = ""
     if ($workMin -gt 0 -or $sleepMin -gt 0) {
-      $wPct = if ($workMin -gt 0) { [Math]::Min(100, [Math]::Round(($workMin / $maxRef) * 100)) } else { 0 }
-      $sPct = if ($sleepMin -gt 0) { [Math]::Min(100 - $wPct, [Math]::Round(($sleepMin / $maxRef) * 100)) } else { 0 }
+      $wRaw = if ($workMin -gt 0) { [Math]::Round(($workMin / $maxRef) * 100) } else { 0 }
+      $sRaw = if ($sleepMin -gt 0) { [Math]::Round(($sleepMin / $maxRef) * 100) } else { 0 }
+      $total = $wRaw + $sRaw
+      if ($total -gt 100) { $wPct = [Math]::Round($wRaw * 100 / $total); $sPct = 100 - $wPct }
+      else { $wPct = $wRaw; $sPct = $sRaw }
       $barHtml = "<div class='dbar'>"
       if ($wPct -gt 0) { $barHtml += "<div class='dbar-seg dbar--work' style='width:${wPct}%'></div>" }
       if ($sPct -gt 0) { $barHtml += "<div class='dbar-seg dbar--sleep' style='width:${sPct}%'></div>" }
