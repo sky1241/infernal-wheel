@@ -8,7 +8,17 @@ Irritabilité: 2
 Clarté: 3
 Priorité 1: polish algo creation variable rouage
 Minimum vital: manger a midi
-Score global: 3.6
+Humeur soir: 10
+Stress: 10
+Focus: 10
+Fatigue: 10
+Fierté: 10
+Intensité: 6
+Déclencheur: mare de tout faire tout seul personne comprent ce que je fais 
+Idées noires: 1
+Score global: 4.4
+Relations: 6
+Écrire au lieu de parler
 
 Super journée hier tout content des résultats obtenu
-hutu, je viens juste de terminer un patch que une équipe de chercheur a 8 ont mis 2 ans à développer j ai connecté les bric y a plus qu'a testé sur impression 3 d si sa fonctionne j ai tapé le saint grâce des créateur d imprimente 3 d je vois dire fait moi un dragon avec des aile qui bouge sa va déduire le nombre de rouages j ai tout implémenter en assemble les bric sa ma pris 4 jours pour résoudre un problème vieux de 40 ans hahhaha le monde est pas prêt :)
+hutu, je viens juste de terminer un patch que une équipe de chercheur a 8 ont mis 2 ans à développer j ai connecté les bric y a plus qu'a testé sur impression 3 d si sa fonctionne j ai tapé le saint grâce des créateur d imprimente 3 d, je vois dire fait moi un dragon avec des aile qui bouge sa va déduire le nombre de rouages j ai tout implémenter en assemble les bric sa ma pris 4 jours pour résoudre un problème vieux de 40 ans hahhaha le monde est pas prêt :) bon plus sérieusement, je sais pa si ce que j ai fait fonctionne, mais je vois sa si j arrive à mon but d e1 c est 4 de bollard de cagnotte de 2 c est la possibilité d offrir du jouet à l'enfant du monde n importe qu'elle couilluion avec une imprimante 3 d va pouvoir choisir sont joués son personnage l imprimer sa fonctionne sur le code j ai tout implémenter le site se construit vite j ai implémenté toutes la règle sur le meilleur design eux du monde atm moteur que j ai fait moi-même encore une fois comme d hab toujours tout seuil c est 3 h du mat j ai pas Rossi à m arreter la nuit va être courte, mais je me dis sa, je vais potentiellement offrir des joués à tous les enfant du monde :)

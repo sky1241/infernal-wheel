@@ -1,0 +1,11 @@
+﻿Qualité sommeil: 3
+Énergie: 4
+Motivation: 2
+Douleur: 5
+Humeur: 3
+Anxiété: 2
+Irritabilité: 5
+Clarté: 1
+Priorité 1: avancer sur les projet 
+Minimum vital: prendre le temps de manger a midi
+Score global: 3.9

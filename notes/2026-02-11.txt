@@ -1,0 +1,49 @@
+﻿Qualité sommeil: 7
+Énergie: 3
+Motivation: 6
+Douleur: 1
+Humeur: 6
+Anxiété: 2
+Irritabilité: 1
+Clarté: 7
+Priorité 1: dormir un peu se repose
+Minimum vital: manger
+Humeur soir: 5
+Stress: 9
+Focus: 7
+Fatigue: 9
+Fierté: 3
+Intensité: 1
+Idées noires: 6
+Score global: 5.5
+Relations: 4
+
+j ai réussi à errer un générateur de jouet infini Ce que ça fait
+
+Tu décris ce que tu veux — "un oiseau qui bat des ailes" — et le système génère :
+
+Les profils de cames optimisés (angles de pression, sous-coupes, lois de mouvement)
+Le châssis adaptatif (4 types, dimensionné automatiquement)
+La figurine (5 morphologies, articulée)
+Les fichiers STL imprimables (orientations optimisées par pièce)
+Les réglages d'impression 3 tiers (budget / mis-range / premium)
+La documentation complète (NOM, assemblage, tolérances, timing diagramme)
+La validation automatique (FDM, stabilité, couple moteur, norme EN 71)
+
+Ou tu dessines une trajectoire à la main, et le solveur inverse trouve les cames qui la reproduisent. Algorithme d'optimisation globale (différentiel évolution) + raffinement local (L-BUGS-B), inspiré des travaux de Corps et al. 2013, Disney Research / SIGGRAPH.
+Les 10 métiers dans 1 projet
+# 	Domaine 	Ce qu'on a fait 	Niveau
+1 	Mécanique des cames 	Profils paramétriques, 4 lois de mouvement, angles de pression, sous-coupes 	Ingénieur méca
+2 	Cinématique 	Chaînes articulées, optimisation de phases multicames, couples 	Master méca
+3 	Fabrication additive 	Contraintes FDM, orientations d'impression, tolérances par tiers d'imprimante 	Technicien 3D
+4 	Optimisation numérique 	Différentiel évolution, L-BUGS-B, fonctions objectif avec pénalités 	Doctorat maths appliquées
+5 	Géométrie 3D 	Maillages STL, opérations booléennes, assemblages, centre de gravité 	Ingénieur 3D
+6 	Normes & sécurité 	EN 71 (jouets), validation automatique, rapports de conformité 	Ingénieur qualité
+7 	Physique 	Lévitation magnétique, effets piézoélectriques, calculs exotiques 	Chercheur
+8 	NP / Parking 	Texte FR/EN → scène paramétrique, machine sémantique 	Dev NLP
+9 	UX / Design 	Design tokens, arbres de décision, WCAG, responsive, dark mode 	UX Designer
+10 	Web fullstack 	Flash API, site scandale, export ZIP, premier 3D animée 	Dev web.
+
+Habituellement : une équipe de 8-10 personnes. Plusieurs mois. Budget conséquent.
+
+Ici : 1 personne. 4 jours. Budget : 0€.
