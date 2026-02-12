@@ -417,7 +417,7 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
 }
 .alcHeader__left .alcTitleIcon{font-size:1.4rem}
 .alcHeader__badge{
-  font-size:.65rem;
+  font-size:.75rem;
   color:#10b981;
   background:rgba(16,185,129,.12);
   border:1px solid rgba(16,185,129,.3);
@@ -459,7 +459,7 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
 .alcUnitChip__icon{font-size:1.2rem; filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
 .alcUnitChip__svg{width:22px; height:22px; flex-shrink:0; filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
 .alcUnitChip__content{display:flex; flex-direction:column; gap:1px}
-.alcUnitChip__label{font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted)}
+.alcUnitChip__label{font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted)}
 .alcUnitChip__value{font-size:.75rem; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums}
 /* Chip color accents */
 .alcUnitChip--beer{border-color:rgba(255,235,59,.35); background:linear-gradient(135deg, rgba(255,235,59,.1), rgba(16,22,29,.7))}
@@ -477,8 +477,8 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
 }
 .alcUnitChip--header .alcUnitChip__icon{font-size:1.1rem}
 .alcUnitChip--header .alcUnitChip__svg{width:20px; height:20px}
-.alcUnitChip--header .alcUnitChip__label{font-size:.6rem; text-align:center}
-.alcUnitChip--header .alcUnitChip__value{font-size:.65rem; text-align:center; white-space:nowrap}
+.alcUnitChip--header .alcUnitChip__label{font-size:.75rem; text-align:center}
+.alcUnitChip--header .alcUnitChip__value{font-size:.75rem; text-align:center; white-space:nowrap}
 .alcUnitChip--header .alcUnitChip__content{align-items:center}
 .alcUnitChip--header:hover{transform:none}
 /* Date chip */
@@ -532,10 +532,11 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
   background:radial-gradient(closest-side, rgba(91,178,255,.08), transparent 70%);
   opacity:.45; pointer-events:none;
 }
+/* [N2] Subtle hover for data cards - less motion */
 .card:hover{
   border-color:rgba(91,178,255,.5);
-  transform:translateY(-4px);
-  box-shadow:0 20px 50px rgba(0,0,0,.5), 0 0 30px rgba(91,178,255,.15), 0 0 0 1px rgba(91,178,255,.15) inset;
+  transform:translateY(-2px);
+  box-shadow:0 12px 36px rgba(0,0,0,.45), 0 0 20px rgba(91,178,255,.1), 0 0 0 1px rgba(91,178,255,.12) inset;
 }
 /* [WEB] gaps multiples of 4: 8px, 16px */
 .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(168px,1fr)); gap:16px}
@@ -811,35 +812,22 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
   border-radius:999px; overflow:hidden;
   box-shadow:inset 0 2px 8px rgba(0,0,0,.4);
 }
+/* [N1] Simplified: 1 animation instead of 3 for GPU performance */
 .progress > div{
   height:100%; width:0%;
   background-image:
     linear-gradient(180deg, rgba(255,255,255,.38), rgba(255,255,255,0) 55%, rgba(255,255,255,.28)),
     linear-gradient(90deg, rgba(107,255,133,.98), rgba(91,178,255,.95), rgba(255,79,216,.95), rgba(246,183,60,.95));
   position:relative; overflow:hidden;
-  box-shadow:0 0 12px rgba(255,255,255,.55), 0 0 26px rgba(255,255,255,.32), inset 0 0 10px rgba(255,255,255,.22);
-  animation:pulseHalo 3.6s ease-in-out infinite;
+  box-shadow:0 0 12px rgba(255,255,255,.45), 0 0 20px rgba(255,255,255,.25), inset 0 0 8px rgba(255,255,255,.2);
 }
 .progress > div::before{
   content:""; position:absolute; inset:0;
-  background:linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.65) 45%, rgba(255,255,255,0) 80%);
-  opacity:.9; mix-blend-mode:screen; transform:translateX(-70%);
-  animation:shine 2.4s ease-in-out infinite; pointer-events:none;
+  background:linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.55) 45%, rgba(255,255,255,0) 80%);
+  opacity:.8; mix-blend-mode:screen; transform:translateX(-70%);
+  animation:shine 2.8s ease-in-out infinite; pointer-events:none;
 }
-.progress > div::after{
-  content:""; position:absolute; inset:-60% -20%;
-  background:
-    radial-gradient(circle at 20% 50%, rgba(255,255,255,.35), transparent 60%),
-    radial-gradient(circle at 60% 50%, rgba(255,255,255,.22), transparent 65%),
-    linear-gradient(120deg, rgba(255,255,255,.25) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,.25) 70%, rgba(255,255,255,0) 100%);
-  opacity:.7; transform:translateX(-30%);
-  animation:waterFlow 4.2s ease-in-out infinite;
-}
-@keyframes waterFlow{
-  0%{transform:translateX(-30%)}
-  50%{transform:translateX(10%)}
-  100%{transform:translateX(30%)}
-}
+.progress > div::after{display:none}
 @keyframes shine{
   0%{transform:translateX(-70%)}
   50%{transform:translateX(70%)}
@@ -887,7 +875,7 @@ th{
   text-align:center;
   color:var(--blue);
   font-weight:700;
-  font-size:.7rem;
+  font-size:.75rem;
   text-transform:uppercase;
   letter-spacing:.5px;
 }
@@ -905,9 +893,10 @@ td.day{
   backdrop-filter:blur(12px);
   border:1px solid rgba(255,255,255,.08);
   border-radius:16px;
-  padding:14px;
+  padding:10px;
   vertical-align:top;
-  height:150px;
+  min-height:140px;
+  height:auto;
   position:relative;
   transition:all .25s cubic-bezier(.4,0,.2,1);
   box-shadow:0 4px 24px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.06);
@@ -929,18 +918,18 @@ td.day.today{
   box-shadow:0 0 40px rgba(53,217,154,.2), 0 8px 32px rgba(0,0,0,.35), inset 0 0 80px rgba(53,217,154,.03);
 }
 td.day.today::before{
-  content:"Aujourd'hui";
+  content:"Auj.";
   position:absolute;
-  top:10px;
-  right:10px;
-  font-size:.55rem;
+  top:6px;
+  right:6px;
+  font-size:.625rem;
   font-weight:700;
   text-transform:uppercase;
-  letter-spacing:.5px;
+  letter-spacing:.3px;
   color:var(--accent);
   background:rgba(53,217,154,.15);
-  padding:3px 10px;
-  border-radius:20px;
+  padding:1px 6px;
+  border-radius:8px;
   border:1px solid rgba(53,217,154,.25);
 }
 
@@ -949,7 +938,8 @@ td.day.empty{
   background:rgba(14,19,25,.2);
   border:1px solid transparent;
   box-shadow:none;
-  height:150px;
+  min-height:140px;
+  height:auto;
 }
 td.day.empty:hover{transform:none;box-shadow:none}
 
@@ -957,11 +947,11 @@ td.day.empty:hover{transform:none;box-shadow:none}
 .dhead{
   display:flex;
   align-items:center;
-  gap:10px;
-  margin-bottom:12px;
+  gap:6px;
+  margin-bottom:6px;
 }
 .dnum{
-  font-size:1.9rem;
+  font-size:1.5rem;
   font-weight:900;
   color:rgba(255,255,255,.95);
   line-height:1;
@@ -969,43 +959,44 @@ td.day.empty:hover{transform:none;box-shadow:none}
 }
 td.day.today .dnum{
   color:var(--accent);
-  text-shadow:0 0 24px rgba(53,217,154,.5);
+  text-shadow:0 0 18px rgba(53,217,154,.4);
 }
 
-/* Badge travail - effet néon rose */
+/* Badge travail - compact néon rose */
 .dwork{
   display:inline-flex;
   align-items:center;
-  gap:5px;
-  font-size:.72rem;
+  gap:3px;
+  font-size:.75rem;
   font-weight:700;
   color:#ff6ec7;
   background:linear-gradient(135deg, rgba(255,110,199,.18), rgba(255,110,199,.08));
-  padding:5px 12px;
-  border-radius:20px;
+  padding:2px 8px;
+  border-radius:10px;
   border:1px solid rgba(255,110,199,.35);
-  box-shadow:0 0 16px rgba(255,110,199,.15), inset 0 1px 0 rgba(255,255,255,.1);
+  box-shadow:0 0 10px rgba(255,110,199,.12);
+  line-height:1.3;
 }
 
-/* ═══ STATS - Badges colorés avec emojis ═══ */
+/* ═══ STATS - Badges compacts colorés ═══ */
 .dstats{
   display:flex;
   flex-wrap:wrap;
-  gap:6px;
-  margin-bottom:10px;
+  gap:3px;
+  margin-bottom:4px;
 }
 .dstat{
   display:inline-flex;
   align-items:center;
-  gap:4px;
-  font-size:.7rem;
+  gap:2px;
+  font-size:.75rem;
   font-weight:600;
-  padding:5px 10px;
-  border-radius:14px;
+  padding:1px 6px;
+  border-radius:8px;
   transition:all .2s ease;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.08);
+  line-height:1.4;
 }
-.dstat:hover{transform:scale(1.1);box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.dstat:hover{transform:scale(1.05);box-shadow:0 2px 8px rgba(0,0,0,.2)}
 
 /* Sleep - bleu nuit étoilé */
 .dstat--sleep{
@@ -1034,16 +1025,17 @@ td.day.today .dnum{
 .dacts-toggle{
   display:inline-flex;
   align-items:center;
-  gap:5px;
-  font-size:.68rem;
+  gap:3px;
+  font-size:.75rem;
   font-weight:600;
   color:rgba(255,255,255,.55);
-  padding:5px 10px;
-  border-radius:12px;
+  padding:2px 6px;
+  border-radius:8px;
   background:rgba(255,255,255,.04);
   border:1px solid rgba(255,255,255,.08);
   cursor:pointer;
   transition:all .2s ease;
+  line-height:1.4;
 }
 .dacts-toggle:hover{
   color:rgba(255,255,255,.95);
@@ -1076,7 +1068,10 @@ td.day.today .dnum{
   z-index:9999;
   pointer-events:none;
 }
-.dacts:hover .dacts-details{
+/* Desktop: hover */
+.dacts:hover .dacts-details,
+/* Mobile: tap-toggle via JS */
+.dacts-details.open{
   opacity:1;
   visibility:visible;
   transform:translateX(-50%) translateY(0);
@@ -1110,15 +1105,20 @@ td.day.today .dnum{
 .dmeta{display:none}
 
 /* ═══ NOTES - Icône stylée ═══ */
+/* [WEB §E Rule 21] Touch target via padding, visual stays compact */
 .dnote{
   position:absolute;
-  bottom:12px;
-  right:12px;
-  font-size:.9rem;
-  color:rgba(255,255,255,.3);
+  bottom:0;
+  right:0;
+  font-size:.8rem;
+  color:rgba(255,255,255,.25);
   text-decoration:none;
-  transition:all .25s ease;
+  transition:all .2s ease;
   filter:grayscale(40%);
+  padding:10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 .dnote:hover{
   color:var(--accent);
@@ -1147,14 +1147,19 @@ td.day.today .dnum{
     border-radius:14px;
   }
   td.day.empty{display:none}
-  td.day.today::before{font-size:.5rem;padding:2px 8px;top:8px;right:8px}
-  .dnum{font-size:1.5rem}
-  .dhead{margin-bottom:10px;gap:8px}
-  .dwork{font-size:.62rem;padding:4px 8px}
-  .dstats{gap:5px}
-  .dstat{font-size:.62rem;padding:4px 8px}
-  .dacts-toggle{font-size:.6rem;padding:4px 8px}
-  .dnote{font-size:.8rem;bottom:10px;right:10px}
+  td.day{padding:8px; min-height:auto}
+  td.day.today::before{font-size:.625rem;padding:1px 5px;top:5px;right:5px}
+  .dnum{font-size:1.25rem}
+  .dhead{margin-bottom:4px;gap:4px}
+  .dwork{font-size:.75rem;padding:1px 6px}
+  .dstats{gap:2px}
+  .dstat{font-size:.75rem;padding:1px 5px}
+  .dacts-toggle{font-size:.75rem;padding:1px 5px}
+  .dnote{font-size:.75rem;padding:8px}
+  /* [I1/I5] Mobile: disable hover, use tap-toggle only */
+  .dacts:hover .dacts-details{
+    opacity:0; visibility:hidden;
+  }
   .dacts-details{
     position:fixed;
     bottom:auto;
@@ -1165,10 +1170,19 @@ td.day.today .dnum{
     width:calc(100vw - 40px);
     max-width:300px;
   }
-  .dacts:hover .dacts-details{
+  .dacts-details.open{
+    opacity:1; visibility:visible;
     transform:translate(-50%,-50%) scale(1);
   }
   .dacts-details::after{display:none}
+  /* Backdrop for mobile tooltip dismiss */
+  .dacts-backdrop{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.5);
+    z-index:9998;
+    display:none;
+  }
+  .dacts-backdrop.show{display:block}
 }
 
 /* Reduce motion */
@@ -1903,15 +1917,16 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
   .help::before{left:auto;right:12px;transform:none}
 }
 .skeleton{position:relative; overflow:hidden; background:rgba(255,255,255,.05)}
+/* [WEB §R Rule 91] Skeleton shimmer 1.5-2s cycle */
 .skeleton::after{
   content:""; position:absolute; inset:0;
   background:linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent);
-  transform:translateX(-100%); animation:skeletonMove 1.2s ease-in-out infinite;
+  transform:translateX(-100%); animation:skeletonMove 1.8s ease-in-out infinite;
 }
 @keyframes skeletonMove{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
 /* [UX_PRO] Skeleton lines pour loading states */
 .skeleton-line{display:inline-block;background:rgba(255,255,255,.06);position:relative;overflow:hidden;border-radius:4px}
-.skeleton-line::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);transform:translateX(-100%);animation:skeletonMove 1.2s ease-in-out infinite}
+.skeleton-line::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);transform:translateX(-100%);animation:skeletonMove 1.8s ease-in-out infinite}
 .disclose{display:none}
 .disclose.show{display:block}
 /* [skip_link_wcag_2_4_1] skip link */
@@ -2051,8 +2066,8 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
   .status.ko{forced-color-adjust:none;background:red}
 }
 
-/* [UI_RULEBOOK_WEB] Touch target minimum 24x24px */
-.help{min-width:24px;min-height:24px;width:24px;height:24px}
+/* [WEB §E Rule 21] Touch target 44px recommended - invisible padding extends hit area */
+.help{min-width:24px;min-height:24px;width:24px;height:24px;padding:10px;box-sizing:content-box}
 .legendDot{min-width:12px;min-height:12px}
 a.pill,button.btn{min-width:44px;min-height:44px}
 .recentItem{min-height:24px}
@@ -2364,8 +2379,9 @@ body{
       <h2><span class="section-header-icon" aria-hidden="true">&#128202;</span>Rapport mensuel<span class="help" data-tip="Vue d'ensemble du mois avec tendances et variations.">?</span></h2>
       <span class="section-header-badge">__YM__</span>
     </div>
-    <div class="chartWrap">
-      <canvas id="monthChart" aria-label="Graphique mensuel"></canvas>
+    <div class="chartWrap" role="img" aria-label="Graphique mensuel des tendances">
+      <canvas id="monthChart" aria-hidden="true"></canvas>
+      <div id="monthChartFallback" class="sr-only" role="table" aria-label="Donnees du graphique mensuel"></div>
     </div>
     <div class="legend" id="monthLegend" role="list" aria-label="L&eacute;gende"></div>
     <div class="kpiGrid" id="monthKpis" role="list" aria-label="Indicateurs"></div>
@@ -2455,6 +2471,35 @@ function initRippleEffects(){
     btn.addEventListener("click", createRipple);
   });
 }
+/* [I1/I5] Tap-to-toggle activity tooltips on mobile + backdrop dismiss */
+function initActivityTooltips(){
+  /* Create backdrop element */
+  let backdrop = document.querySelector(".dacts-backdrop");
+  if (!backdrop) {
+    backdrop = document.createElement("div");
+    backdrop.className = "dacts-backdrop";
+    document.body.appendChild(backdrop);
+  }
+  function closeAll(){
+    document.querySelectorAll(".dacts-details.open").forEach(d => d.classList.remove("open"));
+    backdrop.classList.remove("show");
+  }
+  backdrop.addEventListener("click", closeAll);
+  backdrop.addEventListener("touchstart", closeAll, {passive:true});
+  document.querySelectorAll(".dacts-toggle").forEach(toggle => {
+    toggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const details = toggle.closest(".dacts").querySelector(".dacts-details");
+      if (!details) return;
+      const wasOpen = details.classList.contains("open");
+      closeAll();
+      if (!wasOpen) {
+        details.classList.add("open");
+        backdrop.classList.add("show");
+      }
+    });
+  });
+}
 /* [UX_PDF] Success pulse sur bouton */
 function pulseSuccess(btn){
   if(!btn) return;
@@ -2492,8 +2537,9 @@ function showToast(message, type="info", title="", actionLabel="", actionFn=null
     t.appendChild(btn);
   }
   host.appendChild(t);
-  setTimeout(()=>{ t.style.opacity = "0"; t.style.transform = "translateY(6px)"; }, 2600);
-  setTimeout(()=>{ if (t.parentNode) t.parentNode.removeChild(t); }, 3200);
+  /* [DESIGN_TREE Phase 4] Toast auto 4s */
+  setTimeout(()=>{ t.style.opacity = "0"; t.style.transform = "translateY(6px)"; }, 3600);
+  setTimeout(()=>{ if (t.parentNode) t.parentNode.removeChild(t); }, 4200);
 }
 function notifyNetError(){
   setOffline(true);
@@ -3139,6 +3185,17 @@ function renderMonthlyChart(data){
   ctx.font = "10px 'Space Grotesk', sans-serif";
   ctx.textAlign = "right";
   ctx.fillText("jour du mois", pad.left + w, pad.top + h + 28);
+
+  /* [WEB §K Rule 64] Fallback table for screen readers */
+  const fb = document.getElementById("monthChartFallback");
+  if (fb) {
+    let html = "<table><caption>Rapport mensuel</caption><thead><tr><th>Jour</th><th>Travail</th><th>Sommeil</th><th>Clopes</th><th>Alcool</th></tr></thead><tbody>";
+    for (const d of days) {
+      html += "<tr><td>" + d.day + "</td><td>" + (d.workMin || 0) + "m</td><td>" + (d.sleepMin || 0) + "m</td><td>" + (d.clopeCount || 0) + "</td><td>" + (d.alcoholCount || 0) + "</td></tr>";
+    }
+    html += "</tbody></table>";
+    fb.innerHTML = html;
+  }
 }
 
 /* [UX_PRO] Tooltip pour le graphique mensuel */
@@ -3342,6 +3399,9 @@ function renderMonthlyNotes(data){
 
 function showMonthlyLoading(){
   // [WEB.md §1] Skeleton screens refletant la structure finale - pas de layout shift
+  /* [N4] Skeleton for chart canvas */
+  const cw = document.querySelector(".chartWrap");
+  if (cw) { cw.classList.add("skeleton"); cw.setAttribute("aria-busy", "true"); }
   const k = document.getElementById("monthKpis");
   if (k) {
     // [WEB.md §31] aria-busy pour indiquer le chargement aux screen readers
@@ -3378,6 +3438,9 @@ async function loadMonthlySummary(){
   const data = await getJSON("/api/monthly-summary?m=" + encodeURIComponent(monthKey));
   if (!data || !data.ok) { showToast("Erreur chargement rapport mensuel.", "error", "Rapport"); return; }
   MONTHLY_DATA = data;
+  /* [N4] Remove chart skeleton */
+  const cw = document.querySelector(".chartWrap");
+  if (cw) { cw.classList.remove("skeleton"); cw.removeAttribute("aria-busy"); }
   renderMonthlyLegend();
   renderMonthlyChart(data);
   initChartInteraction(); /* [UX_PRO] Init tooltip + hover */
@@ -3624,6 +3687,7 @@ loadMonthlySummary();
 initOnboarding();
 initAdjustToggle();
 initRippleEffects();
+initActivityTooltips();
 updateOfflineCount();
 syncOfflineQueue();
 if (drinkInput) { drinkInput.addEventListener("input", validateDrinkInput); }
@@ -3631,6 +3695,14 @@ if (adjustInput) { adjustInput.addEventListener("input", validateAdjustInput); }
 validateDrinkInput();
 validateAdjustInput();
 window.addEventListener("resize", ()=>{ if (MONTHLY_DATA) { renderMonthlyChart(MONTHLY_DATA); } });
+
+/* [N3] Pause infinite animations when tab is hidden (GPU optimization) */
+document.addEventListener("visibilitychange", () => {
+  document.body.style.animationPlayState = document.hidden ? "paused" : "running";
+  document.querySelectorAll(".currentBox, .currentWeek, .hb-dot, .progress > div, .progress > div::before").forEach(el => {
+    el.style.animationPlayState = document.hidden ? "paused" : "running";
+  });
+});
 
 // Quick note (persisted)
 const qn = document.getElementById("quickNote");
