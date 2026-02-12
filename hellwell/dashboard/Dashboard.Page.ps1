@@ -3957,6 +3957,66 @@ document.querySelectorAll('.help[data-tip]').forEach(el => {
 document.addEventListener('click', () => {
   document.querySelectorAll('.help.active').forEach(el => el.classList.remove('active'));
 });
+
+// ═══ AJAX Calendar Navigation ═══
+(function() {
+  function bindCalNav() {
+    document.querySelectorAll('.cal-nav-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const url = btn.getAttribute('href');
+        const hero = document.querySelector('.cal-hero');
+        const grid = document.querySelector('.calSubCard--grid');
+        if (!hero || !grid) { window.location = url; return; }
+        // Fade out
+        grid.style.opacity = '0.3';
+        grid.style.transition = 'opacity .15s ease';
+        try {
+          const resp = await fetch(url);
+          const html = await resp.text();
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const newHero = doc.querySelector('.cal-hero');
+          const newGrid = doc.querySelector('.calSubCard--grid');
+          if (newHero && newGrid) {
+            hero.innerHTML = newHero.innerHTML;
+            grid.innerHTML = newGrid.innerHTML;
+            grid.style.opacity = '1';
+            // Re-bind nav buttons + activity tooltips
+            bindCalNav();
+            bindActTooltips();
+            // Update URL without reload
+            history.pushState(null, '', url);
+          } else {
+            window.location = url;
+          }
+        } catch {
+          window.location = url;
+        }
+      });
+    });
+  }
+  function bindActTooltips() {
+    let backdrop = document.querySelector('.dacts-backdrop');
+    function closeAll() {
+      document.querySelectorAll('.dacts-details.open').forEach(d => d.classList.remove('open'));
+      if (backdrop) backdrop.classList.remove('show');
+    }
+    document.querySelectorAll('.calSubCard--grid .dacts-toggle').forEach(toggle => {
+      toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const details = toggle.closest('.dacts').querySelector('.dacts-details');
+        const isOpen = details.classList.contains('open');
+        closeAll();
+        if (!isOpen) {
+          details.classList.add('open');
+          if (backdrop) backdrop.classList.add('show');
+        }
+      });
+    });
+  }
+  bindCalNav();
+})();
 </script>
 </body>
 </html>
