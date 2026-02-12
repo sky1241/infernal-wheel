@@ -117,9 +117,10 @@ function New-PageHtml([string]$ym) {
         $actsDetails += "<div class='dact-item'><span class='dact-name'>$label</span><span class='dact-dur'>$dur</span></div>"
       }
     }
-    $bottomParts = ""
-    if ($clopeCount -gt 0) { $bottomParts += "<span class='dbot-item'>&#128684;$clopeCount</span>" }
-    if ($actsCount -gt 0) { $bottomParts += "<span class='dbot-item dacts'><span class='dacts-toggle'>${actsCount}act</span><div class='dacts-details'>$actsDetails</div></span>" }
+    $botLeft = ""
+    $botRight = ""
+    if ($clopeCount -gt 0) { $botLeft = "<span class='dbot dbot--clope'>&#128684;$clopeCount</span>" }
+    if ($actsCount -gt 0) { $botRight = "<span class='dbot dbot--acts dacts'><span class='dacts-toggle'>${actsCount}act</span><div class='dacts-details'>$actsDetails</div></span>" }
 
     # ARIA + today class
     $ariaLabel = "$day $($d.ToString('MMMM'))"
@@ -131,7 +132,7 @@ function New-PageHtml([string]$ym) {
     $cellHtml += "<div class='dhead'><span class='dnum'>$($d.Day)</span>$alcBadge</div>"
     $cellHtml += $labelsHtml
     $cellHtml += $barHtml
-    $cellHtml += "<div class='dbottom'>$bottomParts<a class='dnote' href='/notes?d=$dk' aria-label='Notes du $day' title='Notes'>&#128221;</a></div>"
+    $cellHtml += "<div class='dbottom'>$botLeft<a class='dnote' href='/notes?d=$dk' aria-label='Notes du $day' title='Notes'>&#128221;</a>$botRight</div>"
     $cellHtml += "</div>"
     $cellHtml += "</td>"
     $week += $cellHtml
@@ -890,13 +891,8 @@ table{
 th{
   background:transparent;
   border:none;
-  padding:10px 4px;
+  padding:8px 4px 12px;
   text-align:center;
-  color:var(--blue);
-  font-weight:700;
-  font-size:.75rem;
-  text-transform:uppercase;
-  letter-spacing:.5px;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -924,6 +920,7 @@ td.day:not(.empty):hover{
   transform:translateY(-2px);
   border-color:rgba(255,255,255,.15);
   box-shadow:0 8px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08);
+  z-index:10;
 }
 td.day:focus-within{
   outline:2px solid var(--accent);
@@ -970,7 +967,6 @@ td.day.empty:hover{transform:none;box-shadow:none}
   align-items:center;
   gap:8px;
   margin-bottom:8px;
-  overflow:hidden;
 }
 .dnum{
   font-size:1.3rem;
@@ -1075,12 +1071,30 @@ td.day.today .dnum{
 .dbottom{
   display:flex;
   align-items:center;
-  gap:6px;
+  justify-content:space-between;
+  gap:4px;
   margin-top:4px;
 }
-.dbot-item{
-  font-size:10px;
-  color:rgba(255,255,255,.4);
+.dbot{
+  display:inline-flex;
+  align-items:center;
+  gap:2px;
+  font-size:11px;
+  font-weight:600;
+  padding:2px 6px;
+  border-radius:8px;
+  line-height:1.2;
+  white-space:nowrap;
+}
+.dbot--clope{
+  color:#ff6b6b;
+  background:rgba(255,107,107,.08);
+  border:1px solid rgba(255,107,107,.25);
+}
+.dbot--acts{
+  color:#a29bfe;
+  background:rgba(162,155,254,.08);
+  border:1px solid rgba(162,155,254,.2);
 }
 
 /* ═══ ACTIVITÉS ═══ */
@@ -1102,12 +1116,12 @@ td.day.today .dnum{
   color:rgba(255,255,255,.8);
 }
 
-/* Tooltip activités */
+/* Tooltip activités - apparaît à droite de la cellule */
 .dacts-details{
   position:absolute;
-  bottom:calc(100% + 12px);
-  left:50%;
-  transform:translateX(-50%) translateY(8px);
+  bottom:0;
+  left:calc(100% + 8px);
+  transform:translateX(8px);
   width:max-content;
   min-width:170px;
   max-width:220px;
@@ -1132,19 +1146,18 @@ td.day.today .dnum{
 .dacts-details.open{
   opacity:1;
   visibility:visible;
-  transform:translateX(-50%) translateY(0);
+  transform:translateX(0);
   pointer-events:auto;
 }
 .dacts-details::after{
   content:"";
   position:absolute;
-  bottom:-7px;
-  left:50%;
-  margin-left:-6px;
+  left:-7px;
+  bottom:12px;
   width:12px;
   height:12px;
   background:rgba(8,12,18,.98);
-  border-right:1px solid rgba(255,255,255,.15);
+  border-left:1px solid rgba(255,255,255,.15);
   border-bottom:1px solid rgba(255,255,255,.15);
   transform:rotate(45deg);
 }
@@ -1165,13 +1178,15 @@ td.day.today .dnum{
 /* ═══ NOTES - Icône stylée ═══ */
 /* [WEB §E Rule 21] Touch target via padding, visual stays compact */
 .dnote{
-  margin-left:auto;
-  font-size:.7rem;
-  color:rgba(255,255,255,.2);
+  font-size:.85rem;
+  color:rgba(255,255,255,.55);
   text-decoration:none;
   transition:all .2s ease;
-  filter:grayscale(40%);
-  padding:4px;
+  filter:grayscale(20%);
+  padding:2px 6px;
+  border-radius:8px;
+  background:rgba(53,217,154,.08);
+  border:1px solid rgba(53,217,154,.2);
   display:flex;
   align-items:center;
   justify-content:center;
@@ -1207,14 +1222,14 @@ td.day.today .dnum{
   td.day.today::before{font-size:12px;padding:2px 6px;top:4px;right:4px}
   .dnum{font-size:1rem}
   .dhead{margin-bottom:4px;gap:4px}
-  .dm{font-size:11px;padding:2px 6px;height:20px}
+  .dm{font-size:11px;padding:2px 6px;height:22px;gap:3px}
   .dlabels{margin-bottom:3px}
   .dlbl{font-size:10px;padding:1px 4px}
   .dbar{height:3px}
-  .dbottom{gap:4px;margin-top:3px}
-  .dbot-item{font-size:9px}
+  .dbottom{gap:3px;margin-top:3px}
+  .dbot{font-size:9px;padding:1px 4px}
   .dacts-toggle{font-size:9px}
-  .dnote{font-size:.75rem;padding:8px}
+  .dnote{font-size:.7rem;padding:1px 4px}
   /* [I1/I5] Mobile: disable hover, use tap-toggle only */
   .dacts:hover .dacts-details{
     opacity:0; visibility:hidden;
@@ -1266,10 +1281,72 @@ td.day.today .dnum{
    - HSB hover/active states
    ======================================== */
 .calendarCard{ display:flex; flex-direction:column; gap:var(--sp-16) }
-.calBadge{
-  background:linear-gradient(135deg, rgba(91,178,255,.2), rgba(102,126,234,.2));
-  border-color:rgba(91,178,255,.4);
+
+/* ═══ CALENDAR HERO HEADER ═══ */
+.cal-hero{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:16px 20px;
+  background:linear-gradient(135deg, rgba(91,178,255,.06), rgba(162,155,254,.06), rgba(255,110,199,.04));
+  border:1px solid rgba(91,178,255,.12);
+  border-radius:16px;
+  position:relative;
+  overflow:hidden;
+}
+.cal-hero::before{
+  content:"";
+  position:absolute;
+  top:-50%;
+  right:-20%;
+  width:200px;
+  height:200px;
+  background:radial-gradient(circle, rgba(91,178,255,.08) 0%, transparent 70%);
+  pointer-events:none;
+}
+.cal-title{
+  margin:0;
+  font-size:1.4rem;
+  font-weight:900;
+  letter-spacing:-.5px;
+  background:linear-gradient(135deg, #5bb2ff, #a29bfe, #ff6ec7);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.cal-month{
+  font-size:.8rem;
   font-weight:700;
+  color:#5bb2ff;
+  background:rgba(91,178,255,.1);
+  border:1px solid rgba(91,178,255,.25);
+  padding:6px 14px;
+  border-radius:20px;
+  letter-spacing:.5px;
+  box-shadow:0 0 12px rgba(91,178,255,.15);
+}
+
+/* Day name pills */
+.cal-day-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  font-size:.7rem;
+  font-weight:800;
+  letter-spacing:.5px;
+  text-transform:uppercase;
+  color:rgba(255,255,255,.5);
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.06);
+  transition:all .2s ease;
+}
+.cal-day-pill--we{
+  color:rgba(255,153,85,.85);
+  background:rgba(255,153,85,.06);
+  border-color:rgba(255,153,85,.15);
 }
 
 /* Calendar sub-cards */
@@ -1302,9 +1379,7 @@ td.day.today .dnum{
   padding:var(--sp-12);
 }
 
-/* Table headers with icons */
-.calTh__icon{ font-size:.65rem; opacity:.6; margin-right:2px }
-.calTh--weekend{ color:rgba(255,153,85,.85) !important }
+/* (Old calTh styles removed - using cal-day-pill now) */
 
 /* Legend items */
 .calLegend{
@@ -2377,9 +2452,9 @@ body{
 
   <!-- [UX PRO] Calendrier - sub-cards glassmorphism, icons, spacing 4px -->
   <div class="card reveal d5 calendarCard">
-    <div class="section-header">
-      <h2><span class="section-header-icon" aria-hidden="true">&#128197;</span>Calendrier</h2>
-      <span class="section-header-badge calBadge">__YM__</span>
+    <div class="cal-hero">
+      <h2 class="cal-title">Calendrier</h2>
+      <span class="cal-month">__YM__</span>
     </div>
 
     <!-- [UX] Sub-card: Grille calendrier -->
@@ -2387,13 +2462,13 @@ body{
       <table role="grid" aria-label="Calendrier mensuel">
         <thead>
           <tr>
-            <th scope="col"><span class="calTh__icon" aria-hidden="true">&#128197;</span> Lun</th>
-            <th scope="col"><span class="calTh__icon" aria-hidden="true">&#128197;</span> Mar</th>
-            <th scope="col"><span class="calTh__icon" aria-hidden="true">&#128197;</span> Mer</th>
-            <th scope="col"><span class="calTh__icon" aria-hidden="true">&#128197;</span> Jeu</th>
-            <th scope="col"><span class="calTh__icon" aria-hidden="true">&#128197;</span> Ven</th>
-            <th scope="col" class="calTh--weekend"><span class="calTh__icon" aria-hidden="true">&#127774;</span> Sam</th>
-            <th scope="col" class="calTh--weekend"><span class="calTh__icon" aria-hidden="true">&#127774;</span> Dim</th>
+            <th scope="col"><span class="cal-day-pill">L</span></th>
+            <th scope="col"><span class="cal-day-pill">M</span></th>
+            <th scope="col"><span class="cal-day-pill">M</span></th>
+            <th scope="col"><span class="cal-day-pill">J</span></th>
+            <th scope="col"><span class="cal-day-pill">V</span></th>
+            <th scope="col"><span class="cal-day-pill cal-day-pill--we">S</span></th>
+            <th scope="col"><span class="cal-day-pill cal-day-pill--we">D</span></th>
           </tr>
         </thead>
         <tbody>
