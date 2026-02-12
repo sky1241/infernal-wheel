@@ -41,33 +41,33 @@ function New-PageHtml([string]$ym) {
     $ws = if ($daily.ContainsKey($dk)) { $daily[$dk] } else { @{work=0;sleep=0;clope=0} }
     $da = Get-DailyAlcoholTotals $dk
 
-    # === STRUCTURE WAOW AVEC EMOJIS VISIBLES ===
+    # === CLEAN CELL DESIGN ===
     $workMin = [int](ConvertTo-Minutes $ws.work)
     $sleepMin = [int](ConvertTo-Minutes $ws.sleep)
 
-    # Header: Numéro + badge travail avec emoji
-    $workBadge = ""
+    # Alcohol - 1 seul badge, tous les emojis dedans, va dans header
+    $alcBadge = ""
+    $alcParts = @()
+    if ($da.wine -gt 0) { $alcParts += "&#127863;$($da.wine)" }
+    if ($da.beer -gt 0) { $alcParts += "&#127866;$($da.beer)" }
+    if ($da.strong -gt 0) { $alcParts += "<svg class='dm-whisky' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><path d='M4 4 L4 20 Q4 22 6 22 L18 22 Q20 22 20 20 L20 4 Z' fill='rgba(255,255,255,.08)' stroke='rgba(255,255,255,.4)' stroke-width='1.2'/><path d='M5 14 L5 20 Q5 21 6 21 L18 21 Q19 21 19 20 L19 14 Z' fill='#c17f24'/><rect x='5.5' y='6' width='7' height='9' rx='1.5' fill='#a8e0f0'/><rect x='11' y='8' width='7' height='8' rx='1.5' fill='#8ed0e8'/><path d='M6 7 L11.5 7 L11 12 L6.5 12 Z' fill='rgba(255,255,255,.55)'/><path d='M11.5 9 L17 9 L16.5 14 L12 14 Z' fill='rgba(255,255,255,.45)'/></svg>$($da.strong)" }
+    if ($alcParts.Count -gt 0) {
+      $alcBadge = "<span class='dm dm--alc'>" + ($alcParts -join " ") + "</span>"
+    }
+
+    # === LINE 2: Glowing dots + ghost values (Linear style) ===
+    $infoParts = @()
     if ($workMin -gt 0) {
       $workH = [Math]::Floor($workMin / 60)
       $workM = $workMin % 60
-      $workDisplay = if ($workH -gt 0) { "${workH}h" + $(if ($workM -gt 0) { "${workM}m" } else { "" }) } else { "${workMin}m" }
-      $workBadge = "<span class='dwork'>&#128187; $workDisplay</span>"
+      $wkDisp = if ($workH -gt 0) { "${workH}h" + $(if ($workM -gt 0) { "${workM}" } else { "" }) } else { "${workMin}m" }
+      $infoParts += "<span class='di di--work'><span class='di-dot'></span>&#128187;$wkDisp</span>"
     }
-
-    # Stats avec emojis colorés
-    $statsHtml = ""
     if ($sleepMin -gt 0) {
       $sleepH = [Math]::Floor($sleepMin / 60)
       $sleepM = $sleepMin % 60
-      $sleepDisplay = if ($sleepH -gt 0) { "${sleepH}h" + $(if ($sleepM -gt 0) { "${sleepM}" } else { "" }) } else { "${sleepMin}m" }
-      $statsHtml += "<span class='dstat dstat--sleep'>&#128164; $sleepDisplay</span>"
-    }
-    if (($da.wine + $da.beer + $da.strong) -gt 0) {
-      $alcParts = @()
-      if ($da.wine -gt 0) { $alcParts += "&#127863;$($da.wine)" }
-      if ($da.beer -gt 0) { $alcParts += "&#127866;$($da.beer)" }
-      if ($da.strong -gt 0) { $alcParts += "&#127867;$($da.strong)" }
-      $statsHtml += "<span class='dstat dstat--alc'>" + ($alcParts -join " ") + "</span>"
+      $slDisp = if ($sleepH -gt 0) { "${sleepH}h" + $(if ($sleepM -gt 0) { "${sleepM}" } else { "" }) } else { "${sleepMin}m" }
+      $infoParts += "<span class='di di--sleep'><span class='di-dot'></span>&#128564;$slDisp</span>"
     }
     $clopeCount = [int]($ws.clope ?? 0)
     if ($dk -eq $todayKey) {
@@ -79,10 +79,10 @@ function New-PageHtml([string]$ym) {
       }
     }
     if ($clopeCount -gt 0) {
-      $statsHtml += "<span class='dstat dstat--smoke'>&#128684; $clopeCount</span>"
+      $infoParts += "<span class='di di--smoke'><span class='di-dot'></span>&#128684;$clopeCount</span>"
     }
 
-    # Actions: Compteur + tooltip avec détails
+    # Activities - tooltip preserved
     $actsCount = 0
     $actsDetails = ""
     foreach ($k in $actionKeys) {
@@ -99,20 +99,23 @@ function New-PageHtml([string]$ym) {
         $actsDetails += "<div class='dact-item'><span class='dact-name'>$label</span><span class='dact-dur'>$dur</span></div>"
       }
     }
-    $actsHtml = ""
     if ($actsCount -gt 0) {
-      $actsHtml = "<div class='dacts'><span class='dacts-toggle'>&#128203; $actsCount activit" + $(if ($actsCount -gt 1) { "és" } else { "é" }) + "</span><div class='dacts-details'>$actsDetails</div></div>"
+      $infoParts += "<span class='di di--acts dacts'><span class='dacts-toggle'>${actsCount}act</span><div class='dacts-details'>$actsDetails</div></span>"
+    }
+
+    $infoLine = ""
+    if ($infoParts.Count -gt 0) {
+      $infoLine = "<div class='dinfo'>" + ($infoParts -join "") + "</div>"
     }
 
     # ARIA + today class
     $ariaLabel = "$day $($d.ToString('MMMM'))"
     $todayClass = if ($dk -eq $todayCalKey) { " today" } else { "" }
 
-    # === BUILD CELL (structure waow) ===
+    # === BUILD CELL ===
     $cellHtml = "<td class='day$todayClass' data-weekday='$weekdayName' aria-label='$ariaLabel'>"
-    $cellHtml += "<div class='dhead'><span class='dnum'>$($d.Day)</span>$workBadge</div>"
-    if ($statsHtml) { $cellHtml += "<div class='dstats'>$statsHtml</div>" }
-    $cellHtml += $actsHtml
+    $cellHtml += "<div class='dhead'><span class='dnum'>$($d.Day)</span>$alcBadge</div>"
+    $cellHtml += $infoLine
     $cellHtml += "<a class='dnote' href='/notes?d=$dk' aria-label='Notes du $day' title='Notes'>&#128221;</a>"
     $cellHtml += "</td>"
     $week += $cellHtml
@@ -893,18 +896,18 @@ td.day{
   backdrop-filter:blur(12px);
   border:1px solid rgba(255,255,255,.08);
   border-radius:16px;
-  padding:10px;
+  padding:12px;
   vertical-align:top;
-  min-height:140px;
+  min-height:120px;
   height:auto;
   position:relative;
   transition:all .25s cubic-bezier(.4,0,.2,1);
   box-shadow:0 4px 24px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.06);
 }
 td.day:not(.empty):hover{
-  transform:translateY(-4px) scale(1.02);
-  border-color:rgba(255,255,255,.18);
-  box-shadow:0 16px 48px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.1), 0 0 0 1px rgba(255,255,255,.05);
+  transform:translateY(-2px);
+  border-color:rgba(255,255,255,.15);
+  box-shadow:0 8px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08);
 }
 td.day:focus-within{
   outline:2px solid var(--accent);
@@ -938,104 +941,104 @@ td.day.empty{
   background:rgba(14,19,25,.2);
   border:1px solid transparent;
   box-shadow:none;
-  min-height:140px;
+  min-height:110px;
   height:auto;
 }
 td.day.empty:hover{transform:none;box-shadow:none}
 
 /* ═══ HEADER - Numéro + Badge Travail ═══ */
+/* [§36] Grille 4px - [§49] Density sans entropy */
 .dhead{
   display:flex;
+  flex-wrap:wrap;
   align-items:center;
-  gap:6px;
-  margin-bottom:6px;
+  gap:8px;
+  margin-bottom:8px;
 }
 .dnum{
-  font-size:1.5rem;
-  font-weight:900;
+  font-size:1.3rem;
+  font-weight:800;
   color:rgba(255,255,255,.95);
-  line-height:1;
-  text-shadow:0 2px 10px rgba(0,0,0,.4);
+  line-height:1.2;
 }
 td.day.today .dnum{
   color:var(--accent);
   text-shadow:0 0 18px rgba(53,217,154,.4);
 }
 
-/* Badge travail - compact néon rose */
-.dwork{
+/* ═══ LINE 1: Alcohol chips (framed, primary) ═══ */
+.dm{
   display:inline-flex;
   align-items:center;
-  gap:3px;
-  font-size:.75rem;
-  font-weight:700;
-  color:#ff6ec7;
-  background:linear-gradient(135deg, rgba(255,110,199,.18), rgba(255,110,199,.08));
-  padding:2px 8px;
-  border-radius:10px;
-  border:1px solid rgba(255,110,199,.35);
-  box-shadow:0 0 10px rgba(255,110,199,.12);
-  line-height:1.3;
-}
-
-/* ═══ STATS - Badges compacts colorés ═══ */
-.dstats{
-  display:flex;
-  flex-wrap:wrap;
-  gap:3px;
-  margin-bottom:4px;
-}
-.dstat{
-  display:inline-flex;
-  align-items:center;
-  gap:2px;
-  font-size:.75rem;
+  gap:4px;
+  font-size:13px;
   font-weight:600;
-  padding:1px 6px;
-  border-radius:8px;
-  transition:all .2s ease;
-  line-height:1.4;
+  padding:4px 10px;
+  border-radius:12px;
+  line-height:1.2;
+  white-space:nowrap;
+  height:28px;
+  box-sizing:border-box;
 }
-.dstat:hover{transform:scale(1.05);box-shadow:0 2px 8px rgba(0,0,0,.2)}
-
-/* Sleep - bleu nuit étoilé */
-.dstat--sleep{
-  color:#a8d4ff;
-  background:linear-gradient(135deg, rgba(168,212,255,.18), rgba(100,160,255,.1));
-  border:1px solid rgba(168,212,255,.3);
-}
-/* Alcool - doré chaud */
-.dstat--alc{
+.dm--alc{
   color:#ffd56b;
-  background:linear-gradient(135deg, rgba(255,213,107,.18), rgba(255,180,50,.1));
-  border:1px solid rgba(255,213,107,.3);
+  background:rgba(255,213,107,.08);
+  border:1px solid rgba(255,213,107,.2);
 }
-/* Clopes - rouge corail */
-.dstat--smoke{
-  color:#ff9090;
-  background:linear-gradient(135deg, rgba(255,144,144,.18), rgba(255,100,100,.1));
-  border:1px solid rgba(255,144,144,.3);
+.dm-whisky{
+  width:16px;
+  height:16px;
+  vertical-align:middle;
+  flex-shrink:0;
 }
 
-/* ═══ ACTIVITÉS - Compteur stylé ═══ */
+/* ═══ LINE 2: Glowing dots + emojis + ghost values ═══ */
+.dinfo{
+  display:flex;
+  flex-wrap:nowrap;
+  align-items:center;
+  gap:8px;
+  margin-top:4px;
+  overflow:hidden;
+}
+.di{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  font-size:11px;
+  font-weight:500;
+  color:rgba(255,255,255,.45);
+  white-space:nowrap;
+  line-height:1;
+}
+.di-dot{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  flex-shrink:0;
+}
+.di--work .di-dot{ background:#ff6ec7; box-shadow:0 0 8px rgba(255,110,199,.5); }
+.di--sleep .di-dot{ background:#a8d4ff; box-shadow:0 0 8px rgba(168,212,255,.5); }
+.di--smoke .di-dot{ background:#ff9090; box-shadow:0 0 8px rgba(255,144,144,.5); }
+.di--acts{ color:rgba(255,255,255,.3); cursor:pointer; }
+.di--acts:hover{ color:rgba(255,255,255,.7); }
+
+/* ═══ ACTIVITÉS ═══ */
 .dacts{
   position:relative;
-  margin-top:auto;
 }
 .dacts-toggle{
-  display:inline-flex;
-  align-items:center;
-  gap:3px;
-  font-size:.75rem;
-  font-weight:600;
-  color:rgba(255,255,255,.55);
-  padding:2px 6px;
-  border-radius:8px;
-  background:rgba(255,255,255,.04);
-  border:1px solid rgba(255,255,255,.08);
+  font-size:11px;
+  font-weight:500;
+  color:inherit;
+  background:none;
+  border:none;
+  padding:0;
   cursor:pointer;
   transition:all .2s ease;
-  line-height:1.4;
+  line-height:1.2;
+  height:24px;
+  box-sizing:border-box;
 }
 .dacts-toggle:hover{
   color:rgba(255,255,255,.95);
@@ -1148,13 +1151,14 @@ td.day.today .dnum{
   }
   td.day.empty{display:none}
   td.day{padding:8px; min-height:auto}
-  td.day.today::before{font-size:.625rem;padding:1px 5px;top:5px;right:5px}
-  .dnum{font-size:1.25rem}
+  td.day.today::before{font-size:12px;padding:2px 6px;top:4px;right:4px}
+  .dnum{font-size:1rem}
   .dhead{margin-bottom:4px;gap:4px}
-  .dwork{font-size:.75rem;padding:1px 6px}
-  .dstats{gap:2px}
-  .dstat{font-size:.75rem;padding:1px 5px}
-  .dacts-toggle{font-size:.75rem;padding:1px 5px}
+  .dm{font-size:11px;padding:2px 6px;height:20px}
+  .dinfo{gap:6px;margin-top:4px}
+  .di{font-size:10px}
+  .di-dot{width:5px;height:5px}
+  .dacts-toggle{font-size:10px}
   .dnote{font-size:.75rem;padding:8px}
   /* [I1/I5] Mobile: disable hover, use tap-toggle only */
   .dacts:hover .dacts-details{
@@ -1187,7 +1191,7 @@ td.day.today .dnum{
 
 /* Reduce motion */
 @media(prefers-reduced-motion:reduce){
-  td.day,.dstat,.dnote,.dacts-toggle{transition:none}
+  td.day,.dnote,.dacts-toggle{transition:none}
   td.day:not(.empty):hover{transform:none}
   .weekRow.currentWeek{animation:none}
 }
