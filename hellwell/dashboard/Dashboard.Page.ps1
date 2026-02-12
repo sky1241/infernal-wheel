@@ -55,20 +55,38 @@ function New-PageHtml([string]$ym) {
       $alcBadge = "<span class='dm dm--alc'>" + ($alcParts -join " ") + "</span>"
     }
 
-    # === LINE 2: Glowing dots + ghost values (Linear style) ===
-    $infoParts = @()
+    # === LABELS + COMBINED BAR ===
+    $maxRef = 720  # 12h = 100%
+
+    # Labels row: 💻 Xh (left) ... 😴 Xh (right)
+    $labelsHtml = ""
+    $wDisp = ""; $sDisp = ""
     if ($workMin -gt 0) {
-      $workH = [Math]::Floor($workMin / 60)
-      $workM = $workMin % 60
-      $wkDisp = if ($workH -gt 0) { "${workH}h" + $(if ($workM -gt 0) { "${workM}" } else { "" }) } else { "${workMin}m" }
-      $infoParts += "<span class='di di--work'><span class='di-dot'></span>&#128187;$wkDisp</span>"
+      $wH = [Math]::Floor($workMin / 60)
+      $wDisp = if ($wH -gt 0) { "${wH}h" } else { "${workMin}m" }
     }
     if ($sleepMin -gt 0) {
-      $sleepH = [Math]::Floor($sleepMin / 60)
-      $sleepM = $sleepMin % 60
-      $slDisp = if ($sleepH -gt 0) { "${sleepH}h" + $(if ($sleepM -gt 0) { "${sleepM}" } else { "" }) } else { "${sleepMin}m" }
-      $infoParts += "<span class='di di--sleep'><span class='di-dot'></span>&#128564;$slDisp</span>"
+      $sH = [Math]::Floor($sleepMin / 60)
+      $sDisp = if ($sH -gt 0) { "${sH}h" } else { "${sleepMin}m" }
     }
+    if ($workMin -gt 0 -or $sleepMin -gt 0) {
+      $leftLabel = if ($workMin -gt 0) { "<span class='dlbl dlbl--work'>&#128187;$wDisp</span>" } else { "" }
+      $rightLabel = if ($sleepMin -gt 0) { "<span class='dlbl dlbl--sleep'>&#128564;$sDisp</span>" } else { "" }
+      $labelsHtml = "<div class='dlabels'>$leftLabel$rightLabel</div>"
+    }
+
+    # Combined bar
+    $barHtml = ""
+    if ($workMin -gt 0 -or $sleepMin -gt 0) {
+      $wPct = if ($workMin -gt 0) { [Math]::Min(100, [Math]::Round(($workMin / $maxRef) * 100)) } else { 0 }
+      $sPct = if ($sleepMin -gt 0) { [Math]::Min(100 - $wPct, [Math]::Round(($sleepMin / $maxRef) * 100)) } else { 0 }
+      $barHtml = "<div class='dbar'>"
+      if ($wPct -gt 0) { $barHtml += "<div class='dbar-seg dbar--work' style='width:${wPct}%'></div>" }
+      if ($sPct -gt 0) { $barHtml += "<div class='dbar-seg dbar--sleep' style='width:${sPct}%'></div>" }
+      $barHtml += "</div>"
+    }
+
+    # Clopes + Activities
     $clopeCount = [int]($ws.clope ?? 0)
     if ($dk -eq $todayKey) {
       if ($state -and $null -ne $state.DayClopeCount) {
@@ -78,11 +96,6 @@ function New-PageHtml([string]$ym) {
         $clopeCount++
       }
     }
-    if ($clopeCount -gt 0) {
-      $infoParts += "<span class='di di--smoke'><span class='di-dot'></span>&#128684;$clopeCount</span>"
-    }
-
-    # Activities - tooltip preserved
     $actsCount = 0
     $actsDetails = ""
     foreach ($k in $actionKeys) {
@@ -99,14 +112,9 @@ function New-PageHtml([string]$ym) {
         $actsDetails += "<div class='dact-item'><span class='dact-name'>$label</span><span class='dact-dur'>$dur</span></div>"
       }
     }
-    if ($actsCount -gt 0) {
-      $infoParts += "<span class='di di--acts dacts'><span class='dacts-toggle'>${actsCount}act</span><div class='dacts-details'>$actsDetails</div></span>"
-    }
-
-    $infoLine = ""
-    if ($infoParts.Count -gt 0) {
-      $infoLine = "<div class='dinfo'>" + ($infoParts -join "") + "</div>"
-    }
+    $bottomParts = ""
+    if ($clopeCount -gt 0) { $bottomParts += "<span class='dbot-item'>&#128684;$clopeCount</span>" }
+    if ($actsCount -gt 0) { $bottomParts += "<span class='dbot-item dacts'><span class='dacts-toggle'>${actsCount}act</span><div class='dacts-details'>$actsDetails</div></span>" }
 
     # ARIA + today class
     $ariaLabel = "$day $($d.ToString('MMMM'))"
@@ -114,9 +122,12 @@ function New-PageHtml([string]$ym) {
 
     # === BUILD CELL ===
     $cellHtml = "<td class='day$todayClass' data-weekday='$weekdayName' aria-label='$ariaLabel'>"
+    $cellHtml += "<div class='dcell'>"
     $cellHtml += "<div class='dhead'><span class='dnum'>$($d.Day)</span>$alcBadge</div>"
-    $cellHtml += $infoLine
-    $cellHtml += "<a class='dnote' href='/notes?d=$dk' aria-label='Notes du $day' title='Notes'>&#128221;</a>"
+    $cellHtml += $labelsHtml
+    $cellHtml += $barHtml
+    $cellHtml += "<div class='dbottom'>$bottomParts<a class='dnote' href='/notes?d=$dk' aria-label='Notes du $day' title='Notes'>&#128221;</a></div>"
+    $cellHtml += "</div>"
     $cellHtml += "</td>"
     $week += $cellHtml
     $cells = $startWeekday + $day
@@ -950,10 +961,11 @@ td.day.empty:hover{transform:none;box-shadow:none}
 /* [§36] Grille 4px - [§49] Density sans entropy */
 .dhead{
   display:flex;
-  flex-wrap:wrap;
+  flex-wrap:nowrap;
   align-items:center;
   gap:8px;
   margin-bottom:8px;
+  overflow:hidden;
 }
 .dnum{
   font-size:1.3rem;
@@ -992,59 +1004,97 @@ td.day.today .dnum{
   flex-shrink:0;
 }
 
-/* ═══ LINE 2: Glowing dots + emojis + ghost values ═══ */
-.dinfo{
+/* Cell flex layout */
+.dcell{
   display:flex;
-  flex-wrap:nowrap;
-  align-items:center;
-  gap:8px;
-  margin-top:4px;
-  overflow:hidden;
+  flex-direction:column;
+  height:100%;
 }
-.di{
+
+/* ═══ LABELS ROW: emoji + value, left/right ═══ */
+.dlabels{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:auto;
+  margin-bottom:4px;
+}
+.dlbl{
   display:inline-flex;
   align-items:center;
-  gap:4px;
+  gap:2px;
   font-size:11px;
-  font-weight:500;
-  color:rgba(255,255,255,.45);
+  font-weight:600;
+  padding:2px 6px;
+  border-radius:8px;
+  line-height:1.2;
   white-space:nowrap;
-  line-height:1;
 }
-.di-dot{
-  width:6px;
-  height:6px;
-  border-radius:50%;
-  flex-shrink:0;
+.dlbl--work{
+  color:#ff6ec7;
+  background:rgba(255,110,199,.08);
+  border:1px solid rgba(255,110,199,.2);
 }
-.di--work .di-dot{ background:#ff6ec7; box-shadow:0 0 8px rgba(255,110,199,.5); }
-.di--sleep .di-dot{ background:#a8d4ff; box-shadow:0 0 8px rgba(168,212,255,.5); }
-.di--smoke .di-dot{ background:#ff9090; box-shadow:0 0 8px rgba(255,144,144,.5); }
-.di--acts{ color:rgba(255,255,255,.3); cursor:pointer; }
-.di--acts:hover{ color:rgba(255,255,255,.7); }
+.dlbl--sleep{
+  color:#a8d4ff;
+  background:rgba(168,212,255,.08);
+  border:1px solid rgba(168,212,255,.2);
+}
+
+/* ═══ COMBINED BAR ═══ */
+.dbar{
+  display:flex;
+  height:4px;
+  border-radius:2px;
+  background:rgba(255,255,255,.06);
+  overflow:hidden;
+  gap:2px;
+  margin-bottom:4px;
+}
+.dbar-seg{
+  height:100%;
+  border-radius:2px;
+  min-width:3px;
+}
+.dbar--work{
+  background:linear-gradient(90deg, #ff6ec7, #ff8ed4);
+  box-shadow:0 0 8px rgba(255,110,199,.4);
+}
+.dbar--sleep{
+  background:linear-gradient(90deg, #7ec8ff, #a8d4ff);
+  box-shadow:0 0 8px rgba(168,212,255,.4);
+  text-align:right;
+}
+
+/* Bottom row: clopes + activities + note */
+.dbottom{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin-top:4px;
+}
+.dbot-item{
+  font-size:10px;
+  color:rgba(255,255,255,.4);
+}
 
 /* ═══ ACTIVITÉS ═══ */
 .dacts{
   position:relative;
 }
 .dacts-toggle{
-  font-size:11px;
-  font-weight:500;
-  color:inherit;
+  font-size:10px;
+  font-weight:600;
+  color:rgba(255,255,255,.35);
   background:none;
   border:none;
   padding:0;
   cursor:pointer;
-  transition:all .2s ease;
-  line-height:1.2;
-  height:24px;
-  box-sizing:border-box;
+  transition:color .2s ease;
+  line-height:1;
 }
 .dacts-toggle:hover{
-  color:rgba(255,255,255,.95);
-  background:rgba(255,255,255,.1);
-  border-color:rgba(255,255,255,.2);
-  box-shadow:0 4px 12px rgba(0,0,0,.2);
+  color:rgba(255,255,255,.8);
 }
 
 /* Tooltip activités */
@@ -1110,15 +1160,13 @@ td.day.today .dnum{
 /* ═══ NOTES - Icône stylée ═══ */
 /* [WEB §E Rule 21] Touch target via padding, visual stays compact */
 .dnote{
-  position:absolute;
-  bottom:0;
-  right:0;
-  font-size:.8rem;
-  color:rgba(255,255,255,.25);
+  margin-left:auto;
+  font-size:.7rem;
+  color:rgba(255,255,255,.2);
   text-decoration:none;
   transition:all .2s ease;
   filter:grayscale(40%);
-  padding:10px;
+  padding:4px;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -1155,10 +1203,12 @@ td.day.today .dnum{
   .dnum{font-size:1rem}
   .dhead{margin-bottom:4px;gap:4px}
   .dm{font-size:11px;padding:2px 6px;height:20px}
-  .dinfo{gap:6px;margin-top:4px}
-  .di{font-size:10px}
-  .di-dot{width:5px;height:5px}
-  .dacts-toggle{font-size:10px}
+  .dlabels{margin-bottom:3px}
+  .dlbl{font-size:10px;padding:1px 4px}
+  .dbar{height:3px}
+  .dbottom{gap:4px;margin-top:3px}
+  .dbot-item{font-size:9px}
+  .dacts-toggle{font-size:9px}
   .dnote{font-size:.75rem;padding:8px}
   /* [I1/I5] Mobile: disable hover, use tap-toggle only */
   .dacts:hover .dacts-details{
