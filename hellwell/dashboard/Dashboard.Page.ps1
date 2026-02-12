@@ -1314,6 +1314,34 @@ td.day.today .dnum{
   -webkit-text-fill-color:transparent;
   background-clip:text;
 }
+.cal-nav{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.cal-nav-btn{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  color:rgba(255,255,255,.5);
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  text-decoration:none;
+  transition:all .2s ease;
+}
+.cal-nav-btn:hover{
+  color:#5bb2ff;
+  background:rgba(91,178,255,.12);
+  border-color:rgba(91,178,255,.3);
+  box-shadow:0 0 12px rgba(91,178,255,.2);
+  transform:scale(1.1);
+}
+.cal-nav-btn:active{
+  transform:scale(.95);
+}
 .cal-month{
   font-size:.8rem;
   font-weight:700;
@@ -1324,6 +1352,8 @@ td.day.today .dnum{
   border-radius:20px;
   letter-spacing:.5px;
   box-shadow:0 0 12px rgba(91,178,255,.15);
+  min-width:80px;
+  text-align:center;
 }
 
 /* Day name pills */
@@ -2454,7 +2484,15 @@ body{
   <div class="card reveal d5 calendarCard">
     <div class="cal-hero">
       <h2 class="cal-title">Calendrier</h2>
-      <span class="cal-month">__YM__</span>
+      <div class="cal-nav">
+        <a class="cal-nav-btn" href="/?m=__PREVYM__" aria-label="Mois précédent">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </a>
+        <span class="cal-month">__YM__</span>
+        <a class="cal-nav-btn" href="/?m=__NEXTYM__" aria-label="Mois suivant">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </a>
+      </div>
     </div>
 
     <!-- [UX] Sub-card: Grille calendrier -->
