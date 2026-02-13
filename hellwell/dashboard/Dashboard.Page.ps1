@@ -1717,8 +1717,8 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 .miniNoteWrap{margin-top:8px; border:1px solid var(--border); border-radius:8px; background:rgba(16,22,29,.6)}
 .miniNote{width:100%; min-height:72px; resize:vertical; background:transparent; border:none; color:var(--text); padding:12px; outline:none; font-family:inherit}
 /* [UX_PRO] Chart wrapper - responsive height avec aspect ratio */
-.chartWrap{height:320px; margin-top:var(--sp-16); border-radius:var(--r); background:rgba(16,22,29,.4); padding:var(--sp-12); border:1px solid rgba(255,255,255,.04)}
-#monthChart{width:100%; height:100%; display:block; cursor:crosshair}
+.chartWrap{height:auto; min-height:200px; margin-top:var(--sp-16); border-radius:var(--r); background:rgba(16,22,29,.4); padding:var(--sp-12); border:1px solid rgba(255,255,255,.04)}
+#monthChart{width:100%; display:block; cursor:crosshair}
 
 /* [UX_PRO] Chart Tooltip - glassmorphism + animations */
 .chartTooltip{position:fixed;z-index:3000;min-width:240px;max-width:280px;padding:0;background:rgba(18,24,32,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.12);border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.05) inset;opacity:0;visibility:hidden;transform:translateY(8px) scale(0.96);transition:opacity .15s ease,transform .15s ease,visibility .15s ease;pointer-events:none;overflow:hidden}
@@ -3080,24 +3080,9 @@ function renderMonthlyLegend(){
   if (!el) return;
   // [WEB.md §31] Retirer aria-busy apres chargement
   el.removeAttribute("aria-busy");
-  // [WEB.md §16] Legende avec CATEGORIES regroupees - palette HSB distincte
-  const legendItems = [
-    { color: CHART_COLORS.work, icon: "\ud83d\udcbb", label: "Work", desc: "travail" },
-    { color: CHART_COLORS.sleep, icon: "\ud83d\udca4", label: "Sleep", desc: "sommeil" },
-    { color: CHART_COLORS.sport, icon: "\ud83c\udfc3", label: "Healthy", desc: "sport + marche" },
-    { color: CHART_COLORS.manger, icon: "\ud83c\udf7d\ufe0f", label: "Chill", desc: "repas + repos" },
-    { color: CHART_COLORS.clope, icon: "\ud83d\udeac", label: "Clopes", isLine: true },
-    { color: CHART_COLORS.alcohol, icon: "\ud83c\udf7a", label: "Alcool", isLine: true }
-  ];
-  // [WEB.md §21,31] Touch targets 44px, ARIA accessible
-  el.innerHTML = legendItems.map(it => {
-    const lineStyle = it.isLine ? "border:2px dashed " + it.color + ";background:transparent" : "background:" + it.color;
-    const ariaLabel = it.label + (it.desc ? " (" + it.desc + ")" : "");
-    return "<span role='listitem' tabindex='0' aria-label='" + escapeHtml(ariaLabel) + "'>"
-      + "<span class='legendDot' style='" + lineStyle + "' aria-hidden='true'></span>"
-      + "<span>" + it.icon + " " + it.label + "</span>"
-      + "</span>";
-  }).join("");
+  // [Sparkline Rows] Legend hidden - labels are integrated in chart rows
+  el.innerHTML = "";
+  el.style.display = "none";
 }
 
 /* [UX_PRO] Stockage des hitboxes pour le tooltip */
@@ -3110,261 +3095,280 @@ function renderMonthlyChart(data){
   const ctx = canvas.getContext("2d");
   const rect = canvas.getBoundingClientRect();
   const width = rect.width || 800;
-  const height = rect.height || 280;
   const dpr = window.devicePixelRatio || 1;
+  /* Set canvas pixel width immediately for proper rendering */
   canvas.width = Math.round(width * dpr);
-  canvas.height = Math.round(height * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  const days = data.days || [];
-  if (!days.length) { return; }
+  const allDays = data.days || [];
+  if (!allDays.length) return;
 
   CHART_HITBOXES = [];
 
-  const pad = { left: 48, right: 24, top: 20, bottom: 32 };
-  const w = width - pad.left - pad.right;
-  const h = height - pad.top - pad.bottom;
+  /* ═══ SPARKLINE ROWS ═══ */
 
-  /* [UX_PRO] Axe Y = 0h (minuit) -> 24h+ (sessions qui depassent minuit) */
-  const yMin = 0;   // 00:00 minuit
-  const yMax = 28;  // permet sessions jusqu'a 4h du matin (affiche 24h + overflow)
-  const yRange = 24; // echelle principale = 24h
-  const yTicks = [0, 4, 8, 12, 16, 20, 24];
+  /* Only days with actual data */
+  const days = allDays.filter(d =>
+    (d.workMin||0) > 0 || (d.sleepMin||0) > 0 || (d.sportMin||0) > 0 ||
+    (d.marcheMin||0) > 0 || (d.clopeCount||0) > 0 || (d.alcoholCount||0) > 0
+  );
+  if (days.length < 2) return;
 
-  /* Fonction pour convertir heure en position Y (0=bas, 24=haut) */
-  function hourToY(hour) {
-    // Clamp pour eviter debordement graphique
-    const clamped = Math.max(0, Math.min(yMax, hour));
-    return pad.top + h - (clamped / yRange) * h;
+  const n = days.length;
+  const labelW = 80;   /* left label column */
+  const valueW = 56;   /* right value column */
+  const sparkL = labelW;
+  const sparkR = width - valueW;
+  const sparkW = sparkR - sparkL;
+
+  /* Row config */
+  const rowH = 64;     /* height per sparkline row - generous */
+  const rowGap = 4;
+  const dotRowH = 36;  /* dot rows */
+  const rows = [
+    { key: "work",  label: "Travail",  icon: "\ud83d\udcbb", color: "#ff2d8a", bright: "#ff8ec4", values: days.map(d => (d.workMin||0)/60), unit: "h", type: "area" },
+    { key: "sleep", label: "Sommeil",  icon: "\ud83c\udf19", color: "#3a6fff", bright: "#82b4ff", values: days.map(d => (d.sleepMin||0)/60), unit: "h", type: "area" },
+    { key: "phys",  label: "Physique", icon: "\ud83c\udfc3", color: "#00d672", bright: "#5fffaa", values: days.map(d => ((d.sportMin||0)+(d.marcheMin||0))/60), unit: "h", type: "area" },
+    { key: "clope", label: "Clopes",   icon: "\ud83d\udeac", color: "#ff4040", bright: "#ff8080", values: days.map(d => d.clopeCount||0), unit: "", type: "dots" },
+    { key: "alc",   label: "Alcool",   icon: "\ud83c\udf7a", color: "#ffaa22", bright: "#ffd080", values: days.map(d => d.alcoholCount||0), unit: "", type: "dots" },
+  ];
+
+  /* Filter out rows with zero data */
+  const activeRows = rows.filter(r => r.values.some(v => v > 0));
+
+  /* Total canvas height */
+  let totalH = 8; /* top padding */
+  for (const r of activeRows) totalH += (r.type === "dots" ? dotRowH : rowH) + rowGap;
+  totalH += 24; /* bottom for day labels */
+
+  canvas.height = Math.round(totalH * dpr);
+  canvas.style.height = totalH + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, totalH);
+
+  function hex(a) {
+    return Math.round(Math.min(1, Math.max(0, a)) * 255).toString(16).padStart(2, "0");
   }
 
-  ctx.clearRect(0, 0, width, height);
+  function xOf(i) { return sparkL + (i / (n - 1 || 1)) * sparkW; }
 
-  /* [UX_PRO] Fond du graphique avec gradient subtil */
-  const bgGrad = ctx.createLinearGradient(0, pad.top, 0, pad.top + h);
-  bgGrad.addColorStop(0, "rgba(16,22,29,0.3)");
-  bgGrad.addColorStop(1, "rgba(16,22,29,0.1)");
-  ctx.fillStyle = bgGrad;
-  ctx.fillRect(pad.left, pad.top, w, h);
-
-  /* Grille horizontale avec labels */
-  ctx.strokeStyle = "rgba(255,255,255,0.08)";
-  ctx.lineWidth = 1;
-  ctx.fillStyle = "rgba(231,237,243,0.6)";
-  ctx.font = "11px 'Space Grotesk', sans-serif";
-  ctx.textAlign = "right";
-  for (const t of yTicks) {
-    const y = hourToY(t);
-    ctx.beginPath();
-    ctx.moveTo(pad.left, y);
-    ctx.lineTo(pad.left + w, y);
-    ctx.stroke();
-    ctx.fillText(t + "h", pad.left - 8, y + 4);
+  /* ─── Monotone cubic (Fritsch-Carlson) ─── */
+  function monotonePath(pts) {
+    const path = new Path2D();
+    if (pts.length < 2) return path;
+    const nn = pts.length;
+    const dx = [], dy = [], m = [];
+    for (let k = 0; k < nn - 1; k++) {
+      dx[k] = pts[k+1].x - pts[k].x;
+      dy[k] = (pts[k+1].y - pts[k].y) / (dx[k] || 1);
+    }
+    m[0] = dy[0];
+    for (let k = 1; k < nn - 1; k++) {
+      m[k] = (dy[k-1] * dy[k] <= 0) ? 0 : (dy[k-1] + dy[k]) / 2;
+    }
+    m[nn-1] = dy[nn-2];
+    for (let k = 0; k < nn - 1; k++) {
+      if (Math.abs(dy[k]) < 1e-6) { m[k] = 0; m[k+1] = 0; continue; }
+      const ak = m[k]/dy[k], bk = m[k+1]/dy[k];
+      const s = ak*ak + bk*bk;
+      if (s > 9) { const t = 3/Math.sqrt(s); m[k] = t*ak*dy[k]; m[k+1] = t*bk*dy[k]; }
+    }
+    path.moveTo(pts[0].x, pts[0].y);
+    for (let k = 0; k < nn - 1; k++) {
+      const d = dx[k] / 3;
+      path.bezierCurveTo(pts[k].x+d, pts[k].y+m[k]*d, pts[k+1].x-d, pts[k+1].y-m[k+1]*d, pts[k+1].x, pts[k+1].y);
+    }
+    return path;
   }
 
-  /* Axe Y gauche */
-  ctx.strokeStyle = "rgba(231,237,243,0.4)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(pad.left, pad.top);
-  ctx.lineTo(pad.left, pad.top + h);
-  ctx.stroke();
+  /* ─── Draw each row ─── */
+  let curY = 8;
 
-  const step = w / days.length;
-  const barW = Math.max(4, Math.min(step * 0.7, 20));
-  const gap = 1;
+  for (const row of activeRows) {
+    const rh = row.type === "dots" ? dotRowH : rowH;
+    const top = curY;
+    const bot = curY + rh;
+    const mid = curY + rh / 2;
+    const maxVal = Math.max(0.1, ...row.values);
+    const avg = row.values.reduce((a,b) => a+b, 0) / n;
 
-  /* [UX_PRO] Categories regroupees pour lisibilite - couleurs distinctes HSB */
-  /* work = travail | sleep = sommeil | chill = manger+glandouille | healthy = sport+marche | addiction = clope */
-  const CAT_COLORS = {
-    work: CHART_COLORS.work,       // #E639A3 Magenta (320°)
-    sleep: CHART_COLORS.sleep,     // #4169D9 Bleu (220°)
-    chill: CHART_COLORS.manger,    // #F2B83D Jaune/Orange (40°)
-    healthy: CHART_COLORS.sport,   // #39BF6E Vert (145°)
-    addiction: CHART_COLORS.clope  // #E64545 Rouge (0°)
-  };
+    /* Row background on hover */
+    const isRowHover = CHART_HOVER_INDEX >= 0 && CHART_HOVER_INDEX < n;
 
-  /* Mapping nom -> categorie */
-  function getCategory(segName, segColor) {
-    if (segColor === "work") return "work";
-    if (segColor === "sleep") return "sleep";
-    if (segColor === "healthy" || segName === "sport" || segName === "marche") return "healthy";
-    if (segColor === "addiction" || segName === "clope") return "addiction";
-    // manger, glandouille, reveille, break -> chill
-    return "chill";
-  }
+    /* Separator line */
+    if (curY > 8) {
+      ctx.strokeStyle = "rgba(255,255,255,0.04)";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(sparkL, top - rowGap/2); ctx.lineTo(sparkR, top - rowGap/2); ctx.stroke();
+    }
 
-  /* [UX_PRO] Dessiner les barres par segment d'activite REEL */
-  for (let i = 0; i < days.length; i++) {
-    const d = days[i];
-    const x = pad.left + i * step + (step - barW) / 2;
+    /* Left label */
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.font = "11px 'Space Grotesk', sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(row.icon + " " + row.label, 6, mid + 4);
 
-    /* Stocker la hitbox pour ce jour */
-    CHART_HITBOXES.push({
-      x: x - gap,
-      x2: x + barW + gap,
-      dayIndex: i,
-      dayData: d
-    });
+    /* Right average value */
+    const avgText = row.unit === "h" ? avg.toFixed(1) + "h" : avg.toFixed(0);
+    ctx.fillStyle = row.bright;
+    ctx.font = "bold 13px 'Space Grotesk', sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText(avgText, width - 6, mid + 2);
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
+    ctx.font = "8px 'Space Grotesk', sans-serif";
+    ctx.fillText("moy/j", width - 6, mid - 10);
 
-    /* [UX_PRO] Utiliser les segments reels avec heures exactes */
-    const realSegs = d.segments || [];
+    if (row.type === "area") {
+      /* ─── Area sparkline with glow ─── */
+      const pts = row.values.map((v, i) => ({
+        x: xOf(i),
+        y: top + rh - 4 - (v / maxVal) * (rh - 8)
+      }));
 
-    if (realSegs.length > 0) {
-      /* Dessiner chaque segment a sa position horaire reelle */
-      for (const seg of realSegs) {
-        if (seg.start === undefined || seg.end === undefined) continue;
+      /* Build area path */
+      const curve = monotonePath(pts);
+      const area = new Path2D();
+      area.addPath(curve);
+      area.lineTo(pts[pts.length-1].x, bot - 2);
+      area.lineTo(pts[0].x, bot - 2);
+      area.closePath();
 
-        let startH = seg.start;
-        let endH = seg.end;
+      /* Gradient fill */
+      const grad = ctx.createLinearGradient(0, top, 0, bot);
+      grad.addColorStop(0, row.color + "50");
+      grad.addColorStop(0.5, row.color + "20");
+      grad.addColorStop(1, row.color + "00");
+      ctx.fillStyle = grad;
+      ctx.fill(area);
 
-        /* [UX_PRO] Sessions qui traversent minuit: 20h -> 01:42 */
-        /* Si end < start, la session traverse minuit -> ajouter 24 a end */
-        if (endH < startH) {
-          endH += 24; // ex: 1.7 -> 25.7 (01:42 apres minuit)
+      /* Glow halo */
+      ctx.save();
+      ctx.shadowColor = row.color;
+      ctx.shadowBlur = 16;
+      ctx.strokeStyle = row.color + "60";
+      ctx.lineWidth = 3;
+      ctx.stroke(curve); ctx.stroke(curve);
+      ctx.restore();
+
+      /* Bright core line */
+      ctx.save();
+      ctx.shadowColor = row.bright;
+      ctx.shadowBlur = 4;
+      ctx.strokeStyle = row.bright;
+      ctx.lineWidth = 1.5;
+      ctx.stroke(curve);
+      ctx.restore();
+
+      /* Average reference line (dashed, very subtle) */
+      const avgY = top + rh - 4 - (avg / maxVal) * (rh - 8);
+      ctx.strokeStyle = row.color + "30";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 5]);
+      ctx.beginPath(); ctx.moveTo(sparkL, avgY); ctx.lineTo(sparkR, avgY); ctx.stroke();
+      ctx.setLineDash([]);
+
+      /* Hover dot */
+      if (isRowHover) {
+        const hi = CHART_HOVER_INDEX;
+        const pt = pts[hi];
+        ctx.save();
+        ctx.shadowColor = row.bright;
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = row.bright;
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, 2, 0, Math.PI * 2); ctx.fill();
+
+        /* Value label at hover point */
+        const val = row.values[hi];
+        if (val > 0) {
+          const vt = val.toFixed(1) + row.unit;
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 10px 'Space Grotesk', sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(vt, pt.x, pt.y - 8);
         }
-
-        /* Limiter aux bornes visibles du graphique */
-        startH = Math.max(0, startH);
-        endH = Math.min(yMax, endH);
-
-        if (endH <= startH) continue;
-
-        const segTop = hourToY(endH);
-        const segBot = hourToY(startH);
-        const segH = Math.max(2, segBot - segTop);
-
-        /* [UX_PRO] Couleur selon la CATEGORIE regroupee */
-        const cat = getCategory(seg.name, seg.color);
-        const color = CAT_COLORS[cat] || CAT_COLORS.chill;
-
-        /* Gradient pour chaque barre */
-        const grad = ctx.createLinearGradient(x, segTop, x, segTop + segH);
-        grad.addColorStop(0, color);
-        grad.addColorStop(1, color + "88");
-        ctx.fillStyle = grad;
-
-        /* Barre avec coins arrondis */
-        const r = Math.min(3, barW / 4);
-        ctx.beginPath();
-        ctx.roundRect(x, segTop, barW, segH, r);
-        ctx.fill();
-
-        /* Bordure subtile */
-        ctx.strokeStyle = "rgba(255,255,255,0.1)";
-        ctx.lineWidth = 0.5;
-        ctx.stroke();
       }
+
     } else {
-      /* Fallback: empiler les durees par CATEGORIE si pas de segments */
-      const catTotals = {
-        work: (d.workMin || 0) / 60,
-        sleep: (d.sleepMin || 0) / 60,
-        healthy: ((d.sportMin || 0) + (d.marcheMin || 0)) / 60,
-        chill: ((d.mangerMin || 0) + (d.glandouilleMin || 0) + (d.reveilleMin || 0)) / 60
-      };
-      const catOrder = ["work", "sleep", "healthy", "chill"];
-      const total = Object.values(catTotals).reduce((a, b) => a + b, 0);
-      const scale = total > yRange ? (yRange / total) : 1;
-      let stackY = pad.top + h;
-      for (const cat of catOrder) {
-        const hrs = catTotals[cat] * scale;
-        const segH = (hrs / yRange) * h;
-        if (segH <= 1) continue;
-        stackY -= segH;
-        ctx.fillStyle = CAT_COLORS[cat];
-        ctx.fillRect(x, stackY, barW, segH);
+      /* ─── Dot row (clopes / alcohol) ─── */
+      for (let i = 0; i < n; i++) {
+        const v = row.values[i];
+        if (v <= 0) continue;
+        const x = xOf(i);
+        const r = 2 + (v / maxVal) * 4;
+        ctx.save();
+        ctx.shadowColor = row.color;
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = row.color;
+        ctx.beginPath(); ctx.arc(x, mid, r, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+
+      /* Hover highlight */
+      if (isRowHover && row.values[CHART_HOVER_INDEX] > 0) {
+        const hi = CHART_HOVER_INDEX;
+        const x = xOf(hi);
+        ctx.save();
+        ctx.shadowColor = "#fff";
+        ctx.shadowBlur = 8;
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 1.5;
+        const r = 2 + (row.values[hi] / maxVal) * 4;
+        ctx.beginPath(); ctx.arc(x, mid, r + 2, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 10px 'Space Grotesk', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(String(row.values[hi]), x, mid - r - 6);
       }
     }
 
-    /* [UX_PRO] Highlight si hover sur ce jour */
-    if (CHART_HOVER_INDEX === i) {
-      ctx.fillStyle = "rgba(255,255,255,0.08)";
-      ctx.fillRect(x - gap, pad.top, barW + gap * 2, h);
-    }
+    curY += rh + rowGap;
   }
 
-  /* Courbe Clopes */
-  ctx.strokeStyle = CHART_COLORS.clope;
-  ctx.lineWidth = 2;
-  ctx.setLineDash([]);
-  ctx.beginPath();
-  const clopeMax = Math.max(10, ...days.map(d => d.clopeCount || 0));
-  for (let i = 0; i < days.length; i++) {
-    const d = days[i];
-    const x = pad.left + i * step + step / 2;
-    const y = pad.top + h - ((d.clopeCount || 0) / clopeMax) * h * 0.8;
-    if (i === 0) { ctx.moveTo(x, y); } else { ctx.lineTo(x, y); }
-  }
-  ctx.stroke();
-
-  /* Points clopes avec hover effect */
-  for (let i = 0; i < days.length; i++) {
-    const d = days[i];
-    const x = pad.left + i * step + step / 2;
-    const y = pad.top + h - ((d.clopeCount || 0) / clopeMax) * h * 0.8;
-    ctx.fillStyle = CHART_HOVER_INDEX === i ? "#fff" : CHART_COLORS.clope;
-    ctx.beginPath();
-    ctx.arc(x, y, CHART_HOVER_INDEX === i ? 5 : 3, 0, Math.PI * 2);
-    ctx.fill();
-    if (CHART_HOVER_INDEX === i) {
-      ctx.strokeStyle = CHART_COLORS.clope;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
-  }
-
-  /* Courbe Alcool */
-  ctx.strokeStyle = CHART_COLORS.alcohol;
-  ctx.lineWidth = 2;
-  ctx.setLineDash([6, 4]);
-  ctx.beginPath();
-  const alcMax = Math.max(5, ...days.map(d => d.alcoholCount || 0));
-  for (let i = 0; i < days.length; i++) {
-    const d = days[i];
-    const x = pad.left + i * step + step / 2;
-    const y = pad.top + h - ((d.alcoholCount || 0) / alcMax) * h * 0.6;
-    if (i === 0) { ctx.moveTo(x, y); } else { ctx.lineTo(x, y); }
-  }
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  /* Points alcool */
-  for (let i = 0; i < days.length; i++) {
-    const d = days[i];
-    const x = pad.left + i * step + step / 2;
-    const y = pad.top + h - ((d.alcoholCount || 0) / alcMax) * h * 0.6;
-    ctx.fillStyle = CHART_HOVER_INDEX === i ? "#fff" : CHART_COLORS.alcohol;
-    ctx.beginPath();
-    ctx.arc(x, y, CHART_HOVER_INDEX === i ? 5 : 3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  /* Labels jours en bas */
-  ctx.fillStyle = "rgba(231,237,243,0.6)";
-  ctx.font = "11px 'Space Grotesk', sans-serif";
-  ctx.textAlign = "center";
-  for (let i = 0; i < days.length; i++) {
-    const day = days[i].day;
-    const showLabel = days.length <= 15 || day === 1 || day === days.length || day % 5 === 0;
-    if (showLabel) {
-      const x = pad.left + i * step + step / 2;
-      ctx.fillText(String(day), x, pad.top + h + 18);
-    }
-  }
-
-  /* Titre axe X */
-  ctx.fillStyle = "rgba(231,237,243,0.4)";
+  /* ─── Day labels at bottom ─── */
+  ctx.fillStyle = "rgba(231,237,243,0.3)";
   ctx.font = "10px 'Space Grotesk', sans-serif";
-  ctx.textAlign = "right";
-  ctx.fillText("jour du mois", pad.left + w, pad.top + h + 28);
+  ctx.textAlign = "center";
+  for (let i = 0; i < n; i++) {
+    const day = days[i].day;
+    const show = n <= 20 || day === 1 || i === n - 1 || day % 5 === 0;
+    if (show) {
+      ctx.fillStyle = "rgba(231,237,243,0.4)";
+      ctx.fillText(String(day), xOf(i), curY + 14);
+    }
+  }
+
+  /* ─── Hover vertical line across all rows ─── */
+  if (CHART_HOVER_INDEX >= 0 && CHART_HOVER_INDEX < n) {
+    const hx = xOf(CHART_HOVER_INDEX);
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 4]);
+    ctx.beginPath(); ctx.moveTo(hx, 0); ctx.lineTo(hx, curY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  /* ─── Hitboxes (full column width for each day) ─── */
+  const step = sparkW / n;
+  for (let i = 0; i < n; i++) {
+    CHART_HITBOXES.push({
+      x: sparkL + i * step - step/2,
+      x2: sparkL + (i + 1) * step,
+      dayIndex: i,
+      dayData: days[i]
+    });
+  }
 
   /* [WEB §K Rule 64] Fallback table for screen readers */
   const fb = document.getElementById("monthChartFallback");
   if (fb) {
-    let html = "<table><caption>Rapport mensuel</caption><thead><tr><th>Jour</th><th>Travail</th><th>Sommeil</th><th>Clopes</th><th>Alcool</th></tr></thead><tbody>";
-    for (const d of days) {
-      html += "<tr><td>" + d.day + "</td><td>" + (d.workMin || 0) + "m</td><td>" + (d.sleepMin || 0) + "m</td><td>" + (d.clopeCount || 0) + "</td><td>" + (d.alcoholCount || 0) + "</td></tr>";
+    let html = "<table><caption>Rapport mensuel</caption><thead><tr><th>Jour</th><th>Travail</th><th>Sommeil</th><th>Physique</th><th>Clopes</th><th>Alcool</th></tr></thead><tbody>";
+    for (const d of allDays) {
+      html += "<tr><td>" + d.day + "</td><td>" + (d.workMin||0) + "m</td><td>" + (d.sleepMin||0) + "m</td><td>" + ((d.sportMin||0)+(d.marcheMin||0)) + "m</td><td>" + (d.clopeCount||0) + "</td><td>" + (d.alcoholCount||0) + "</td></tr>";
     }
     html += "</tbody></table>";
     fb.innerHTML = html;

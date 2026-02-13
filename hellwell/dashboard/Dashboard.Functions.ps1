@@ -249,6 +249,7 @@ function Get-MonthlyStats {
   }
 
   $workSessions = @()
+  $segments = @{}  # segments per InfernalDay for timeline chart
   $rows = Read-LogRows
   foreach ($r in $rows) {
     try {
@@ -274,6 +275,29 @@ function Get-MonthlyStats {
       }
       $name = Get-LogName $r
       $nameKey = if ($name) { $name.ToLowerInvariant() } else { "" }
+
+      # Build segment with real start/end hours (split cross-midnight, clamp 0-24)
+      if ($dur -gt 300 -and $nameKey -ne "idle") {
+        $startH = $s.Hour + ($s.Minute / 60.0)
+        $endH = $e.Hour + ($e.Minute / 60.0)
+        $color = if ([string]$r.CountsAsWork -eq "True") { "work" }
+                 elseif ([string]$r.CountsAsSleep -eq "True") { "sleep" }
+                 elseif ($nameKey -eq "clope") { "addiction" }
+                 elseif ($nameKey -eq "sport" -or $nameKey -eq "marche") { "healthy" }
+                 else { "chill" }
+        if (-not $segments.ContainsKey($dk)) { $segments[$dk] = @() }
+        if ($e.Date -gt $s.Date) {
+          # Split: first part startH -> 24, second part 0 -> endH
+          if ($startH -lt 24) {
+            $segments[$dk] += @{ name = $nameKey; color = $color; start = [Math]::Round($startH, 2); end = 24 }
+          }
+          if ($endH -gt 0) {
+            $segments[$dk] += @{ name = $nameKey; color = $color; start = 0; end = [Math]::Round([Math]::Min($endH, 24), 2) }
+          }
+        } else {
+          $segments[$dk] += @{ name = $nameKey; color = $color; start = [Math]::Round($startH, 2); end = [Math]::Round([Math]::Min($endH, 24), 2) }
+        }
+      }
 
       if ([string]$r.CountsAsWork -eq "True") {
         $daily[$dk].workSec += $dur
@@ -344,6 +368,7 @@ function Get-MonthlyStats {
     $d = Get-Date -Year $first.Year -Month $first.Month -Day $day -Hour 0 -Minute 0 -Second 0
     $key = $d.ToString("yyyy-MM-dd")
     $v = $daily[$key]
+    $segs = if ($segments.ContainsKey($key)) { $segments[$key] } else { @() }
     $dailyList += [pscustomobject]@{
       day = $day
       date = $key
@@ -357,6 +382,7 @@ function Get-MonthlyStats {
       glandouilleMin = [int][Math]::Round($v.glandouilleSec / 60.0, 0)
       clopeCount = [int]$v.clopeCount
       clopeMin = [int][Math]::Round($v.clopeSec / 60.0, 0)
+      segments = $segs
     }
   }
 

@@ -191,7 +191,7 @@ while ($true) {
       if ($path -eq "/api/monthly-summary") {
         $m = if ($qs.ContainsKey("m")) { $qs["m"] } else { (Get-Date).ToString("yyyy-MM") }
         $payload = Get-MonthlySummary $m
-        Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes ($payload | ConvertTo-Json -Depth 8))
+        Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes ($payload | ConvertTo-Json -Depth 12))
         continue
       }
       if ($path -eq "/ux") {

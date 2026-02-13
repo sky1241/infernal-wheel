@@ -6,6 +6,16 @@ Humeur: 3
 Anxiété: 2
 Irritabilité: 5
 Clarté: 1
-Priorité 1: avancer sur les projet 
+Priorité 1: avancer sur les projet
 Minimum vital: prendre le temps de manger a midi
-Score global: 3.9
+Humeur soir: 7
+Stress: 10
+Focus: 3
+Fatigue: 10
+Fierté: 10
+Intensité: 1
+Idées noires: 1
+Score global: 4.1
+Relations: 2
+
+j ai vraiment eu une grosse déprime hier, mais j ai été dormis plus tôt pour une fois et je me sens mieux aujourd'hui j ai retrouvé de la motivation pour bosser les gros problème de découvert la visualisation 3 d site internet casi down
