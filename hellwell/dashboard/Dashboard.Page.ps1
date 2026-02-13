@@ -3298,10 +3298,21 @@ function renderMonthlyChart(data){
     ctx.fillText("moy.", chipX + chipW / 2, chipY - 3);
 
     if (row.type === "area") {
-      /* ─── Area sparkline with glow ─── */
+      /* ─── Area sparkline with glow ─── min-max scaling for ondulation */
+      const areaNZ = row.values.filter(v => v > 0);
+      const areaMin = areaNZ.length > 1 ? Math.min(...areaNZ) : 0;
+      const areaRange = maxVal - areaMin;
+      const areaFloor = 0.18; /* minimum 18% height for lowest non-zero value */
+      function areaY(v) {
+        if (v <= 0) return top + rh - 4;
+        if (areaRange < 0.01) return top + rh / 2;
+        const norm = Math.max(0, Math.min(1, (v - areaMin) / areaRange));
+        return top + rh - 4 - (areaFloor + norm * (1 - areaFloor)) * (rh - 8);
+      }
+
       const pts = row.values.map((v, i) => ({
         x: xOf(i),
-        y: top + rh - 4 - (v / maxVal) * (rh - 8)
+        y: areaY(v)
       }));
 
       /* Build area path */
@@ -3339,7 +3350,7 @@ function renderMonthlyChart(data){
       ctx.restore();
 
       /* Average reference line (dashed, very subtle) */
-      const avgY = top + rh - 4 - (avg / maxVal) * (rh - 8);
+      const avgY = areaY(avg);
       ctx.strokeStyle = row.color + "30";
       ctx.lineWidth = 1;
       ctx.setLineDash([3, 5]);
@@ -3359,10 +3370,17 @@ function renderMonthlyChart(data){
         ctx.fillStyle = "#fff";
         ctx.beginPath(); ctx.arc(pt.x, pt.y, 2, 0, Math.PI * 2); ctx.fill();
 
-        /* Value label at hover point */
+        /* Value label at hover point - matches tooltip format */
         const val = row.values[hi];
         if (val > 0) {
-          const vt = val.toFixed(1) + row.unit;
+          let vt;
+          if (row.unit === "h") {
+            const hrs = Math.floor(val);
+            const mins = Math.round((val - hrs) * 60);
+            vt = hrs + "h" + (mins > 0 ? String(mins).padStart(2, "0") : "");
+          } else {
+            vt = val.toFixed(1) + row.unit;
+          }
           ctx.fillStyle = "#fff";
           ctx.font = "bold 10px 'Space Grotesk', sans-serif";
           ctx.textAlign = "center";
@@ -3372,8 +3390,8 @@ function renderMonthlyChart(data){
 
     } else if (row.type === "bars") {
       /* ─── Bar row (clopes / alcohol) ─── full height like area rows */
-      const barMaxH = rh - 16;   /* max bar height with padding */
-      const barBase = bot - 6;   /* bottom baseline */
+      const barMaxH = rh - 16;
+      const barBase = bot - 6;
       const colW = sparkW / n;
       const barW = Math.max(6, Math.min(16, colW * 0.5));
 
@@ -3381,10 +3399,10 @@ function renderMonthlyChart(data){
       const nonZero = row.values.filter(v => v > 0);
       const minVal = nonZero.length > 0 ? Math.min(...nonZero) : 0;
       const rangeVal = maxVal - minVal;
-      const minBarH = barMaxH * 0.2; /* minimum 20% height for smallest bar */
+      const minBarH = barMaxH * 0.2;
       function barH(v) {
         if (v <= 0) return 0;
-        if (rangeVal < 0.01) return barMaxH * 0.6; /* all same value */
+        if (rangeVal < 0.01) return barMaxH * 0.6;
         return minBarH + ((v - minVal) / rangeVal) * (barMaxH - minBarH);
       }
 
@@ -3408,7 +3426,6 @@ function renderMonthlyChart(data){
 
         ctx.save();
         if (row.hslGradient) {
-          /* HSL gradient: green(low) → yellow → red(high) like weekly table */
           const barColor = hslBar(ratio);
           const barBright = hslBarBright(ratio);
           ctx.shadowColor = barColor;
@@ -3418,7 +3435,6 @@ function renderMonthlyChart(data){
           bGrad.addColorStop(1, barColor + "80");
           ctx.fillStyle = bGrad;
         } else {
-          /* Fixed color gradient */
           ctx.shadowColor = row.color;
           ctx.shadowBlur = 6;
           const bGrad = ctx.createLinearGradient(0, by, 0, barBase);
@@ -3428,8 +3444,6 @@ function renderMonthlyChart(data){
         }
         ctx.beginPath(); ctx.roundRect(bx, by, barW, h, 2); ctx.fill();
         ctx.restore();
-
-        /* Value labels only on hover - avoids overlap */
       }
 
       /* Hover highlight */
@@ -4100,7 +4114,7 @@ document.addEventListener('click', () => {
 // ═══ AJAX Calendar Navigation ═══
 (function() {
   function bindCalNav() {
-    document.querySelectorAll('.cal-nav-btn').forEach(btn => {
+    document.querySelectorAll('.cal-hero .cal-nav-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.preventDefault();
         const url = btn.getAttribute('href');
