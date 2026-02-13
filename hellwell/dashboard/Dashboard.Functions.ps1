@@ -434,8 +434,14 @@ function Get-MonthlySummary {
       $a = if ($alcDaily.ContainsKey($dk)) { $alcDaily[$dk] } else { @{ wine=0; beer=0; strong=0 } }
       $count = Get-AlcoholUnits -Wine ([int]$a.wine) -Beer ([int]$a.beer) -Strong ([int]$a.strong)
       $liters = [math]::Round(([double]$a.wine * $WINE_L) + ([double]$a.beer * $BEER_L) + ([double]$a.strong * $STRONG_L), 3)
+      # Pure alcohol in grams (density 0.789 g/ml = 789 g/L)
+      $pureG = [math]::Round(
+        ([double]$a.wine * $WINE_L * $WINE_ABV * 789) +
+        ([double]$a.beer * $BEER_L * $BEER_ABV * 789) +
+        ([double]$a.strong * $STRONG_L * $STRONG_ABV * 789), 1)
       $d | Add-Member -NotePropertyName alcoholCount -NotePropertyValue $count -Force
       $d | Add-Member -NotePropertyName alcoholLiters -NotePropertyValue $liters -Force
+      $d | Add-Member -NotePropertyName pureAlcoholG -NotePropertyValue $pureG -Force
     } catch {}
   }
 

@@ -3123,21 +3123,35 @@ function renderMonthlyChart(data){
   /* Row config */
   const rowH = 64;     /* height per sparkline row - generous */
   const rowGap = 4;
-  const dotRowH = 36;  /* dot rows */
   const rows = [
     { key: "work",  label: "Travail",  icon: "\ud83d\udcbb", color: "#ff2d8a", bright: "#ff8ec4", values: days.map(d => (d.workMin||0)/60), unit: "h", type: "area" },
     { key: "sleep", label: "Sommeil",  icon: "\ud83c\udf19", color: "#3a6fff", bright: "#82b4ff", values: days.map(d => (d.sleepMin||0)/60), unit: "h", type: "area" },
     { key: "phys",  label: "Physique", icon: "\ud83c\udfc3", color: "#00d672", bright: "#5fffaa", values: days.map(d => ((d.sportMin||0)+(d.marcheMin||0))/60), unit: "h", type: "area" },
-    { key: "clope", label: "Clopes",   icon: "\ud83d\udeac", color: "#ff4040", bright: "#ff8080", values: days.map(d => d.clopeCount||0), unit: "", type: "dots" },
-    { key: "alc",   label: "Alcool",   icon: "\ud83c\udf7a", color: "#ffaa22", bright: "#ffd080", values: days.map(d => d.alcoholCount||0), unit: "", type: "dots" },
+    { key: "clope", label: "Clopes",   icon: "\ud83d\udeac", color: "#ff4040", bright: "#ff8080", values: days.map(d => d.clopeCount||0), unit: "", type: "bars" },
+    { key: "alc",   label: "Alcool",   icon: "\ud83c\udf7a", color: "#ffaa22", bright: "#ffd080", values: days.map(d => d.pureAlcoholG||0), unit: "g", type: "bars", hslGradient: true },
   ];
 
   /* Filter out rows with zero data */
   const activeRows = rows.filter(r => r.values.some(v => v > 0));
 
+  /* HSL→hex helper: returns #rrggbb so alpha hex suffix works (+"80" etc.) */
+  function hslToHex(h, s, l) {
+    s /= 100; l /= 100;
+    const a = s * Math.min(l, 1 - l);
+    const f = n => {
+      const k = (n + h / 30) % 12;
+      const c = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+      return Math.round(255 * c).toString(16).padStart(2, "0");
+    };
+    return "#" + f(0) + f(8) + f(4);
+  }
+  /* Score 0→1 maps to hue 120(green)→60(yellow)→0(red), same as weekly table */
+  function hslBar(ratio) { return hslToHex(Math.round(120 - ratio * 120), 85, 55); }
+  function hslBarBright(ratio) { return hslToHex(Math.round(120 - ratio * 120), 90, 72); }
+
   /* Total canvas height */
   let totalH = 8; /* top padding */
-  for (const r of activeRows) totalH += (r.type === "dots" ? dotRowH : rowH) + rowGap;
+  for (const r of activeRows) totalH += rowH + rowGap;
   totalH += 24; /* bottom for day labels */
 
   canvas.height = Math.round(totalH * dpr);
@@ -3184,7 +3198,7 @@ function renderMonthlyChart(data){
   let curY = 8;
 
   for (const row of activeRows) {
-    const rh = row.type === "dots" ? dotRowH : rowH;
+    const rh = rowH;
     const top = curY;
     const bot = curY + rh;
     const mid = curY + rh / 2;
@@ -3214,24 +3228,31 @@ function renderMonthlyChart(data){
     ctx.fillText(row.icon + " " + row.label, 8, mid + 4);
 
     /* Right: average value chip - [WEB.md §K64] min 16px labels, contrast ≥3:1 */
-    const avgText = row.unit === "h" ? avg.toFixed(1) : avg.toFixed(0);
-    const avgLabel = avgText + (row.unit || "/j");
+    const avgText = row.unit === "h" ? avg.toFixed(1) : Math.round(avg);
+    const avgLabel = "~" + avgText + (row.unit || "") + "/j";
     ctx.font = "bold 12px 'Space Grotesk', sans-serif";
     const tw = ctx.measureText(avgLabel).width;
     const chipW = tw + 14;
     const chipH = 22;
     const chipX = width - chipW - 4;
     const chipY = mid - chipH / 2;
+    /* HSL chip color for gradient rows */
+    const chipColor = row.hslGradient ? hslBar(0.5) : row.color;
+    const chipBright = row.hslGradient ? hslBarBright(0.5) : row.bright;
     /* Chip background */
-    ctx.fillStyle = row.color + "18";
+    ctx.fillStyle = chipColor + "18";
     ctx.beginPath(); ctx.roundRect(chipX, chipY, chipW, chipH, 6); ctx.fill();
-    ctx.strokeStyle = row.color + "30";
+    ctx.strokeStyle = chipColor + "30";
     ctx.lineWidth = 1;
     ctx.stroke();
     /* Chip text */
-    ctx.fillStyle = row.bright;
+    ctx.fillStyle = chipBright;
     ctx.textAlign = "center";
     ctx.fillText(avgLabel, chipX + chipW / 2, mid + 4);
+    /* "moy" micro-label above chip */
+    ctx.fillStyle = chipColor + "60";
+    ctx.font = "9px 'Space Grotesk', sans-serif";
+    ctx.fillText("moy.", chipX + chipW / 2, chipY - 3);
 
     if (row.type === "area") {
       /* ─── Area sparkline with glow ─── */
@@ -3306,37 +3327,93 @@ function renderMonthlyChart(data){
         }
       }
 
-    } else {
-      /* ─── Dot row (clopes / alcohol) ─── */
+    } else if (row.type === "bars") {
+      /* ─── Bar row (clopes / alcohol) ─── full height like area rows */
+      const barMaxH = rh - 16;   /* max bar height with padding */
+      const barBase = bot - 6;   /* bottom baseline */
+      const colW = sparkW / n;
+      const barW = Math.max(6, Math.min(16, colW * 0.5));
+
+      /* Min-max scaling for better visual differentiation */
+      const nonZero = row.values.filter(v => v > 0);
+      const minVal = nonZero.length > 0 ? Math.min(...nonZero) : 0;
+      const rangeVal = maxVal - minVal;
+      const minBarH = barMaxH * 0.2; /* minimum 20% height for smallest bar */
+      function barH(v) {
+        if (v <= 0) return 0;
+        if (rangeVal < 0.01) return barMaxH * 0.6; /* all same value */
+        return minBarH + ((v - minVal) / rangeVal) * (barMaxH - minBarH);
+      }
+
+      /* Average dashed line */
+      const avgH = barH(avg);
+      const avgBarY = barBase - avgH;
+      ctx.strokeStyle = (row.hslGradient ? "rgba(255,255,255,0.15)" : row.color + "30");
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 5]);
+      ctx.beginPath(); ctx.moveTo(sparkL, avgBarY); ctx.lineTo(sparkR, avgBarY); ctx.stroke();
+      ctx.setLineDash([]);
+
       for (let i = 0; i < n; i++) {
         const v = row.values[i];
         if (v <= 0) continue;
         const x = xOf(i);
-        const r = 2 + (v / maxVal) * 4;
+        const h = barH(v);
+        const bx = x - barW / 2;
+        const by = barBase - h;
+        const ratio = rangeVal > 0.01 ? (v - minVal) / rangeVal : 0.5;
+
         ctx.save();
-        ctx.shadowColor = row.color;
-        ctx.shadowBlur = 8;
-        ctx.fillStyle = row.color;
-        ctx.beginPath(); ctx.arc(x, mid, r, 0, Math.PI * 2); ctx.fill();
+        if (row.hslGradient) {
+          /* HSL gradient: green(low) → yellow → red(high) like weekly table */
+          const barColor = hslBar(ratio);
+          const barBright = hslBarBright(ratio);
+          ctx.shadowColor = barColor;
+          ctx.shadowBlur = 8;
+          const bGrad = ctx.createLinearGradient(0, by, 0, barBase);
+          bGrad.addColorStop(0, barBright);
+          bGrad.addColorStop(1, barColor + "80");
+          ctx.fillStyle = bGrad;
+        } else {
+          /* Fixed color gradient */
+          ctx.shadowColor = row.color;
+          ctx.shadowBlur = 6;
+          const bGrad = ctx.createLinearGradient(0, by, 0, barBase);
+          bGrad.addColorStop(0, row.bright);
+          bGrad.addColorStop(1, row.color + "80");
+          ctx.fillStyle = bGrad;
+        }
+        ctx.beginPath(); ctx.roundRect(bx, by, barW, h, 2); ctx.fill();
         ctx.restore();
+
+        /* Value label on top of bar */
+        const label = row.unit === "g" ? Math.round(v) + "g" : String(v);
+        ctx.fillStyle = row.hslGradient ? hslBarBright(ratio) : row.bright;
+        ctx.font = "bold 9px 'Space Grotesk', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(label, x, by - 3);
       }
 
       /* Hover highlight */
       if (isRowHover && row.values[CHART_HOVER_INDEX] > 0) {
         const hi = CHART_HOVER_INDEX;
         const x = xOf(hi);
+        const v = row.values[hi];
+        const h = barH(v);
+        const bx = x - barW / 2;
+        const by = barBase - h;
         ctx.save();
         ctx.shadowColor = "#fff";
         ctx.shadowBlur = 8;
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 1.5;
-        const r = 2 + (row.values[hi] / maxVal) * 4;
-        ctx.beginPath(); ctx.arc(x, mid, r + 2, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.roundRect(bx - 1, by - 1, barW + 2, h + 2, 3); ctx.stroke();
         ctx.restore();
+        const hLabel = row.unit === "g" ? Math.round(v) + "g" : String(v);
         ctx.fillStyle = "#fff";
-        ctx.font = "bold 10px 'Space Grotesk', sans-serif";
+        ctx.font = "bold 11px 'Space Grotesk', sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText(String(row.values[hi]), x, mid - r - 6);
+        ctx.fillText(hLabel, x, by - 7);
       }
     }
 
@@ -3429,7 +3506,7 @@ function showChartTooltip(dayData, x, y) {
     + "<div class='ttDivider'></div>"
     + "<div class='ttGrid'>"
     + "<div class='ttRow addiction'><span class='ttIcon'>\ud83d\udeac</span><span class='ttLabel'>Clopes</span><span class='ttVal'>" + (d.clopeCount || 0) + "</span></div>"
-    + "<div class='ttRow addiction'><span class='ttIcon'>\ud83c\udf7a</span><span class='ttLabel'>Alcool</span><span class='ttVal'>" + (d.alcoholCount || 0) + "</span></div>"
+    + "<div class='ttRow addiction'><span class='ttIcon'>\ud83c\udf7a</span><span class='ttLabel'>Alcool</span><span class='ttVal'>" + Math.round(d.pureAlcoholG || 0) + "g pur</span></div>"
     + "</div>";
 
   /* [UX_PRO] Positionner le tooltip */
