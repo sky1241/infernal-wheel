@@ -1434,11 +1434,32 @@ td.day.today .dnum{
   .calLegend__item{ font-size:.75rem }
 }
 
-/* Section headers UX */
-.section-header{display:flex;align-items:center;gap:var(--sp-8);margin-bottom:var(--sp-16)}
-.section-header h2{margin:0;font-size:1.25rem;font-weight:800;color:var(--text);display:flex;align-items:center;gap:var(--sp-8)}
-.section-header-icon{font-size:1.3rem}
-.section-header-badge{font-size:.75rem;color:var(--muted);background:rgba(255,255,255,.05);padding:4px 10px;border-radius:12px;font-weight:500}
+/* Section headers - hero style (same pattern as calendar) */
+.section-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px;margin-bottom:var(--sp-16);
+  background:linear-gradient(135deg, rgba(91,178,255,.05), rgba(162,155,254,.05), rgba(255,110,199,.03));
+  border:1px solid rgba(91,178,255,.10);
+  border-radius:14px;position:relative;overflow:hidden;
+}
+.section-header::before{
+  content:"";position:absolute;top:-50%;right:-20%;width:180px;height:180px;
+  background:radial-gradient(circle, rgba(91,178,255,.06) 0%, transparent 70%);
+  pointer-events:none;
+}
+.section-header h2{
+  margin:0;font-size:1.25rem;font-weight:900;letter-spacing:-.5px;
+  background:linear-gradient(135deg, #5bb2ff, #a29bfe, #ff6ec7);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  display:flex;align-items:center;gap:var(--sp-8);
+}
+.section-header-icon{display:none}
+.section-header-badge{
+  font-size:.8rem;font-weight:700;color:#5bb2ff;
+  background:rgba(91,178,255,.1);border:1px solid rgba(91,178,255,.25);
+  padding:6px 14px;border-radius:20px;letter-spacing:.5px;
+  box-shadow:0 0 12px rgba(91,178,255,.15);min-width:70px;text-align:center;
+}
 /* [WEB] radius 8px, padding 12px */
 .seg{border:1px solid var(--seg-border, var(--border)); border-radius:8px; padding:12px; margin:8px 0; background:var(--seg-bg, rgba(16,22,29,.55)); position:relative; box-shadow:0 0 0 1px rgba(255,255,255,.02) inset}
 .seg::before{
@@ -2042,14 +2063,15 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 /* [UX] Help tooltip - hover (PC) + tap (mobile) */
 .help{
   display:inline-flex; align-items:center; justify-content:center;
-  width:18px; height:18px; border-radius:999px;
-  border:1px solid rgba(255,255,255,.35); color:var(--muted); font-size:.75rem;
-  margin-left:6px; vertical-align:middle;
+  width:16px; height:16px; border-radius:999px;
+  border:1px solid rgba(255,255,255,.15); color:rgba(231,237,243,.35); font-size:.65rem; font-weight:600;
+  margin-left:4px; vertical-align:middle;
   cursor:pointer; position:relative;
   -webkit-tap-highlight-color:transparent;
   user-select:none;
+  transition:all 150ms ease;
 }
-.help:hover{color:var(--text); border-color:rgba(255,255,255,.6)}
+.help:hover{color:var(--text); border-color:rgba(255,255,255,.5); background:rgba(255,255,255,.06)}
 .help::after{
   content:attr(data-tip);
   position:absolute; bottom:calc(100% + 8px); left:50%;
@@ -2232,7 +2254,7 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 }
 
 /* [WEB §E Rule 21] Touch target 44px recommended - invisible padding extends hit area */
-.help{min-width:24px;min-height:24px;width:24px;height:24px;padding:10px;box-sizing:content-box}
+.help{min-width:16px;min-height:16px;width:16px;height:16px;padding:14px;box-sizing:content-box}
 .legendDot{min-width:12px;min-height:12px}
 a.pill,button.btn{min-width:44px;min-height:44px}
 .recentItem{min-height:24px}
@@ -2374,7 +2396,7 @@ body{
   <!-- [UX] Commandes PRO - cards glassmorphism, icons, spacing 4px, touch 44px -->
   <div class="card reveal d4 commandsCard">
     <div class="section-header">
-      <h2><span class="section-header-icon" aria-hidden="true">&#9881;&#65039;</span>Commandes</h2>
+      <h2>Commandes</h2>
       <span class="section-header-badge cmdBadge">Centre de controle</span>
     </div>
 
@@ -2549,7 +2571,7 @@ body{
 
   <div class="card reveal d6">
     <div class="section-header">
-      <h2><span class="section-header-icon" aria-hidden="true">&#128202;</span>Rapport mensuel<span class="help" data-tip="Vue d'ensemble du mois avec tendances et variations.">?</span></h2>
+      <h2>Rapport mensuel</h2>
       <span class="section-header-badge">__YM__</span>
     </div>
     <div class="chartWrap" role="img" aria-label="Graphique mensuel des tendances">
