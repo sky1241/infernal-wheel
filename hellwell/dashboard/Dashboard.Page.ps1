@@ -1440,7 +1440,7 @@ td.day.today .dnum{
   padding:14px 20px;margin-bottom:var(--sp-16);
   background:linear-gradient(135deg, rgba(91,178,255,.05), rgba(162,155,254,.05), rgba(255,110,199,.03));
   border:1px solid rgba(91,178,255,.10);
-  border-radius:14px;position:relative;overflow:hidden;
+  border-radius:14px;position:relative;
 }
 .section-header::before{
   content:"";position:absolute;top:-50%;right:-20%;width:180px;height:180px;
@@ -1460,7 +1460,7 @@ td.day.today .dnum{
   padding:6px 14px;border-radius:20px;letter-spacing:.5px;
   box-shadow:0 0 12px rgba(91,178,255,.15);min-width:70px;text-align:center;
 }
-.section-nav{display:flex;align-items:center;gap:8px}
+.section-nav{display:flex;align-items:center;gap:8px;position:relative;z-index:1}
 /* [WEB] radius 8px, padding 12px */
 .seg{border:1px solid var(--seg-border, var(--border)); border-radius:8px; padding:12px; margin:8px 0; background:var(--seg-bg, rgba(16,22,29,.55)); position:relative; box-shadow:0 0 0 1px rgba(255,255,255,.02) inset}
 .seg::before{
@@ -1742,19 +1742,31 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 .chartWrap{height:auto; min-height:200px; margin-top:var(--sp-16); border-radius:var(--r); background:rgba(16,22,29,.4); padding:var(--sp-12); border:1px solid rgba(255,255,255,.04)}
 #monthChart{width:100%; display:block; cursor:crosshair}
 
-/* [UX_PRO] Chart Tooltip - glassmorphism + animations */
-.chartTooltip{position:fixed;z-index:3000;min-width:240px;max-width:280px;padding:0;background:rgba(18,24,32,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.12);border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.05) inset;opacity:0;visibility:hidden;transform:translateY(8px) scale(0.96);transition:opacity .15s ease,transform .15s ease,visibility .15s ease;pointer-events:none;overflow:hidden}
+/* [UX_PRO] Chart Tooltip - glassmorphism + color-coded rows */
+.chartTooltip{position:fixed;z-index:3000;min-width:220px;max-width:260px;padding:0;
+  background:linear-gradient(165deg,rgba(16,20,28,.98),rgba(22,28,38,.98));
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid rgba(91,178,255,.15);border-radius:14px;
+  box-shadow:0 20px 60px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.04) inset,0 0 30px rgba(91,178,255,.06);
+  opacity:0;visibility:hidden;transform:translateY(6px) scale(0.97);
+  transition:opacity .15s ease,transform .15s ease,visibility .15s ease;pointer-events:none;overflow:hidden}
 .chartTooltip.visible{opacity:1;visibility:visible;transform:translateY(0) scale(1)}
-.chartTooltip .ttHeader{padding:12px 16px;background:linear-gradient(135deg,rgba(107,188,255,.15),rgba(107,188,255,.05));border-bottom:1px solid rgba(255,255,255,.08);font-weight:800;font-size:.9375rem;color:#fff}
-.chartTooltip .ttGrid{padding:8px 12px}
-.chartTooltip .ttRow{display:grid;grid-template-columns:24px 1fr auto auto;gap:8px;align-items:center;padding:6px 4px;border-radius:6px;transition:background .1s ease}
-.chartTooltip .ttRow:hover{background:rgba(255,255,255,.04)}
-.chartTooltip .ttRow.addiction{background:rgba(255,107,138,.06)}
-.chartTooltip .ttIcon{font-size:1rem;text-align:center}
-.chartTooltip .ttLabel{font-size:.8125rem;color:var(--muted)}
-.chartTooltip .ttVal{font-size:.875rem;font-weight:700;color:#fff;text-align:right}
-.chartTooltip .ttTime{font-size:.75rem;color:var(--accent);font-variant-numeric:tabular-nums;text-align:right}
-.chartTooltip .ttDivider{height:1px;background:rgba(255,255,255,.08);margin:4px 12px}
+.chartTooltip .ttHeader{padding:10px 14px 8px;font-weight:800;font-size:.8rem;color:rgba(231,237,243,.4);letter-spacing:.06em;text-transform:uppercase}
+.chartTooltip .ttGrid{padding:2px 10px 8px}
+.chartTooltip .ttRow{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:8px;border-left:3px solid transparent}
+.chartTooltip .ttRow--work{border-left-color:#ff2d8a}
+.chartTooltip .ttRow--sleep{border-left-color:#3a6fff}
+.chartTooltip .ttRow--sport{border-left-color:#00d672}
+.chartTooltip .ttRow--marche{border-left-color:#00d672}
+.chartTooltip .ttRow--reveil{border-left-color:#ffaa22}
+.chartTooltip .ttRow.addiction{border-left-color:transparent;background:rgba(255,255,255,.03);margin-top:2px}
+.chartTooltip .ttRow.addiction--clope{border-left-color:#ff4040}
+.chartTooltip .ttRow.addiction--alc{border-left-color:#ffaa22}
+.chartTooltip .ttIcon{font-size:.9rem;width:20px;text-align:center;flex-shrink:0}
+.chartTooltip .ttLabel{font-size:.8rem;color:rgba(231,237,243,.5);flex:1}
+.chartTooltip .ttVal{font-size:.85rem;font-weight:700;color:#fff;text-align:right;font-variant-numeric:tabular-nums}
+.chartTooltip .ttTime{font-size:.7rem;color:var(--accent);font-variant-numeric:tabular-nums;margin-left:4px}
+.chartTooltip .ttDivider{height:1px;background:linear-gradient(90deg,transparent,rgba(91,178,255,.15),transparent);margin:6px 10px}
 
 /* [WEB.md §21,22] Legend - touch targets 44px WCAG 2.5.8, contraste */
 .legend{
@@ -3417,14 +3429,7 @@ function renderMonthlyChart(data){
         ctx.beginPath(); ctx.roundRect(bx, by, barW, h, 2); ctx.fill();
         ctx.restore();
 
-        /* Value label on top of bar - only if enough space to avoid overlap */
-        if (colW > 38) {
-          const label = row.unit === "g" ? Math.round(v) + "g" : String(v);
-          ctx.fillStyle = row.hslGradient ? hslBarBright(ratio) : row.bright;
-          ctx.font = "bold 9px 'Space Grotesk', sans-serif";
-          ctx.textAlign = "center";
-          ctx.fillText(label, x, by - 3);
-        }
+        /* Value labels only on hover - avoids overlap */
       }
 
       /* Hover highlight */
@@ -3524,27 +3529,26 @@ function showChartTooltip(dayData, x, y) {
     return hrs > 0 ? hrs + "h" + (mins > 0 ? String(mins).padStart(2, "0") : "") : mins + "min";
   };
 
+  /* Wake-up time from segments */
+  const reveilSeg = (d.segments||[]).find(s => s.name === "reveille");
+  const reveilStr = reveilSeg ? (function() {
+    const h = Math.floor(reveilSeg.start); const m = Math.round((reveilSeg.start - h) * 60);
+    return String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0");
+  })() : null;
+
   tooltip.innerHTML = ""
-    + "<div class='ttHeader'>\ud83d\udcc5 Jour " + d.day + "</div>"
+    + "<div class='ttHeader'>Jour " + d.day + "</div>"
     + "<div class='ttGrid'>"
-    + "<div class='ttRow'><span class='ttIcon'>\ud83d\udcbb</span><span class='ttLabel'>Travail</span><span class='ttVal'>" + fmtDur(d.workMin) + "</span>"
-    + (d.workStart !== undefined ? "<span class='ttTime'>" + fmtTime(d.workStart) + " \u2192 " + fmtTime(d.workEnd) + "</span>" : "") + "</div>"
-    + "<div class='ttRow'><span class='ttIcon'>\ud83d\udca4</span><span class='ttLabel'>Sommeil</span><span class='ttVal'>" + fmtDur(d.sleepMin) + "</span>"
-    + (d.sleepStart !== undefined ? "<span class='ttTime'>" + fmtTime(d.sleepStart) + " \u2192 " + fmtTime(d.sleepEnd) + "</span>" : "") + "</div>"
-    + "<div class='ttRow'><span class='ttIcon'>\ud83c\udfc3</span><span class='ttLabel'>Sport</span><span class='ttVal'>" + fmtDur(d.sportMin) + "</span></div>"
-    + "<div class='ttRow'><span class='ttIcon'>\ud83d\udeb6</span><span class='ttLabel'>Marche</span><span class='ttVal'>" + fmtDur(d.marcheMin) + "</span></div>"
-    + "<div class='ttRow'><span class='ttIcon'>\u2600\ufe0f</span><span class='ttLabel'>Reveil</span><span class='ttVal'>" + (function() {
-      const seg = (d.segments||[]).find(s => s.name === "reveille");
-      if (!seg) return "-";
-      const h = Math.floor(seg.start); const m = Math.round((seg.start - h) * 60);
-      return String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0");
-    })() + "</span></div>"
+    + (d.workMin ? "<div class='ttRow ttRow--work'><span class='ttIcon'>\ud83d\udcbb</span><span class='ttLabel'>Travail</span><span class='ttVal'>" + fmtDur(d.workMin) + "</span></div>" : "")
+    + (d.sleepMin ? "<div class='ttRow ttRow--sleep'><span class='ttIcon'>\ud83d\udca4</span><span class='ttLabel'>Sommeil</span><span class='ttVal'>" + fmtDur(d.sleepMin) + "</span></div>" : "")
+    + (d.sportMin ? "<div class='ttRow ttRow--sport'><span class='ttIcon'>\ud83c\udfc3</span><span class='ttLabel'>Sport</span><span class='ttVal'>" + fmtDur(d.sportMin) + "</span></div>" : "")
+    + (d.marcheMin ? "<div class='ttRow ttRow--marche'><span class='ttIcon'>\ud83d\udeb6</span><span class='ttLabel'>Marche</span><span class='ttVal'>" + fmtDur(d.marcheMin) + "</span></div>" : "")
+    + (reveilStr ? "<div class='ttRow ttRow--reveil'><span class='ttIcon'>\u2600\ufe0f</span><span class='ttLabel'>Reveil</span><span class='ttVal'>" + reveilStr + "</span></div>" : "")
     + "</div>"
-    + "<div class='ttDivider'></div>"
-    + "<div class='ttGrid'>"
-    + "<div class='ttRow addiction'><span class='ttIcon'>\ud83d\udeac</span><span class='ttLabel'>Clopes</span><span class='ttVal'>" + (d.clopeCount || 0) + "</span></div>"
-    + "<div class='ttRow addiction'><span class='ttIcon'>\ud83c\udf7a</span><span class='ttLabel'>Alcool</span><span class='ttVal'>" + Math.round(d.pureAlcoholG || 0) + "g pur</span></div>"
-    + "</div>";
+    + ((d.clopeCount || d.pureAlcoholG) ? "<div class='ttDivider'></div><div class='ttGrid'>"
+    + (d.clopeCount ? "<div class='ttRow addiction addiction--clope'><span class='ttIcon'>\ud83d\udeac</span><span class='ttLabel'>Clopes</span><span class='ttVal'>" + d.clopeCount + "</span></div>" : "")
+    + (d.pureAlcoholG ? "<div class='ttRow addiction addiction--alc'><span class='ttIcon'>\ud83c\udf7a</span><span class='ttLabel'>Alcool</span><span class='ttVal'>" + Math.round(d.pureAlcoholG) + "g</span></div>" : "")
+    + "</div>" : "");
 
   /* [UX_PRO] Positionner le tooltip */
   const ttRect = tooltip.getBoundingClientRect();
