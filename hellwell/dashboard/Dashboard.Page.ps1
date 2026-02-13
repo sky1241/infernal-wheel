@@ -3383,8 +3383,9 @@ function renderMonthlyChart(data){
           }
           ctx.fillStyle = "#fff";
           ctx.font = "bold 10px 'Space Grotesk', sans-serif";
-          ctx.textAlign = "center";
-          ctx.fillText(vt, pt.x, pt.y - 8);
+          const nearChip = pt.x > chipX - 24;
+          ctx.textAlign = nearChip ? "right" : "center";
+          ctx.fillText(vt, nearChip ? chipX - 8 : pt.x, pt.y - 8);
         }
       }
 
@@ -3395,15 +3396,16 @@ function renderMonthlyChart(data){
       const colW = sparkW / n;
       const barW = Math.max(6, Math.min(16, colW * 0.5));
 
-      /* Min-max scaling for better visual differentiation */
+      /* Min-max scaling with power curve for dramatic amplitude */
       const nonZero = row.values.filter(v => v > 0);
       const minVal = nonZero.length > 0 ? Math.min(...nonZero) : 0;
       const rangeVal = maxVal - minVal;
-      const minBarH = barMaxH * 0.2;
+      const minBarH = barMaxH * 0.06;
       function barH(v) {
         if (v <= 0) return 0;
         if (rangeVal < 0.01) return barMaxH * 0.6;
-        return minBarH + ((v - minVal) / rangeVal) * (barMaxH - minBarH);
+        const norm = (v - minVal) / rangeVal;
+        return minBarH + Math.pow(norm, 1.3) * (barMaxH - minBarH);
       }
 
       /* Average dashed line */
@@ -3464,8 +3466,9 @@ function renderMonthlyChart(data){
         const hLabel = row.unit === "g" ? Math.round(v) + "g" : String(v);
         ctx.fillStyle = "#fff";
         ctx.font = "bold 11px 'Space Grotesk', sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText(hLabel, x, by - 7);
+        const nearChipB = x > chipX - 24;
+        ctx.textAlign = nearChipB ? "right" : "center";
+        ctx.fillText(hLabel, nearChipB ? chipX - 8 : x, by - 7);
       }
     }
 
