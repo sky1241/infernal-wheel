@@ -1460,6 +1460,7 @@ td.day.today .dnum{
   padding:6px 14px;border-radius:20px;letter-spacing:.5px;
   box-shadow:0 0 12px rgba(91,178,255,.15);min-width:70px;text-align:center;
 }
+.section-nav{display:flex;align-items:center;gap:8px}
 /* [WEB] radius 8px, padding 12px */
 .seg{border:1px solid var(--seg-border, var(--border)); border-radius:8px; padding:12px; margin:8px 0; background:var(--seg-bg, rgba(16,22,29,.55)); position:relative; box-shadow:0 0 0 1px rgba(255,255,255,.02) inset}
 .seg::before{
@@ -2572,7 +2573,15 @@ body{
   <div class="card reveal d6">
     <div class="section-header">
       <h2>Rapport mensuel</h2>
-      <span class="section-header-badge">__YM__</span>
+      <div class="section-nav">
+        <a class="cal-nav-btn" href="/?m=__PREVYM__" aria-label="Mois precedent">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </a>
+        <span class="section-header-badge">__YM__</span>
+        <a class="cal-nav-btn" href="/?m=__NEXTYM__" aria-label="Mois suivant">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </a>
+      </div>
     </div>
     <div class="chartWrap" role="img" aria-label="Graphique mensuel des tendances">
       <canvas id="monthChart" aria-hidden="true"></canvas>
@@ -3408,12 +3417,14 @@ function renderMonthlyChart(data){
         ctx.beginPath(); ctx.roundRect(bx, by, barW, h, 2); ctx.fill();
         ctx.restore();
 
-        /* Value label on top of bar */
-        const label = row.unit === "g" ? Math.round(v) + "g" : String(v);
-        ctx.fillStyle = row.hslGradient ? hslBarBright(ratio) : row.bright;
-        ctx.font = "bold 9px 'Space Grotesk', sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText(label, x, by - 3);
+        /* Value label on top of bar - only if enough space to avoid overlap */
+        if (colW > 38) {
+          const label = row.unit === "g" ? Math.round(v) + "g" : String(v);
+          ctx.fillStyle = row.hslGradient ? hslBarBright(ratio) : row.bright;
+          ctx.font = "bold 9px 'Space Grotesk', sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(label, x, by - 3);
+        }
       }
 
       /* Hover highlight */
@@ -3522,7 +3533,12 @@ function showChartTooltip(dayData, x, y) {
     + (d.sleepStart !== undefined ? "<span class='ttTime'>" + fmtTime(d.sleepStart) + " \u2192 " + fmtTime(d.sleepEnd) + "</span>" : "") + "</div>"
     + "<div class='ttRow'><span class='ttIcon'>\ud83c\udfc3</span><span class='ttLabel'>Sport</span><span class='ttVal'>" + fmtDur(d.sportMin) + "</span></div>"
     + "<div class='ttRow'><span class='ttIcon'>\ud83d\udeb6</span><span class='ttLabel'>Marche</span><span class='ttVal'>" + fmtDur(d.marcheMin) + "</span></div>"
-    + "<div class='ttRow'><span class='ttIcon'>\u2600\ufe0f</span><span class='ttLabel'>Reveil</span><span class='ttVal'>" + (d.reveilleStart !== undefined ? fmtTime(d.reveilleStart) : "-") + "</span></div>"
+    + "<div class='ttRow'><span class='ttIcon'>\u2600\ufe0f</span><span class='ttLabel'>Reveil</span><span class='ttVal'>" + (function() {
+      const seg = (d.segments||[]).find(s => s.name === "reveille");
+      if (!seg) return "-";
+      const h = Math.floor(seg.start); const m = Math.round((seg.start - h) * 60);
+      return String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0");
+    })() + "</span></div>"
     + "</div>"
     + "<div class='ttDivider'></div>"
     + "<div class='ttGrid'>"
