@@ -3158,7 +3158,7 @@ function renderMonthlyChart(data){
 
   const n = days.length;
   const labelW = 80;   /* left label column */
-  const valueW = 56;   /* right value column */
+  const valueW = 74;   /* right value column - room for chip + spacing */
   const sparkL = labelW;
   const sparkR = width - valueW;
   const sparkW = sparkR - sparkL;
@@ -3271,8 +3271,13 @@ function renderMonthlyChart(data){
     ctx.fillText(row.icon + " " + row.label, 8, mid + 4);
 
     /* Right: average value chip - [WEB.md §K64] min 16px labels, contrast ≥3:1 */
-    const avgText = row.unit === "h" ? avg.toFixed(1) : Math.round(avg);
-    const avgLabel = "~" + avgText + (row.unit || "") + "/j";
+    let avgLabel;
+    if (row.unit === "h") {
+      const aH = Math.floor(avg); const aM = Math.round((avg - aH) * 60);
+      avgLabel = "~" + aH + "h" + (aM > 0 ? String(aM).padStart(2,"0") : "") + "/j";
+    } else {
+      avgLabel = "~" + Math.round(avg) + (row.unit || "") + "/j";
+    }
     ctx.font = "bold 12px 'Space Grotesk', sans-serif";
     const tw = ctx.measureText(avgLabel).width;
     const chipW = tw + 14;
@@ -3760,8 +3765,8 @@ function showMonthlyLoading(){
   }
 }
 
-async function loadMonthlySummary(){
-  const monthKey = "__YM__";
+async function loadMonthlySummary(month){
+  const monthKey = month || "__YM__";
   showMonthlyLoading();
   const data = await getJSON("/api/monthly-summary?m=" + encodeURIComponent(monthKey));
   if (!data || !data.ok) { showToast("Erreur chargement rapport mensuel.", "error", "Rapport"); return; }
@@ -4172,6 +4177,44 @@ document.addEventListener('click', () => {
     });
   }
   bindCalNav();
+})();
+
+// ═══ AJAX Rapport Mensuel Navigation ═══
+(function() {
+  function bindReportNav() {
+    document.querySelectorAll('.section-nav .cal-nav-btn').forEach(btn => {
+      if (btn.closest('.cal-hero')) return; /* skip calendar buttons */
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const href = btn.getAttribute('href');
+        const params = new URLSearchParams(href.split('?')[1] || '');
+        const newMonth = params.get('m');
+        if (!newMonth) { window.location = href; return; }
+
+        /* Update badge + arrow hrefs */
+        const nav = btn.closest('.section-nav');
+        const badge = nav.querySelector('.section-header-badge');
+        if (badge) badge.textContent = newMonth;
+
+        const [y, m] = newMonth.split("-").map(Number);
+        const prev = m === 1 ? (y-1)+"-12" : y+"-"+String(m-1).padStart(2,"0");
+        const next = m === 12 ? (y+1)+"-01" : y+"-"+String(m+1).padStart(2,"0");
+        const arrows = nav.querySelectorAll('.cal-nav-btn');
+        if (arrows[0]) arrows[0].setAttribute('href', '/?m=' + prev);
+        if (arrows[1]) arrows[1].setAttribute('href', '/?m=' + next);
+
+        /* Fade chart briefly */
+        const canvas = document.getElementById('monthChart');
+        if (canvas) { canvas.style.opacity = '0.3'; canvas.style.transition = 'opacity .15s ease'; }
+
+        /* Load new month data via API */
+        await loadMonthlySummary(newMonth);
+
+        if (canvas) canvas.style.opacity = '1';
+      });
+    });
+  }
+  bindReportNav();
 })();
 </script>
 </body>
