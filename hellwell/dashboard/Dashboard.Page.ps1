@@ -3122,12 +3122,12 @@ function renderMonthlyChart(data){
 
   /* Row config */
   const rowH = 64;     /* height per sparkline row - generous */
-  const rowGap = 4;
+  const rowGap = 6;    /* [F.36] 4px grid multiple - better row separation */
   const rows = [
     { key: "work",  label: "Travail",  icon: "\ud83d\udcbb", color: "#ff2d8a", bright: "#ff8ec4", values: days.map(d => (d.workMin||0)/60), unit: "h", type: "area" },
     { key: "sleep", label: "Sommeil",  icon: "\ud83c\udf19", color: "#3a6fff", bright: "#82b4ff", values: days.map(d => (d.sleepMin||0)/60), unit: "h", type: "area" },
     { key: "phys",  label: "Physique", icon: "\ud83c\udfc3", color: "#00d672", bright: "#5fffaa", values: days.map(d => ((d.sportMin||0)+(d.marcheMin||0))/60), unit: "h", type: "area" },
-    { key: "clope", label: "Clopes",   icon: "\ud83d\udeac", color: "#ff4040", bright: "#ff8080", values: days.map(d => d.clopeCount||0), unit: "", type: "bars" },
+    { key: "clope", label: "Clopes",   icon: "\ud83d\udeac", color: "#ff4040", bright: "#ff8080", values: days.map(d => d.clopeCount||0), unit: "", type: "bars", hslGradient: true },
     { key: "alc",   label: "Alcool",   icon: "\ud83c\udf7a", color: "#ffaa22", bright: "#ffd080", values: days.map(d => d.pureAlcoholG||0), unit: "g", type: "bars", hslGradient: true },
   ];
 
@@ -3223,7 +3223,7 @@ function renderMonthlyChart(data){
     ctx.fillStyle = row.color;
     ctx.fillRect(0, top + 4, 3, rh - 8);
     ctx.fillStyle = row.color + "dd";
-    ctx.font = "bold 11px 'Space Grotesk', sans-serif";
+    ctx.font = "bold 12px 'Space Grotesk', sans-serif"; /* [K.64] ≥12pt labels */
     ctx.textAlign = "left";
     ctx.fillText(row.icon + " " + row.label, 8, mid + 4);
 
@@ -3420,15 +3420,14 @@ function renderMonthlyChart(data){
     curY += rh + rowGap;
   }
 
-  /* ─── Day labels at bottom ─── */
-  ctx.fillStyle = "rgba(231,237,243,0.3)";
-  ctx.font = "10px 'Space Grotesk', sans-serif";
+  /* ─── Day labels at bottom ─── [K.64] readable labels */
+  ctx.font = "11px 'Space Grotesk', sans-serif";
   ctx.textAlign = "center";
   for (let i = 0; i < n; i++) {
     const day = days[i].day;
     const show = n <= 20 || day === 1 || i === n - 1 || day % 5 === 0;
     if (show) {
-      ctx.fillStyle = "rgba(231,237,243,0.4)";
+      ctx.fillStyle = "rgba(231,237,243,0.5)";
       ctx.fillText(String(day), xOf(i), curY + 14);
     }
   }
