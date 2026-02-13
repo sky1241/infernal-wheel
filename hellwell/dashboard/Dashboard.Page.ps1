@@ -3194,28 +3194,44 @@ function renderMonthlyChart(data){
     /* Row background on hover */
     const isRowHover = CHART_HOVER_INDEX >= 0 && CHART_HOVER_INDEX < n;
 
-    /* Separator line */
+    /* [WEB.md §F6] Row band - subtle colored tint for category identification */
+    ctx.fillStyle = row.color + "08";
+    ctx.fillRect(0, top, width, rh);
+
+    /* Separator line - visible */
     if (curY > 8) {
-      ctx.strokeStyle = "rgba(255,255,255,0.04)";
+      ctx.strokeStyle = "rgba(255,255,255,0.08)";
       ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(sparkL, top - rowGap/2); ctx.lineTo(sparkR, top - rowGap/2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, top - rowGap/2); ctx.lineTo(width, top - rowGap/2); ctx.stroke();
     }
 
-    /* Left label */
-    ctx.fillStyle = "rgba(255,255,255,0.6)";
-    ctx.font = "11px 'Space Grotesk', sans-serif";
+    /* Left: colored bar indicator + label */
+    ctx.fillStyle = row.color;
+    ctx.fillRect(0, top + 4, 3, rh - 8);
+    ctx.fillStyle = row.color + "dd";
+    ctx.font = "bold 11px 'Space Grotesk', sans-serif";
     ctx.textAlign = "left";
-    ctx.fillText(row.icon + " " + row.label, 6, mid + 4);
+    ctx.fillText(row.icon + " " + row.label, 8, mid + 4);
 
-    /* Right average value */
-    const avgText = row.unit === "h" ? avg.toFixed(1) + "h" : avg.toFixed(0);
+    /* Right: average value chip - [WEB.md §K64] min 16px labels, contrast ≥3:1 */
+    const avgText = row.unit === "h" ? avg.toFixed(1) : avg.toFixed(0);
+    const avgLabel = avgText + (row.unit || "/j");
+    ctx.font = "bold 12px 'Space Grotesk', sans-serif";
+    const tw = ctx.measureText(avgLabel).width;
+    const chipW = tw + 14;
+    const chipH = 22;
+    const chipX = width - chipW - 4;
+    const chipY = mid - chipH / 2;
+    /* Chip background */
+    ctx.fillStyle = row.color + "18";
+    ctx.beginPath(); ctx.roundRect(chipX, chipY, chipW, chipH, 6); ctx.fill();
+    ctx.strokeStyle = row.color + "30";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    /* Chip text */
     ctx.fillStyle = row.bright;
-    ctx.font = "bold 13px 'Space Grotesk', sans-serif";
-    ctx.textAlign = "right";
-    ctx.fillText(avgText, width - 6, mid + 2);
-    ctx.fillStyle = "rgba(255,255,255,0.25)";
-    ctx.font = "8px 'Space Grotesk', sans-serif";
-    ctx.fillText("moy/j", width - 6, mid - 10);
+    ctx.textAlign = "center";
+    ctx.fillText(avgLabel, chipX + chipW / 2, mid + 4);
 
     if (row.type === "area") {
       /* ─── Area sparkline with glow ─── */
