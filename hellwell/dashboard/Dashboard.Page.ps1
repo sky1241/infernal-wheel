@@ -3563,12 +3563,25 @@ function renderMonthlyBilan(data){
     return (inv ? raw < 0 : raw > 0) ? "up" : (inv ? raw > 0 : raw < 0) ? "down" : "flat";
   }
   function dArrow(cls) { return cls === "up" ? "\u2191 " : cls === "down" ? "\u2193 " : ""; }
-  function row(icon, label, val, deltaText, deltaRaw, inv) {
+  /* HSL graduation: green(good) → yellow(ok) → red(bad) */
+  function valHsl(v, lo, hi, invert) {
+    const clamped = Math.max(lo, Math.min(hi, v));
+    let ratio = (clamped - lo) / ((hi - lo) || 1);
+    if (invert) ratio = 1 - ratio;
+    const hue = Math.round(ratio * 120);
+    const s = 80, l = 58;
+    /* hslToHex inline */
+    const a2 = (s/100) * Math.min(l/100, 1-l/100);
+    const f = n => { const k=(n+hue/30)%12; return Math.round(255*(l/100-a2*Math.max(Math.min(k-3,9-k,1),-1))).toString(16).padStart(2,"0"); };
+    return "#" + f(0) + f(8) + f(4);
+  }
+  function row(icon, label, val, deltaText, deltaRaw, inv, color) {
     const cls = dCls(deltaRaw, inv);
     const dtHtml = deltaText ? "<span class='bilan__delta bilan__delta--" + cls + "'>" + dArrow(cls) + escapeHtml(deltaText) + "</span>" : "";
+    const cStyle = color ? " style='color:" + color + "'" : "";
     return "<div class='bilan__row'><span class='bilan__icon' aria-hidden='true'>" + icon + "</span>"
       + "<span class='bilan__label'>" + escapeHtml(label) + "</span>"
-      + "<span class='bilan__val'>" + escapeHtml(val) + "</span>" + dtHtml + "</div>";
+      + "<span class='bilan__val'" + cStyle + ">" + escapeHtml(val) + "</span>" + dtHtml + "</div>";
   }
   function hl(icon, label, val) {
     return "<div class='bilan__hl'><span class='bilan__icon' aria-hidden='true'>" + icon + "</span>"
@@ -3576,17 +3589,23 @@ function renderMonthlyBilan(data){
       + "<span class='bilan__val'>" + escapeHtml(val) + "</span></div>";
   }
 
-  /* Groupe 1: Performance */
+  /* Groupe 1: Performance - more = greener */
+  const sleepH = (Number(s.avgSleepMin) || 0) / 60;
+  const workH = (Number(s.avgWorkMin) || 0) / 60;
+  const sessM = Number(s.avgWorkSessionMin) || 0;
+  const sportM = Number(s.avgSportMin) || 0;
   let g1 = "";
-  g1 += row("\ud83d\udca4", "Sommeil / jour", fmtHM(s.avgSleepMin), fmtDelta(deltaSleepHr, "h/j", 1), deltaSleepHr, false);
-  g1 += row("\ud83d\udcbb", "Travail / jour", fmtHM(s.avgWorkMin), fmtDelta(deltaWorkHr, "h/j", 1), deltaWorkHr, false);
-  g1 += row("\u23f1\ufe0f", "Session moy", fmtMinVal(s.avgWorkSessionMin), fmtDelta(d.avgWorkSessionMin, "min", 1), d.avgWorkSessionMin, false);
-  g1 += row("\ud83c\udfc3", "Sport / jour", fmtMinVal(s.avgSportMin), fmtDelta(d.avgSportMin, "min/j", 1), d.avgSportMin, false);
+  g1 += row("\ud83d\udca4", "Sommeil / jour", fmtHM(s.avgSleepMin), fmtDelta(deltaSleepHr, "h/j", 1), deltaSleepHr, false, valHsl(sleepH, 3, 8, false));
+  g1 += row("\ud83d\udcbb", "Travail / jour", fmtHM(s.avgWorkMin), fmtDelta(deltaWorkHr, "h/j", 1), deltaWorkHr, false, valHsl(workH, 0, 12, false));
+  g1 += row("\u23f1\ufe0f", "Session moy", fmtMinVal(s.avgWorkSessionMin), fmtDelta(d.avgWorkSessionMin, "min", 1), d.avgWorkSessionMin, false, valHsl(sessM, 15, 90, false));
+  g1 += row("\ud83c\udfc3", "Sport / jour", fmtMinVal(s.avgSportMin), fmtDelta(d.avgSportMin, "min/j", 1), d.avgSportMin, false, valHsl(sportM, 0, 60, false));
 
-  /* Groupe 2: Addictions */
+  /* Groupe 2: Addictions - more = redder */
+  const clopeAvg = Number(s.avgClopeCount) || 0;
+  const alcAvg = Number(alc.avgDrinksPerDay) || 0;
   let g2 = "";
-  g2 += row("\ud83d\udeac", "Clopes / jour", (Number(s.avgClopeCount) || 0).toFixed(1), fmtDelta(d.avgClopeCount, "/j", 2), d.avgClopeCount, true);
-  g2 += row("\ud83c\udf77", "Alcool / jour", (Number(alc.avgDrinksPerDay) || 0).toFixed(1), fmtDelta(d.avgAlcoholPerDay, "/j", 2), d.avgAlcoholPerDay, true);
+  g2 += row("\ud83d\udeac", "Clopes / jour", clopeAvg.toFixed(1), fmtDelta(d.avgClopeCount, "/j", 2), d.avgClopeCount, true, valHsl(clopeAvg, 0, 20, true));
+  g2 += row("\ud83c\udf77", "Alcool / jour", alcAvg.toFixed(1), fmtDelta(d.avgAlcoholPerDay, "/j", 2), d.avgAlcoholPerDay, true, valHsl(alcAvg, 0, 8, true));
 
   /* Groupe 3: Highlights */
   let g3 = "";
