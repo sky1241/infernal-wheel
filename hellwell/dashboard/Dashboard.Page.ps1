@@ -1865,8 +1865,8 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
   border-radius:999px;
   white-space:nowrap;
 }
-.bilan__delta--up{color:#ff8fa3;background:rgba(255,107,138,.1);border:1px solid rgba(255,107,138,.2)}
-.bilan__delta--down{color:#6bffc0;background:rgba(107,255,192,.08);border:1px solid rgba(107,255,192,.15)}
+.bilan__delta--good{color:#6bffc0;background:rgba(107,255,192,.08);border:1px solid rgba(107,255,192,.15)}
+.bilan__delta--bad{color:#ff8fa3;background:rgba(255,107,138,.1);border:1px solid rgba(255,107,138,.2)}
 .bilan__delta--flat{color:#8a95a3;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)}
 /* Highlights row (totals, records) - more subdued */
 .bilan__hl{
@@ -3558,11 +3558,13 @@ function renderMonthlyBilan(data){
     const h = Math.floor(m / 60); const mm = Math.round(m % 60);
     return h > 0 ? h + "h" + (mm > 0 ? String(mm).padStart(2,"0") : "") : mm + "min";
   }
+  /* good/bad based on meaning, not direction */
   function dCls(raw, inv) {
     if (raw == null || raw === 0) return "flat";
-    return (inv ? raw < 0 : raw > 0) ? "up" : (inv ? raw > 0 : raw < 0) ? "down" : "flat";
+    const isGood = inv ? (raw < 0) : (raw > 0);
+    return isGood ? "good" : "bad";
   }
-  function dArrow(cls) { return cls === "up" ? "\u2191 " : cls === "down" ? "\u2193 " : ""; }
+  function dArrow(raw) { return raw > 0 ? "\u2191 " : raw < 0 ? "\u2193 " : ""; }
   /* HSL graduation: green(good) → yellow(ok) → red(bad) */
   function valHsl(v, lo, hi, invert) {
     const clamped = Math.max(lo, Math.min(hi, v));
@@ -3577,7 +3579,7 @@ function renderMonthlyBilan(data){
   }
   function row(icon, label, val, deltaText, deltaRaw, inv, color) {
     const cls = dCls(deltaRaw, inv);
-    const dtHtml = deltaText ? "<span class='bilan__delta bilan__delta--" + cls + "'>" + dArrow(cls) + escapeHtml(deltaText) + "</span>" : "";
+    const dtHtml = deltaText ? "<span class='bilan__delta bilan__delta--" + cls + "'>" + dArrow(deltaRaw) + escapeHtml(deltaText) + "</span>" : "";
     const cStyle = color ? " style='color:" + color + "'" : "";
     return "<div class='bilan__row'><span class='bilan__icon' aria-hidden='true'>" + icon + "</span>"
       + "<span class='bilan__label'>" + escapeHtml(label) + "</span>"
