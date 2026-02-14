@@ -354,7 +354,9 @@ function Get-MonthlyStats {
     if ($d.workSec -gt 0) { $workDays++ }
     if ($d.sleepSec -gt 0) { $sleepDays++ }
     if ($d.sportSec -gt 0) { $sportDays++ }
-    if ([int]$d.clopeCount -eq 0) { $clopeFreeDays++ }
+    # Only count as clope/alcohol-free if the day had real activity (not just unlogged)
+    $dayActive = ([int]$d.workSec -gt 0 -or [int]$d.sleepSec -gt 0)
+    if ($dayActive -and [int]$d.clopeCount -eq 0) { $clopeFreeDays++ }
     if ($d.workSec -gt $bestWorkSec) { $bestWorkSec = [int]$d.workSec; $bestWorkDay = $k }
   }
 
@@ -444,6 +446,13 @@ function Get-MonthlySummary {
       $d | Add-Member -NotePropertyName pureAlcoholG -NotePropertyValue $pureG -Force
     } catch {}
   }
+  # Count alcohol-free days (only active days with 0 drinks)
+  $alcoholFreeDays = 0
+  foreach ($d in $curr.Daily) {
+    $dayActive = ([int]$d.workSec -gt 0 -or [int]$d.sleepSec -gt 0)
+    $alcCount = if ($d.PSObject.Properties['alcoholCount']) { [int]$d.alcoholCount } else { 0 }
+    if ($dayActive -and $alcCount -eq 0) { $alcoholFreeDays++ }
+  }
 
   $days = [int]$curr.DaysInMonth
   $avgSleepMin = if ($days -gt 0) { [Math]::Round(($curr.TotalSleepSec / 60.0) / $days, 1) } else { 0 }
@@ -508,7 +517,8 @@ function Get-MonthlySummary {
     $insights += ("Best work day: {0} ({1} min)." -f $curr.BestWorkDay, $bestMin)
   }
   $insights += ("Alcool total: {0} L (Wine {1} L, Beer {2} L, Strong {3} L)." -f $alcCurr.TotalLiters, $alcCurr.WineLiters, $alcCurr.BeerLiters, $alcCurr.StrongLiters)
-  $insights += ("Clope-free days: {0}." -f $curr.ClopeFreeDays)
+  if ($curr.ClopeFreeDays -gt 0) { $insights += ("Clope-free days: {0}." -f $curr.ClopeFreeDays) }
+  if ($alcoholFreeDays -gt 0) { $insights += ("Alcohol-free days: {0}." -f $alcoholFreeDays) }
 
   $displayClopeSec = [int]($s.DayClopeSeconds ?? 0)
   if ($currName -eq "clope" -and $currStart) {
@@ -543,6 +553,7 @@ function Get-MonthlySummary {
       workDays = $curr.WorkDays
       sportDays = $curr.SportDays
       clopeFreeDays = $curr.ClopeFreeDays
+      alcoholFreeDays = $alcoholFreeDays
       bestWorkDay = $curr.BestWorkDay
       bestWorkMin = [Math]::Round($curr.BestWorkSec / 60.0, 1)
       alcohol = @{

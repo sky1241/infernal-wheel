@@ -1812,75 +1812,98 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 }
 
 /* [WEB.md §16,21,36-40] KPI Grid - responsive avec touch targets WCAG 2.5.8 */
-/* ═══ Bilan du mois ═══ [K.65] F-pattern, groupement logique */
+/* ═══ Bilan du mois ═══ [K.65] F-pattern, [H.36] 4px base, [S.94] elevation */
 .bilan{
   margin-top:var(--sp-20);
-  border-radius:14px;
+  border-radius:16px;
   overflow:hidden;
-  border:1px solid rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.07);
+  box-shadow:0 4px 24px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.15);
 }
+/* [B.38] Section title ≥20px */
 .bilan__head{
-  display:flex;align-items:center;gap:10px;
-  padding:14px 20px;
-  background:linear-gradient(135deg,rgba(91,178,255,.06),rgba(162,155,254,.05),rgba(255,110,199,.03));
-  border-bottom:1px solid rgba(255,255,255,.06);
-  font-size:.8rem;font-weight:800;
-  text-transform:uppercase;letter-spacing:.6px;
-  color:#e7edf3;
+  display:flex;align-items:center;gap:12px;
+  padding:18px 24px;
+  background:linear-gradient(135deg,rgba(91,178,255,.08),rgba(162,155,254,.06),rgba(255,110,199,.04));
+  border-bottom:1px solid rgba(255,255,255,.07);
+  font-size:1rem;font-weight:800;
+  text-transform:uppercase;letter-spacing:.8px;
+  color:#edf2f7;
 }
-/* Group with colored left accent bar */
+/* Group with colored left accent bar + subtle tint [K.63] */
 .bilan__group{
-  padding:6px 0;
-  background:linear-gradient(145deg,rgba(22,28,38,.85),rgba(16,22,29,.65));
+  padding:8px 0 12px;
   position:relative;
 }
 .bilan__group + .bilan__group{border-top:1px solid rgba(255,255,255,.05)}
 .bilan__group::before{
   content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:0 2px 2px 0;
 }
+.bilan__group--perf{background:linear-gradient(145deg,rgba(91,178,255,.03),rgba(16,22,29,.7))}
 .bilan__group--perf::before{background:linear-gradient(180deg,#5bb2ff,#a29bfe)}
+.bilan__group--addict{background:linear-gradient(145deg,rgba(255,107,107,.03),rgba(16,22,29,.7))}
 .bilan__group--addict::before{background:linear-gradient(180deg,#ff6b6b,#ffaa22)}
+.bilan__group--highlights{background:linear-gradient(145deg,rgba(53,217,154,.03),rgba(16,22,29,.7))}
 .bilan__group--highlights::before{background:linear-gradient(180deg,#35d99a,#5bb2ff)}
-/* [§21] Touch 44px, [§22] Contraste 4.5:1 */
+/* Group sub-title [B.38] hierarchy */
+.bilan__gtitle{
+  padding:6px 24px 2px;
+  font-size:.7rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:1.2px;
+  color:rgba(255,255,255,.3);
+}
+/* [§21] Touch 44px+, [§22] Contraste 4.5:1, [U.103] hover lift */
 .bilan__row{
   display:grid;
-  grid-template-columns:32px 1fr auto auto;
-  align-items:center;gap:0 8px;
-  min-height:42px;
-  padding:6px 16px 6px 12px;
-  transition:background .15s ease;
+  grid-template-columns:36px 1fr auto auto;
+  align-items:center;gap:0 10px;
+  min-height:48px;
+  padding:8px 20px 8px 16px;
+  transition:background .18s ease-out, transform .18s ease-out, box-shadow .18s ease-out;
+  border-radius:8px;
+  margin:0 8px;
 }
-.bilan__row:hover{background:rgba(255,255,255,.035)}
-.bilan__icon{font-size:1.05rem;text-align:center;line-height:1}
-.bilan__label{font-size:.875rem;color:#b8c4d0;font-weight:500}
+.bilan__row:hover{
+  background:rgba(255,255,255,.045);
+  transform:translateY(-1px);
+  box-shadow:0 2px 8px rgba(0,0,0,.15);
+}
+.bilan__icon{font-size:1.2rem;text-align:center;line-height:1}
+.bilan__label{font-size:.9rem;color:#c0ccd8;font-weight:500}
+/* [B.38] KPI value prominent ≥1.3rem */
 .bilan__val{
-  font-size:1.05rem;font-weight:800;color:#fff;
-  text-align:right;padding-right:6px;
+  font-size:1.35rem;font-weight:800;color:#fff;
+  text-align:right;padding-right:8px;
   letter-spacing:-.3px;font-variant-numeric:tabular-nums;
 }
 .bilan__delta{
   text-align:right;
-  font-size:.75rem;font-weight:600;
-  padding:2px 8px;
+  font-size:.78rem;font-weight:600;
+  padding:3px 10px;
   border-radius:999px;
   white-space:nowrap;
+  min-width:56px;text-align:center;
 }
-.bilan__delta--good{color:#6bffc0;background:rgba(107,255,192,.08);border:1px solid rgba(107,255,192,.15)}
-.bilan__delta--bad{color:#ff8fa3;background:rgba(255,107,138,.1);border:1px solid rgba(255,107,138,.2)}
-.bilan__delta--flat{color:#8a95a3;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)}
-/* Highlights row (totals, records) - more subdued */
+.bilan__delta--good{color:#6bffc0;background:rgba(107,255,192,.1);border:1px solid rgba(107,255,192,.18)}
+.bilan__delta--bad{color:#ff8fa3;background:rgba(255,107,138,.1);border:1px solid rgba(255,107,138,.22)}
+.bilan__delta--flat{color:#8a95a3;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+/* Highlights row - distinct style [§21] 44px touch */
 .bilan__hl{
   display:grid;
-  grid-template-columns:32px 1fr auto;
-  align-items:center;gap:0 8px;
-  min-height:36px;
-  padding:4px 16px 4px 12px;
+  grid-template-columns:36px 1fr auto;
+  align-items:center;gap:0 10px;
+  min-height:44px;
+  padding:6px 20px 6px 16px;
+  transition:background .18s ease-out;
+  border-radius:8px;
+  margin:0 8px;
 }
-.bilan__hl:hover{background:rgba(255,255,255,.025)}
-.bilan__hl .bilan__icon{opacity:.6;font-size:.95rem}
-.bilan__hl .bilan__label{color:#8a95a3;font-size:.8rem;font-weight:500}
-.bilan__hl .bilan__val{font-size:.85rem;font-weight:700;color:#c5cdd5}
-@media (prefers-reduced-motion:reduce){.bilan__row,.bilan__hl{transition:none}}
+.bilan__hl:hover{background:rgba(255,255,255,.03)}
+.bilan__hl .bilan__icon{opacity:.55;font-size:1rem}
+.bilan__hl .bilan__label{color:#8a95a3;font-size:.82rem;font-weight:500}
+.bilan__hl .bilan__val{font-size:.95rem;font-weight:700;color:#c5cdd5}
+/* [U.104] respect prefers-reduced-motion */
+@media (prefers-reduced-motion:reduce){.bilan__row,.bilan__hl{transition:none}.bilan__row:hover{transform:none}}
 @media (forced-colors:active){.bilan{border:2px solid CanvasText}.bilan__val{color:CanvasText}}
 .loadingBar{position:fixed; top:0; left:0; right:0; height:3px; background:rgba(255,255,255,.06); opacity:0; pointer-events:none; z-index:2000; transition:opacity .2s ease}
 .loadingBar.active{opacity:1}
@@ -3612,13 +3635,26 @@ function renderMonthlyBilan(data){
   /* Groupe 3: Highlights */
   let g3 = "";
   g3 += hl("\ud83d\udcc8", "Total travail", fmtHM(s.totalWorkMin));
+  /* Alcool total in liters */
   const tl = Number(alc.totalLiters) || 0;
   const wl = Number(alc.wineLiters) || 0;
   const bl = Number(alc.beerLiters) || 0;
   const sl = Number(alc.strongLiters) || 0;
-  const alcDetail = tl.toFixed(1) + "L" + (tl > 0 ? " (vin " + wl.toFixed(1) + ", biere " + bl.toFixed(1) + ", fort " + sl.toFixed(1) + ")" : "");
+  let alcParts = [];
+  if (wl > 0) alcParts.push("vin " + wl.toFixed(1));
+  if (bl > 0) alcParts.push("bi\u00e8re " + bl.toFixed(1));
+  if (sl > 0) alcParts.push("fort " + sl.toFixed(1));
+  const alcDetail = tl.toFixed(1) + "L" + (alcParts.length > 0 ? " (" + alcParts.join(", ") + ")" : "");
   g3 += hl("\ud83c\udf7a", "Alcool total", alcDetail);
-  g3 += hl("\u2705", "Jours sans clope", String(s.clopeFreeDays || 0));
+  /* Total cigarettes */
+  const totalClope = Number(s.totalClopeCount) || 0;
+  if (totalClope > 0) g3 += hl("\ud83d\udeac", "Total cigarettes", String(totalClope));
+  /* Jours sans clope/alcool: hidden until truly achieved (active days with 0 consumption)
+  const cfd = Number(s.clopeFreeDays) || 0;
+  if (cfd > 0) g3 += hl("\u2705", "Jours sans clope", String(cfd));
+  const afd = Number(s.alcoholFreeDays) || 0;
+  if (afd > 0) g3 += hl("\u2705", "Jours sans alcool", String(afd));
+  */
 
   /* Extra insights from server - format "Meilleur jour" nicely */
   for (const n of notes) {
@@ -3639,9 +3675,9 @@ function renderMonthlyBilan(data){
   }
 
   el.innerHTML = "<div class='bilan__head'>\ud83d\udcca Bilan du mois</div>"
-    + "<div class='bilan__group bilan__group--perf'>" + g1 + "</div>"
-    + "<div class='bilan__group bilan__group--addict'>" + g2 + "</div>"
-    + "<div class='bilan__group bilan__group--highlights'>" + g3 + "</div>";
+    + "<div class='bilan__group bilan__group--perf'><div class='bilan__gtitle'>Performance</div>" + g1 + "</div>"
+    + "<div class='bilan__group bilan__group--addict'><div class='bilan__gtitle'>Addictions</div>" + g2 + "</div>"
+    + "<div class='bilan__group bilan__group--highlights'><div class='bilan__gtitle'>R\u00e9sum\u00e9</div>" + g3 + "</div>";
 }
 
 function showMonthlyLoading(){
