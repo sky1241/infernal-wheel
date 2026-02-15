@@ -1837,51 +1837,51 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 .bilan__card--addict::before{background:linear-gradient(180deg,#ff6b6b,#ffaa22)}
 .bilan__card--hl{background:linear-gradient(145deg,rgba(53,217,154,.04),rgba(16,22,29,.82))}
 .bilan__card--hl::before{background:linear-gradient(180deg,#35d99a,#5bb2ff)}
-/* Card title [B.38] hierarchy */
+/* Card title [B.38] hierarchy - more visible */
 .bilan__ctitle{
-  padding:10px 14px 6px;
-  font-size:.65rem;font-weight:700;
-  text-transform:uppercase;letter-spacing:1.2px;
-  color:rgba(255,255,255,.32);
-  border-bottom:1px solid rgba(255,255,255,.05);
+  padding:9px 14px 5px;
+  font-size:.7rem;font-weight:800;
+  text-transform:uppercase;letter-spacing:1.4px;
+  color:rgba(255,255,255,.42);
+  border-bottom:1px solid rgba(255,255,255,.06);
 }
 /* Rows container - metrics stacked vertically */
 .bilan__rows{
   display:flex;flex-direction:column;
-  padding:6px 0;
+  padding:4px 0 6px;
   flex:1;
 }
-/* Single row = one metric (icon/label/value/delta horizontal) */
+/* Single row = one metric (icon/label/value/delta horizontal) [H.36] compact */
 .bilan__row{
   display:grid;
-  grid-template-columns:28px 1fr auto;
-  align-items:center;gap:6px;
-  padding:7px 12px;
+  grid-template-columns:26px 1fr auto;
+  align-items:center;gap:8px;
+  padding:5px 12px;
   transition:background .16s ease-out;
   border-radius:8px;
   margin:0 6px;
 }
-.bilan__row:hover{background:rgba(255,255,255,.04)}
-.bilan__icon{font-size:1.1rem;line-height:1;text-align:center}
-.bilan__label{font-size:.75rem;color:#9aa5b1;font-weight:500;line-height:1.2}
-.bilan__valwrap{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.bilan__row:hover{background:rgba(255,255,255,.045)}
+.bilan__icon{font-size:1.15rem;line-height:1;text-align:center}
+.bilan__label{font-size:.78rem;color:#a8b4c0;font-weight:500;line-height:1.3}
+.bilan__valwrap{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
 .bilan__val{
-  font-size:1.05rem;font-weight:800;
-  letter-spacing:-.3px;font-variant-numeric:tabular-nums;
-  text-align:right;line-height:1.1;
+  font-size:1.3rem;font-weight:800;
+  letter-spacing:-.4px;font-variant-numeric:tabular-nums;
+  text-align:right;line-height:1.05;
 }
 .bilan__delta{
-  font-size:.62rem;font-weight:600;
-  padding:1px 6px;
+  font-size:.58rem;font-weight:600;
+  padding:1px 5px;
   border-radius:999px;
   white-space:nowrap;
 }
-.bilan__delta--good{color:#6bffc0;background:rgba(107,255,192,.1);border:1px solid rgba(107,255,192,.16)}
-.bilan__delta--bad{color:#ff8fa3;background:rgba(255,107,138,.1);border:1px solid rgba(255,107,138,.2)}
-.bilan__delta--flat{color:#8a95a3;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)}
+.bilan__delta--good{color:#6bffc0;background:rgba(107,255,192,.08);border:1px solid rgba(107,255,192,.14)}
+.bilan__delta--bad{color:#ff8fa3;background:rgba(255,107,138,.08);border:1px solid rgba(255,107,138,.18)}
+.bilan__delta--flat{color:#8a95a3;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)}
 /* Highlights: no delta, slightly subdued */
-.bilan__card--hl .bilan__val{font-size:.95rem;font-weight:700;color:#c5cdd5}
-.bilan__card--hl .bilan__label{font-size:.7rem}
+.bilan__card--hl .bilan__val{font-size:1.05rem;font-weight:700;color:#c5cdd5}
+.bilan__card--hl .bilan__label{font-size:.72rem}
 /* [U.104] reduced motion */
 @media (prefers-reduced-motion:reduce){.bilan__row{transition:none}}
 @media (forced-colors:active){.bilan__card{border:2px solid CanvasText}.bilan__val{color:CanvasText}}
