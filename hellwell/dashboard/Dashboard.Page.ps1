@@ -1812,99 +1812,81 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 }
 
 /* [WEB.md §16,21,36-40] KPI Grid - responsive avec touch targets WCAG 2.5.8 */
-/* ═══ Bilan du mois ═══ [K.65] F-pattern, [H.36] 4px base, [S.94] elevation */
+/* ═══ Bilan du mois ═══ 3 vertical columns side-by-side [K.65][H.36][S.94] */
 .bilan{
   margin-top:var(--sp-20);
-  border-radius:16px;
-  overflow:hidden;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+}
+/* Each column = one domain (perf/addict/résumé) as vertical card */
+.bilan__card{
+  border-radius:12px;
   border:1px solid rgba(255,255,255,.07);
-  box-shadow:0 4px 24px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.15);
-}
-/* [B.38] Section title ≥20px */
-.bilan__head{
-  display:flex;align-items:center;gap:12px;
-  padding:18px 24px;
-  background:linear-gradient(135deg,rgba(91,178,255,.08),rgba(162,155,254,.06),rgba(255,110,199,.04));
-  border-bottom:1px solid rgba(255,255,255,.07);
-  font-size:1rem;font-weight:800;
-  text-transform:uppercase;letter-spacing:.8px;
-  color:#edf2f7;
-}
-/* Group with colored left accent bar + subtle tint [K.63] */
-.bilan__group{
-  padding:8px 0 12px;
+  box-shadow:0 2px 12px rgba(0,0,0,.2);
   position:relative;
+  overflow:hidden;
+  display:flex;flex-direction:column;
 }
-.bilan__group + .bilan__group{border-top:1px solid rgba(255,255,255,.05)}
-.bilan__group::before{
-  content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:0 2px 2px 0;
+.bilan__card::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
 }
-.bilan__group--perf{background:linear-gradient(145deg,rgba(91,178,255,.03),rgba(16,22,29,.7))}
-.bilan__group--perf::before{background:linear-gradient(180deg,#5bb2ff,#a29bfe)}
-.bilan__group--addict{background:linear-gradient(145deg,rgba(255,107,107,.03),rgba(16,22,29,.7))}
-.bilan__group--addict::before{background:linear-gradient(180deg,#ff6b6b,#ffaa22)}
-.bilan__group--highlights{background:linear-gradient(145deg,rgba(53,217,154,.03),rgba(16,22,29,.7))}
-.bilan__group--highlights::before{background:linear-gradient(180deg,#35d99a,#5bb2ff)}
-/* Group sub-title [B.38] hierarchy */
-.bilan__gtitle{
-  padding:6px 24px 2px;
-  font-size:.7rem;font-weight:700;
+.bilan__card--perf{background:linear-gradient(145deg,rgba(91,178,255,.04),rgba(16,22,29,.82))}
+.bilan__card--perf::before{background:linear-gradient(180deg,#5bb2ff,#a29bfe)}
+.bilan__card--addict{background:linear-gradient(145deg,rgba(255,107,107,.04),rgba(16,22,29,.82))}
+.bilan__card--addict::before{background:linear-gradient(180deg,#ff6b6b,#ffaa22)}
+.bilan__card--hl{background:linear-gradient(145deg,rgba(53,217,154,.04),rgba(16,22,29,.82))}
+.bilan__card--hl::before{background:linear-gradient(180deg,#35d99a,#5bb2ff)}
+/* Card title [B.38] hierarchy */
+.bilan__ctitle{
+  padding:10px 14px 6px;
+  font-size:.65rem;font-weight:700;
   text-transform:uppercase;letter-spacing:1.2px;
-  color:rgba(255,255,255,.3);
+  color:rgba(255,255,255,.32);
+  border-bottom:1px solid rgba(255,255,255,.05);
 }
-/* [§21] Touch 44px+, [§22] Contraste 4.5:1, [U.103] hover lift */
+/* Rows container - metrics stacked vertically */
+.bilan__rows{
+  display:flex;flex-direction:column;
+  padding:6px 0;
+  flex:1;
+}
+/* Single row = one metric (icon/label/value/delta horizontal) */
 .bilan__row{
   display:grid;
-  grid-template-columns:36px 1fr auto auto;
-  align-items:center;gap:0 10px;
-  min-height:48px;
-  padding:8px 20px 8px 16px;
-  transition:background .18s ease-out, transform .18s ease-out, box-shadow .18s ease-out;
+  grid-template-columns:28px 1fr auto;
+  align-items:center;gap:6px;
+  padding:7px 12px;
+  transition:background .16s ease-out;
   border-radius:8px;
-  margin:0 8px;
+  margin:0 6px;
 }
-.bilan__row:hover{
-  background:rgba(255,255,255,.045);
-  transform:translateY(-1px);
-  box-shadow:0 2px 8px rgba(0,0,0,.15);
-}
-.bilan__icon{font-size:1.2rem;text-align:center;line-height:1}
-.bilan__label{font-size:.9rem;color:#c0ccd8;font-weight:500}
-/* [B.38] KPI value prominent ≥1.3rem */
+.bilan__row:hover{background:rgba(255,255,255,.04)}
+.bilan__icon{font-size:1.1rem;line-height:1;text-align:center}
+.bilan__label{font-size:.75rem;color:#9aa5b1;font-weight:500;line-height:1.2}
+.bilan__valwrap{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
 .bilan__val{
-  font-size:1.35rem;font-weight:800;color:#fff;
-  text-align:right;padding-right:8px;
+  font-size:1.05rem;font-weight:800;
   letter-spacing:-.3px;font-variant-numeric:tabular-nums;
+  text-align:right;line-height:1.1;
 }
 .bilan__delta{
-  text-align:right;
-  font-size:.78rem;font-weight:600;
-  padding:3px 10px;
+  font-size:.62rem;font-weight:600;
+  padding:1px 6px;
   border-radius:999px;
   white-space:nowrap;
-  min-width:56px;text-align:center;
 }
-.bilan__delta--good{color:#6bffc0;background:rgba(107,255,192,.1);border:1px solid rgba(107,255,192,.18)}
-.bilan__delta--bad{color:#ff8fa3;background:rgba(255,107,138,.1);border:1px solid rgba(255,107,138,.22)}
-.bilan__delta--flat{color:#8a95a3;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
-/* Highlights row - distinct style [§21] 44px touch */
-.bilan__hl{
-  display:grid;
-  grid-template-columns:36px 1fr auto;
-  align-items:center;gap:0 10px;
-  min-height:44px;
-  padding:6px 20px 6px 16px;
-  transition:background .18s ease-out;
-  border-radius:8px;
-  margin:0 8px;
-}
-.bilan__hl:hover{background:rgba(255,255,255,.03)}
-.bilan__hl .bilan__icon{opacity:.55;font-size:1rem}
-.bilan__hl .bilan__label{color:#8a95a3;font-size:.82rem;font-weight:500}
-.bilan__hl .bilan__val{font-size:.95rem;font-weight:700;color:#c5cdd5}
-/* [U.104] respect prefers-reduced-motion */
-@media (prefers-reduced-motion:reduce){.bilan__row,.bilan__hl{transition:none}.bilan__row:hover{transform:none}}
-@media (forced-colors:active){.bilan{border:2px solid CanvasText}.bilan__val{color:CanvasText}}
+.bilan__delta--good{color:#6bffc0;background:rgba(107,255,192,.1);border:1px solid rgba(107,255,192,.16)}
+.bilan__delta--bad{color:#ff8fa3;background:rgba(255,107,138,.1);border:1px solid rgba(255,107,138,.2)}
+.bilan__delta--flat{color:#8a95a3;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)}
+/* Highlights: no delta, slightly subdued */
+.bilan__card--hl .bilan__val{font-size:.95rem;font-weight:700;color:#c5cdd5}
+.bilan__card--hl .bilan__label{font-size:.7rem}
+/* [U.104] reduced motion */
+@media (prefers-reduced-motion:reduce){.bilan__row{transition:none}}
+@media (forced-colors:active){.bilan__card{border:2px solid CanvasText}.bilan__val{color:CanvasText}}
+/* [K.67] responsive: stack on mobile */
+@media (max-width:768px){.bilan{grid-template-columns:1fr}}
 .loadingBar{position:fixed; top:0; left:0; right:0; height:3px; background:rgba(255,255,255,.06); opacity:0; pointer-events:none; z-index:2000; transition:opacity .2s ease}
 .loadingBar.active{opacity:1}
 .loadingBarInner{height:100%; width:30%; background:linear-gradient(90deg, rgba(107,188,255,.2), rgba(107,188,255,.9), rgba(107,188,255,.2)); animation:loadingMove 1.2s linear infinite}
@@ -3581,86 +3563,69 @@ function renderMonthlyBilan(data){
     const h = Math.floor(m / 60); const mm = Math.round(m % 60);
     return h > 0 ? h + "h" + (mm > 0 ? String(mm).padStart(2,"0") : "") : mm + "min";
   }
-  /* good/bad based on meaning, not direction */
   function dCls(raw, inv) {
     if (raw == null || raw === 0) return "flat";
-    const isGood = inv ? (raw < 0) : (raw > 0);
-    return isGood ? "good" : "bad";
+    return (inv ? (raw < 0) : (raw > 0)) ? "good" : "bad";
   }
-  function dArrow(raw) { return raw > 0 ? "\u2191 " : raw < 0 ? "\u2193 " : ""; }
-  /* HSL graduation: green(good) → yellow(ok) → red(bad) */
+  function dArrow(raw) { return raw > 0 ? "\u2191" : raw < 0 ? "\u2193" : ""; }
   function valHsl(v, lo, hi, invert) {
     const clamped = Math.max(lo, Math.min(hi, v));
     let ratio = (clamped - lo) / ((hi - lo) || 1);
     if (invert) ratio = 1 - ratio;
     const hue = Math.round(ratio * 120);
-    const s = 80, l = 58;
-    /* hslToHex inline */
-    const a2 = (s/100) * Math.min(l/100, 1-l/100);
+    const sv = 80, l = 58;
+    const a2 = (sv/100) * Math.min(l/100, 1-l/100);
     const f = n => { const k=(n+hue/30)%12; return Math.round(255*(l/100-a2*Math.max(Math.min(k-3,9-k,1),-1))).toString(16).padStart(2,"0"); };
     return "#" + f(0) + f(8) + f(4);
   }
+  /* Row builder: icon | label | (value + delta stacked) horizontal */
   function row(icon, label, val, deltaText, deltaRaw, inv, color) {
     const cls = dCls(deltaRaw, inv);
-    const dtHtml = deltaText ? "<span class='bilan__delta bilan__delta--" + cls + "'>" + dArrow(deltaRaw) + escapeHtml(deltaText) + "</span>" : "";
+    const dt = deltaText ? "<span class='bilan__delta bilan__delta--" + cls + "'>" + dArrow(deltaRaw) + " " + escapeHtml(deltaText) + "</span>" : "";
     const cStyle = color ? " style='color:" + color + "'" : "";
-    return "<div class='bilan__row'><span class='bilan__icon' aria-hidden='true'>" + icon + "</span>"
+    return "<div class='bilan__row'>"
+      + "<span class='bilan__icon' aria-hidden='true'>" + icon + "</span>"
       + "<span class='bilan__label'>" + escapeHtml(label) + "</span>"
-      + "<span class='bilan__val'" + cStyle + ">" + escapeHtml(val) + "</span>" + dtHtml + "</div>";
+      + "<div class='bilan__valwrap'>"
+      + "<span class='bilan__val'" + cStyle + ">" + escapeHtml(val) + "</span>" + dt
+      + "</div></div>";
   }
-  function hl(icon, label, val) {
-    return "<div class='bilan__hl'><span class='bilan__icon' aria-hidden='true'>" + icon + "</span>"
+  function hlRow(icon, label, val) {
+    return "<div class='bilan__row'>"
+      + "<span class='bilan__icon' aria-hidden='true'>" + icon + "</span>"
       + "<span class='bilan__label'>" + escapeHtml(label) + "</span>"
-      + "<span class='bilan__val'>" + escapeHtml(val) + "</span></div>";
+      + "<div class='bilan__valwrap'><span class='bilan__val'>" + escapeHtml(val) + "</span></div></div>";
   }
 
-  /* Groupe 1: Performance - more = greener */
+  /* Card 1: Performance (4 rows stacked) */
   const sleepH = (Number(s.avgSleepMin) || 0) / 60;
   const workH = (Number(s.avgWorkMin) || 0) / 60;
   const sessM = Number(s.avgWorkSessionMin) || 0;
   const sportM = Number(s.avgSportMin) || 0;
-  let g1 = "";
-  g1 += row("\ud83d\udca4", "Sommeil / jour", fmtHM(s.avgSleepMin), fmtDelta(deltaSleepHr, "h/j", 1), deltaSleepHr, false, valHsl(sleepH, 3, 8, false));
-  g1 += row("\ud83d\udcbb", "Travail / jour", fmtHM(s.avgWorkMin), fmtDelta(deltaWorkHr, "h/j", 1), deltaWorkHr, false, valHsl(workH, 0, 12, false));
-  g1 += row("\u23f1\ufe0f", "Session moy", fmtMinVal(s.avgWorkSessionMin), fmtDelta(d.avgWorkSessionMin, "min", 1), d.avgWorkSessionMin, false, valHsl(sessM, 15, 90, false));
-  g1 += row("\ud83c\udfc3", "Sport / jour", fmtMinVal(s.avgSportMin), fmtDelta(d.avgSportMin, "min/j", 1), d.avgSportMin, false, valHsl(sportM, 0, 60, false));
+  let c1 = "";
+  c1 += row("\ud83d\udca4", "Sommeil / jour", fmtHM(s.avgSleepMin), fmtDelta(deltaSleepHr, "h/j", 1), deltaSleepHr, false, valHsl(sleepH, 3, 8, false));
+  c1 += row("\ud83d\udcbb", "Travail / jour", fmtHM(s.avgWorkMin), fmtDelta(deltaWorkHr, "h/j", 1), deltaWorkHr, false, valHsl(workH, 0, 12, false));
+  c1 += row("\u23f1\ufe0f", "Session moy", fmtMinVal(s.avgWorkSessionMin), fmtDelta(d.avgWorkSessionMin, "min", 1), d.avgWorkSessionMin, false, valHsl(sessM, 15, 90, false));
+  c1 += row("\ud83c\udfc3", "Sport / jour", fmtMinVal(s.avgSportMin), fmtDelta(d.avgSportMin, "min/j", 1), d.avgSportMin, false, valHsl(sportM, 0, 60, false));
 
-  /* Groupe 2: Addictions - more = redder */
+  /* Card 2: Addictions (2 rows) */
   const clopeAvg = Number(s.avgClopeCount) || 0;
   const alcAvg = Number(alc.avgDrinksPerDay) || 0;
-  let g2 = "";
-  g2 += row("\ud83d\udeac", "Clopes / jour", clopeAvg.toFixed(1), fmtDelta(d.avgClopeCount, "/j", 2), d.avgClopeCount, true, valHsl(clopeAvg, 0, 20, true));
-  g2 += row("\ud83c\udf77", "Alcool / jour", alcAvg.toFixed(1), fmtDelta(d.avgAlcoholPerDay, "/j", 2), d.avgAlcoholPerDay, true, valHsl(alcAvg, 0, 8, true));
+  let c2 = "";
+  c2 += row("\ud83d\udeac", "Clopes / jour", clopeAvg.toFixed(1), fmtDelta(d.avgClopeCount, "/j", 2), d.avgClopeCount, true, valHsl(clopeAvg, 0, 20, true));
+  c2 += row("\ud83c\udf77", "Alcool / jour", alcAvg.toFixed(1), fmtDelta(d.avgAlcoholPerDay, "/j", 2), d.avgAlcoholPerDay, true, valHsl(alcAvg, 0, 8, true));
 
-  /* Groupe 3: Highlights */
-  let g3 = "";
-  g3 += hl("\ud83d\udcc8", "Total travail", fmtHM(s.totalWorkMin));
-  /* Alcool total in liters */
+  /* Card 3: Résumé (up to 4 rows) */
+  let c3 = "";
+  c3 += hlRow("\ud83d\udcc8", "Total travail", fmtHM(s.totalWorkMin));
   const tl = Number(alc.totalLiters) || 0;
-  const wl = Number(alc.wineLiters) || 0;
-  const bl = Number(alc.beerLiters) || 0;
-  const sl = Number(alc.strongLiters) || 0;
-  let alcParts = [];
-  if (wl > 0) alcParts.push("vin " + wl.toFixed(1));
-  if (bl > 0) alcParts.push("bi\u00e8re " + bl.toFixed(1));
-  if (sl > 0) alcParts.push("fort " + sl.toFixed(1));
-  const alcDetail = tl.toFixed(1) + "L" + (alcParts.length > 0 ? " (" + alcParts.join(", ") + ")" : "");
-  g3 += hl("\ud83c\udf7a", "Alcool total", alcDetail);
-  /* Total cigarettes */
+  c3 += hlRow("\ud83c\udf7a", "Alcool total", tl.toFixed(1) + "L");
   const totalClope = Number(s.totalClopeCount) || 0;
-  if (totalClope > 0) g3 += hl("\ud83d\udeac", "Total cigarettes", String(totalClope));
-  /* Jours sans clope/alcool: hidden until truly achieved (active days with 0 consumption)
-  const cfd = Number(s.clopeFreeDays) || 0;
-  if (cfd > 0) g3 += hl("\u2705", "Jours sans clope", String(cfd));
-  const afd = Number(s.alcoholFreeDays) || 0;
-  if (afd > 0) g3 += hl("\u2705", "Jours sans alcool", String(afd));
-  */
-
-  /* Extra insights from server - format "Meilleur jour" nicely */
+  if (totalClope > 0) c3 += hlRow("\ud83d\udeac", "Total cigarettes", String(totalClope));
+  /* Meilleur jour travail */
   for (const n of notes) {
     if (n.toLowerCase().includes("best work") || n.toLowerCase().includes("meilleur")) {
       let mjText = n.replace(/Best work day:\s*/i, "").replace(/Meilleur jour.*?:\s*/i, "");
-      /* Convert "2026-02-05 (810 min)." → "05 fev (13h30)" */
       const mjMatch = mjText.match(/(\d{4})-(\d{2})-(\d{2})\s*\((\d+)\s*min\)/);
       if (mjMatch) {
         const mjDay = mjMatch[3];
@@ -3670,14 +3635,20 @@ function renderMonthlyBilan(data){
         const mjH = Math.floor(mjMin / 60); const mjM = mjMin % 60;
         mjText = mjDay + " " + mjMon + " (" + mjH + "h" + (mjM > 0 ? String(mjM).padStart(2,"0") : "") + ")";
       }
-      g3 += hl("\ud83d\udca1", "Meilleur jour travail", mjText);
+      c3 += hlRow("\ud83d\udca1", "Meilleur jour", mjText);
     }
   }
+  /* Jours sans clope/alcool: hidden until truly achieved
+  const cfd = Number(s.clopeFreeDays) || 0;
+  if (cfd > 0) c3 += hlRow("\u2705", "Jours sans clope", String(cfd));
+  const afd = Number(s.alcoholFreeDays) || 0;
+  if (afd > 0) c3 += hlRow("\u2705", "Jours sans alcool", String(afd));
+  */
 
-  el.innerHTML = "<div class='bilan__head'>\ud83d\udcca Bilan du mois</div>"
-    + "<div class='bilan__group bilan__group--perf'><div class='bilan__gtitle'>Performance</div>" + g1 + "</div>"
-    + "<div class='bilan__group bilan__group--addict'><div class='bilan__gtitle'>Addictions</div>" + g2 + "</div>"
-    + "<div class='bilan__group bilan__group--highlights'><div class='bilan__gtitle'>R\u00e9sum\u00e9</div>" + g3 + "</div>";
+  el.innerHTML =
+      "<div class='bilan__card bilan__card--perf'><div class='bilan__ctitle'>Performance</div><div class='bilan__rows'>" + c1 + "</div></div>"
+    + "<div class='bilan__card bilan__card--addict'><div class='bilan__ctitle'>Addictions</div><div class='bilan__rows'>" + c2 + "</div></div>"
+    + "<div class='bilan__card bilan__card--hl'><div class='bilan__ctitle'>R\u00e9sum\u00e9</div><div class='bilan__rows'>" + c3 + "</div></div>";
 }
 
 function showMonthlyLoading(){
@@ -3686,14 +3657,16 @@ function showMonthlyLoading(){
   const b = document.getElementById("monthBilan");
   if (b) {
     b.setAttribute("aria-busy", "true");
-    b.innerHTML = "<div class='bilan__head' aria-hidden='true'>\ud83d\udcca Bilan du mois</div>"
-      + Array(6).fill(0).map(() =>
-        "<div style='display:flex;align-items:center;padding:8px 20px;gap:12px' aria-hidden='true'>"
-        + "<div class='skeleton-line' style='width:28px;height:20px;border-radius:4px'></div>"
-        + "<div class='skeleton-line' style='flex:1;height:16px'></div>"
-        + "<div class='skeleton-line' style='width:60px;height:20px'></div>"
+    b.innerHTML = "<div class='bilan__card' style='padding:16px' aria-hidden='true'>"
+      + "<div class='skeleton-line' style='width:100px;height:12px;margin-bottom:12px'></div>"
+      + "<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:8px'>"
+      + Array(4).fill(0).map(() =>
+        "<div style='display:flex;flex-direction:column;align-items:center;gap:6px'>"
+        + "<div class='skeleton-line' style='width:28px;height:28px;border-radius:50%'></div>"
+        + "<div class='skeleton-line' style='width:48px;height:10px'></div>"
+        + "<div class='skeleton-line' style='width:40px;height:18px'></div>"
         + "</div>"
-      ).join("");
+      ).join("") + "</div></div>";
   }
   const l = document.getElementById("monthLegend");
   if (l) {
