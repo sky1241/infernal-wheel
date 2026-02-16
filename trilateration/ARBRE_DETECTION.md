@@ -87,6 +87,7 @@
 **Filtre 1 : Passe-bas (accelerometer)**
 - Éliminer bruit haute fréquence (>20 Hz)
 - Garder mouvements volontaires (0.5-5 Hz)
+- **Implémentation** : Butterworth 2nd order, wavelet filtering *(voir TECHNIQUES_DETECTION.md)*
 
 **Filtre 2 : Détection pics (heart rate)**
 - Identifier variations significatives (>±5 bpm)
@@ -184,6 +185,7 @@ Note : 1 verre ne change pas HR détectablement
 - Output : 3 classes (cigarette, alcool, rien)
 - Algorithme : Random Forest ou Gradient Boosting
 - Training : 7 jours de données labellisées manuellement
+- **Performance** : SVM 86%/71%, CNN-LSTM 78% F1 *(voir TECHNIQUES_DETECTION.md)*
 
 **Modèle 2 : Unsupervised Clustering**
 - Détecter patterns récurrents sans label
@@ -194,6 +196,7 @@ Note : 1 verre ne change pas HR détectablement
 - Séquences temporelles (10-60 sec)
 - Prédire action suivante
 - Apprendre patterns complexes (ex: cigarette après café)
+- **Architecture** : CNN-LSTM 2 couches, adaptive triggering *(voir TECHNIQUES_DETECTION.md)*
 
 ### B2 — Trilatération Contextuelle (3) : Localisation sémantique
 
@@ -345,6 +348,13 @@ Jour N : détection → attends N min avant
 - **PPG-DaLiA** — 15 sujets, 35h, PPG + accel + ECG, 8 activités daily life
   https://archive.ics.uci.edu/ml/datasets/PPG-DaLiA
 - **PACT2.0** — 871h IMU, 35 fumeurs (non public, contacter auteurs)
+
+**Techniques de détection validées** *(voir TECHNIQUES_DETECTION.md pour détails complets)*
+- **Signal Processing** — Butterworth low-pass (2nd order, 5Hz), wavelet filtering, autocorrelation
+- **ML Algorithms** — SVM (86%/71%), Decision Trees, CNN-LSTM (78% F1-score)
+- **Hand-to-Mouth Gesture** — 3 phases détection (raising, stationary, moving away)
+- **Low-Power** — Adaptive triggering (accelerometer → HR sensor only when gesture detected, 95% batterie save)
+- **Performance** — StopWatch (86% precision, 71% recall free-living), LOSO CV (97-98% controlled)
 
 ---
 
