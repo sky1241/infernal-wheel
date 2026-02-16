@@ -272,6 +272,43 @@ trilateration/
 
 ---
 
+## 🛠️ STACK TECHNIQUE & LANGAGES
+
+### Prototypage (Phase 1)
+- **Langage** : **Python 3.9+**
+- **Librairies** : scikit-learn, pandas, numpy, scipy, matplotlib
+- **Environnement** : Desktop/Laptop (test sur datasets publics)
+- **Objectif** : Feature extraction, train models, LOSO validation
+- **Durée** : 1-2 semaines
+
+### Production (Phase 2-4)
+**🎯 TARGET PRINCIPAL : WEAR OS** (Sky's watch)
+- **Langage** : **Kotlin**
+- **ML Framework** : **TensorFlow Lite (TFLite)**
+- **Hardware** : Snapdragon Wear 4100+, NNAPI acceleration
+- **Inference** : 35-50ms
+- **Conversion** : Python model → `.tflite` → Kotlin Wear OS app
+
+**TARGET SECONDAIRE : Apple Watch** (future)
+- **Langage** : Swift
+- **ML Framework** : CoreML
+- **Hardware** : Apple Watch Series 6+, Neural Engine
+- **Inference** : 20-35ms
+- **Conversion** : Python model → `.mlmodel` → Swift watchOS app
+
+**Pipeline de déploiement** :
+```
+Python (prototype scikit-learn/TensorFlow)
+    ↓
+Train + validate model (LOSO)
+    ↓
+Convert → TensorFlow Lite (.tflite)  ← WEAR OS PRIMARY
+    ↓
+Deploy Kotlin Wear OS app + TFLite inference
+```
+
+---
+
 ## 🎯 IMPLEMENTATION ROADMAP
 
 ### Phase 1 : Prototypage Python (2 semaines) — **NEXT STEP**
@@ -289,7 +326,7 @@ python test_loso.py            # Leave-One-Subject-Out
 ```
 
 ### Phase 2 : Field Data Collection (1 semaine)
-- Porter Apple Watch 7 jours
+- Porter **Wear OS watch** 7 jours (Sky's watch)
 - Logger cigarettes manuellement (bouton boost sampling)
 - Collecter : GPS + accel + HR (SQLite encrypted)
 
@@ -299,9 +336,10 @@ python test_loso.py            # Leave-One-Subject-Out
 - Convert → CoreML/TFLite
 
 ### Phase 4 : Deployment (2 semaines)
-- WatchOS app (SwiftUI + CoreML)
+- **Wear OS app** (Kotlin + TFLite) ← **PRIMARY TARGET**
 - Boost sampling trigger (bouton cigarette)
 - Gorilla compression + encrypted storage
+- (Apple Watch / CoreML = future, secondaire)
 - OTA model update mechanism
 
 ---
