@@ -28,15 +28,19 @@
 
 ### R1 — Mycorhizes (-5) : Lois physiques immuables
 
-**Loi 1 : La nicotine accélère le cœur**
-- Augmentation BPM : +10 à +30 bpm dans les 5 minutes
-- Durée : 20-40 minutes
-- Pattern : spike rapide puis plateau puis descente
+**Loi 1 : La nicotine accélère le cœur** *(validé scientifiquement)*
+- Augmentation BPM : **+7-15 bpm** (cigarette classique), **+4 bpm** (e-cigarette)
+- Timing : effet **immédiat (0 min)**, dissipe en **1 heure**
+- Réversible : HR baisse **-5-15 bpm** dans les **24h** après arrêt
+- Pattern : spike immédiat puis descente progressive
+- Sources : [PMC 2024](https://pmc.ncbi.nlm.nih.gov/articles/PMC11843939/), [MDPI 2023](https://www.mdpi.com/2305-6304/13/10/831)
 
-**Loi 2 : L'alcool ralentit puis accélère**
-- Phase 1 (0-30min) : ralentissement léger (-5 bpm)
-- Phase 2 (30min-2h) : accélération (+10-20 bpm)
-- Pattern : courbe en J
+**Loi 2 : L'alcool augmente le cœur (dose-dépendant)** *(validé scientifiquement)*
+- 1 verre : **pas d'effet** détectable sur HR
+- 2+ verres : **augmentation dose-dépendante** (mécanisme : ↓parasympathique + ↑sympathique)
+- **Pas de courbe en J** pour HR direct (la J-curve s'applique à mortalité cardiovasculaire, pas HR)
+- Retour baseline quand alcool éliminé du sang
+- Sources : [AJP 2009](https://journals.physiology.org/doi/full/10.1152/ajpheart.00700.2009), [Nature 2021](https://www.nature.com/articles/s41598-021-92767-y)
 
 **Loi 3 : Le mouvement cigarette est stéréotypé**
 - Main → bouche : ~15-20 cm, 1-2 sec
@@ -148,20 +152,25 @@
 
 ### T3 — Heart Rate Correlation (2) : Validation physiologique
 
-**Validation cigarette**
+**Validation cigarette** *(basé sur HeartIt 2025, Validation Study 2017)*
 ```
 SI pattern_mouvement_cigarette = True
-ET heart_rate_spike (+10-30 bpm dans 5 min) = True
-ALORS confiance_cigarette = HIGH
+ET heart_rate_spike (+7-15 bpm immédiat) = True
+ALORS confiance_cigarette = HIGH (précision 81-98% selon études)
 SINON confiance_cigarette = MEDIUM (mouvement seul)
 ```
+- Sources : [HeartIt 2025](https://link.springer.com/article/10.1007/s11390-024-2981-3), [Validation 2017](https://pmc.ncbi.nlm.nih.gov/articles/PMC5745355/)
 
-**Validation alcool**
+**Validation alcool** *(basé sur AJP 2009, Nature 2021)*
 ```
 SI pattern_mouvement_alcool = True
-ET (heart_rate_J_curve OU localisation_bar) = True
-ALORS confiance_alcool = HIGH
-SINON confiance_alcool = MEDIUM
+ET (nombre_mouvements ≥ 2 OU localisation_bar) = True
+ALORS confiance_alcool = MEDIUM-HIGH
+SINON confiance_alcool = LOW
+
+Note : 1 verre ne change pas HR détectablement
+→ Validation alcool plus difficile que cigarette
+→ Contexte spatial (GPS) crucial
 ```
 
 ---
@@ -348,6 +357,52 @@ Jour N : détection → attends N min avant
 
 ---
 
+## RÉFÉRENCES SCIENTIFIQUES VALIDÉES
+
+### Physiologie Nicotine/Cigarette
+
+1. **Cardiovascular Effects of Smoking 2024** - PMC
+   https://pmc.ncbi.nlm.nih.gov/articles/PMC11843939/
+   → Augmentation +7-15 bpm, réversible -5-15 bpm en 24h
+
+2. **Time-Dose Effects E-Cigarettes 2023** - MDPI
+   https://www.mdpi.com/2305-6304/13/10/831
+   → E-cigarette +4.23 bpm (CI: 2.10-6.37), effet immédiat dissipe en 1h
+
+3. **AHA Scientific Sessions 2022** - American Heart Association
+   https://newsroom.heart.org/news/people-who-vape-had-worrisome-changes-in-cardiovascular-function-even-as-young-adults
+   → +4 bpm après vaping/smoking
+
+### Physiologie Alcool
+
+4. **Dose-related effects of red wine and alcohol 2009** - AJP
+   https://journals.physiology.org/doi/full/10.1152/ajpheart.00700.2009
+   → 1 verre = pas d'effet HR, 2+ verres = augmentation dose-dépendante
+
+5. **Impact of acute ethanol intake 2021** - Nature Scientific Reports
+   https://www.nature.com/articles/s41598-021-92767-y
+   → Mécanisme : ↓parasympathique + ↑sympathique, retour baseline après élimination
+
+### Smoking Detection Smartwatch
+
+6. **HeartIt 2025** - Springer JCST
+   https://link.springer.com/article/10.1007/s11390-024-2981-3
+   → Détection via HR pattern + accelerometer, fonctionne sur les deux poignets
+
+7. **Validation Study 2017** - JMIR mHealth
+   https://pmc.ncbi.nlm.nih.gov/articles/PMC5745355/
+   → 81% détection sessions, 90% si protocole respecté
+
+8. **ASPIRE System 2021** - JMIR Formative
+   https://pmc.ncbi.nlm.nih.gov/articles/PMC7895644/
+   → Détecte initiation, puffs, durée, intervalle inter-puffs
+
+9. **PACT2.0 2019**
+   → 86% F1-score hand-to-mouth, 98% F1-score événement smoking
+
+---
+
 *"Le mycelium détecte par croissance, pas par force brute."*
 
-Sky × Claude — Février 2026
+**Recherche validée scientifiquement — Février 2026**
+Sky × Claude

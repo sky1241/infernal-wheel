@@ -131,49 +131,58 @@ Quand tu fais la même action 100 fois (porter cigarette à la bouche, lever un 
 
 ## FUSION ACCELEROMETER + HEART RATE
 
-### Timeline cigarette (5-40 minutes)
+### Timeline cigarette (0-60 minutes) *(validé scientifiquement)*
 
 ```
 T=0 min  : Première bouffée
            ↓ Accelerometer : pattern main→bouche (1-2s)
+           ↓ Heart Rate : spike IMMÉDIAT +7-15 bpm (cigarette) ou +4 bpm (e-cig)
 
-T=0-5 min: Inhalation nicotine
-           ↓ Heart Rate : spike +10-30 bpm (réponse sympathique)
+T=0-10 min: Cigarette complète (8-12 bouffées)
+           ↓ Accelerometer : répétition régulière toutes les 30-60s
+           ↓ Heart Rate : maintien élevé
 
-T=5-10 min: Cigarette complète (8-12 bouffées)
-           ↓ Accelerometer : répétition toutes les 30-60s
-
-T=10-40 min: Post-cigarette
-           ↓ Heart Rate : plateau élevé puis descente progressive
+T=10-60 min: Post-cigarette
+           ↓ Heart Rate : descente progressive, retour baseline en ~1h
+           ↓ Si arrêt 24h : HR baisse -5-15 bpm (réversible)
 ```
+
+**Sources** : [PMC 2024](https://pmc.ncbi.nlm.nih.gov/articles/PMC11843939/), [MDPI 2023](https://www.mdpi.com/2305-6304/13/10/831)
 
 **Validation croisée** :
 ```
 SI (pattern_accelerometer = main→bouche répétitif)
-ET (heart_rate_spike = +10-30 bpm dans 5 min)
-ALORS confiance_cigarette = 95%
+ET (heart_rate_spike = +7-15 bpm immédiat)
+ALORS confiance_cigarette = 81-98% (selon études)
 ```
 
-### Timeline alcool (30-120 minutes)
+**Sources** : [HeartIt 2025](https://link.springer.com/article/10.1007/s11390-024-2981-3), [Validation 2017](https://pmc.ncbi.nlm.nih.gov/articles/PMC5745355/)
+
+### Timeline alcool (variable) *(validé scientifiquement)*
 
 ```
 T=0 min  : Première gorgée
            ↓ Accelerometer : pattern main→bouche avec pause longue
 
-T=0-30 min: Absorption éthanol
-           ↓ Heart Rate : ralentissement léger (-5 bpm) = phase 1
+T=0-30 min: 1 verre
+           ↓ Heart Rate : PAS D'EFFET détectable (besoin 2+ verres)
 
-T=30-120 min: Métabolisme éthanol
-           ↓ Heart Rate : accélération (+10-20 bpm) = phase 2
-           ↓ Accelerometer : mouvements irréguliers (variable selon rythme consommation)
+T=30+ min: 2+ verres
+           ↓ Heart Rate : augmentation dose-dépendante (mécanisme : ↓parasympathique + ↑sympathique)
+           ↓ Retour baseline quand alcool éliminé
+           ↓ Accelerometer : mouvements irréguliers (variable selon rythme)
 ```
+
+**Sources** : [AJP 2009](https://journals.physiology.org/doi/full/10.1152/ajpheart.00700.2009), [Nature 2021](https://www.nature.com/articles/s41598-021-92767-y)
 
 **Validation croisée** :
 ```
 SI (pattern_accelerometer = main→bouche pause longue)
-ET (heart_rate_J_curve = descente puis montée)
-ET (contexte_GPS = bar OU heure > 18h)
-ALORS confiance_alcool = 90%
+ET (nombre_mouvements ≥ 2 OU contexte_GPS = bar)
+ALORS confiance_alcool = MEDIUM-HIGH
+
+⚠️ Note : 1 verre ne change pas HR → validation alcool plus difficile que cigarette
+→ Contexte spatial crucial pour détection fiable
 ```
 
 ---
