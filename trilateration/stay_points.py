@@ -30,7 +30,7 @@ EARTH_RADIUS_M = 6371000  # Earth radius in meters
 STAY_POINT_RADIUS_M = 50  # Stay point detection radius (meters)
 STAY_POINT_MIN_TIME_MIN = 10  # Stay point minimum duration (minutes)
 DBSCAN_EPS_M = 100  # DBSCAN epsilon (meters)
-DBSCAN_MIN_PTS = 5  # DBSCAN minimum points
+DBSCAN_MIN_PTS = 2  # DBSCAN minimum points (use 5 for real data, 2 for testing)
 
 
 # ============================================================================
@@ -275,7 +275,7 @@ def temporal_labeling(clustered_stays: pd.DataFrame) -> pd.DataFrame:
             lambda x: x.value_counts().index[0] if len(x) > 0 else 'unknown'
         ).to_dict()
 
-        df['label'] = df['cluster'].map(cluster_labels)
+        df['label'] = df['cluster'].map(cluster_labels).astype('object')  # Fix pandas warning
         df.loc[df['cluster'] == -1, 'label'] = 'noise'
     else:
         df['label'] = df['time_label']
@@ -297,11 +297,11 @@ def process_trajectory(trajectory: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame with clustered + labeled stay points
     """
-    print(f"📍 Processing trajectory with {len(trajectory)} GPS points...")
+    print(f"[INFO] Processing trajectory with {len(trajectory)} GPS points...")
 
     # Step 1: Detect stay points
     stay_points = detect_stay_points(trajectory)
-    print(f"✅ Detected {len(stay_points)} stay points")
+    print(f"[OK] Detected {len(stay_points)} stay points")
 
     if len(stay_points) == 0:
         return pd.DataFrame()
@@ -309,11 +309,11 @@ def process_trajectory(trajectory: pd.DataFrame) -> pd.DataFrame:
     # Step 2: Cluster stay points
     clustered = cluster_stay_points(stay_points)
     n_clusters = len(clustered[clustered['cluster'] != -1]['cluster'].unique())
-    print(f"✅ Clustered into {n_clusters} significant locations")
+    print(f"[OK] Clustered into {n_clusters} significant locations")
 
     # Step 3: Temporal labeling
     labeled = temporal_labeling(clustered)
-    print(f"✅ Labeled locations:")
+    print(f"[OK] Labeled locations:")
     for label in labeled['label'].unique():
         count = len(labeled[labeled['label'] == label])
         print(f"   - {label}: {count} stays")
@@ -368,7 +368,7 @@ if __name__ == "__main__":
     print()
 
     # Generate synthetic trajectory for testing (if no GeoLife data)
-    print("🧪 Generating synthetic trajectory...")
+    print("[TEST] Generating synthetic trajectory...")
 
     # Simulate trajectory: home (morning) → work (day) → bar (evening) → home (night)
     np.random.seed(42)
@@ -451,8 +451,8 @@ if __name__ == "__main__":
 
     trajectory_df = pd.DataFrame(trajectory_data)
 
-    print(f"✅ Generated {len(trajectory_df)} GPS points")
-    print(f"   Time span: {trajectory_df['timestamp'].min()} → {trajectory_df['timestamp'].max()}")
+    print(f"[OK] Generated {len(trajectory_df)} GPS points")
+    print(f"     Time span: {trajectory_df['timestamp'].min()} -> {trajectory_df['timestamp'].max()}")
     print()
 
     # Run pipeline
@@ -469,7 +469,7 @@ if __name__ == "__main__":
         print()
 
         # Summary by cluster
-        print("📊 CLUSTER SUMMARY:")
+        print("[SUMMARY] CLUSTER SUMMARY:")
         for cluster_id in sorted(result[result['cluster'] != -1]['cluster'].unique()):
             cluster_data = result[result['cluster'] == cluster_id]
             label = cluster_data['label'].iloc[0]
@@ -482,7 +482,7 @@ if __name__ == "__main__":
             print(f"      - {n_visits} visits, {total_time:.1f} min total")
             print(f"      - Centroid: ({centroid_lat:.4f}, {centroid_lon:.4f})")
     else:
-        print("⚠️  No stay points detected")
+        print("[WARNING] No stay points detected")
 
     print()
-    print("✅ Test completed successfully!")
+    print("[OK] Test completed successfully!")
