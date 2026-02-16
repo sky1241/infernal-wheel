@@ -190,7 +190,15 @@ function Add-LogRow([datetime]$start, [datetime]$end, [string]$name, [bool]$work
       return
     }
   }
+  # Fix: for sleep sessions starting between 4am-10am, assign to previous infernal day
+  # (this is the end-of-day sleep, not the start of a new day)
   $dayKey = Get-InfernalDayKey $start
+  if ($sleep -and $start.Hour -ge 4 -and $start.Hour -lt 10) {
+    try {
+      $prevDay = [datetime]::ParseExact($dayKey, "yyyy-MM-dd", $null).AddDays(-1)
+      $dayKey = $prevDay.ToString("yyyy-MM-dd")
+    } catch {}
+  }
   $row = '{0},{1},{2},{3},{4},{5}' -f `
     $start.ToString("yyyy-MM-dd HH:mm:ss"), `
     $end.ToString("yyyy-MM-dd HH:mm:ss"), `
