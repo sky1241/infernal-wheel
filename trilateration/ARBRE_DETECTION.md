@@ -478,7 +478,7 @@ Jour N : détection → attends N min avant
 
 ## 🚀 IMPLEMENTATION STATUS (Python Prototypes)
 
-**Phase 1 : Prototypage Python** — En cours
+**Phase 1 : Prototypage Python** — ✅ **COMPLÉTÉ!**
 
 | Bloc | Script | Status | Commit | Description |
 |------|--------|--------|--------|-------------|
@@ -486,7 +486,7 @@ Jour N : détection → attends N min avant
 | **2** | `feature_extraction.py` | ✅ **VALIDÉ** | `07ee481` | Feature extraction (30 features biomécanique, 750 lignes) |
 | **Integration** | `test_integration.py` | ✅ **VALIDÉ** | `07ee481` | Bloc 1 ↔ Bloc 2 integration test |
 | **3** | `train_baseline.py` | ✅ **VALIDÉ** | `1df88bf` | Train Random Forest baseline (400+ lignes) |
-| **4** | `test_loso.py` | ⏳ Pending | - | LOSO cross-validation |
+| **4** | `test_loso.py` | ✅ **VALIDÉ** | `0a644d7` | LOSO cross-validation (350+ lignes) |
 
 **Bloc 1 : Test Results** ✅
 - Input : 204 GPS points synthétiques (home→work→bar→home, 17h)
@@ -518,7 +518,30 @@ Jour N : détection → attends N min avant
 - Model saved : `models/random_forest_baseline.pkl`
 - Note : 100% F1 sur données synthétiques, attendu 80-90% sur données réelles (WESAD)
 
-**Next** : Bloc 4 (LOSO cross-validation)
+**Bloc 4 : Test Results** ✅
+- Input : 100 samples (5 subjects × 4 classes × 5 samples)
+- Method : LOSO (Leave-One-Subject-Out) - gold standard
+- Output : F1-score = 1.000 (perfect on synthetic)
+- Per-subject : All 5 subjects F1 = 1.000
+- Mean F1 : 1.000 (+/- 0.000)
+- Confusion matrix : Perfect classification (no errors)
+- Note : 100% F1 sur données synthétiques, attendu 80-86% sur données réelles (LOSO field target)
+
+---
+
+## ✅ **PHASE 1 COMPLETE — ALL 4 BLOCS VALIDATED!**
+
+**Total Code** : 1,988+ lignes Python testées et validées
+**Total Commits** : 10 commits pushés
+**Status** : **100% COMPLETE** 🎉
+
+**Pipeline fonctionnel complet** :
+1. ✅ GPS Stay Points + DBSCAN clustering
+2. ✅ Feature Extraction (30 features biomécanique)
+3. ✅ Random Forest classifier (F1 = 1.000)
+4. ✅ LOSO validation (gold standard, F1 = 1.000)
+
+**Next** : Phase 2 (Real data collection + Wear OS deployment)
 
 ---
 
