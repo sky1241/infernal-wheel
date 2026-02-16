@@ -48,7 +48,7 @@
 - Timing : 1 mouvement toutes les 30-60 sec
 - **Signature biomécanique** : angular velocity 60-120°/s, regularity score >0.7, dominant freq 0.017-0.033 Hz
 - Sources : [RisQ 2014](https://pmc.ncbi.nlm.nih.gov/articles/PMC4682919/), [Regularity 2019](https://pmc.ncbi.nlm.nih.gov/articles/PMC6400470/)
-- *(voir BIOMECANIQUE_GESTES.md pour 30 features détaillées)*
+- *(voir B_BRANCHES/BIOMECANIQUE_GESTES.md pour 30 features détaillées)*
 
 **Loi 4 : Le mouvement verre est stéréotypé** *(validé scientifiquement)*
 - Main → bouche : ~20-30 cm, 1-3 sec
@@ -93,7 +93,7 @@
 **Filtre 1 : Passe-bas (accelerometer)**
 - Éliminer bruit haute fréquence (>20 Hz)
 - Garder mouvements volontaires (0.5-5 Hz)
-- **Implémentation** : Butterworth 2nd order, wavelet filtering *(voir TECHNIQUES_DETECTION.md)*
+- **Implémentation** : Butterworth 2nd order, wavelet filtering *(voir B_BRANCHES/TECHNIQUES_DETECTION.md)*
 
 **Filtre 2 : Détection pics (heart rate)**
 - Identifier variations significatives (>±5 bpm)
@@ -194,7 +194,7 @@ Note : 1 verre ne change pas HR détectablement
 - Output : 3 classes (cigarette, alcool, rien)
 - Algorithme : Random Forest ou Gradient Boosting
 - Training : 7 jours de données labellisées manuellement
-- **Performance** : SVM 86%/71%, CNN-LSTM 78% F1 *(voir TECHNIQUES_DETECTION.md)*
+- **Performance** : SVM 86%/71%, CNN-LSTM 78% F1 *(voir B_BRANCHES/TECHNIQUES_DETECTION.md)*
 
 **Modèle 2 : Unsupervised Clustering**
 - Détecter patterns récurrents sans label
@@ -205,7 +205,7 @@ Note : 1 verre ne change pas HR détectablement
 - Séquences temporelles (10-60 sec)
 - Prédire action suivante
 - Apprendre patterns complexes (ex: cigarette après café)
-- **Architecture** : CNN-LSTM 2 couches, adaptive triggering *(voir TECHNIQUES_DETECTION.md)*
+- **Architecture** : CNN-LSTM 2 couches, adaptive triggering *(voir B_BRANCHES/TECHNIQUES_DETECTION.md)*
 
 ### B2 — Trilatération Contextuelle (3) : Localisation sémantique
 
@@ -347,13 +347,13 @@ Jour N : détection → attends N min avant
 - Garmin Fenix/Forerunner (similaire)
 - Fitbit Sense (PPG + accel + GPS)
 
-**Stack logiciel** *(voir DEPLOYMENT_HARDWARE.md pour détails complets)*
+**Stack logiciel** *(voir docs/DEPLOYMENT_HARDWARE.md pour détails complets)*
 - Langage : Python (prototype) → Swift/Kotlin (production)
 - ML : scikit-learn (baseline) → **TensorFlow Lite (LiteRT 2024)** ou **CoreML** (déploiement montre)
 - Optimization : **Pruning (50%) + Quantization (int8)** = 8× smaller, 3× faster, -60% battery
 - Storage : SQLite local sur montre (~6 MB total: model 128KB + data 700KB/an)
 
-**Datasets publics (prototypage)** *(voir DATASETS.md pour détails complets)*
+**Datasets publics (prototypage)** *(voir R_RACINES/DATASETS.md pour détails complets)*
 - **GeoLife** (Microsoft) — 17k trajectoires GPS, 48k+ heures → stay points + clustering
   https://www.microsoft.com/en-us/download/details.aspx?id=52367
 - **WESAD** — 15 sujets, HR + accel wrist/chest, 3 états (neutral/stress/amusement)
@@ -375,14 +375,14 @@ Jour N : détection → attends N min avant
 - **Sense2Quit model** — 97.52% F1-score, gère 15 gestes confondants (eating, drinking, yawning, phone, face touching, etc.)
 - **Key features** — Regularity score (0.7 cigarette vs 0.3 eating), Angular velocity (90°/s vs 200°/s), Dominant freq (0.022 Hz vs 1.5 Hz)
 
-**Deployment & Hardware** *(voir DEPLOYMENT_HARDWARE.md pour détails complets)*
+**Deployment & Hardware** *(voir docs/DEPLOYMENT_HARDWARE.md pour détails complets)*
 - **Platforms** — Apple Watch Series 6+ (CoreML, Neural Engine), Wear OS (TFLite, NNAPI), Garmin/Fitbit (limité)
 - **Model optimization** — Quantization (4× smaller, -1 to -2% accuracy), Pruning (50% reduction), Combined (8× total, 87% size)
 - **Battery** — Adaptive triggering (95% save vs continuous), CoreML always-on optimized, Quantization -60% power (MobileNet study)
 - **Latency** — 20-35 ms inference (Neural Engine/NNAPI), 35-50 ms (GPU), 100 ms (CPU only)
 - **Storage** — Model 128 KB (int8), Event data 700 KB/year, Total <6 MB
 
-**Validation & Testing** *(voir VALIDATION_TESTING.md pour détails complets)*
+**Validation & Testing** *(voir docs/VALIDATION_TESTING.md pour détails complets)*
 - **Cross-validation** — LOSO (Leave-One-Subject-Out) gold standard, K-fold biased (+13% overestimation via data leakage)
 - **Lab performance** — F1-score 85-92% (controlled), Precision 92-95%, Recall 85-90%
 - **Field performance** — F1-score 80-86% (LOSO real-world), Lab-to-field gap <10% acceptable
@@ -392,7 +392,7 @@ Jour N : détection → attends N min avant
 
 ---
 
-## MÉTRIQUES DE SUCCÈS *(voir VALIDATION_TESTING.md pour protocoles complets)*
+## MÉTRIQUES DE SUCCÈS *(voir docs/VALIDATION_TESTING.md pour protocoles complets)*
 
 ### Validation Lab (Controlled Environment)
 
