@@ -382,18 +382,45 @@ Jour N : détection → attends N min avant
 - **Latency** — 20-35 ms inference (Neural Engine/NNAPI), 35-50 ms (GPU), 100 ms (CPU only)
 - **Storage** — Model 128 KB (int8), Event data 700 KB/year, Total <6 MB
 
+**Validation & Testing** *(voir VALIDATION_TESTING.md pour détails complets)*
+- **Cross-validation** — LOSO (Leave-One-Subject-Out) gold standard, K-fold biased (+13% overestimation via data leakage)
+- **Lab performance** — F1-score 85-92% (controlled), Precision 92-95%, Recall 85-90%
+- **Field performance** — F1-score 80-86% (LOSO real-world), Lab-to-field gap <10% acceptable
+- **Metrics** — Confusion matrix, Precision/Recall/F1, PR-AUC (better than ROC-AUC for imbalanced 1-2% positive class)
+- **IRB & Ethics** — Informed consent required, GDPR compliant (right to erasure, encryption), N=15-30 participants for validation
+- **Sample size** — Pilot N=5-10 (7 days), Validation N=15-30 (14 days), Deployment N=50-100 (30 days)
+
 ---
 
-## MÉTRIQUES DE SUCCÈS
+## MÉTRIQUES DE SUCCÈS *(voir VALIDATION_TESTING.md pour protocoles complets)*
+
+### Validation Lab (Controlled Environment)
+
+| Phase | Métrique | Cible | Méthode |
+|-------|----------|-------|---------|
+| 1 (Lab) | **F1-score cigarette** | **85-92%** | 10-fold CV |
+| 1 (Lab) | Precision | 92-95% | Confusion matrix |
+| 1 (Lab) | Recall | 85-90% | Video ground truth |
+| 1 (Lab) | False positive rate | <10% | Manual count |
+
+### Validation Field (Real-World)
+
+| Phase | Métrique | Cible | Méthode |
+|-------|----------|-------|---------|
+| 2 (Field) | **F1-score (LOSO)** | **80-86%** | Leave-One-Subject-Out |
+| 2 (Field) | Lab-to-field gap | <10% | F1_lab - F1_field |
+| 2 (Field) | Precision | 80-88% | Self-report ground truth |
+| 2 (Field) | Recall | 75-85% | EMA validation |
+| 2 (Field) | False positive rate | <5 per day | User feedback |
+
+### Production Deployment
 
 | Phase | Métrique | Cible |
 |-------|----------|-------|
-| 1 | Précision cigarette | 80% |
-| 1 | Faux positifs/jour | <2 |
-| 2 | Précision cigarette + alcool | 85% |
-| 2 | Faux positifs/jour | <1 |
 | 3 | Réduction consommation (30j) | -20% |
 | 3 | Streak moyen | >7 jours |
+| 3 | Battery life | >18h/jour |
+| 3 | User satisfaction (SUS) | >70 |
 
 ---
 
