@@ -237,6 +237,8 @@ class DetectionService : Service() {
                         confidence = probabilities[0],
                         features = features
                     )
+                } else {
+                    // No cigarette detected
                 }
 
             } catch (e: Exception) {

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Background circle -->
+    <path
+        android:fillColor="#FF6B6B"
+        android:pathData="M24,44 C35.05,44 44,35.05 44,24 C44,12.95 35.05,4 24,4 C12.95,4 4,12.95 4,24 C4,35.05 12.95,44 24,44 Z"/>
+
+    <!-- Cigarette (horizontal line) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M14,24 L34,24 L34,26 L14,26 Z"/>
+
+    <!-- Slash (diagonal line) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:strokeColor="#FFFFFF"
+        android:pathData="M16,32 L32,16"/>
+
+</vector>
