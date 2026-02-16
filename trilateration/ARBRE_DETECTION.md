@@ -606,7 +606,7 @@ Jour N : détection → attends N min avant
 
 ## 📱 **PHASE 2: WEAR OS DEPLOYMENT (In Progress)**
 
-**Wear OS App — Blocs 1-2 COMPLÉTÉS** — ✅
+**Wear OS App — Blocs 1-3 COMPLÉTÉS** — ✅
 
 | Component | Status | Description |
 |-----------|--------|-------------|
@@ -618,23 +618,26 @@ Jour N : détection → attends N min avant
 | **Bloc 1** Model Asset | ✅ **VALIDÉ** | smoking_detector.tflite (23.2 KB) |
 | **Bloc 2** Feature Extraction | ✅ **VALIDÉ** | FeatureExtractor.kt (430+ lignes, 30 features) |
 | **Bloc 2** Real Inference Pipeline | ✅ **VALIDÉ** | MainActivity.kt updated (detect button + full pipeline) |
+| **Bloc 3** Foreground Service | ✅ **VALIDÉ** | DetectionService.kt (300+ lignes, continuous monitoring) |
+| **Bloc 3** Service Integration | ✅ **VALIDÉ** | MainActivity.kt updated (monitor button + service control) |
 
 **Structure créée** :
 ```
 wear-os-app/
 ├── app/
-│   ├── build.gradle.kts             # TFLite 2.14.0 + NNAPI + Health Services
+│   ├── build.gradle.kts             # TFLite 2.14.0 + NNAPI + Health Services + Coroutines
 │   ├── src/main/
-│   │   ├── AndroidManifest.xml      # Permissions (BODY_SENSORS, LOCATION, etc.)
+│   │   ├── AndroidManifest.xml      # Permissions + DetectionService declaration
 │   │   ├── assets/
 │   │   │   └── smoking_detector.tflite  # Modèle quantized int8 (23.2 KB)
 │   │   ├── java/com/infernal/smokingdetector/
-│   │   │   ├── MainActivity.kt         # UI Wear OS + inference pipeline
-│   │   │   ├── SmokingDetector.kt      # TFLite wrapper + inference
-│   │   │   ├── SensorDataCollector.kt  # Accel + Gyro @ 50Hz
-│   │   │   └── FeatureExtractor.kt     # 30 features biomécanique (Bloc 2)
+│   │   │   ├── MainActivity.kt            # UI + service control
+│   │   │   ├── DetectionService.kt        # Foreground service (Bloc 3)
+│   │   │   ├── SmokingDetector.kt         # TFLite wrapper
+│   │   │   ├── SensorDataCollector.kt     # Sensors @ 50Hz
+│   │   │   └── FeatureExtractor.kt        # 30 features (Bloc 2)
 │   │   └── res/
-│   │       ├── layout/activity_main.xml  # UI (Start/Detect/Test buttons)
+│   │       ├── layout/activity_main.xml   # UI (Monitor/Start/Detect/Test)
 │   │       └── values/strings.xml
 ├── build.gradle.kts
 ├── settings.gradle.kts
@@ -662,25 +665,42 @@ wear-os-app/
 - ✅ Affichage résultats : prediction + probabilities (cigarette/eating/drinking/other)
 - ✅ Seuil détection cigarette : 70% probability
 
+**Features implémentées (Bloc 3)** :
+- ✅ Foreground service avec notification persistante (DetectionService.kt)
+- ✅ Monitoring continu en background @ 50 Hz
+- ✅ Inférence périodique toutes les 30 secondes
+- ✅ Détection automatique cigarette (threshold 70%)
+- ✅ Notification push quand cigarette détectée
+- ✅ Debounce 2 minutes (éviter doubles détections)
+- ✅ Compteur cigarettes détectées (total sessions)
+- ✅ Bouton "Start Monitor" vert (#4CAF50) dans MainActivity
+- ✅ Service lifecycle : START_STICKY (auto-restart on kill)
+- ✅ Notification channel Android 8.0+ (low importance)
+- ✅ Stop action dans notification persistante
+- ✅ Coroutines pour inférence asynchrone (non-blocking)
+
 **Performance** :
 - Model size : 23.2 KB (int8 quantized)
 - Inference : <50ms (NNAPI accelerated)
 - Sampling rate : 50 Hz (20,000 µs delay)
 - Buffer capacity : 5 minutes continuous data
+- Service inference interval : 30 seconds
+- Notification debounce : 2 minutes
 
 **Commits** :
 - Bloc 1 : `c885019` (Structure + TFLite integration)
 - Bloc 2 : `845a2f5` (Feature extraction + real inference pipeline)
+- Bloc 3 : `db2a922` (Foreground service + continuous monitoring)
 
-**Total Code** : 890+ lignes Kotlin + 11 fichiers
+**Total Code** : 1,190+ lignes Kotlin + 12 fichiers
 
 **Status Blocs** :
 1. ✅ Structure + TFLite integration (460 lignes)
 2. ✅ Feature Extraction (30 biomechanical features, 430 lignes)
-3. ⏳ Foreground detection service (continuous monitoring)
-4. ⏳ Build APK + deploy to physical watch
+3. ✅ Foreground detection service (continuous monitoring, 300 lignes)
+4. ⏳ Build APK + deploy to physical watch + field testing
 
-**Next** : Bloc 3 — Foreground service pour détection continue en background
+**Next** : Bloc 4 — Build APK + déploiement sur montre physique pour tests terrain
 
 ---
 
