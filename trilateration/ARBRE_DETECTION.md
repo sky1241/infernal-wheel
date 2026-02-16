@@ -329,11 +329,14 @@ Jour N : détection → attends N min avant
 
 | Défi | Solution |
 |------|----------|
-| Batterie montre (GPS consomme) | GPS échantillonné (1 mesure/5 min), activé seulement si mouvement détecté |
-| Faux positifs (manger, boire café) | Validation croisée HR + contexte spatial + pattern temporel |
-| Données d'entraînement (labelling pénible) | Approche semi-supervisée : clustering auto + validation manuelle minimale |
+| Batterie montre (GPS consomme) | GPS échantillonné (1 mesure/5 min), activé seulement si mouvement détecté + **Adaptive triggering (95% save)** |
+| Faux positifs (manger, boire café) | Validation croisée HR + contexte spatial + pattern temporel + **Sense2Quit confounding resilient model (97.52% F1)** |
+| Données d'entraînement (labelling pénible) | Approche semi-supervisée : clustering auto + validation manuelle minimale + **Datasets publics (GeoLife, WESAD, PPG-DaLiA)** |
 | Variabilité individuelle (HR baseline différent) | Calibration personnelle : mesure repos 3-7 jours |
-| Privacy/stockage données | Tout local sur montre (pas de cloud), agrégation anonyme uniquement |
+| Privacy/stockage données | Tout local sur montre (pas de cloud), agrégation anonyme uniquement + **SQLite encrypted (iOS Keychain, Android Keystore)** |
+| **Taille modèle (déploiement montre)** | **Pruning 50% + Quantization int8 = 8× reduction (1024 KB → 128 KB), -3% accuracy** |
+| **RAM limitée (1 GB disponible)** | **Runtime <15 MB (quantized model), batching intelligent, hardware acceleration (Neural Engine/NNAPI)** |
+| **Latence inférence** | **Neural Engine/NNAPI 20-35 ms (acceptable pour 60s window), sliding window every 1s** |
 
 ---
 
@@ -344,10 +347,11 @@ Jour N : détection → attends N min avant
 - Garmin Fenix/Forerunner (similaire)
 - Fitbit Sense (PPG + accel + GPS)
 
-**Stack logiciel**
+**Stack logiciel** *(voir DEPLOYMENT_HARDWARE.md pour détails complets)*
 - Langage : Python (prototype) → Swift/Kotlin (production)
-- ML : scikit-learn (baseline) → TensorFlow Lite (déploiement montre)
-- Storage : SQLite local sur montre
+- ML : scikit-learn (baseline) → **TensorFlow Lite (LiteRT 2024)** ou **CoreML** (déploiement montre)
+- Optimization : **Pruning (50%) + Quantization (int8)** = 8× smaller, 3× faster, -60% battery
+- Storage : SQLite local sur montre (~6 MB total: model 128KB + data 700KB/an)
 
 **Datasets publics (prototypage)** *(voir DATASETS.md pour détails complets)*
 - **GeoLife** (Microsoft) — 17k trajectoires GPS, 48k+ heures → stay points + clustering
@@ -370,6 +374,13 @@ Jour N : détection → attends N min avant
 - **Confounding gestures** — Eating (1-2/s vs 1/45s), Drinking (pause 2-4s vs 1-2s), Phone (dwell 30-300s vs 1-2s)
 - **Sense2Quit model** — 97.52% F1-score, gère 15 gestes confondants (eating, drinking, yawning, phone, face touching, etc.)
 - **Key features** — Regularity score (0.7 cigarette vs 0.3 eating), Angular velocity (90°/s vs 200°/s), Dominant freq (0.022 Hz vs 1.5 Hz)
+
+**Deployment & Hardware** *(voir DEPLOYMENT_HARDWARE.md pour détails complets)*
+- **Platforms** — Apple Watch Series 6+ (CoreML, Neural Engine), Wear OS (TFLite, NNAPI), Garmin/Fitbit (limité)
+- **Model optimization** — Quantization (4× smaller, -1 to -2% accuracy), Pruning (50% reduction), Combined (8× total, 87% size)
+- **Battery** — Adaptive triggering (95% save vs continuous), CoreML always-on optimized, Quantization -60% power (MobileNet study)
+- **Latency** — 20-35 ms inference (Neural Engine/NNAPI), 35-50 ms (GPU), 100 ms (CPU only)
+- **Storage** — Model 128 KB (int8), Event data 700 KB/year, Total <6 MB
 
 ---
 
