@@ -476,6 +476,28 @@ Jour N : détection → attends N min avant
 
 ---
 
+## 🚀 IMPLEMENTATION STATUS (Python Prototypes)
+
+**Phase 1 : Prototypage Python** — En cours
+
+| Bloc | Script | Status | Commit | Description |
+|------|--------|--------|--------|-------------|
+| **1** | `stay_points.py` | ✅ **VALIDÉ** | `a65512a` | GPS Stay Points + DBSCAN clustering (488 lignes) |
+| **2** | `feature_extraction.py` | 🔄 En cours | - | Feature extraction (30 features biomécanique) |
+| **3** | `train_baseline.py` | ⏳ Pending | - | Train Random Forest baseline |
+| **4** | `test_loso.py` | ⏳ Pending | - | LOSO cross-validation |
+
+**Bloc 1 : Test Results** ✅
+- Input : 204 GPS points synthétiques (home→work→bar→home, 17h)
+- Output : 4 stay points → 1 cluster "home" (2 visites, 175 min total)
+- Centroid : (48.8566, 2.3522) Paris
+- DBSCAN : ε=100m, MinPts=2 (test mode)
+- Validation : Windows + Python 3.13.6
+
+**Next** : Bloc 2 (Feature Extraction) + Test connexion avec Bloc 1
+
+---
+
 ## RÉFÉRENCES SCIENTIFIQUES VALIDÉES
 
 ### Physiologie Nicotine/Cigarette
