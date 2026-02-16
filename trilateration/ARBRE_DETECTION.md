@@ -606,16 +606,18 @@ Jour N : détection → attends N min avant
 
 ## 📱 **PHASE 2: WEAR OS DEPLOYMENT (In Progress)**
 
-**Wear OS App — Bloc 1 COMPLÉTÉ** — ✅
+**Wear OS App — Blocs 1-2 COMPLÉTÉS** — ✅
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| Project Structure | ✅ **VALIDÉ** | Gradle build system + Kotlin DSL |
-| TFLite Integration | ✅ **VALIDÉ** | SmokingDetector.kt (153 lignes) |
-| Sensor Collection | ✅ **VALIDÉ** | SensorDataCollector.kt (170 lignes) |
-| Main UI | ✅ **VALIDÉ** | MainActivity.kt (137 lignes) |
-| Permissions | ✅ **VALIDÉ** | AndroidManifest.xml (sensors + location + foreground) |
-| Model Asset | ✅ **VALIDÉ** | smoking_detector.tflite (23.2 KB) |
+| **Bloc 1** Project Structure | ✅ **VALIDÉ** | Gradle build system + Kotlin DSL |
+| **Bloc 1** TFLite Integration | ✅ **VALIDÉ** | SmokingDetector.kt (153 lignes) |
+| **Bloc 1** Sensor Collection | ✅ **VALIDÉ** | SensorDataCollector.kt (170 lignes) |
+| **Bloc 1** Main UI | ✅ **VALIDÉ** | MainActivity.kt (baseline 137 lignes) |
+| **Bloc 1** Permissions | ✅ **VALIDÉ** | AndroidManifest.xml (sensors + location + foreground) |
+| **Bloc 1** Model Asset | ✅ **VALIDÉ** | smoking_detector.tflite (23.2 KB) |
+| **Bloc 2** Feature Extraction | ✅ **VALIDÉ** | FeatureExtractor.kt (430+ lignes, 30 features) |
+| **Bloc 2** Real Inference Pipeline | ✅ **VALIDÉ** | MainActivity.kt updated (detect button + full pipeline) |
 
 **Structure créée** :
 ```
@@ -625,25 +627,40 @@ wear-os-app/
 │   ├── src/main/
 │   │   ├── AndroidManifest.xml      # Permissions (BODY_SENSORS, LOCATION, etc.)
 │   │   ├── assets/
-│   │   │   └── smoking_detector.tflite  # Modèle quantized int8
+│   │   │   └── smoking_detector.tflite  # Modèle quantized int8 (23.2 KB)
 │   │   ├── java/com/infernal/smokingdetector/
-│   │   │   ├── MainActivity.kt      # UI Wear OS
-│   │   │   ├── SmokingDetector.kt   # TFLite wrapper + inference
-│   │   │   └── SensorDataCollector.kt  # Accel + Gyro @ 50Hz
+│   │   │   ├── MainActivity.kt         # UI Wear OS + inference pipeline
+│   │   │   ├── SmokingDetector.kt      # TFLite wrapper + inference
+│   │   │   ├── SensorDataCollector.kt  # Accel + Gyro @ 50Hz
+│   │   │   └── FeatureExtractor.kt     # 30 features biomécanique (Bloc 2)
 │   │   └── res/
-│   │       ├── layout/activity_main.xml
+│   │       ├── layout/activity_main.xml  # UI (Start/Detect/Test buttons)
 │   │       └── values/strings.xml
 ├── build.gradle.kts
 ├── settings.gradle.kts
 └── README.md
 ```
 
-**Features implémentées** :
+**Features implémentées (Bloc 1)** :
 - ✅ Load TFLite model avec NNAPI hardware acceleration
 - ✅ Sensor sampling @ 50 Hz (accelerometer 3-axis + gyroscope 3-axis)
 - ✅ Circular buffer : 15,000 samples = 5 minutes de données
 - ✅ UI basique : boutons Start/Stop + Test inference
 - ✅ Runtime permissions (BODY_SENSORS, ACTIVITY_RECOGNITION, ACCESS_FINE_LOCATION)
+
+**Features implémentées (Bloc 2)** :
+- ✅ Feature extraction complète (30 features biomécanique)
+  - Time-domain (5) : RMS, peak_accel, duration, interval_mean, interval_std
+  - Angular (4) : angular_velocity, wrist_rotation, orientation_stability, rotation_smoothness
+  - Jerk (3) : jerk_magnitude, jerk_smoothness, jerk_consistency
+  - Frequency (5) : dominant_freq, spectral_energy, spectral_entropy, autocorr_peak, periodicity
+  - Trajectory (4) : path_curvature, elevation_angle, elevation_consistency, total_distance
+  - Regularity (3) : regularity_score, periodicity_coef, temporal_clustering
+  - Contextual (6) : hr_baseline, hr_delta, gps_cluster, time_of_day, day_of_week, proximity_smoking
+- ✅ Pipeline complet : Sensors → Buffer → Features → TFLite → Probabilities
+- ✅ Bouton "Detect Now" pour inférence RÉELLE avec sensor data
+- ✅ Affichage résultats : prediction + probabilities (cigarette/eating/drinking/other)
+- ✅ Seuil détection cigarette : 70% probability
 
 **Performance** :
 - Model size : 23.2 KB (int8 quantized)
@@ -651,15 +668,19 @@ wear-os-app/
 - Sampling rate : 50 Hz (20,000 µs delay)
 - Buffer capacity : 5 minutes continuous data
 
-**Commit** : `c885019`
+**Commits** :
+- Bloc 1 : `c885019` (Structure + TFLite integration)
+- Bloc 2 : `845a2f5` (Feature extraction + real inference pipeline)
 
-**Total Code** : 460+ lignes Kotlin + 10 fichiers config
+**Total Code** : 890+ lignes Kotlin + 11 fichiers
 
-**Next Steps** :
-1. ⏳ Feature Extraction (30 biomechanical features from sensor data)
-2. ⏳ Real-time inference pipeline
-3. ⏳ Foreground detection service
+**Status Blocs** :
+1. ✅ Structure + TFLite integration (460 lignes)
+2. ✅ Feature Extraction (30 biomechanical features, 430 lignes)
+3. ⏳ Foreground detection service (continuous monitoring)
 4. ⏳ Build APK + deploy to physical watch
+
+**Next** : Bloc 3 — Foreground service pour détection continue en background
 
 ---
 
