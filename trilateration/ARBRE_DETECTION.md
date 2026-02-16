@@ -485,7 +485,7 @@ Jour N : détection → attends N min avant
 | **1** | `stay_points.py` | ✅ **VALIDÉ** | `a65512a` | GPS Stay Points + DBSCAN clustering (488 lignes) |
 | **2** | `feature_extraction.py` | ✅ **VALIDÉ** | `07ee481` | Feature extraction (30 features biomécanique, 750 lignes) |
 | **Integration** | `test_integration.py` | ✅ **VALIDÉ** | `07ee481` | Bloc 1 ↔ Bloc 2 integration test |
-| **3** | `train_baseline.py` | ⏳ Pending | - | Train Random Forest baseline |
+| **3** | `train_baseline.py` | ✅ **VALIDÉ** | `1df88bf` | Train Random Forest baseline (400+ lignes) |
 | **4** | `test_loso.py` | ⏳ Pending | - | LOSO cross-validation |
 
 **Bloc 1 : Test Results** ✅
@@ -509,7 +509,16 @@ Jour N : détection → attends N min avant
 - Time/date context : 20.5h Thursday ✅
 - 30 features extracted with GPS context ✅
 
-**Next** : Bloc 3 (Train Random Forest baseline)
+**Bloc 3 : Test Results** ✅
+- Input : 40 samples synthétiques (10 per class: cigarette, eating, drinking, other)
+- Model : Random Forest (100 trees, max_depth=10)
+- Output : F1-score = 1.000 (perfect on synthetic data)
+- Top features : RMS (0.0974), proximity_smoking (0.0957), spectral_energy (0.0626)
+- Cross-validation : 5-fold CV = 1.000 (+/- 0.000)
+- Model saved : `models/random_forest_baseline.pkl`
+- Note : 100% F1 sur données synthétiques, attendu 80-90% sur données réelles (WESAD)
+
+**Next** : Bloc 4 (LOSO cross-validation)
 
 ---
 
