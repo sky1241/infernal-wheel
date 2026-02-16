@@ -42,15 +42,21 @@
 - Retour baseline quand alcool éliminé du sang
 - Sources : [AJP 2009](https://journals.physiology.org/doi/full/10.1152/ajpheart.00700.2009), [Nature 2021](https://www.nature.com/articles/s41598-021-92767-y)
 
-**Loi 3 : Le mouvement cigarette est stéréotypé**
+**Loi 3 : Le mouvement cigarette est stéréotypé** *(validé scientifiquement)*
 - Main → bouche : ~15-20 cm, 1-2 sec
 - Fréquence : 8-12 mouvements par cigarette
 - Timing : 1 mouvement toutes les 30-60 sec
+- **Signature biomécanique** : angular velocity 60-120°/s, regularity score >0.7, dominant freq 0.017-0.033 Hz
+- Sources : [RisQ 2014](https://pmc.ncbi.nlm.nih.gov/articles/PMC4682919/), [Regularity 2019](https://pmc.ncbi.nlm.nih.gov/articles/PMC6400470/)
+- *(voir BIOMECANIQUE_GESTES.md pour 30 features détaillées)*
 
-**Loi 4 : Le mouvement verre est stéréotypé**
+**Loi 4 : Le mouvement verre est stéréotypé** *(validé scientifiquement)*
 - Main → bouche : ~20-30 cm, 1-3 sec
 - Fréquence : variable (sirotage vs gorgée)
 - Pattern : bras monte + pause (boire) + descend
+- **Différence vs cigarette** : pause 2-4s (vs 1-2s), intervalle irrégulier (vs régulier)
+- Sources : [Eating Drinking 2024](https://pmc.ncbi.nlm.nih.gov/articles/PMC11154557/)
+- *(voir BIOMECANIQUE_GESTES.md pour différenciation complète)*
 
 **Loi 5 : La géolocalisation contextualise**
 - Bar/restaurant : probabilité alcool ↑
@@ -111,10 +117,13 @@
 - Timestamp unifié (milliseconde)
 - Alignement temporel (compensation latence GPS)
 
-**Extraction features**
+**Extraction features** *(voir BIOMECANIQUE_GESTES.md pour 30 features détaillées)*
 - Heart rate : moyenne, écart-type, variation max
-- Accelerometer : magnitude, fréquence mouvements, pattern
+- Accelerometer : magnitude, fréquence mouvements, pattern, **jerk, angular velocity**
 - GPS : localisation, vitesse, changement de lieu
+- **Time-domain** : mean, std, max, skewness, kurtosis (5 features)
+- **Frequency-domain** : FFT, PSD, dominant freq, spectral energy (5 features)
+- **Trajectory** : distance, speed, pause duration, regularity score (4 features)
 
 ### T2 — Pattern Detection (1) : Reconnaissance mouvements
 
@@ -355,6 +364,12 @@ Jour N : détection → attends N min avant
 - **Hand-to-Mouth Gesture** — 3 phases détection (raising, stationary, moving away)
 - **Low-Power** — Adaptive triggering (accelerometer → HR sensor only when gesture detected, 95% batterie save)
 - **Performance** — StopWatch (86% precision, 71% recall free-living), LOSO CV (97-98% controlled)
+
+**Biomécanique & Features** *(voir BIOMECANIQUE_GESTES.md pour détails complets)*
+- **30 features quantitatives** — Time-domain (5), Angular (4), Jerk (3), Frequency (5), Trajectory (4), Regularity (3), Contextual (6)
+- **Confounding gestures** — Eating (1-2/s vs 1/45s), Drinking (pause 2-4s vs 1-2s), Phone (dwell 30-300s vs 1-2s)
+- **Sense2Quit model** — 97.52% F1-score, gère 15 gestes confondants (eating, drinking, yawning, phone, face touching, etc.)
+- **Key features** — Regularity score (0.7 cigarette vs 0.3 eating), Angular velocity (90°/s vs 200°/s), Dominant freq (0.022 Hz vs 1.5 Hz)
 
 ---
 
