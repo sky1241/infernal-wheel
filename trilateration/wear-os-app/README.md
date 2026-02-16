@@ -65,7 +65,28 @@ Collecteur de données capteurs (accelerometer + gyroscope).
 - 3-axis gyroscope (rad/s)
 - Timestamps (ns)
 
-### 3. MainActivity.kt
+### 3. FeatureExtractor.kt
+
+Extraction des 30 features biomécanique depuis sensor data.
+
+**Fonctions** :
+- `extractAllFeatures(accel, gyro, timestamps, ...)` — Extrait 30 features → FloatArray
+- Time-domain (5) : RMS, peak_accel, duration, interval_mean, interval_std
+- Angular (4) : angular_velocity, wrist_rotation, orientation_stability, rotation_smoothness
+- Jerk (3) : jerk_magnitude, jerk_smoothness, jerk_consistency
+- Frequency (5) : dominant_freq, spectral_energy, spectral_entropy, autocorr_peak, periodicity
+- Trajectory (4) : path_curvature, elevation_angle, elevation_consistency, total_distance
+- Regularity (3) : regularity_score, periodicity_coef, temporal_clustering
+- Contextual (6) : hr_baseline, hr_delta, gps_cluster, time_of_day, day_of_week, proximity_smoking
+
+**Algorithmes** :
+- Peak detection (threshold-based)
+- Autocorrelation (lag-based periodicity)
+- FFT approximation (dominant frequency)
+- Shannon entropy (signal distribution)
+- Trajectory analysis (curvature + elevation)
+
+### 4. MainActivity.kt
 
 Interface utilisateur Wear OS.
 
@@ -73,8 +94,9 @@ Interface utilisateur Wear OS.
 - Load TFLite model au démarrage
 - Request permissions (BODY_SENSORS, ACTIVITY_RECOGNITION, LOCATION)
 - Bouton Start/Stop pour acquisition capteurs
+- Bouton **Detect Now** pour inférence RÉELLE (sensor data + features + model)
 - Bouton Test pour inférence test (dummy data)
-- Affichage résultats temps réel
+- Affichage résultats temps réel avec probabilités
 
 ## 🚀 Build & Deploy
 
@@ -236,6 +258,8 @@ D/SensorDataCollector: Sensors registered: Accelerometer=true, Gyroscope=true
 
 ---
 
-**Status** : Bloc 1 COMPLÉTÉ ✅ (Structure + TFLite integration)
+**Status** :
+- Bloc 1 COMPLÉTÉ ✅ (Structure + TFLite integration)
+- Bloc 2 COMPLÉTÉ ✅ (Feature extraction 30 features)
 
-**Next** : Feature extraction (30 features from sensor data)
+**Next** : Bloc 3 (Foreground detection service + continuous monitoring)

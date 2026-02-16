@@ -36,6 +36,19 @@
         app:layout_constraintBottom_toTopOf="@id/testButton"
         android:layout_marginBottom="8dp" />
 
+    <!-- Detect Button (Real Inference) -->
+    <Button
+        android:id="@+id/detectButton"
+        android:layout_width="0dp"
+        android:layout_height="44dp"
+        android:text="@string/button_detect"
+        android:textSize="14sp"
+        android:backgroundTint="#FF6B35"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/testButton"
+        android:layout_marginBottom="8dp" />
+
     <!-- Test Button -->
     <Button
         android:id="@+id/testButton"

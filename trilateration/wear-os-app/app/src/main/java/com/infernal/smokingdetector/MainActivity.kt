@@ -28,10 +28,12 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var detector: SmokingDetector
     private lateinit var sensorCollector: SensorDataCollector
+    private lateinit var featureExtractor: FeatureExtractor
 
     private lateinit var statusText: TextView
     private lateinit var startButton: Button
     private lateinit var testButton: Button
+    private lateinit var detectButton: Button
 
     private var isCollecting = false
 
@@ -43,10 +45,12 @@ class MainActivity : AppCompatActivity() {
         statusText = findViewById(R.id.statusText)
         startButton = findViewById(R.id.startButton)
         testButton = findViewById(R.id.testButton)
+        detectButton = findViewById(R.id.detectButton)
 
-        // Initialize detector and sensor collector
+        // Initialize detector, sensor collector, and feature extractor
         detector = SmokingDetector(this)
         sensorCollector = SensorDataCollector(this)
+        featureExtractor = FeatureExtractor()
 
         // Load TFLite model
         if (detector.loadModel()) {
@@ -67,6 +71,10 @@ class MainActivity : AppCompatActivity() {
 
         testButton.setOnClickListener {
             runTestInference()
+        }
+
+        detectButton.setOnClickListener {
+            runRealInference()
         }
     }
 
@@ -122,6 +130,65 @@ class MainActivity : AppCompatActivity() {
 
         updateStatus(result)
         Log.d(TAG, "Test inference: $predictedClass, probabilities=${probabilities.contentToString()}")
+    }
+
+    /**
+     * Run real inference with sensor data + feature extraction
+     */
+    private fun runRealInference() {
+        if (!isCollecting) {
+            updateStatus("Start sensors first!")
+            return
+        }
+
+        Log.d(TAG, "Running real inference with sensor data")
+        updateStatus("Extracting features...")
+
+        try {
+            // Get recent sensor data (1000 samples = 20 seconds @ 50Hz)
+            val sensorData = sensorCollector.getRecentData(numSamples = 1000)
+
+            // Extract 30 features
+            val features = featureExtractor.extractAllFeatures(
+                accel = sensorData.accelerometer,
+                gyro = sensorData.gyroscope,
+                timestamps = sensorData.timestamps,
+                hrBaseline = 70f,  // TODO: Get from Health Services API
+                hrCurrent = 70f,   // TODO: Get from Health Services API
+                gpsCluster = 3,    // TODO: Get from GPS clustering
+                proximitySmoking = 0.1f  // TODO: Get from geofencing
+            )
+
+            Log.d(TAG, "Features extracted: ${features.contentToString()}")
+
+            // Run inference
+            val probabilities = detector.predict(features)
+            val predictedClass = detector.predictClassName(features)
+            val isCigarette = detector.isCigaretteDetected(features, threshold = 0.7f)
+
+            // Display results
+            val result = buildString {
+                append("🔍 DETECTION RESULT\n\n")
+                append("Prediction: $predictedClass\n")
+                if (isCigarette) {
+                    append("⚠️ CIGARETTE DETECTED!\n\n")
+                } else {
+                    append("✓ No cigarette\n\n")
+                }
+                append("Probabilities:\n")
+                append("🚬 Cigarette: ${(probabilities[0] * 100).toInt()}%\n")
+                append("🍽 Eating: ${(probabilities[1] * 100).toInt()}%\n")
+                append("🍷 Drinking: ${(probabilities[2] * 100).toInt()}%\n")
+                append("👌 Other: ${(probabilities[3] * 100).toInt()}%")
+            }
+
+            updateStatus(result)
+            Log.d(TAG, "Real inference: $predictedClass, cigarette=$isCigarette, probabilities=${probabilities.contentToString()}")
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Inference failed", e)
+            updateStatus("Error: ${e.message}")
+        }
     }
 
     /**
