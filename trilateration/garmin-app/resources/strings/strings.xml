@@ -1,0 +1,10 @@
+<!-- Resource strings -->
+<resources>
+    <strings>
+        <string id="AppName">Smoking Detector</string>
+        <string id="StatusReady">Ready</string>
+        <string id="StatusMonitoring">Monitoring</string>
+        <string id="StatusStopped">Stopped</string>
+        <string id="CigarettesDetected">cigarettes detected</string>
+    </strings>
+</resources>
