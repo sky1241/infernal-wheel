@@ -1,6 +1,8 @@
 # ARBRE DE DÉTECTION — TRILATÉRATION SMARTWATCH
 *Auto-détection cigarettes & alcool par capteurs multi-modaux*
 
+**📄 EXECUTIVE SUMMARY** : Pour un résumé complet du système (1 page), voir [SYSTEM_SUMMARY.md](SYSTEM_SUMMARY.md)
+
 ---
 
 ## ARCHITECTURE WINTER TREE (R/T/B/C)
@@ -102,6 +104,56 @@
 **Filtre 3 : Calibration personnelle**
 - BPM repos = baseline individuelle (varie 50-90)
 - Correction individuelle : mesurer pendant 3-7 jours
+
+### R4 — Boost Sampling (-2) : Stratégie d'acquisition intelligente
+
+**Mode Normal (Battery Save)**
+- **Sampling rate** : 1 sample/60s (ou 1/2min)
+- **Capteurs actifs** : Accelerometer only (0.5 mW)
+- **Objectif** : Détection macro-patterns, économie batterie
+
+**Mode Boost (User-Triggered High-Frequency)**
+- **Déclencheur** : User appuie bouton "cigarette" ou "bière"
+- **Pre-trigger** : **15 secondes AVANT** activation boost (capture première bouffée)
+- **Sampling rate** : **1 sample/3s** (accelerometer + PPG)
+- **Durée** : **5 minutes** (300s) = **100 samples high-resolution**
+- **Retour automatique** : Mode normal après 5 min
+
+**Timeline boost** :
+```
+T-15s : User clique bouton (pré-trigger)
+T0    : Boost démarre (1 sample/3s)
+T+3s  : Allume cigarette → première bouffée CAPTURÉE
+T+45s : Deuxième bouffée
+T+90s : Troisième bouffée
+...
+T+5min: Fin boost → retour mode normal (1 sample/60s)
+```
+
+**Justification sampling 1/3s** :
+- Pattern cigarette : intervalle 30-45s entre bouffées
+- Nyquist minimum : 1/22s → **1/3s = 7.5× marge sécurité**
+- Capture **2-3 samples par bouffée** → détection pattern robuste
+- Évite aliasing (risque de louper bouffées si 1/5s ou plus)
+
+**Compression** :
+- **Gorilla time-series compression** : 90-95% reduction
+- 100 samples × 6 bytes × 10 cigarettes/jour = **6 KB → 0.3-0.6 KB/jour**
+- 7 jours training : **4.2 KB total** (négligeable)
+
+**Battery Impact** :
+- Consommation boost : 3.5 mW (accel + PPG)
+- 10 cigarettes/jour × 5.25 min = **52.5 min boost**
+- Impact total 24h : **+1%** batterie (15 mWh sur 1455 mWh total)
+- **Conclusion** : Négligeable vs OS baseline (1440 mWh) ✅
+
+**Avantages** :
+1. **Ground truth labeling** : User valide événement → perfect training data
+2. **High-resolution capture** : 100 samples capturent micro-structure complète (8-12 bouffées)
+3. **Battery efficient** : Boost seulement 50-70 min/jour (vs 1440 min total)
+4. **Robuste** : Pre-trigger 15s garantit capture première bouffée
+
+*(Voir SYSTEM_SUMMARY.md pour calculs batterie détaillés)*
 
 ---
 
