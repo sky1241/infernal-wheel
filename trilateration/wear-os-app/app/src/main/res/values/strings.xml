@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Smoking Detector</string>
+    <string name="status_ready">Ready</string>
+    <string name="button_start">Start</string>
+    <string name="button_test">Test Model</string>
+</resources>
