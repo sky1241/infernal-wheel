@@ -32,10 +32,12 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
     private lateinit var startButton: Button
-    private lateinit var testButton: Button
+    private lateinit var monitorButton: Button
     private lateinit var detectButton: Button
+    private lateinit var testButton: Button
 
     private var isCollecting = false
+    private var isMonitoring = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,8 +46,9 @@ class MainActivity : AppCompatActivity() {
         // Initialize UI
         statusText = findViewById(R.id.statusText)
         startButton = findViewById(R.id.startButton)
-        testButton = findViewById(R.id.testButton)
+        monitorButton = findViewById(R.id.monitorButton)
         detectButton = findViewById(R.id.detectButton)
+        testButton = findViewById(R.id.testButton)
 
         // Initialize detector, sensor collector, and feature extractor
         detector = SmokingDetector(this)
@@ -69,12 +72,16 @@ class MainActivity : AppCompatActivity() {
             toggleDataCollection()
         }
 
-        testButton.setOnClickListener {
-            runTestInference()
+        monitorButton.setOnClickListener {
+            toggleMonitoring()
         }
 
         detectButton.setOnClickListener {
             runRealInference()
+        }
+
+        testButton.setOnClickListener {
+            runTestInference()
         }
     }
 
@@ -102,6 +109,28 @@ class MainActivity : AppCompatActivity() {
                 updateStatus("Failed to start sensors")
                 false
             }
+        }
+    }
+
+    /**
+     * Toggle continuous monitoring (foreground service)
+     */
+    private fun toggleMonitoring() {
+        if (!hasPermissions()) {
+            requestPermissions()
+            return
+        }
+
+        isMonitoring = if (isMonitoring) {
+            DetectionService.stop(this)
+            monitorButton.text = "Start Monitor"
+            updateStatus("Monitoring stopped")
+            false
+        } else {
+            DetectionService.start(this)
+            monitorButton.text = "Stop Monitor"
+            updateStatus("Monitoring active ✓")
+            true
         }
     }
 

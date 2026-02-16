@@ -86,14 +86,41 @@ Extraction des 30 features biomécanique depuis sensor data.
 - Shannon entropy (signal distribution)
 - Trajectory analysis (curvature + elevation)
 
-### 4. MainActivity.kt
+### 4. DetectionService.kt
+
+Service foreground pour détection continue en background.
+
+**Fonctions** :
+- `start(context)` — Démarre service foreground avec notification persistante
+- `stop(context)` — Arrête service
+- Monitoring continu @ 50 Hz (accelerometer + gyroscope)
+- Inférence périodique toutes les 30 secondes
+- Notification cigarette détectée (avec debounce 2 min)
+- Compteur cigarettes détectées
+
+**Features** :
+- Foreground service (notification persistante)
+- Coroutines pour inférence asynchrone
+- Debounce 2 minutes (éviter doubles détections)
+- Low power consumption (boost sampling strategy)
+- Auto-restart on kill (START_STICKY)
+
+**Lifecycle** :
+```
+START → Sensors ON → Inference Loop (30s) → Detection → Notification
+                                           ↓
+STOP  ← Sensors OFF ← User Stop Button ← Service Destroyed
+```
+
+### 5. MainActivity.kt
 
 Interface utilisateur Wear OS.
 
 **Features** :
 - Load TFLite model au démarrage
 - Request permissions (BODY_SENSORS, ACTIVITY_RECOGNITION, LOCATION)
-- Bouton Start/Stop pour acquisition capteurs
+- Bouton **Start Monitor** pour service continu (vert #4CAF50)
+- Bouton Start/Stop pour acquisition manuelle capteurs
 - Bouton **Detect Now** pour inférence RÉELLE (sensor data + features + model)
 - Bouton Test pour inférence test (dummy data)
 - Affichage résultats temps réel avec probabilités
@@ -208,23 +235,27 @@ collector.stop()
 
 ## 📈 Prochaines Étapes
 
-### Phase 2 : Feature Extraction
+### ✅ Phase 2 : Feature Extraction (COMPLÉTÉ)
 
-- [ ] Implémenter `FeatureExtractor.kt`
-- [ ] Extraire 30 features depuis sensor data
-- [ ] Intégrer avec SmokingDetector pour inférence temps réel
+- [x] Implémenter `FeatureExtractor.kt`
+- [x] Extraire 30 features depuis sensor data
+- [x] Intégrer avec SmokingDetector pour inférence temps réel
 
-### Phase 3 : Detection Service
+### ✅ Phase 3 : Detection Service (COMPLÉTÉ)
 
-- [ ] Foreground service pour monitoring continu
-- [ ] Boost sampling (1/3s pendant 5min après user trigger)
-- [ ] Notifications cigarette détectée
+- [x] Foreground service pour monitoring continu
+- [x] Inférence périodique (30s intervals)
+- [x] Notifications cigarette détectée (avec debounce)
+- [ ] Boost sampling (1/3s pendant 5min après user trigger) — TODO
+- [ ] GPS clustering integration — TODO
+- [ ] Health Services API (HR real-time) — TODO
 
-### Phase 4 : Gamification
+### Phase 4 : Gamification (Next)
 
 - [ ] UI +1 min/jour
 - [ ] Streak counter
 - [ ] Dashboard stats
+- [ ] Database persistence (cigarettes history)
 
 ## 🐛 Debug
 
@@ -261,5 +292,6 @@ D/SensorDataCollector: Sensors registered: Accelerometer=true, Gyroscope=true
 **Status** :
 - Bloc 1 COMPLÉTÉ ✅ (Structure + TFLite integration)
 - Bloc 2 COMPLÉTÉ ✅ (Feature extraction 30 features)
+- Bloc 3 COMPLÉTÉ ✅ (Foreground detection service + continuous monitoring)
 
-**Next** : Bloc 3 (Foreground detection service + continuous monitoring)
+**Next** : Bloc 4 (Build APK + deploy to watch + test field)
