@@ -66,6 +66,7 @@ class DetectionService : Service() {
     private lateinit var detector: SmokingDetector
     private lateinit var sensorCollector: SensorDataCollector
     private lateinit var featureExtractor: FeatureExtractor
+    private lateinit var gpsManager: GPSClusteringManager
     private lateinit var notificationManager: NotificationManager
 
     private var serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -82,6 +83,7 @@ class DetectionService : Service() {
         detector = SmokingDetector(this)
         sensorCollector = SensorDataCollector(this)
         featureExtractor = FeatureExtractor()
+        gpsManager = GPSClusteringManager(this)
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         // Load TFLite model
@@ -149,6 +151,10 @@ class DetectionService : Service() {
 
         Log.d(TAG, "Sensor collection started")
 
+        // Start GPS clustering
+        gpsManager.start()
+        Log.d(TAG, "GPS clustering started")
+
         // Start periodic inference
         inferenceJob = serviceScope.launch {
             while (isActive) {
@@ -166,6 +172,7 @@ class DetectionService : Service() {
     private fun stopMonitoring() {
         inferenceJob?.cancel()
         sensorCollector.stop()
+        gpsManager.stop()
         Log.d(TAG, "Monitoring stopped")
     }
 
@@ -187,7 +194,7 @@ class DetectionService : Service() {
                     timestamps = sensorData.timestamps,
                     hrBaseline = 70f,  // TODO: Get from Health Services API
                     hrCurrent = 70f,   // TODO: Get from Health Services API
-                    gpsCluster = 3,    // TODO: Get from GPS clustering
+                    gpsCluster = gpsManager.getCurrentCluster(), // GPS clustering (home/work/bar/other)
                     proximitySmoking = 0.1f  // TODO: Get from geofencing
                 )
 
