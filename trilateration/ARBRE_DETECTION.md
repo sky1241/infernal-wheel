@@ -483,7 +483,8 @@ Jour N : détection → attends N min avant
 | Bloc | Script | Status | Commit | Description |
 |------|--------|--------|--------|-------------|
 | **1** | `stay_points.py` | ✅ **VALIDÉ** | `a65512a` | GPS Stay Points + DBSCAN clustering (488 lignes) |
-| **2** | `feature_extraction.py` | 🔄 En cours | - | Feature extraction (30 features biomécanique) |
+| **2** | `feature_extraction.py` | ✅ **VALIDÉ** | `07ee481` | Feature extraction (30 features biomécanique, 750 lignes) |
+| **Integration** | `test_integration.py` | ✅ **VALIDÉ** | `07ee481` | Bloc 1 ↔ Bloc 2 integration test |
 | **3** | `train_baseline.py` | ⏳ Pending | - | Train Random Forest baseline |
 | **4** | `test_loso.py` | ⏳ Pending | - | LOSO cross-validation |
 
@@ -494,7 +495,21 @@ Jour N : détection → attends N min avant
 - DBSCAN : ε=100m, MinPts=2 (test mode)
 - Validation : Windows + Python 3.13.6
 
-**Next** : Bloc 2 (Feature Extraction) + Test connexion avec Bloc 1
+**Bloc 2 : Test Results** ✅
+- Input : 15,000 samples @ 50Hz (5 min, 6 puffs synthétiques)
+- Output : 30 features extraites (Time, Angular, Jerk, Frequency, Trajectory, Regularity, Contextual)
+- Discriminative features:
+  - Regularity score : 0.774 (cigarette signature >0.5)
+  - HR delta : +12 bpm (nicotine effect)
+  - Angular velocity : 10.7°/s
+- Validation : Windows + Python 3.13.6
+
+**Integration Test** ✅
+- GPS cluster "noise" (Bloc 1) → numeric 3 (Bloc 2) ✅
+- Time/date context : 20.5h Thursday ✅
+- 30 features extracted with GPS context ✅
+
+**Next** : Bloc 3 (Train Random Forest baseline)
 
 ---
 
