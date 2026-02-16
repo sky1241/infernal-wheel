@@ -337,10 +337,14 @@ Jour N : détection → attends N min avant
 - ML : scikit-learn (baseline) → TensorFlow Lite (déploiement montre)
 - Storage : SQLite local sur montre
 
-**Datasets publics (comparaison)**
-- WESAD (Wearable Stress and Affect Detection) — HR + accel stress
-- PPG-DaLiA — HR estimation avec mouvement
-- Smoking detection papers (chercher "accelerometer smoking detection")
+**Datasets publics (prototypage)** *(voir DATASETS.md pour détails complets)*
+- **GeoLife** (Microsoft) — 17k trajectoires GPS, 48k+ heures → stay points + clustering
+  https://www.microsoft.com/en-us/download/details.aspx?id=52367
+- **WESAD** — 15 sujets, HR + accel wrist/chest, 3 états (neutral/stress/amusement)
+  https://archive.ics.uci.edu/ml/datasets/WESAD+(Wearable+Stress+and+Affect+Detection)
+- **PPG-DaLiA** — 15 sujets, 35h, PPG + accel + ECG, 8 activités daily life
+  https://archive.ics.uci.edu/ml/datasets/PPG-DaLiA
+- **PACT2.0** — 871h IMU, 35 fumeurs (non public, contacter auteurs)
 
 ---
 
