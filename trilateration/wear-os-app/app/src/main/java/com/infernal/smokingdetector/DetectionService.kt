@@ -68,6 +68,7 @@ class DetectionService : Service() {
     private lateinit var featureExtractor: FeatureExtractor
     private lateinit var gpsManager: GPSClusteringManager
     private lateinit var healthServices: HealthServicesManager
+    private lateinit var database: DatabaseManager
     private lateinit var notificationManager: NotificationManager
 
     private var serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -86,6 +87,7 @@ class DetectionService : Service() {
         featureExtractor = FeatureExtractor()
         gpsManager = GPSClusteringManager(this)
         healthServices = HealthServicesManager(this)
+        database = DatabaseManager(this)
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         // Load TFLite model
@@ -221,7 +223,10 @@ class DetectionService : Service() {
 
                 // Handle cigarette detection
                 if (isCigarette) {
-                    handleCigaretteDetected(probabilities[0])
+                    handleCigaretteDetected(
+                        confidence = probabilities[0],
+                        features = features
+                    )
                 }
 
             } catch (e: Exception) {
@@ -233,7 +238,7 @@ class DetectionService : Service() {
     /**
      * Handle cigarette detection
      */
-    private fun handleCigaretteDetected(confidence: Float) {
+    private fun handleCigaretteDetected(confidence: Float, features: FloatArray) {
         val currentTime = System.currentTimeMillis()
 
         // Debounce: Ignore if detected within last 2 minutes
@@ -247,10 +252,19 @@ class DetectionService : Service() {
 
         Log.d(TAG, "🚬 CIGARETTE DETECTED! Count: $cigarettesDetected, Confidence: ${(confidence * 100).toInt()}%")
 
+        // Save to database
+        val id = database.insertDetection(
+            confidence = confidence,
+            gpsCluster = gpsManager.getCurrentCluster(),
+            hrBaseline = healthServices.getBaselineHR(),
+            hrCurrent = healthServices.getCurrentHR(),
+            features = features
+        )
+        Log.d(TAG, "Detection saved to database: id=$id")
+
         // Send notification
         sendCigaretteNotification(confidence)
 
-        // TODO: Save to database
         // TODO: Trigger +1 min gamification delay
     }
 

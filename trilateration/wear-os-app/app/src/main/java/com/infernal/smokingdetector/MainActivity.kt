@@ -29,6 +29,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var detector: SmokingDetector
     private lateinit var sensorCollector: SensorDataCollector
     private lateinit var featureExtractor: FeatureExtractor
+    private lateinit var database: DatabaseManager
 
     private lateinit var statusText: TextView
     private lateinit var startButton: Button
@@ -50,14 +51,18 @@ class MainActivity : AppCompatActivity() {
         detectButton = findViewById(R.id.detectButton)
         testButton = findViewById(R.id.testButton)
 
-        // Initialize detector, sensor collector, and feature extractor
+        // Initialize detector, sensor collector, feature extractor, and database
         detector = SmokingDetector(this)
         sensorCollector = SensorDataCollector(this)
         featureExtractor = FeatureExtractor()
+        database = DatabaseManager(this)
 
         // Load TFLite model
         if (detector.loadModel()) {
-            updateStatus("Model loaded ✓")
+            val totalCount = database.getTotalCount()
+            val last7Days = database.getCountLastNDays(7)
+            val avgPerDay = database.getAvgCigarettesPerDay()
+            updateStatus("Model loaded ✓\n\n📊 Stats:\nTotal: $totalCount\nLast 7d: $last7Days\nAvg/day: ${"%.1f".format(avgPerDay)}")
         } else {
             updateStatus("Model load failed ✗")
         }
