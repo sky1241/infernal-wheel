@@ -704,6 +704,62 @@ wear-os-app/
 
 ---
 
+## 🔥 **TODO ROADMAP - SESSION NUIT (TOUTES PLATEFORMES)**
+
+### 🤖 WEAR OS (Android) - Phase 2 Completion
+
+| Bloc | Tâche | Lignes | Status |
+|------|-------|--------|--------|
+| **4A** | GPS Clustering Integration | ~150 | ⏳ À CODER |
+| **4B** | Health Services API (HR real-time) | ~100 | ⏳ À CODER |
+| **4C** | SQLite Database (cigarettes history) | ~200 | ⏳ À CODER |
+| **4D** | Boost Sampling Strategy (1/3s trigger) | ~80 | ⏳ À CODER |
+
+**Total Wear OS restant** : ~530 lignes → **TOTAL 1,720 lignes**
+
+### 🍎 APPLE WATCH (iOS) - Nouveau Projet
+
+| Bloc | Tâche | Lignes | Status |
+|------|-------|--------|--------|
+| **5A** | Xcode Project Structure + SwiftUI | ~50 | ⏳ À CODER |
+| **5B** | CoreML Model Integration | ~150 | ⏳ À CODER |
+| **5C** | HealthKit Sensors (accel + gyro + HR) | ~200 | ⏳ À CODER |
+| **5D** | Feature Extraction (Swift) | ~400 | ⏳ À CODER |
+| **5E** | Background Detection Service | ~250 | ⏳ À CODER |
+| **5F** | WatchOS UI + Notifications | ~150 | ⏳ À CODER |
+
+**Total Apple Watch** : ~1,200 lignes Swift
+
+### ⌚ GARMIN/FITBIT - Documentation
+
+| Bloc | Tâche | Lignes | Status |
+|------|-------|--------|--------|
+| **6A** | Garmin Connect IQ Structure | ~50 | ⏳ À CODER |
+| **6B** | Monkey C Sensor Integration | ~100 | ⏳ À CODER |
+| **6C** | Deployment README | ~0 | ⏳ À ÉCRIRE |
+
+**Total Garmin** : ~150 lignes Monkey C
+
+---
+
+### 📊 TOTAL SESSION NUIT
+
+```
+Wear OS restant   :   530 lignes Kotlin
+Apple Watch       : 1,200 lignes Swift
+Garmin            :   150 lignes Monkey C
+Documentation     :   ~50 lignes
+─────────────────────────────────────
+TOTAL À CODER     : 1,930 lignes
+
+TEMPS ESTIMÉ      : 4-6 heures (mode BEAST)
+DEADLINE          : Avant dodo
+```
+
+**STRATÉGIE** : Bloc par bloc, test rapide, commit, push, NEXT! 🚀
+
+---
+
 ## RÉFÉRENCES SCIENTIFIQUES VALIDÉES
 
 ### Physiologie Nicotine/Cigarette
