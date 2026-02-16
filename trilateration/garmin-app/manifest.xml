@@ -1,0 +1,28 @@
+<!-- Garmin Connect IQ Manifest -->
+<iq:manifest xmlns:iq="http://www.garmin.com/xml/connectiq" version="3">
+    <iq:application entry="SmokingDetectorApp" id="com.infernal.smokingdetector" launcherIcon="@Drawables.LauncherIcon" minApiLevel="3.2.0" name="@Strings.AppName" type="watch-app" version="1.0.0">
+        <iq:products>
+            <!-- Garmin watches with sensor support -->
+            <iq:product id="fenix7"/>
+            <iq:product id="fenix6"/>
+            <iq:product id="vivoactive4"/>
+            <iq:product id="venu2"/>
+            <iq:product id="forerunner955"/>
+            <iq:product id="forerunner945"/>
+        </iq:products>
+
+        <iq:permissions>
+            <iq:uses-permission id="Sensor"/>
+            <iq:uses-permission id="SensorHistory"/>
+            <iq:uses-permission id="Position"/>
+            <iq:uses-permission id="FitContributor"/>
+        </iq:permissions>
+
+        <iq:languages>
+            <iq:language>eng</iq:language>
+            <iq:language>fre</iq:language>
+        </iq:languages>
+
+        <iq:barrels/>
+    </iq:application>
+</iq:manifest>
