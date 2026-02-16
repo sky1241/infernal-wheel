@@ -67,6 +67,7 @@ class DetectionService : Service() {
     private lateinit var sensorCollector: SensorDataCollector
     private lateinit var featureExtractor: FeatureExtractor
     private lateinit var gpsManager: GPSClusteringManager
+    private lateinit var healthServices: HealthServicesManager
     private lateinit var notificationManager: NotificationManager
 
     private var serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -84,6 +85,7 @@ class DetectionService : Service() {
         sensorCollector = SensorDataCollector(this)
         featureExtractor = FeatureExtractor()
         gpsManager = GPSClusteringManager(this)
+        healthServices = HealthServicesManager(this)
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         // Load TFLite model
@@ -155,6 +157,12 @@ class DetectionService : Service() {
         gpsManager.start()
         Log.d(TAG, "GPS clustering started")
 
+        // Start Health Services (HR monitoring)
+        serviceScope.launch {
+            healthServices.start()
+            Log.d(TAG, "Health Services started")
+        }
+
         // Start periodic inference
         inferenceJob = serviceScope.launch {
             while (isActive) {
@@ -173,6 +181,7 @@ class DetectionService : Service() {
         inferenceJob?.cancel()
         sensorCollector.stop()
         gpsManager.stop()
+        healthServices.stop()
         Log.d(TAG, "Monitoring stopped")
     }
 
@@ -192,8 +201,8 @@ class DetectionService : Service() {
                     accel = sensorData.accelerometer,
                     gyro = sensorData.gyroscope,
                     timestamps = sensorData.timestamps,
-                    hrBaseline = 70f,  // TODO: Get from Health Services API
-                    hrCurrent = 70f,   // TODO: Get from Health Services API
+                    hrBaseline = healthServices.getBaselineHR(), // Resting HR (7-day average)
+                    hrCurrent = healthServices.getCurrentHR(),   // Current HR (real-time)
                     gpsCluster = gpsManager.getCurrentCluster(), // GPS clustering (home/work/bar/other)
                     proximitySmoking = 0.1f  // TODO: Get from geofencing
                 )
