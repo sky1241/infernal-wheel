@@ -5,24 +5,43 @@
 
 ---
 
-## ARCHITECTURE WINTER TREE (R/T/B/C)
+## 🌲 WINTER TREE ENGINE — TYPE: CONIFÈRE
+
+**Famille**: **CONIFÈRE** (Conifer) — Pipeline linéaire vertical
+**Framework**: [Winter Tree Engine](https://github.com/sky1241/tree) by Sky
+**Shape**: Pyramide verticale avec dépendances séquentielles
+**Justification**: Hardware → Processing → Intelligence → Interface (flux unidirectionnel)
 
 ```
-          ☆  CIME — Interface & Gamification
-         /|\
-        / | \  BRANCHES — Pattern Recognition
-       /  |  \
-      /   |   \
-─────/────|────\───── LE SOL = Sky ↔ Smartwatch
-     \    |    /
-      \   |   /  TRONC — Fusion Capteurs
-       \  |  /
-        \ | /
-         \|/
-    RACINES — Hardware Sensors
-          |
-    MYCORHIZES — Lois physiques
+            ☆ [5] CIME
+           /|\    Interface & Gamification
+          / | \   └─ Notifications, Timer, Dashboard
+         /  |  \
+        / [4] B \  BRANCHES HAUTES
+       /    |    \ Machine Learning & Patterns
+      / [3] B    \ └─ Random Forest, LSTM, Clustering
+     /      |      \
+────/───────|───────\──── LE SOL = Smartwatch (Wear OS, Apple Watch, Garmin)
+    \   [2] T     /
+     \      |    /  TRONC
+      \ [1] T  /   Fusion Multi-Capteurs
+       \    | /    └─ Feature Extraction (30 features)
+        \   |/
+         \ [0] R    RACINES
+          \ |      Hardware Sensors
+           \|      └─ PPG, Accel, Gyro, GPS
+            •
+         [-5] M   MYCORHIZES
+            |     Lois Physiques Immuables
+                  └─ Nicotine +7-15 bpm, Biomécanique stéréotypée
 ```
+
+**Niveaux du Conifère**:
+- **[-5] Mycorhizes (M)**: Lois physiques validées scientifiquement
+- **[0] Racines (R)**: Hardware & capteurs physiques
+- **[1-2] Tronc (T)**: Fusion et traitement des données
+- **[3-4] Branches (B)**: Intelligence artificielle et patterns
+- **[5] Cime (C)**: Interface utilisateur et gamification
 
 ---
 
