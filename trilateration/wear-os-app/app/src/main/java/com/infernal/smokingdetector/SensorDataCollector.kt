@@ -23,13 +23,14 @@ class SensorDataCollector(context: Context) : SensorEventListener {
 
     companion object {
         private const val TAG = "SensorDataCollector"
-        private const val SAMPLING_RATE_US = 20_000 // 50 Hz (1/50 = 0.02s = 20,000 µs)
         private const val BUFFER_SIZE = 15_000 // 5 minutes @ 50Hz
     }
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as AndroidSensorManager
     private val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     private val gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+
+    private var currentSamplingRate = AndroidSensorManager.SENSOR_DELAY_GAME // Default: 50 Hz
 
     // Circular buffers for sensor data
     private val accelX = FloatArray(BUFFER_SIZE)
@@ -46,19 +47,20 @@ class SensorDataCollector(context: Context) : SensorEventListener {
     /**
      * Start collecting sensor data
      */
-    fun start(): Boolean {
-        Log.d(TAG, "Starting sensor data collection")
+    fun start(samplingRate: Int = AndroidSensorManager.SENSOR_DELAY_GAME): Boolean {
+        currentSamplingRate = samplingRate
+        Log.d(TAG, "Starting sensor data collection with rate: $samplingRate")
 
         val accelRegistered = sensorManager.registerListener(
             this,
             accelerometer,
-            SAMPLING_RATE_US
+            samplingRate
         )
 
         val gyroRegistered = sensorManager.registerListener(
             this,
             gyroscope,
-            SAMPLING_RATE_US
+            samplingRate
         )
 
         if (!accelRegistered || !gyroRegistered) {
@@ -68,6 +70,15 @@ class SensorDataCollector(context: Context) : SensorEventListener {
 
         Log.d(TAG, "Sensors registered: Accelerometer=$accelRegistered, Gyroscope=$gyroRegistered")
         return true
+    }
+
+    /**
+     * Restart sensors with new sampling rate (for boost mode)
+     */
+    fun restart(samplingRate: Int): Boolean {
+        Log.d(TAG, "Restarting sensors with new rate: $samplingRate")
+        stop()
+        return start(samplingRate)
     }
 
     /**

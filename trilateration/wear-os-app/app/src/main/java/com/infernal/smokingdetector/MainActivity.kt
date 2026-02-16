@@ -30,6 +30,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var sensorCollector: SensorDataCollector
     private lateinit var featureExtractor: FeatureExtractor
     private lateinit var database: DatabaseManager
+    private lateinit var boostManager: BoostSamplingManager
 
     private lateinit var statusText: TextView
     private lateinit var startButton: Button
@@ -51,11 +52,20 @@ class MainActivity : AppCompatActivity() {
         detectButton = findViewById(R.id.detectButton)
         testButton = findViewById(R.id.testButton)
 
-        // Initialize detector, sensor collector, feature extractor, and database
+        // Initialize detector, sensor collector, feature extractor, database, and boost manager
         detector = SmokingDetector(this)
         sensorCollector = SensorDataCollector(this)
         featureExtractor = FeatureExtractor()
         database = DatabaseManager(this)
+        boostManager = BoostSamplingManager(this)
+
+        // Setup boost mode listener
+        boostManager.setOnModeChangedListener { mode ->
+            if (isCollecting) {
+                sensorCollector.restart(boostManager.getCurrentRate())
+                updateStatus("Sampling mode: $mode")
+            }
+        }
 
         // Load TFLite model
         if (detector.loadModel()) {
@@ -175,6 +185,9 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        // Trigger boost mode (user-initiated detection)
+        boostManager.triggerBoost("manual_detection")
+
         Log.d(TAG, "Running real inference with sensor data")
         updateStatus("Extracting features...")
 
@@ -283,6 +296,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         sensorCollector.stop()
+        boostManager.stop()
         detector.close()
     }
 }

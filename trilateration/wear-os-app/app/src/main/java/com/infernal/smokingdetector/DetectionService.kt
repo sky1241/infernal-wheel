@@ -69,6 +69,7 @@ class DetectionService : Service() {
     private lateinit var gpsManager: GPSClusteringManager
     private lateinit var healthServices: HealthServicesManager
     private lateinit var database: DatabaseManager
+    private lateinit var boostManager: BoostSamplingManager
     private lateinit var notificationManager: NotificationManager
 
     private var serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -88,7 +89,15 @@ class DetectionService : Service() {
         gpsManager = GPSClusteringManager(this)
         healthServices = HealthServicesManager(this)
         database = DatabaseManager(this)
+        boostManager = BoostSamplingManager(this)
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        // Setup boost mode listener (restart sensors with new rate)
+        boostManager.setOnModeChangedListener { mode ->
+            val newRate = boostManager.getCurrentRate()
+            sensorCollector.restart(newRate)
+            Log.d(TAG, "Sampling mode changed: $mode (rate=$newRate)")
+        }
 
         // Load TFLite model
         if (!detector.loadModel()) {
@@ -145,15 +154,15 @@ class DetectionService : Service() {
      * Start continuous monitoring
      */
     private fun startMonitoring() {
-        // Start sensor collection
-        val started = sensorCollector.start()
+        // Start sensor collection with current boost mode rate
+        val started = sensorCollector.start(boostManager.getCurrentRate())
         if (!started) {
             Log.e(TAG, "Failed to start sensor collection")
             stopSelf()
             return
         }
 
-        Log.d(TAG, "Sensor collection started")
+        Log.d(TAG, "Sensor collection started (mode=${boostManager.getCurrentMode()})")
 
         // Start GPS clustering
         gpsManager.start()
@@ -184,6 +193,7 @@ class DetectionService : Service() {
         sensorCollector.stop()
         gpsManager.stop()
         healthServices.stop()
+        boostManager.stop()
         Log.d(TAG, "Monitoring stopped")
     }
 
@@ -264,6 +274,9 @@ class DetectionService : Service() {
 
         // Send notification
         sendCigaretteNotification(confidence)
+
+        // Trigger boost sampling (5 minutes @ 100Hz)
+        boostManager.triggerBoost("cigarette_detected")
 
         // TODO: Trigger +1 min gamification delay
     }
