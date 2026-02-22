@@ -1402,38 +1402,6 @@ td.day.today .dnum{
 }
 .calSubCard--grid:hover{ border-color:rgba(91,178,255,.4) }
 
-/* Legend sub-card - muted accent */
-.calSubCard--legend{
-  border-color:rgba(255,255,255,.1);
-  background:linear-gradient(135deg, rgba(255,255,255,.03), rgba(16,22,29,.5));
-  padding:var(--sp-12);
-}
-
-/* (Old calTh styles removed - using cal-day-pill now) */
-
-/* Legend items */
-.calLegend{
-  display:flex;
-  flex-wrap:wrap;
-  gap:var(--sp-16);
-  justify-content:center;
-}
-.calLegend__item{
-  display:flex;
-  align-items:center;
-  gap:var(--sp-4);
-  font-size:.8rem;
-  color:var(--muted);
-}
-.calLegend__icon{ font-size:1rem; opacity:.85; display:flex; align-items:center }
-.legend-whisky{ width:18px; height:18px }
-.calLegend__text strong{ color:var(--accent); font-weight:700 }
-
-@media(max-width:640px){
-  .calLegend{ gap:var(--sp-8); justify-content:flex-start }
-  .calLegend__item{ font-size:.75rem }
-}
-
 /* Section headers - hero style (same pattern as calendar) */
 .section-header{
   display:flex;align-items:center;justify-content:space-between;
@@ -2441,35 +2409,6 @@ body{
       </table>
     </div>
 
-    <!-- [UX] Sub-card: Legende -->
-    <div class="calSubCard calSubCard--legend">
-      <div class="calLegend">
-        <div class="calLegend__item">
-          <span class="calLegend__icon" aria-hidden="true">&#9200;</span>
-          <span class="calLegend__text">InfernalDay commence a <strong>04:00</strong></span>
-        </div>
-        <div class="calLegend__item">
-          <span class="calLegend__icon" aria-hidden="true">&#127866;</span>
-          <span class="calLegend__text">Biere</span>
-        </div>
-        <div class="calLegend__item">
-          <span class="calLegend__icon" aria-hidden="true">&#127863;</span>
-          <span class="calLegend__text">Vin</span>
-        </div>
-        <div class="calLegend__item">
-          <span class="calLegend__icon" aria-hidden="true"><svg class="legend-whisky" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 4 L4 20 Q4 22 6 22 L18 22 Q20 22 20 20 L20 4 Z" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/><path d="M5 14 L5 20 Q5 21 6 21 L18 21 Q19 21 19 20 L19 14 Z" fill="#c17f24"/><rect x="5.5" y="6" width="7" height="9" rx="1.5" fill="#a8e0f0"/><rect x="11" y="8" width="7" height="8" rx="1.5" fill="#8ed0e8"/><path d="M6 7 L11.5 7 L11 12 L6.5 12 Z" fill="rgba(255,255,255,.55)"/><path d="M11.5 9 L17 9 L16.5 14 L12 14 Z" fill="rgba(255,255,255,.45)"/></svg></span>
-          <span class="calLegend__text">Alcool fort</span>
-        </div>
-        <div class="calLegend__item">
-          <span class="calLegend__icon" aria-hidden="true">&#128187;</span>
-          <span class="calLegend__text">Travail</span>
-        </div>
-        <div class="calLegend__item">
-          <span class="calLegend__icon" aria-hidden="true">&#127769;</span>
-          <span class="calLegend__text">Sommeil</span>
-        </div>
-      </div>
-    </div>
   </div>
 
   <div class="card reveal d6">
