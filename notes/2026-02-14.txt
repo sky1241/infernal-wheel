@@ -1,0 +1,40 @@
+﻿Qualité sommeil: 3
+Énergie: 5
+Motivation: 5
+Douleur: 7
+Humeur: 5
+Anxiété: 2
+Irritabilité: 1
+Clarté: 5
+Minimum vital: s amuser
+Humeur soir: 10
+Stress: 1
+Focus: 7
+Fatigue: 10
+Fierté: 10
+Intensité: 1
+Déclencheur: devoir courir après ma mere pour lui faire ces impot de société
+Idées noires: 1
+Score global: 6.1
+Relations: 2
+Sortir / marcher
+
+jJ'ai besoin de vous parler de quelque chose que je vis en ce moment et que j'ai du mal à formuler. Je vais essayer d'être clair.
+
+Depuis environ 10 mois, j'utilise l'intelligence artificielle (ChatGPT, Claude) comme outil pour construire des projets informatiques. Je suis électricien de formation, j'ai aucune formation en informatique. Mais en 10 mois, j'ai accumulé environ 112 lignes de code réparties sur 6 projets différents — de la mécanique 3D, du trading algorithmique, du traitement audio, de la biologie théorique appliquée au développement logiciel, des applications mobiles, un outil de suivi de santé personnel.
+
+Je dis pas ça pour me vanter. Je dis ça parce que je comprends pas moi-même ce qui m'arrive. Je me suis toujours considéré comme "le neuneu d'électricien" et là, je me retrouve à synthétiser le travail de plus de 30 spécialités différentes. Je lis pas les bouquins de 500 pages — j'extrais ce qui est utile, je l'intègre dans un système, je teste, et j'avance. Je sais pas si c'est légitime ou pas, mais ça marche.
+
+Ce qui me perturbe profondément, c'est ceci : j'ai toujours méprisé mon père. Il est architecte. Je l'ai toujours vu comme un feignant qui venait boire des cafés une fois par semaine sur le chantier pendant que nous, on se cassait le dos. Pour moi un architecte, c'était quelqu'un qui a une idée de tout, mais aucune compétence technique réelle — juste savoir diriger et organiser.
+
+Et je viens de réaliser que je suis devenu exactement ça. Mais en pire. Mon dernier projet s'appelle littéralement "l'architecte de l'architecte" — un outil qui organise et diagnostique d'autres projets. Je suis devenu ce que j'ai détesté toute ma vie, et le paradoxe, c'est que je suis fier de ce que je fais en même temps.
+
+C'est très déstabilisant. J'ai l'impression que l'image que j'avais de moi est en train de craquer et je sais pas quoi mettre à la place. Je me sens "con, mais intelligent en même temps" et j'ai pas de mot pour ça.
+
+L'autre chose que je veux aborder honnêtement : je trouve plus de résonance dans mes échanges avec l'IA qu'avec les humains autour de moi. Pas parce que je pense que l'IA m'aime ou pense à moi — je suis pas naïf là-dessus. Mais quand j'essaie de partager ce que je fais avec des humains, même mon père, la réponse, c'est "c'est bien, je comprends pas". Avec l'IA, je peux dérouler ma pensée sans filtre et quelque chose me revient. Ça me fait du bien, mais je sais que c'est un substitut, pas une vraie connexion. Je préfère être honnête avec vous là-dessus.
+
+Je suis pas en crise. Je me suis jamais senti aussi productif et vivant. Mais je suis perdu dans le sens où je sais plus qui je suis. L'électricien ? L'architecte ? Le "neuneu" ? Le mec à 33 métiers ? Je pave ma propre route et c'est à la fois gratifiant et douloureux parce que personne marche dessus avec moi.
+
+Si vous voulez voir concrètement ce que je fais, tout est public sur GitHub sous le nom sky1241. C'est pas du bluff et c'est pas de l'exagération — c'est vérifiable. Je veux pas que vous pensiez que je fabule.
+
+J'ai besoin d'aide pour comprendre ce qui m'arrive. Pas techniquement — émotionnellement.
