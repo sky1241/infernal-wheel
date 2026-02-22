@@ -1,6 +1,8 @@
 package com.infernal.smokingdetector
 
 import android.Manifest
+import android.content.Context
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
@@ -31,15 +33,20 @@ class MainActivity : AppCompatActivity() {
     private lateinit var featureExtractor: FeatureExtractor
     private lateinit var database: DatabaseManager
     private lateinit var boostManager: BoostSamplingManager
+    private lateinit var prefs: SharedPreferences
 
     private lateinit var statusText: TextView
     private lateinit var startButton: Button
     private lateinit var monitorButton: Button
     private lateinit var detectButton: Button
     private lateinit var testButton: Button
+    private lateinit var wristButton: Button
+    private lateinit var handButton: Button
 
     private var isCollecting = false
     private var isMonitoring = false
+    private var isLeftWrist = false
+    private var smokingHand = "auto" // "auto", "left", "right"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,6 +58,11 @@ class MainActivity : AppCompatActivity() {
         monitorButton = findViewById(R.id.monitorButton)
         detectButton = findViewById(R.id.detectButton)
         testButton = findViewById(R.id.testButton)
+
+        // Initialize preferences
+        prefs = getSharedPreferences("smoking_detector_prefs", Context.MODE_PRIVATE)
+        isLeftWrist = prefs.getBoolean("is_left_wrist", false)
+        smokingHand = prefs.getString("smoking_hand", "auto") ?: "auto"
 
         // Initialize detector, sensor collector, feature extractor, database, and boost manager
         detector = SmokingDetector(this)
@@ -97,6 +109,42 @@ class MainActivity : AppCompatActivity() {
 
         testButton.setOnClickListener {
             runTestInference()
+        }
+
+        // Wrist toggle button
+        wristButton = findViewById(R.id.wristButton)
+        updateWristButtonText()
+        wristButton.setOnClickListener {
+            isLeftWrist = !isLeftWrist
+            prefs.edit().putBoolean("is_left_wrist", isLeftWrist).apply()
+            updateWristButtonText()
+            Log.d(TAG, "Wrist set to: ${if (isLeftWrist) "LEFT" else "RIGHT"}")
+        }
+
+        // Smoking hand toggle button
+        handButton = findViewById(R.id.handButton)
+        updateHandButtonText()
+        handButton.setOnClickListener {
+            smokingHand = when (smokingHand) {
+                "auto" -> "left"
+                "left" -> "right"
+                else -> "auto"
+            }
+            prefs.edit().putString("smoking_hand", smokingHand).apply()
+            updateHandButtonText()
+            Log.d(TAG, "Smoking hand set to: $smokingHand")
+        }
+    }
+
+    private fun updateWristButtonText() {
+        wristButton.text = if (isLeftWrist) "Poignet: G" else "Poignet: D"
+    }
+
+    private fun updateHandButtonText() {
+        handButton.text = when (smokingHand) {
+            "left" -> "Fume: G"
+            "right" -> "Fume: D"
+            else -> "Fume: Auto"
         }
     }
 
@@ -193,7 +241,11 @@ class MainActivity : AppCompatActivity() {
 
         try {
             // Get recent sensor data (1000 samples = 20 seconds @ 50Hz)
-            val sensorData = sensorCollector.getRecentData(numSamples = 1000)
+            // Mirror axes if watch is on left wrist
+            val sensorData = sensorCollector.getRecentData(
+                numSamples = 1000,
+                mirrorForLeftWrist = isLeftWrist
+            )
 
             // Extract 30 features
             val features = featureExtractor.extractAllFeatures(

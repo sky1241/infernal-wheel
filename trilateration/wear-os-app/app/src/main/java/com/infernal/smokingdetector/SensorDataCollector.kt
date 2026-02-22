@@ -115,8 +115,13 @@ class SensorDataCollector(context: Context) : SensorEventListener {
 
     /**
      * Get recent sensor data (last N samples)
+     *
+     * @param numSamples Number of samples to retrieve
+     * @param mirrorForLeftWrist If true, mirror accel X-axis and gyro Y-axis
+     *        to normalize left-wrist data as if worn on right wrist.
+     *        This ensures consistent feature extraction regardless of wrist.
      */
-    fun getRecentData(numSamples: Int = 1000): SensorData {
+    fun getRecentData(numSamples: Int = 1000, mirrorForLeftWrist: Boolean = false): SensorData {
         require(numSamples <= BUFFER_SIZE) { "numSamples exceeds buffer size" }
 
         val startIndex = if (samplesCollected < numSamples) {
@@ -125,19 +130,26 @@ class SensorDataCollector(context: Context) : SensorEventListener {
             (bufferIndex - numSamples + BUFFER_SIZE) % BUFFER_SIZE
         }
 
+        val xSign = if (mirrorForLeftWrist) -1f else 1f
+        val yGyroSign = if (mirrorForLeftWrist) -1f else 1f
+
         val accel = Array(numSamples) { i ->
             val idx = (startIndex + i) % BUFFER_SIZE
-            floatArrayOf(accelX[idx], accelY[idx], accelZ[idx])
+            floatArrayOf(accelX[idx] * xSign, accelY[idx], accelZ[idx])
         }
 
         val gyro = Array(numSamples) { i ->
             val idx = (startIndex + i) % BUFFER_SIZE
-            floatArrayOf(gyroX[idx], gyroY[idx], gyroZ[idx])
+            floatArrayOf(gyroX[idx], gyroY[idx] * yGyroSign, gyroZ[idx])
         }
 
         val ts = LongArray(numSamples) { i ->
             val idx = (startIndex + i) % BUFFER_SIZE
             timestamps[idx]
+        }
+
+        if (mirrorForLeftWrist) {
+            Log.d(TAG, "Sensor data mirrored for left wrist (accel.X * -1, gyro.Y * -1)")
         }
 
         return SensorData(accel, gyro, ts)

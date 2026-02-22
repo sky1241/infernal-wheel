@@ -71,6 +71,33 @@
         android:textSize="14sp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent" />
+        app:layout_constraintBottom_toTopOf="@id/wristButton"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Wrist Toggle Button -->
+    <Button
+        android:id="@+id/wristButton"
+        android:layout_width="0dp"
+        android:layout_height="40dp"
+        android:text="Poignet: D"
+        android:textSize="11sp"
+        android:backgroundTint="#607D8B"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/handButton"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_marginEnd="4dp" />
+
+    <!-- Smoking Hand Toggle Button -->
+    <Button
+        android:id="@+id/handButton"
+        android:layout_width="0dp"
+        android:layout_height="40dp"
+        android:text="Fume: Auto"
+        android:textSize="11sp"
+        android:backgroundTint="#607D8B"
+        app:layout_constraintStart_toEndOf="@id/wristButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_marginStart="4dp" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

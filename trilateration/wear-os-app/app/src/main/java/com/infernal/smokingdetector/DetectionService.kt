@@ -3,6 +3,7 @@ package com.infernal.smokingdetector
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
@@ -75,6 +76,9 @@ class DetectionService : Service() {
     private var serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var inferenceJob: Job? = null
 
+    private lateinit var prefs: SharedPreferences
+    private var isLeftWrist = false
+    private var smokingHand = "auto"
     private var cigarettesDetected = 0
     private var lastDetectionTime = 0L
 
@@ -91,6 +95,12 @@ class DetectionService : Service() {
         database = DatabaseManager(this)
         boostManager = BoostSamplingManager(this)
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        // Read wrist/hand preferences
+        prefs = getSharedPreferences("smoking_detector_prefs", Context.MODE_PRIVATE)
+        isLeftWrist = prefs.getBoolean("is_left_wrist", false)
+        smokingHand = prefs.getString("smoking_hand", "auto") ?: "auto"
+        Log.d(TAG, "Wrist: ${if (isLeftWrist) "left" else "right"}, Smoking hand: $smokingHand")
 
         // Setup boost mode listener (restart sensors with new rate)
         boostManager.setOnModeChangedListener { mode ->
@@ -206,7 +216,11 @@ class DetectionService : Service() {
                 Log.d(TAG, "Running inference...")
 
                 // Get recent sensor data (1000 samples = 20s @ 50Hz)
-                val sensorData = sensorCollector.getRecentData(numSamples = 1000)
+                // Mirror axes if watch is on left wrist for consistent feature extraction
+                val sensorData = sensorCollector.getRecentData(
+                    numSamples = 1000,
+                    mirrorForLeftWrist = isLeftWrist
+                )
 
                 // Extract 30 features
                 val features = featureExtractor.extractAllFeatures(
@@ -270,7 +284,9 @@ class DetectionService : Service() {
             gpsCluster = gpsManager.getCurrentCluster(),
             hrBaseline = healthServices.getBaselineHR(),
             hrCurrent = healthServices.getCurrentHR(),
-            features = features
+            features = features,
+            wristLocation = if (isLeftWrist) "left" else "right",
+            smokingHand = smokingHand
         )
         Log.d(TAG, "Detection saved to database: id=$id")
 

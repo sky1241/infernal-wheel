@@ -37,7 +37,7 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
     companion object {
         private const val TAG = "DatabaseManager"
         private const val DATABASE_NAME = "smoking_detector.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 2
 
         // Table: cigarette_detections
         private const val TABLE_DETECTIONS = "cigarette_detections"
@@ -49,6 +49,8 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
         private const val COL_HR_CURRENT = "hr_current"
         private const val COL_HR_DELTA = "hr_delta"
         private const val COL_FEATURES = "features" // JSON string of 30 features
+        private const val COL_WRIST_LOCATION = "wrist_location" // "left" or "right"
+        private const val COL_SMOKING_HAND = "smoking_hand" // "left", "right", or "auto"
 
         // Auto-cleanup: keep last 90 days
         private const val RETENTION_DAYS = 90
@@ -64,7 +66,9 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
                 $COL_HR_BASELINE REAL,
                 $COL_HR_CURRENT REAL,
                 $COL_HR_DELTA REAL,
-                $COL_FEATURES TEXT
+                $COL_FEATURES TEXT,
+                $COL_WRIST_LOCATION TEXT DEFAULT 'right',
+                $COL_SMOKING_HAND TEXT DEFAULT 'auto'
             )
         """.trimIndent()
 
@@ -77,8 +81,11 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_DETECTIONS")
-        onCreate(db)
+        if (oldVersion < 2) {
+            db.execSQL("ALTER TABLE $TABLE_DETECTIONS ADD COLUMN $COL_WRIST_LOCATION TEXT DEFAULT 'right'")
+            db.execSQL("ALTER TABLE $TABLE_DETECTIONS ADD COLUMN $COL_SMOKING_HAND TEXT DEFAULT 'auto'")
+            Log.d(TAG, "Database migrated: added wrist_location + smoking_hand columns")
+        }
         Log.d(TAG, "Database upgraded: $oldVersion → $newVersion")
     }
 
@@ -90,7 +97,9 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
         gpsCluster: Int,
         hrBaseline: Float,
         hrCurrent: Float,
-        features: FloatArray
+        features: FloatArray,
+        wristLocation: String = "right",
+        smokingHand: String = "auto"
     ): Long {
         val db = writableDatabase
         val values = ContentValues().apply {
@@ -101,6 +110,8 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
             put(COL_HR_CURRENT, hrCurrent)
             put(COL_HR_DELTA, hrCurrent - hrBaseline)
             put(COL_FEATURES, features.joinToString(",")) // JSON-like string
+            put(COL_WRIST_LOCATION, wristLocation)
+            put(COL_SMOKING_HAND, smokingHand)
         }
 
         val id = db.insert(TABLE_DETECTIONS, null, values)
@@ -231,7 +242,7 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
         val cursor = db.rawQuery("SELECT * FROM $TABLE_DETECTIONS", null)
 
         val csv = StringBuilder()
-        csv.append("timestamp,confidence,gps_cluster,hr_baseline,hr_current,hr_delta\n")
+        csv.append("timestamp,confidence,gps_cluster,hr_baseline,hr_current,hr_delta,wrist_location,smoking_hand\n")
 
         while (cursor.moveToNext()) {
             val timestamp = cursor.getLong(cursor.getColumnIndexOrThrow(COL_TIMESTAMP))
@@ -241,7 +252,9 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
             val hrCurrent = cursor.getFloat(cursor.getColumnIndexOrThrow(COL_HR_CURRENT))
             val hrDelta = cursor.getFloat(cursor.getColumnIndexOrThrow(COL_HR_DELTA))
 
-            csv.append("$timestamp,$confidence,$gpsCluster,$hrBaseline,$hrCurrent,$hrDelta\n")
+            val wrist = cursor.getString(cursor.getColumnIndexOrThrow(COL_WRIST_LOCATION)) ?: "right"
+            val hand = cursor.getString(cursor.getColumnIndexOrThrow(COL_SMOKING_HAND)) ?: "auto"
+            csv.append("$timestamp,$confidence,$gpsCluster,$hrBaseline,$hrCurrent,$hrDelta,$wrist,$hand\n")
         }
 
         cursor.close()
