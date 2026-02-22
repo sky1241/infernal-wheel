@@ -26,6 +26,8 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val PERMISSION_REQUEST_CODE = 100
+        private const val THRESHOLD_DIRECT = 0.7f
+        private const val THRESHOLD_INDIRECT = 0.5f
     }
 
     private lateinit var detector: SmokingDetector
@@ -149,9 +151,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getDetectionThreshold(): Float {
-        if (smokingHand == "auto") return 0.7f
+        if (smokingHand == "auto") return THRESHOLD_DIRECT
         val watchHand = if (isLeftWrist) "left" else "right"
-        return if (smokingHand == watchHand) 0.7f else 0.5f
+        return if (smokingHand == watchHand) THRESHOLD_DIRECT else THRESHOLD_INDIRECT
     }
 
     /**
@@ -214,7 +216,9 @@ class MainActivity : AppCompatActivity() {
 
         // Run inference
         val probabilities = detector.predict(dummyFeatures)
-        val predictedClass = detector.predictClassName(dummyFeatures)
+        val predictedClass = SmokingDetector.CLASS_NAMES[
+            probabilities.indices.maxByOrNull { probabilities[it] } ?: SmokingDetector.CLASS_OTHER
+        ]
 
         // Display results
         val result = buildString {

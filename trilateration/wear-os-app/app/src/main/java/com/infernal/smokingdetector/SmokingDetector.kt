@@ -107,30 +107,6 @@ class SmokingDetector(private val context: Context) {
     }
 
     /**
-     * Get predicted class (highest probability)
-     */
-    fun predictClass(features: FloatArray): Int {
-        val probabilities = predict(features)
-        return probabilities.indices.maxByOrNull { probabilities[it] } ?: CLASS_OTHER
-    }
-
-    /**
-     * Get predicted class name
-     */
-    fun predictClassName(features: FloatArray): String {
-        val classIndex = predictClass(features)
-        return CLASS_NAMES[classIndex]
-    }
-
-    /**
-     * Check if cigarette detected (probability > threshold)
-     */
-    fun isCigaretteDetected(features: FloatArray, threshold: Float = 0.7f): Boolean {
-        val probabilities = predict(features)
-        return probabilities[CLASS_CIGARETTE] > threshold
-    }
-
-    /**
      * Release resources
      */
     fun close() {
