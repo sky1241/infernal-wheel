@@ -854,73 +854,57 @@ body{
   background:rgba(255,255,255,.08); padding:2px 8px; border-radius:4px;
   font-family:monospace; min-width:40px; text-align:center;
 }
-/* [PDF] Données Auto - compact avec indicateur trend */
-.data-auto-grid{
-  display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-4);
+/* Données Auto — redesign clean */
+.da-hero-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-8)}
+.da-hero{
+  display:flex;align-items:center;gap:var(--sp-12);
+  padding:var(--sp-8) var(--sp-12);border-radius:8px;
+  border:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.03);
+  transition:border-color .2s;
 }
-.data-auto-item{
-  display:flex; align-items:center; gap:var(--sp-8);
-  padding:var(--sp-4) var(--sp-8); font-size:.75rem;
-  background:rgba(255,255,255,.03); border-radius:4px;
+.da-hero .da-icon{font-size:1.1rem;flex-shrink:0}
+.da-hero .da-info{flex:1;min-width:0}
+.da-hero .da-label{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.da-hero .da-val{font-family:monospace;font-size:1rem;font-weight:700;color:var(--text)}
+.da-hero .da-trend{margin-left:auto}
+.da-hero.good{border-color:rgba(53,217,154,.5);background:rgba(53,217,154,.06)}
+.da-hero.bad{border-color:rgba(255,122,122,.4);background:rgba(255,122,122,.05)}
+.da-hero.warn{border-color:rgba(247,191,84,.4);background:rgba(247,191,84,.05)}
+.da-row{
+  display:flex;gap:var(--sp-4);padding:var(--sp-4) 0;
 }
-.data-auto-item .label{color:var(--muted);flex:1}
-.data-auto-item .val{
-  font-family:monospace; font-weight:600; color:var(--text);
-  min-width:32px; text-align:right;
-  background:rgba(255,255,255,.08); padding:2px 6px; border-radius:4px;
+.da-chip{
+  display:flex;align-items:center;gap:var(--sp-4);
+  padding:var(--sp-4) var(--sp-8);border-radius:6px;
+  background:rgba(255,255,255,.04);font-size:.75rem;flex:1;
+  min-width:0;
 }
-.data-auto-item .sep{
-  color:rgba(255,255,255,.2); margin:0 4px; font-weight:300;
-}
+.da-chip .da-icon{font-size:.85rem;flex-shrink:0}
+.da-chip .da-num{font-family:monospace;font-weight:700;color:var(--text);min-width:16px;text-align:center}
+.da-chip .da-trend{margin-left:auto}
+.da-chip .da-chip-label{color:var(--muted);font-size:.6rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.da-group-label{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;padding:var(--sp-4) 0 2px;opacity:.6}
+.da-divider{height:1px;background:rgba(255,255,255,.06);margin:var(--sp-4) 0}
 .trend{
-  min-width:20px; height:18px; padding:0 4px; border-radius:3px;
-  display:flex; align-items:center; justify-content:center;
-  font-size:.625rem; font-weight:700; flex-shrink:0;
+  min-width:20px;height:18px;padding:0 5px;border-radius:4px;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:.6rem;font-weight:700;flex-shrink:0;
   transition:all .2s ease;
 }
-.trend.warn{background:rgba(247,191,84,.25);color:#f7bf54}
-/* [UX] Trend gradient levels - intensity based on magnitude */
-.trend.good,.trend.good-1{background:rgba(53,217,154,.2);color:#35d99a;box-shadow:0 0 4px rgba(53,217,154,.15)}
-.trend.good-2{background:rgba(53,217,154,.35);color:#35d99a;box-shadow:0 0 6px rgba(53,217,154,.25)}
-.trend.good-3{background:rgba(53,217,154,.5);color:#35d99a;box-shadow:0 0 8px rgba(53,217,154,.35)}
-.trend.good-4{background:rgba(53,217,154,.65);color:#fff;box-shadow:0 0 10px rgba(53,217,154,.45)}
-.trend.good-5{background:rgba(53,217,154,.85);color:#fff;box-shadow:0 0 12px rgba(53,217,154,.6)}
-.trend.bad,.trend.bad-1{background:rgba(255,122,122,.2);color:#ff7a7a;box-shadow:0 0 4px rgba(255,122,122,.15)}
-.trend.bad-2{background:rgba(255,122,122,.35);color:#ff7a7a;box-shadow:0 0 6px rgba(255,122,122,.25)}
-.trend.bad-3{background:rgba(255,122,122,.5);color:#ff7a7a;box-shadow:0 0 8px rgba(255,122,122,.35)}
-.trend.bad-4{background:rgba(255,122,122,.65);color:#fff;box-shadow:0 0 10px rgba(255,122,122,.45)}
-.trend.bad-5{background:rgba(255,122,122,.85);color:#fff;box-shadow:0 0 12px rgba(255,122,122,.6)}
-/* [UX] Priority items - cadre coloré selon trend (vert=bien, rouge=mal) */
-.data-auto-item.priority{
-  border:2px solid rgba(150,150,150,.3);
-  border-radius:6px;
-  padding:var(--sp-4) var(--sp-8);
-}
-.data-auto-item.priority.good{
-  background:rgba(53,217,154,.18);
-  border-color:rgba(53,217,154,.7);
-  border-width:2.5px;
-  box-shadow:0 0 12px rgba(53,217,154,.4), inset 0 0 8px rgba(53,217,154,.1);
-  animation:priority-pulse 2s ease-in-out infinite;
-}
-@keyframes priority-pulse{
-  0%,100%{box-shadow:0 0 12px rgba(53,217,154,.4)}
-  50%{box-shadow:0 0 18px rgba(53,217,154,.6)}
-}
-.data-auto-item.priority.bad{
-  background:rgba(255,122,122,.1);
-  border-color:rgba(255,122,122,.5);
-  box-shadow:0 0 6px rgba(255,122,122,.2);
-}
-.data-auto-item.priority.warn{
-  background:rgba(247,191,84,.1);
-  border-color:rgba(247,191,84,.5);
-  box-shadow:0 0 6px rgba(247,191,84,.2);
-}
-/* [UX] Alcool icon SVG inline */
-.alc-icon{display:inline-block;vertical-align:middle;margin-right:2px}
-/* [UX] Alcool values - red intensity based on quantity */
-.alc-val{font-family:monospace;font-weight:700;min-width:20px;text-align:center;padding:2px 6px;border-radius:3px}
+.trend.warn{background:rgba(247,191,84,.2);color:#f7bf54}
+.trend.good,.trend.good-1{background:rgba(53,217,154,.2);color:#35d99a}
+.trend.good-2{background:rgba(53,217,154,.35);color:#35d99a}
+.trend.good-3{background:rgba(53,217,154,.5);color:#35d99a}
+.trend.good-4{background:rgba(53,217,154,.65);color:#fff}
+.trend.good-5{background:rgba(53,217,154,.85);color:#fff}
+.trend.bad,.trend.bad-1{background:rgba(255,122,122,.2);color:#ff7a7a}
+.trend.bad-2{background:rgba(255,122,122,.35);color:#ff7a7a}
+.trend.bad-3{background:rgba(255,122,122,.5);color:#ff7a7a}
+.trend.bad-4{background:rgba(255,122,122,.65);color:#fff}
+.trend.bad-5{background:rgba(255,122,122,.85);color:#fff}
+.alc-icon{display:inline-block;vertical-align:middle}
+.alc-val{font-family:monospace;font-weight:700;min-width:16px;text-align:center}
 .alc-val.alc-0{color:var(--muted);background:transparent}
 .alc-val.alc-1{color:#ff9999;background:rgba(255,122,122,.1)}
 .alc-val.alc-2{color:#ff7a7a;background:rgba(255,122,122,.2)}
@@ -1510,25 +1494,30 @@ a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
           <textarea id="t" class="notesTa" placeholder="Parle, défoule-toi, note ce que tu veux... Cet espace est à toi." aria-label="Notes du jour" spellcheck="false"></textarea>
         </div>
         <aside class="notesBox" aria-label="Template de check-in">
-          <!-- DONNÉES AUTO -->
-          <section class="tpl-section" style="border-left-color:var(--accent);background:rgba(53,217,154,.05)">
-            <div class="tpl-title"><span class="icon">&#9889;</span> Données Auto</div>
-            <!-- Sommeil masqué (code conservé): $sleepStrYesterday $trendSleepClass $trendSleepText -->
-            <div class="data-auto-grid">
-              <!-- PRIORITÉ: 2 premières cases avec cadre coloré selon trend -->
-              <div class="data-auto-item priority $trendFirstAlcoolClass"><span class="label">🍺 1er du jour</span><span class="val">$delayAlcoolStr</span><span class="sep">│</span><span class="trend $trendFirstAlcoolClass">$trendFirstAlcoolText</span></div>
-              <div class="data-auto-item priority $trendFirstClopeClass"><span class="label">🚬 1ère du jour</span><span class="val">$delayClopeStr</span><span class="sep">│</span><span class="trend $trendFirstClopeClass">$trendFirstClopeText</span></div>
-              <!-- Reste des items -->
-              <div class="data-auto-item"><span class="label">🚬</span><span class="val">$clopeCount</span><span class="sep">│</span><span class="trend $trendClopeClass">$trendClopeText</span></div>
-              <div class="data-auto-item"><span class="label">🍺</span><span class="alc-val alc-$alcBeerIntensity">$($alcTotals.beer)</span><span class="sep">│</span><span class="trend $trendBeerClass">$trendBeerText</span></div>
-              <div class="data-auto-item"><span class="label">🍷</span><span class="alc-val alc-$alcWineIntensity">$($alcTotals.wine)</span><span class="sep">│</span><span class="trend $trendWineClass">$trendWineText</span></div>
-              <div class="data-auto-item"><span class="label"><svg class="alc-icon" viewBox="0 0 16 16" width="14" height="14"><path d="M3 2 L4.5 14 h7 L13 2" fill="none" stroke="#9e4a5d" stroke-width="1.3"/><path d="M3.8 6 h8.4 l-1 8 h-6.4 L3.8 6z" fill="#c4722a" opacity=".8"/><rect x="4" y="4" width="4.8" height="4.2" rx=".7" fill="#b8e8f8" opacity=".95"/><rect x="8.2" y="4.5" width="4.2" height="4" rx=".6" fill="#a8e0f4" opacity=".9"/></svg></span><span class="alc-val alc-$alcStrongIntensity">$($alcTotals.strong)</span><span class="sep">│</span><span class="trend $trendStrongClass">$trendStrongText</span></div>
+          <!-- BILAN DU JOUR -->
+          <section class="tpl-section" style="border-left-color:var(--accent)">
+            <div class="tpl-title"><span class="icon">&#9889;</span> Bilan du jour</div>
+            <!-- Premières du jour -->
+            <div class="da-hero-row">
+              <div class="da-hero $trendFirstClopeClass"><span class="da-icon">🚬</span><div class="da-info"><div class="da-label">1ère clope</div><div class="da-val">$delayClopeStr min</div></div><span class="da-trend trend $trendFirstClopeClass">$trendFirstClopeText</span></div>
+              <div class="da-hero $trendFirstAlcoolClass"><span class="da-icon">🍸</span><div class="da-info"><div class="da-label">1er alcool</div><div class="da-val">$delayAlcoolStr min</div></div><span class="da-trend trend $trendFirstAlcoolClass">$trendFirstAlcoolText</span></div>
             </div>
-            <!-- ACTIVITÉS -->
-            <div class="data-auto-grid" style="margin-top:var(--sp-8)">
-              <div class="data-auto-item"><span class="label">💼 Travail</span><span class="val">$workStr</span><span class="sep">│</span><span class="trend $trendWorkClass">$trendWorkText</span></div>
-              <div class="data-auto-item"><span class="label">🏃 Sport</span><span class="val">${sportMin} minute</span><span class="sep">│</span><span class="trend $trendSportClass">$trendSportText</span></div>
-              <div class="data-auto-item"><span class="label">📺 Glando</span><span class="val">${glandouilleMin} minute</span><span class="sep">│</span><span class="trend $trendGlandoClass">$trendGlandoText</span></div>
+            <div class="da-divider"></div>
+            <!-- Consommation du jour -->
+            <div class="da-group-label">Conso aujourd'hui</div>
+            <div class="da-row">
+              <div class="da-chip"><span class="da-icon">🚬</span><span class="da-chip-label">Clopes</span><span class="da-num">$clopeCount</span><span class="da-trend trend $trendClopeClass">$trendClopeText</span></div>
+              <div class="da-chip"><span class="da-icon">🍺</span><span class="da-chip-label">Bière</span><span class="da-num alc-val alc-$alcBeerIntensity">$($alcTotals.beer)</span><span class="da-trend trend $trendBeerClass">$trendBeerText</span></div>
+              <div class="da-chip"><span class="da-icon">🍷</span><span class="da-chip-label">Vin</span><span class="da-num alc-val alc-$alcWineIntensity">$($alcTotals.wine)</span><span class="da-trend trend $trendWineClass">$trendWineText</span></div>
+              <div class="da-chip"><span class="da-icon"><svg class="alc-icon" viewBox="0 0 24 24" width="14" height="14"><path d="M4 4 L4 20 Q4 22 6 22 L18 22 Q20 22 20 20 L20 4 Z" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/><path d="M5 14 L5 20 Q5 21 6 21 L18 21 Q19 21 19 20 L19 14 Z" fill="#c17f24"/><rect x="5.5" y="6" width="7" height="9" rx="1.5" fill="#a8e0f0"/><rect x="11" y="8" width="7" height="8" rx="1.5" fill="#8ed0e8"/><path d="M6 7 L11.5 7 L11 12 L6.5 12 Z" fill="rgba(255,255,255,.55)"/><path d="M11.5 9 L17 9 L16.5 14 L12 14 Z" fill="rgba(255,255,255,.45)"/></svg></span><span class="da-chip-label">Fort</span><span class="da-num alc-val alc-$alcStrongIntensity">$($alcTotals.strong)</span><span class="da-trend trend $trendStrongClass">$trendStrongText</span></div>
+            </div>
+            <div class="da-divider"></div>
+            <!-- Activités du jour -->
+            <div class="da-group-label">Temps aujourd'hui</div>
+            <div class="da-row">
+              <div class="da-chip"><span class="da-icon">💼</span><span class="da-chip-label">Travail</span><span class="da-num">$workStr</span><span class="da-trend trend $trendWorkClass">$trendWorkText</span></div>
+              <div class="da-chip"><span class="da-icon">🏃</span><span class="da-chip-label">Sport</span><span class="da-num">${sportMin}m</span><span class="da-trend trend $trendSportClass">$trendSportText</span></div>
+              <div class="da-chip"><span class="da-icon">📺</span><span class="da-chip-label">Glando</span><span class="da-num">${glandouilleMin}m</span><span class="da-trend trend $trendGlandoClass">$trendGlandoText</span></div>
             </div>
           </section>
 
