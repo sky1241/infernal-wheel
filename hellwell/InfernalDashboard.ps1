@@ -7,8 +7,8 @@ $ErrorActionPreference = "Stop"
 Import-Module (Join-Path $PSScriptRoot "InfernalIO.psm1") -Force
 
 
-. (Join-Path $PSScriptRoot "dashboard" "Dashboard.Functions.ps1")
-. (Join-Path $PSScriptRoot "dashboard" "Dashboard.Page.ps1")
+. (Join-Path (Join-Path $PSScriptRoot "dashboard") "Dashboard.Functions.ps1")
+. (Join-Path (Join-Path $PSScriptRoot "dashboard") "Dashboard.Page.ps1")
 
 if (Test-PsesHost) {
   $pwsh = Join-Path $PSHOME "pwsh.exe"
@@ -530,6 +530,10 @@ document.getElementById("btnNotif").onclick = ()=> toast("Nouvelle notification"
         $d = if ($qs.ContainsKey("d")) { $qs["d"] } else { Get-InfernalDayKey (Get-Date) }
         $content = Get-NoteContent $d
 
+        # Check watch paired flag
+        $settingsObj = Read-JsonSafe -Path $SettingsPath -BackupPath $SettingsBak
+        $hasWatch = if ($settingsObj.watch -and $settingsObj.watch.paired) { $true } else { $false }
+
         # Récupérer les données du jour pour pré-remplir le template
         $alcTotals = Get-DailyAlcoholTotals $d
         $clopeCount = Get-DailyActionCount $d "clope"
@@ -671,6 +675,12 @@ document.getElementById("btnNotif").onclick = ()=> toast("Nouvelle notification"
             $trendFirstAlcoolClass = "good"
             $trendFirstAlcoolText = "0"
             $delayAlcoolStr = "--"
+        }
+
+        # Build watch section HTML (conditional)
+        $watchSectionHtml = ""
+        if ($hasWatch) {
+            $watchSectionHtml = '<section class="tpl-section" style="border-left-color:#6bbcff;background:rgba(107,188,255,.05)"><div class="tpl-title"><span class="icon">&#9201;</span> Détection auto</div><div class="da-hero-row"><div class="da-hero"><span class="da-icon">🚬</span><div class="da-info"><div class="da-label">Clopes détectées</div><div class="da-val">--</div></div></div><div class="da-hero"><span class="da-icon">🍸</span><div class="da-info"><div class="da-label">Gestes boire</div><div class="da-val">--</div></div></div></div><div class="da-divider"></div><div class="da-row"><div class="da-chip"><span class="da-icon">😴</span><span class="da-chip-label">Sommeil</span><span class="da-num">--</span></div><div class="da-chip"><span class="da-icon">🏃</span><span class="da-chip-label">Activité</span><span class="da-num">--</span></div><div class="da-chip"><span class="da-icon">❤️</span><span class="da-chip-label">FC moy</span><span class="da-num">--</span></div></div><div style="font-size:.6rem;color:var(--muted);opacity:.5;text-align:center;padding-top:var(--sp-4)">Données temps réel via montre</div></section>'
         }
 
         # Navigation dates
@@ -1520,6 +1530,8 @@ a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
               <div class="da-chip"><span class="da-icon">📺</span><span class="da-chip-label">Glando</span><span class="da-num">${glandouilleMin}m</span><span class="da-trend trend $trendGlandoClass">$trendGlandoText</span></div>
             </div>
           </section>
+
+          $watchSectionHtml
 
           <!-- MATIN -->
           <section class="tpl-section morning">

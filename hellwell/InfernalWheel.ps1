@@ -43,7 +43,7 @@ if (-not (Test-Path $LogPath)) {
 }
 
 
-. (Join-Path $PSScriptRoot "engine" "Engine.Functions.ps1")
+. (Join-Path (Join-Path $PSScriptRoot "engine") "Engine.Functions.ps1")
 
 
 # ---- state + segment locals

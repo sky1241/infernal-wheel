@@ -82,7 +82,7 @@
     "enableOverrunPenalty": true
   },
   "watch": {
-    "paired": false,
+    "paired": true,
     "model": null
   }
 }
