@@ -371,9 +371,11 @@ function Get-MonthlyStats {
     $key = $d.ToString("yyyy-MM-dd")
     $v = $daily[$key]
     $segs = if ($segments.ContainsKey($key)) { $segments[$key] } else { @() }
+    $weekdayNames = @("Dim","Lun","Mar","Mer","Jeu","Ven","Sam")
     $dailyList += [pscustomobject]@{
       day = $day
       date = $key
+      weekday = $weekdayNames[[int]$d.DayOfWeek]
       workMin = [int][Math]::Round($v.workSec / 60.0, 0)
       sleepMin = [int][Math]::Round($v.sleepSec / 60.0, 0)
       breakMin = [int][Math]::Round($v.breakSec / 60.0, 0)
@@ -454,7 +456,13 @@ function Get-MonthlySummary {
     if ($dayActive -and $alcCount -eq 0) { $alcoholFreeDays++ }
   }
 
-  $days = [int]$curr.DaysInMonth
+  # Use elapsed days for current month, full month for past months
+  $nowYm = (Get-Date).ToString("yyyy-MM")
+  if ($Ym -eq $nowYm) {
+    $days = [Math]::Max(1, (Get-Date).Day)
+  } else {
+    $days = [int]$curr.DaysInMonth
+  }
   $avgSleepMin = if ($days -gt 0) { [Math]::Round(($curr.TotalSleepSec / 60.0) / $days, 1) } else { 0 }
   $avgWorkMin = if ($days -gt 0) { [Math]::Round(($curr.TotalWorkSec / 60.0) / $days, 1) } else { 0 }
   $avgSportMin = if ($days -gt 0) { [Math]::Round(($curr.TotalSportSec / 60.0) / $days, 1) } else { 0 }

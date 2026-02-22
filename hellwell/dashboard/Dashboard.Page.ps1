@@ -3409,7 +3409,7 @@ function renderMonthlyChart(data){
   if (fb) {
     let html = "<table><caption>Rapport mensuel</caption><thead><tr><th>Jour</th><th>Travail</th><th>Sommeil</th><th>Physique</th><th>Clopes</th><th>Alcool</th></tr></thead><tbody>";
     for (const d of allDays) {
-      html += "<tr><td>" + d.day + "</td><td>" + (d.workMin||0) + "m</td><td>" + (d.sleepMin||0) + "m</td><td>" + ((d.sportMin||0)+(d.marcheMin||0)) + "m</td><td>" + (d.clopeCount||0) + "</td><td>" + (d.alcoholCount||0) + "</td></tr>";
+      html += "<tr><td>" + (d.weekday||"") + " " + d.day + "</td><td>" + (d.workMin||0) + "m</td><td>" + (d.sleepMin||0) + "m</td><td>" + ((d.sportMin||0)+(d.marcheMin||0)) + "m</td><td>" + (d.clopeCount||0) + "</td><td>" + (d.alcoholCount||0) + "</td></tr>";
     }
     html += "</tbody></table>";
     fb.innerHTML = html;
@@ -3448,7 +3448,7 @@ function showChartTooltip(dayData, x, y) {
   })() : null;
 
   tooltip.innerHTML = ""
-    + "<div class='ttHeader'>Jour " + d.day + "</div>"
+    + "<div class='ttHeader'>" + ({"Lun":"Lundi","Mar":"Mardi","Mer":"Mercredi","Jeu":"Jeudi","Ven":"Vendredi","Sam":"Samedi","Dim":"Dimanche"}[d.weekday]||"") + " " + d.day + "</div>"
     + "<div class='ttGrid'>"
     + (d.workMin ? "<div class='ttRow ttRow--work'><span class='ttIcon'>\ud83d\udcbb</span><span class='ttLabel'>Travail</span><span class='ttVal'>" + fmtDur(d.workMin) + "</span></div>" : "")
     + (d.sleepMin ? "<div class='ttRow ttRow--sleep'><span class='ttIcon'>\ud83d\udca4</span><span class='ttLabel'>Sommeil</span><span class='ttVal'>" + fmtDur(d.sleepMin) + "</span></div>" : "")

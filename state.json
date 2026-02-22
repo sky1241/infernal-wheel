@@ -1,17 +1,17 @@
 ﻿{
   "GoalWorkSeconds": 1800000,
-  "TotalWorkSeconds": 302815,
-  "TotalSleepSeconds": 179190,
+  "TotalWorkSeconds": 309936,
+  "TotalSleepSeconds": 207721,
   "TotalOverrunSeconds": 0,
-  "DayKey": "2026-02-21",
-  "DayWorkSeconds": 26313,
-  "DaySleepSeconds": 10717,
-  "DayClopeCount": 5,
-  "DayClopeSeconds": 2101,
-  "DayBreakSeconds": 38794,
+  "DayKey": "2026-02-22",
+  "DayWorkSeconds": 7306,
+  "DaySleepSeconds": 21378,
+  "DayClopeCount": 2,
+  "DayClopeSeconds": 822,
+  "DayBreakSeconds": 5956,
   "Current": {
     "Name": "work",
-    "StartedAt": "2026-02-21 23:05:16",
+    "StartedAt": "2026-02-22 13:42:44",
     "EndsAt": null,
     "IsWork": true,
     "IsSleep": false,
@@ -24,10 +24,10 @@
   "Engine": {
     "Started": false,
     "AwaitOk": false,
-    "LastTick": "2026-02-22 01:58:44",
+    "LastTick": "2026-02-22 14:02:40",
     "ResumeDetected": false
   },
-  "TotalClopeCount": 49,
-  "TotalClopeSeconds": 51058,
-  "TotalBreakSeconds": 206104
+  "TotalClopeCount": 51,
+  "TotalClopeSeconds": 51880,
+  "TotalBreakSeconds": 212060
 }
