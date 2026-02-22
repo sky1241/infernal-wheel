@@ -35,6 +35,10 @@ class DetectionService : Service() {
         private const val NOTIFICATION_ID = 1001
         private const val INFERENCE_INTERVAL_MS = 30_000L // 30 seconds
 
+        // Detection thresholds
+        private const val THRESHOLD_DIRECT = 0.7f   // Watch on smoking hand → strong signal
+        private const val THRESHOLD_INDIRECT = 0.5f  // Watch on opposite hand → weaker signal
+
         // Service actions
         const val ACTION_START = "com.infernal.smokingdetector.START"
         const val ACTION_STOP = "com.infernal.smokingdetector.STOP"
@@ -82,6 +86,19 @@ class DetectionService : Service() {
     private var cigarettesDetected = 0
     private var lastDetectionTime = 0L
 
+    private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        when (key) {
+            "is_left_wrist" -> {
+                isLeftWrist = prefs.getBoolean("is_left_wrist", false)
+                Log.d(TAG, "Pref updated: wrist=${if (isLeftWrist) "left" else "right"}")
+            }
+            "smoking_hand" -> {
+                smokingHand = prefs.getString("smoking_hand", "auto") ?: "auto"
+                Log.d(TAG, "Pref updated: smoking_hand=$smokingHand")
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Service created")
@@ -96,10 +113,11 @@ class DetectionService : Service() {
         boostManager = BoostSamplingManager(this)
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        // Read wrist/hand preferences
+        // Read wrist/hand preferences + listen for runtime changes
         prefs = getSharedPreferences("smoking_detector_prefs", Context.MODE_PRIVATE)
         isLeftWrist = prefs.getBoolean("is_left_wrist", false)
         smokingHand = prefs.getString("smoking_hand", "auto") ?: "auto"
+        prefs.registerOnSharedPreferenceChangeListener(prefListener)
         Log.d(TAG, "Wrist: ${if (isLeftWrist) "left" else "right"}, Smoking hand: $smokingHand")
 
         // Setup boost mode listener (restart sensors with new rate)
@@ -141,6 +159,7 @@ class DetectionService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         Log.d(TAG, "Service destroyed")
+        prefs.unregisterOnSharedPreferenceChangeListener(prefListener)
         stopMonitoring()
         detector.close()
         serviceScope.cancel()
@@ -233,11 +252,12 @@ class DetectionService : Service() {
                     proximitySmoking = 0.1f  // TODO: Get from geofencing
                 )
 
-                // Run TFLite inference
+                // Run TFLite inference with dynamic threshold
+                val threshold = getDetectionThreshold()
                 val probabilities = detector.predict(features)
-                val isCigarette = detector.isCigaretteDetected(features, threshold = 0.7f)
+                val isCigarette = probabilities[SmokingDetector.CLASS_CIGARETTE] > threshold
 
-                Log.d(TAG, "Inference complete: cigarette=$isCigarette, probabilities=${probabilities.contentToString()}")
+                Log.d(TAG, "Inference complete: cigarette=$isCigarette (threshold=$threshold), probabilities=${probabilities.contentToString()}")
 
                 // Update notification
                 updateNotification(
@@ -297,6 +317,25 @@ class DetectionService : Service() {
         boostManager.triggerBoost("cigarette_detected")
 
         // TODO: Trigger +1 min gamification delay
+    }
+
+    /**
+     * Get detection threshold based on smoking hand vs watch hand.
+     *
+     * Logic:
+     * - "auto" → assume smoking hand = watch hand (most common case:
+     *   right-handed → watch left, smokes left; left-handed → watch right, smokes right)
+     *   → direct signal → high threshold (0.7)
+     * - Smoking hand == watch hand → direct signal → high threshold (0.7)
+     * - Smoking hand != watch hand → indirect signal → lower threshold (0.5)
+     */
+    private fun getDetectionThreshold(): Float {
+        if (smokingHand == "auto") {
+            return THRESHOLD_DIRECT
+        }
+
+        val watchHand = if (isLeftWrist) "left" else "right"
+        return if (smokingHand == watchHand) THRESHOLD_DIRECT else THRESHOLD_INDIRECT
     }
 
     /**

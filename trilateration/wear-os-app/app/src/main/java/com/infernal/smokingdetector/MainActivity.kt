@@ -148,6 +148,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun getDetectionThreshold(): Float {
+        if (smokingHand == "auto") return 0.7f
+        val watchHand = if (isLeftWrist) "left" else "right"
+        return if (smokingHand == watchHand) 0.7f else 0.5f
+    }
+
     /**
      * Toggle sensor data collection
      */
@@ -260,10 +266,13 @@ class MainActivity : AppCompatActivity() {
 
             Log.d(TAG, "Features extracted: ${features.contentToString()}")
 
-            // Run inference
+            // Run inference (use dynamic threshold based on wrist/hand config)
             val probabilities = detector.predict(features)
-            val predictedClass = detector.predictClassName(features)
-            val isCigarette = detector.isCigaretteDetected(features, threshold = 0.7f)
+            val predictedClass = SmokingDetector.CLASS_NAMES[
+                probabilities.indices.maxByOrNull { probabilities[it] } ?: SmokingDetector.CLASS_OTHER
+            ]
+            val threshold = getDetectionThreshold()
+            val isCigarette = probabilities[SmokingDetector.CLASS_CIGARETTE] > threshold
 
             // Display results
             val result = buildString {
@@ -282,7 +291,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             updateStatus(result)
-            Log.d(TAG, "Real inference: $predictedClass, cigarette=$isCigarette, probabilities=${probabilities.contentToString()}")
+            Log.d(TAG, "Real inference: $predictedClass, cigarette=$isCigarette (threshold=$threshold), probabilities=${probabilities.contentToString()}")
 
         } catch (e: Exception) {
             Log.e(TAG, "Inference failed", e)
