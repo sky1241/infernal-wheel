@@ -604,19 +604,20 @@ small{color:var(--muted)}
   filter:brightness(1.18) saturate(1.2);
 }
 .btn.action:active{transform:scale(0.96); filter:brightness(0.92)}
-/* Delete X on pill — visible on hover */
+/* Delete X — inline right side, slides in on hover */
 .btn.action .act-del{
-  position:absolute; top:-6px; right:-4px;
-  width:20px; height:20px; border-radius:50%;
-  background:rgba(30,30,30,.95); border:1.5px solid rgba(255,77,77,.5);
-  color:rgba(255,77,77,.8); font-size:.65rem; font-weight:700; line-height:1;
-  display:flex; align-items:center; justify-content:center;
-  cursor:pointer; opacity:0; transform:scale(0.5);
-  transition:opacity .12s, transform .12s;
-  pointer-events:none; z-index:2;
+  display:inline-flex; align-items:center; justify-content:center;
+  width:0; overflow:hidden; opacity:0;
+  margin-left:0; padding:0;
+  font-size:.7rem; font-weight:700; color:rgba(255,255,255,.5);
+  border-left:1px solid rgba(255,255,255,.15);
+  cursor:pointer;
+  transition:width .18s ease, opacity .18s ease, margin .18s ease, padding .18s ease, color .12s;
 }
-.btn.action:hover .act-del{ opacity:1; transform:scale(1); pointer-events:auto }
-.btn.action .act-del:hover{ background:rgba(255,77,77,.9); color:#fff; border-color:rgba(255,77,77,.9) }
+.btn.action:hover .act-del{
+  width:22px; opacity:1; margin-left:10px; padding:0 0 0 8px;
+}
+.btn.action .act-del:hover{ color:#ff6b6b }
 
 /* Actions flow → flex-wrap centered pills */
 .cmdSubCard--actions .grid{
@@ -706,16 +707,15 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 }
 .cmdSubCard--actions:hover{ border-color:rgba(255,210,0,.4) }
 
-/* Gear button — same style as .help "?" */
+/* Gear button — compact, visible */
 .gear-btn{
   display:inline-flex; align-items:center; justify-content:center;
-  width:16px; height:16px; border-radius:999px;
-  border:1px solid rgba(255,255,255,.15); color:rgba(231,237,243,.35); font-size:.65rem;
-  margin-left:4px; cursor:pointer; position:relative; user-select:none;
+  width:20px; height:20px; border-radius:999px;
+  border:1px solid rgba(255,255,255,.18); color:rgba(231,237,243,.5); font-size:.7rem;
+  margin-left:6px; cursor:pointer; user-select:none;
   transition:color .2s, border-color .2s, transform .3s;
-  min-width:16px; min-height:16px; padding:14px; box-sizing:content-box;
 }
-.gear-btn:hover{ color:rgba(231,237,243,.8); border-color:rgba(255,255,255,.35); transform:rotate(90deg) }
+.gear-btn:hover{ color:rgba(231,237,243,.9); border-color:rgba(255,255,255,.45); transform:rotate(90deg) }
 
 /* Custom Actions Modal */
 /* ===== Custom Actions Modal (UX T.97-100) ===== */
@@ -785,15 +785,15 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .ca-colors::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.15); border-radius:4px }
 .ca-colors .ca-slot-lbl{ margin-right:2px; flex-shrink:0 }
 .ca-swatch{
-  width:28px; height:28px; border-radius:50%; cursor:pointer;
-  border:2.5px solid transparent; padding:6px; flex-shrink:0;
+  width:24px; height:24px; border-radius:50%; cursor:pointer;
+  border:2px solid transparent; padding:3px; flex-shrink:0;
   transition:border-color .12s, transform .12s, box-shadow .12s;
-  min-width:40px; min-height:40px; box-sizing:content-box;
+  min-width:32px; min-height:32px; box-sizing:content-box;
   display:flex; align-items:center; justify-content:center;
   background:transparent !important;
 }
 .ca-swatch::after{
-  content:""; display:block; width:28px; height:28px; border-radius:50%;
+  content:""; display:block; width:24px; height:24px; border-radius:50%;
   background:var(--sw-color);
 }
 .ca-swatch:hover{ transform:scale(1.15); border-color:rgba(255,255,255,.25) }
@@ -2090,9 +2090,9 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 /* [UX] Help tooltip - hover (PC) + tap (mobile) */
 .help{
   display:inline-flex; align-items:center; justify-content:center;
-  width:16px; height:16px; border-radius:999px;
-  border:1px solid rgba(255,255,255,.15); color:rgba(231,237,243,.35); font-size:.65rem; font-weight:600;
-  margin-left:4px; vertical-align:middle;
+  width:20px; height:20px; border-radius:999px;
+  border:1px solid rgba(255,255,255,.18); color:rgba(231,237,243,.5); font-size:.65rem; font-weight:600;
+  margin-left:6px; vertical-align:middle;
   cursor:pointer; position:relative;
   -webkit-tap-highlight-color:transparent;
   user-select:none;
@@ -2281,7 +2281,7 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 }
 
 /* [WEB §E Rule 21] Touch target 44px recommended - invisible padding extends hit area */
-.help{min-width:16px;min-height:16px;width:16px;height:16px;padding:14px;box-sizing:content-box}
+.help{min-width:20px;min-height:20px;width:20px;height:20px;padding:4px;box-sizing:content-box}
 .legendDot{min-width:12px;min-height:12px}
 a.pill,button.btn{min-width:44px;min-height:44px}
 .recentItem{min-height:24px}
