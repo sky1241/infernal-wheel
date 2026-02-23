@@ -626,15 +626,29 @@ small{color:var(--muted)}
   gap:10px !important;
   justify-content:center !important;
 }
+/* Cmd buttons — same pill style as .btn.action */
 .btn.cmd{
-  border-color:var(--cmd-border, var(--border));
-  background:var(--cmd-bg, rgba(16,22,29,.65));
-  color:var(--cmd-ink, var(--text));
-  box-shadow:0 0 16px var(--cmd-glow, rgba(0,0,0,.2)), 1px 1px 0 rgba(0,0,0,.18);
-  text-shadow:0 1px 0 rgba(0,0,0,.35);
+  background:var(--act-bg, #2d3436);
+  color:#fff;
+  border:none;
+  border-radius:50px;
+  padding:10px 28px;
+  font-size:.9rem;
+  font-weight:700;
+  letter-spacing:.5px;
+  min-height:44px;
+  box-shadow:0 3px 10px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08);
+  text-shadow:0 1px 3px rgba(0,0,0,.6);
+  transition:transform .15s ease, box-shadow .15s ease, filter .15s ease;
+  white-space:nowrap;
+  cursor:pointer;
 }
-.btn.cmd:hover{filter:brightness(1.1) saturate(1.3); transform:translateY(-2px) scale(1.03); box-shadow:0 0 28px var(--cmd-glow, rgba(255,255,255,.3)), 0 8px 24px rgba(0,0,0,.4)}
-.btn.cmd:active{filter:brightness(0.95) saturate(1.4); transform:translateY(0) scale(0.98)}
+.btn.cmd:hover{
+  transform:translateY(-3px) scale(1.06);
+  box-shadow:0 6px 22px var(--act-glow, rgba(0,0,0,.4)), 0 0 30px var(--act-glow, rgba(255,255,255,.05));
+  filter:brightness(1.18) saturate(1.2);
+}
+.btn.cmd:active{transform:scale(0.96); filter:brightness(0.92)}
 /* [web_focus_visible_wcag_2_4_7] + [web_focus_appearance_min_wcag_2_4_13] */
 :focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .btn:focus-visible,.pill:focus-visible{outline:2px solid var(--accent);outline-offset:2px;box-shadow:0 0 0 4px rgba(53,217,154,.25)}
@@ -655,11 +669,11 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .btn.action-glandouille{--act-bg:hsl(280,48%,45%); --act-glow:hsla(280,48%,45%,.5)}
 .btn.action-chier{--act-bg:hsl(18,62%,48%); --act-glow:hsla(18,62%,48%,.5)}
 
-.btn.cmd-start{--cmd-border:rgba(107,255,133,.98); --cmd-bg:rgba(107,255,133,.32); --cmd-glow:rgba(107,255,133,.45); --cmd-ink:#ffffff}
-.btn.cmd-work{--cmd-border:rgba(255,79,216,.98); --cmd-bg:rgba(255,79,216,.3); --cmd-glow:rgba(255,79,216,.45)}
-.btn.cmd-ok{--cmd-border:rgba(255,79,216,.98); --cmd-bg:rgba(255,79,216,.3); --cmd-glow:rgba(255,79,216,.45)}
-.btn.cmd-dodo{--cmd-border:rgba(102,126,234,.98); --cmd-bg:rgba(102,126,234,.3); --cmd-glow:rgba(102,126,234,.45)}
-.btn.cmd-jpp{--cmd-border:rgba(255,77,77,.98); --cmd-bg:rgba(255,77,77,.3); --cmd-glow:rgba(255,77,77,.45)}
+.btn.cmd-start{--act-bg:hsl(140,55%,38%); --act-glow:hsla(140,55%,38%,.5)}
+.btn.cmd-work{--act-bg:hsl(310,55%,48%); --act-glow:hsla(310,55%,48%,.5)}
+.btn.cmd-ok{--act-bg:hsl(310,55%,48%); --act-glow:hsla(310,55%,48%,.5)}
+.btn.cmd-dodo{--act-bg:hsl(230,55%,50%); --act-glow:hsla(230,55%,50%,.5)}
+.btn.cmd-jpp{--act-bg:hsl(0,65%,48%); --act-glow:hsla(0,65%,48%,.5)}
 
 /* ========================================
    [UX PRO] Commandes Card - Glassmorphism Sub-cards
@@ -693,19 +707,19 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .cmdSubCard__icon{ font-size:1.1rem; opacity:.85 }
 .cmdSubCard__title{ font-weight:700; font-size:.95rem; letter-spacing:.3px }
 
-/* Primary sub-card (Start/Work/Dodo) - accent border */
+/* Primary sub-card — subtle border like actions */
 .cmdSubCard--primary{
-  border-color:rgba(53,217,154,.25);
-  background:linear-gradient(135deg, rgba(53,217,154,.08), rgba(16,22,29,.65));
+  border-color:rgba(255,255,255,.08);
+  background:linear-gradient(135deg, rgba(255,255,255,.03), rgba(16,22,29,.6));
 }
-.cmdSubCard--primary:hover{ border-color:rgba(53,217,154,.45) }
+.cmdSubCard--primary:hover{ border-color:rgba(255,255,255,.15) }
 
-/* Actions sub-card - yellow accent */
+/* Actions sub-card — subtle border */
 .cmdSubCard--actions{
-  border-color:rgba(255,210,0,.2);
-  background:linear-gradient(135deg, rgba(255,210,0,.05), rgba(16,22,29,.6));
+  border-color:rgba(255,255,255,.08);
+  background:linear-gradient(135deg, rgba(255,255,255,.03), rgba(16,22,29,.6));
 }
-.cmdSubCard--actions:hover{ border-color:rgba(255,210,0,.4) }
+.cmdSubCard--actions:hover{ border-color:rgba(255,255,255,.15) }
 
 /* Gear button — naked icon, subtle */
 .gear-btn{
@@ -840,15 +854,10 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .cmdSubCard--system:hover{ border-color:rgba(91,178,255,.35) }
 
 /* Command buttons with icons */
-.cmdGrid{ display:grid; grid-template-columns:repeat(3,1fr); gap:var(--sp-12) }
-@media(max-width:640px){ .cmdGrid{ grid-template-columns:1fr } }
-.cmdBtn{
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:var(--sp-4); min-height:4.5rem; padding:var(--sp-12) var(--sp-16);
-  border-radius:var(--sp-12);
-}
-.cmdBtn__icon{ font-size:1.5rem; line-height:1 }
-.cmdBtn__label{ font-size:.85rem; font-weight:700; letter-spacing:.5px }
+.cmdGrid{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center }
+.cmdBtn{ display:inline-flex; align-items:center; gap:0 }
+.cmdBtn__icon{ display:none }
+.cmdBtn__label{ font-size:.9rem; font-weight:700; letter-spacing:.5px }
 
 /* Alcohol buttons - redesign avec volumes */
 .alcFieldRow{ margin-top:var(--sp-8); gap:var(--sp-12) }
