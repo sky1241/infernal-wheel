@@ -3295,22 +3295,49 @@ console.log('[INIT] initInputListeners done - ALL READY');
             # Avoid collision with existing keys
             $existingKeys = $kept | ForEach-Object { $_.key }
             if ($existingKeys -contains $key) { $key = "c_$key" }
-            $minutes = 10
-            try { $minutes = [int]($raw.minutes ?? 10) } catch { $minutes = 10 }
-            if ($minutes -lt 0) { $minutes = 0 }
-            if ($minutes -gt 120) { $minutes = 120 }
             $color = [string]($raw.color ?? "#ff9955")
             $kept += @{
               key = $key
               label = $label.Trim()
               mode = "break"
-              minutes = $minutes
+              minutes = 0
               requireOk = $true
               custom = $true
               color = $color
             }
           }
 
+          $settings.actions = $kept
+          Invoke-WithMutexRetry -Name $M_SETTINGS -TimeoutMs 1200 -Retries 10 -Script {
+            $json = $settings | ConvertTo-Json -Depth 12
+            Write-TextAtomic -Path $SettingsPath -Text $json -MutexName $M_SETTINGS
+          }
+          Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true} | ConvertTo-Json))
+        } catch {
+          Write-HttpResponse $ctx 500 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error=$_.Exception.Message} | ConvertTo-Json))
+        }
+        continue
+      }
+      if ($path -eq "/api/settings/remove-action") {
+        try {
+          $removeKey = [string]($data.key ?? "")
+          if (-not $removeKey.Trim()) {
+            Write-HttpResponse $ctx 400 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error="Missing key"} | ConvertTo-Json))
+            continue
+          }
+          # Don't allow removing work/dodo
+          if ($removeKey -eq "work" -or $removeKey -eq "dodo") {
+            Write-HttpResponse $ctx 400 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error="Cannot remove system action"} | ConvertTo-Json))
+            continue
+          }
+          $settings = Invoke-WithMutexRetry -Name $M_SETTINGS -TimeoutMs 1200 -Retries 10 -Script {
+            Read-JsonSafe -Path $SettingsPath -BackupPath $SettingsBak
+          }
+          if (-not $settings) { $settings = @{ actions = @() } }
+          $kept = @()
+          foreach ($a in $settings.actions) {
+            if ($a.key -ne $removeKey) { $kept += $a }
+          }
           $settings.actions = $kept
           Invoke-WithMutexRetry -Name $M_SETTINGS -TimeoutMs 1200 -Retries 10 -Script {
             $json = $settings | ConvertTo-Json -Depth 12

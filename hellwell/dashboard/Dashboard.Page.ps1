@@ -596,6 +596,7 @@ small{color:var(--muted)}
   transition:transform .15s ease, box-shadow .15s ease, filter .15s ease;
   white-space:nowrap;
   cursor:pointer;
+  position:relative;
 }
 .btn.action:hover{
   transform:translateY(-3px) scale(1.06);
@@ -603,6 +604,19 @@ small{color:var(--muted)}
   filter:brightness(1.18) saturate(1.2);
 }
 .btn.action:active{transform:scale(0.96); filter:brightness(0.92)}
+/* Delete X on pill — visible on hover */
+.btn.action .act-del{
+  position:absolute; top:-6px; right:-4px;
+  width:20px; height:20px; border-radius:50%;
+  background:rgba(30,30,30,.95); border:1.5px solid rgba(255,77,77,.5);
+  color:rgba(255,77,77,.8); font-size:.65rem; font-weight:700; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; opacity:0; transform:scale(0.5);
+  transition:opacity .12s, transform .12s;
+  pointer-events:none; z-index:2;
+}
+.btn.action:hover .act-del{ opacity:1; transform:scale(1); pointer-events:auto }
+.btn.action .act-del:hover{ background:rgba(255,77,77,.9); color:#fff; border-color:rgba(255,77,77,.9) }
 
 /* Actions flow → flex-wrap centered pills */
 .cmdSubCard--actions .grid{
@@ -760,9 +774,9 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .ca-slot-lbl{ font-size:.7rem; color:rgba(255,255,255,.35); text-transform:uppercase; letter-spacing:.5px; font-weight:600 }
 /* Color palette — horizontal scroll (UX O.tables overflow pattern) */
 .ca-colors{
-  display:flex; align-items:center; gap:6px; margin-top:4px;
+  display:flex; align-items:center; gap:4px; margin-top:4px;
   overflow-x:auto; overflow-y:hidden;
-  padding-bottom:4px;
+  padding:6px 6px 6px 6px;
   scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.15) transparent;
   -webkit-overflow-scrolling:touch;
 }
@@ -2873,7 +2887,13 @@ async function loadSettings(){
       const b = document.createElement("button");
       b.className = "btn action action-" + key;
       b.textContent = label;
-      b.onclick = function(){ send(key, b); };
+      b.onclick = function(e){ if(!e.target.classList.contains("act-del")) send(key, b); };
+      const x = document.createElement("span");
+      x.className = "act-del";
+      x.textContent = "\u2715";
+      x.title = "Supprimer " + label;
+      x.onclick = function(e){ e.stopPropagation(); removeAction(key, label); };
+      b.appendChild(x);
       grid.appendChild(b);
     }
   } catch(e){
@@ -2883,6 +2903,16 @@ async function loadSettings(){
     }
     showToast("Erreur chargement actions.", "error", "Actions");
   }
+}
+
+/* ===================== Remove Action ===================== */
+async function removeAction(key, label){
+  if(!confirm("Supprimer l'action \u00ab " + label + " \u00bb ?")) return;
+  try{
+    const r = await postJSON("/api/settings/remove-action", {key:key});
+    if(r && r.ok){ showToast(label + " supprim\u00e9e", "ok", "Actions"); loadSettings(); }
+    else{ showToast(r.error||"Erreur", "error", "Actions"); }
+  }catch(e){ showToast("Erreur r\u00e9seau", "error", "Actions"); }
 }
 
 /* ===================== Custom Actions ===================== */
@@ -2900,13 +2930,10 @@ function getCustomActions(){
 
 function caSlotHtml(idx, act){
   const name = act ? (act.label||"") : "";
-  const min = act ? (act.minutes||10) : 10;
   const col = act ? (act.color||CA_PALETTE[0].hex) : CA_PALETTE[idx % CA_PALETTE.length].hex;
   let h = '<div class="ca-slot" data-idx="'+idx+'">';
   h += '<div class="ca-slot-top">';
   h += '<input type="text" class="ca-name" value="'+name.replace(/"/g,"&quot;")+'" maxlength="20" placeholder="Nom de l\'action">';
-  h += '<span class="ca-slot-lbl">min</span>';
-  h += '<input type="number" class="ca-min" value="'+min+'" min="1" max="120">';
   h += '</div>';
   h += '<div class="ca-colors"><span class="ca-slot-lbl">Couleur</span>';
   for(const c of CA_PALETTE){
@@ -2921,7 +2948,7 @@ function caSlotHtml(idx, act){
 function caRenderSlots(){
   const container = document.getElementById("caSlots");
   const existing = getCustomActions();
-  if(!container._caData) container._caData = existing.length ? existing.map(a=>({label:a.label,minutes:a.minutes,color:a.color})) : [];
+  if(!container._caData) container._caData = existing.length ? existing.map(a=>({label:a.label,color:a.color})) : [];
   let html = "";
   container._caData.forEach((a,i) => { html += caSlotHtml(i, a); });
   container.innerHTML = html;
@@ -2933,7 +2960,7 @@ function caAddSlot(){
   if(!container._caData) container._caData = [];
   if(container._caData.length >= CA_MAX) return;
   const idx = container._caData.length;
-  container._caData.push({label:"",minutes:10,color:CA_PALETTE[idx % CA_PALETTE.length].hex});
+  container._caData.push({label:"",color:CA_PALETTE[idx % CA_PALETTE.length].hex});
   caRenderSlots();
 }
 
@@ -2955,16 +2982,15 @@ function caSyncData(){
   container._caData = [];
   slots.forEach(slot => {
     const name = slot.querySelector(".ca-name").value.trim();
-    const min = parseInt(slot.querySelector(".ca-min").value)||10;
     const selColor = slot.querySelector(".ca-swatch.selected");
     const color = selColor ? selColor.dataset.color : CA_PALETTE[0].hex;
-    container._caData.push({label:name,minutes:min,color:color});
+    container._caData.push({label:name,color:color});
   });
 }
 
 function openCustomActionsModal(){
   const container = document.getElementById("caSlots");
-  container._caData = getCustomActions().map(a=>({label:a.label,minutes:a.minutes,color:a.color}));
+  container._caData = getCustomActions().map(a=>({label:a.label,color:a.color}));
   caRenderSlots();
   const overlay = document.getElementById("customActionsModal");
   overlay.classList.add("open");
