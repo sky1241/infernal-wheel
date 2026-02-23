@@ -626,18 +626,19 @@ small{color:var(--muted)}
 a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--blue);outline-offset:0;border-color:var(--blue)}
 
-.btn.action-clope{--act-bg:#b33025; --act-glow:rgba(179,48,37,.5)}
-.btn.action-manger{--act-bg:#c2185b; --act-glow:rgba(194,24,91,.5)}
-.btn.action-menage{--act-bg:#00897b; --act-glow:rgba(0,137,123,.5)}
-.btn.action-douche{--act-bg:#1565c0; --act-glow:rgba(21,101,192,.5)}
-.btn.action-marche{--act-bg:#455a64; --act-glow:rgba(69,90,100,.5)}
-.btn.action-sport{--act-bg:#2e7d32; --act-glow:rgba(46,125,50,.5)}
-.btn.action-push{--act-bg:#7b1fa2; --act-glow:rgba(123,31,162,.5)}
-.btn.action-rego{--act-bg:#f57f17; --act-glow:rgba(245,127,23,.5)}
-.btn.action-reveille{--act-bg:#00838f; --act-glow:rgba(0,131,143,.5)}
-.btn.action-meditation{--act-bg:#283593; --act-glow:rgba(40,53,147,.5)}
-.btn.action-glandouille{--act-bg:#6a1b9a; --act-glow:rgba(106,27,154,.5)}
-.btn.action-chier{--act-bg:#d84315; --act-glow:rgba(216,67,21,.5)}
+/* Categorical palette — HSB desaturated for dark mode (UX rule 96) */
+.btn.action-clope{--act-bg:hsl(4,65%,52%); --act-glow:hsla(4,65%,52%,.5)}
+.btn.action-manger{--act-bg:hsl(330,58%,52%); --act-glow:hsla(330,58%,52%,.5)}
+.btn.action-menage{--act-bg:hsl(165,55%,40%); --act-glow:hsla(165,55%,40%,.5)}
+.btn.action-douche{--act-bg:hsl(210,60%,48%); --act-glow:hsla(210,60%,48%,.5)}
+.btn.action-marche{--act-bg:hsl(200,12%,42%); --act-glow:hsla(200,12%,42%,.5)}
+.btn.action-sport{--act-bg:hsl(145,55%,40%); --act-glow:hsla(145,55%,40%,.5)}
+.btn.action-push{--act-bg:hsl(275,50%,48%); --act-glow:hsla(275,50%,48%,.5)}
+.btn.action-rego{--act-bg:hsl(40,70%,50%); --act-glow:hsla(40,70%,50%,.5)}
+.btn.action-reveille{--act-bg:hsl(187,58%,42%); --act-glow:hsla(187,58%,42%,.5)}
+.btn.action-meditation{--act-bg:hsl(230,50%,45%); --act-glow:hsla(230,50%,45%,.5)}
+.btn.action-glandouille{--act-bg:hsl(280,48%,45%); --act-glow:hsla(280,48%,45%,.5)}
+.btn.action-chier{--act-bg:hsl(18,62%,48%); --act-glow:hsla(18,62%,48%,.5)}
 
 .btn.cmd-start{--cmd-border:rgba(107,255,133,.98); --cmd-bg:rgba(107,255,133,.32); --cmd-glow:rgba(107,255,133,.45); --cmd-ink:#ffffff}
 .btn.cmd-work{--cmd-border:rgba(255,79,216,.98); --cmd-bg:rgba(255,79,216,.3); --cmd-glow:rgba(255,79,216,.45)}
@@ -691,59 +692,125 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 }
 .cmdSubCard--actions:hover{ border-color:rgba(255,210,0,.4) }
 
-/* Gear button (custom actions) */
+/* Gear button — same style as .help "?" */
 .gear-btn{
-  margin-left:auto; cursor:pointer; font-size:1rem; opacity:.45;
-  transition:opacity .2s, transform .3s; user-select:none;
+  display:inline-flex; align-items:center; justify-content:center;
+  width:16px; height:16px; border-radius:999px;
+  border:1px solid rgba(255,255,255,.15); color:rgba(231,237,243,.35); font-size:.65rem;
+  margin-left:4px; cursor:pointer; position:relative; user-select:none;
+  transition:color .2s, border-color .2s, transform .3s;
+  min-width:16px; min-height:16px; padding:14px; box-sizing:content-box;
 }
-.gear-btn:hover{ opacity:.9; transform:rotate(90deg) }
+.gear-btn:hover{ color:rgba(231,237,243,.8); border-color:rgba(255,255,255,.35); transform:rotate(90deg) }
 
 /* Custom Actions Modal */
+/* ===== Custom Actions Modal (UX T.97-100) ===== */
 .ca-overlay{
   position:fixed; inset:0; z-index:9999;
-  background:rgba(0,0,0,.65); backdrop-filter:blur(4px);
-  display:none; align-items:center; justify-content:center;
+  background:rgba(0,0,0,.7); backdrop-filter:blur(6px);
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; pointer-events:none;
+  transition:opacity .2s ease-out;
 }
-.ca-overlay.open{ display:flex }
+.ca-overlay.open{ opacity:1; pointer-events:auto }
 .ca-modal{
-  background:var(--card-bg, #141a21); border:1px solid rgba(255,255,255,.12);
-  border-radius:var(--sp-12); padding:var(--sp-24);
-  width:min(420px, 90vw); max-height:85vh; overflow-y:auto;
-  box-shadow:0 16px 48px rgba(0,0,0,.5);
+  background:hsl(220 15% 10%); border:1px solid rgba(255,255,255,.1);
+  border-radius:16px; padding:28px;
+  width:min(400px, 92vw); max-height:85vh; overflow-y:auto;
+  box-shadow:0 24px 64px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.05);
+  transform:translateY(12px) scale(.97);
+  transition:transform .25s ease-out;
 }
-.ca-modal h3{ margin:0 0 var(--sp-16); font-size:1rem; font-weight:700; display:flex; align-items:center; gap:var(--sp-8) }
+.ca-overlay.open .ca-modal{ transform:translateY(0) scale(1) }
+/* Header */
+.ca-header{
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:20px; padding-bottom:14px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.ca-header h3{ margin:0; font-size:1.05rem; font-weight:700; color:#fff }
+.ca-close{
+  width:32px; height:32px; border-radius:8px;
+  background:rgba(255,255,255,.06); border:none; color:rgba(255,255,255,.5);
+  font-size:1.1rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:background .15s, color .15s;
+}
+.ca-close:hover{ background:rgba(255,255,255,.12); color:#fff }
+/* Slot card */
 .ca-slot{
-  background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
-  border-radius:var(--sp-8); padding:var(--sp-12); margin-bottom:var(--sp-12);
+  background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07);
+  border-radius:12px; padding:16px; margin-bottom:12px;
+  transition:border-color .15s;
 }
-.ca-slot-row{ display:flex; gap:var(--sp-8); align-items:center; margin-bottom:var(--sp-8) }
-.ca-slot-row label{ font-size:.75rem; color:var(--muted); min-width:35px }
-.ca-slot-row input[type="text"]{ flex:1; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:4px; padding:6px 8px; color:var(--ink); font-size:.85rem }
-.ca-slot-row input[type="number"]{ width:60px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:4px; padding:6px 8px; color:var(--ink); font-size:.85rem; text-align:center }
-.ca-palette{ display:flex; gap:6px; flex-wrap:wrap }
+.ca-slot:hover{ border-color:rgba(255,255,255,.14) }
+.ca-slot-top{ display:flex; gap:10px; align-items:center; margin-bottom:12px }
+.ca-slot-top input[type="text"]{
+  flex:1; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1);
+  border-radius:8px; padding:10px 12px; color:#fff; font-size:.9rem;
+  transition:border-color .15s;
+}
+.ca-slot-top input[type="text"]:focus{ border-color:rgba(53,217,154,.5); outline:none }
+.ca-slot-top input[type="text"]::placeholder{ color:rgba(255,255,255,.25) }
+.ca-slot-top input[type="number"]{
+  width:56px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1);
+  border-radius:8px; padding:10px 6px; color:#fff; font-size:.9rem; text-align:center;
+  transition:border-color .15s;
+}
+.ca-slot-top input[type="number"]:focus{ border-color:rgba(53,217,154,.5); outline:none }
+.ca-slot-lbl{ font-size:.7rem; color:rgba(255,255,255,.35); text-transform:uppercase; letter-spacing:.5px; font-weight:600 }
+/* Color palette — horizontal scroll (UX O.tables overflow pattern) */
+.ca-colors{
+  display:flex; align-items:center; gap:6px; margin-top:4px;
+  overflow-x:auto; overflow-y:hidden;
+  padding-bottom:4px;
+  scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.15) transparent;
+  -webkit-overflow-scrolling:touch;
+}
+.ca-colors::-webkit-scrollbar{ height:4px }
+.ca-colors::-webkit-scrollbar-track{ background:transparent }
+.ca-colors::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.15); border-radius:4px }
+.ca-colors .ca-slot-lbl{ margin-right:2px; flex-shrink:0 }
 .ca-swatch{
-  width:24px; height:24px; border-radius:50%; cursor:pointer; border:2px solid transparent;
-  transition:border-color .15s, transform .15s;
+  width:28px; height:28px; border-radius:50%; cursor:pointer;
+  border:2.5px solid transparent; padding:6px; flex-shrink:0;
+  transition:border-color .12s, transform .12s, box-shadow .12s;
+  min-width:40px; min-height:40px; box-sizing:content-box;
+  display:flex; align-items:center; justify-content:center;
+  background:transparent !important;
 }
-.ca-swatch:hover{ transform:scale(1.2) }
-.ca-swatch.selected{ border-color:#fff; transform:scale(1.15) }
-.ca-del{ background:none; border:none; color:rgba(255,77,77,.7); cursor:pointer; font-size:.75rem; margin-left:auto; padding:2px 6px }
-.ca-del:hover{ color:#ff4d4d }
+.ca-swatch::after{
+  content:""; display:block; width:28px; height:28px; border-radius:50%;
+  background:var(--sw-color);
+}
+.ca-swatch:hover{ transform:scale(1.15); border-color:rgba(255,255,255,.25) }
+.ca-swatch.selected{ border-color:#fff; box-shadow:0 0 12px var(--sw-color) }
+/* Delete button — bottom of slot */
+.ca-del{
+  display:flex; align-items:center; justify-content:center;
+  width:100%; margin-top:10px; padding:7px;
+  background:rgba(255,77,77,.06); border:1px solid rgba(255,77,77,.15); border-radius:8px;
+  color:rgba(255,77,77,.55); cursor:pointer; font-size:.78rem; font-weight:500;
+  transition:all .15s;
+}
+.ca-del:hover{ background:rgba(255,77,77,.14); color:#ff6b6b; border-color:rgba(255,77,77,.4) }
+/* Add button */
 .ca-add{
-  display:flex; align-items:center; justify-content:center; gap:var(--sp-4);
-  width:100%; padding:8px; background:rgba(255,255,255,.04); border:1px dashed rgba(255,255,255,.15);
-  border-radius:var(--sp-8); color:var(--muted); cursor:pointer; font-size:.8rem;
-  transition:border-color .2s, color .2s;
+  display:flex; align-items:center; justify-content:center;
+  width:100%; padding:12px; background:rgba(255,255,255,.03); border:1.5px dashed rgba(255,255,255,.12);
+  border-radius:12px; color:rgba(255,255,255,.4); cursor:pointer; font-size:.85rem; font-weight:500;
+  transition:all .2s;
 }
-.ca-add:hover{ border-color:rgba(255,210,0,.4); color:rgba(255,210,0,.9) }
-.ca-footer{ display:flex; justify-content:flex-end; gap:var(--sp-8); margin-top:var(--sp-16) }
+.ca-add:hover{ border-color:rgba(53,217,154,.4); color:rgba(53,217,154,.9); background:rgba(53,217,154,.04) }
+/* Footer buttons */
+.ca-footer{ display:flex; justify-content:flex-end; gap:10px; margin-top:20px }
 .ca-footer button{
-  padding:8px 16px; border-radius:6px; font-size:.8rem; cursor:pointer; border:none;
-  transition:opacity .2s;
+  padding:10px 20px; border-radius:10px; font-size:.85rem; font-weight:500;
+  cursor:pointer; border:none; transition:all .15s; min-height:44px;
 }
-.ca-btn-cancel{ background:rgba(255,255,255,.08); color:var(--ink) }
-.ca-btn-save{ background:rgba(53,217,154,.8); color:#0e1116; font-weight:600 }
-.ca-btn-save:hover{ opacity:.85 }
+.ca-btn-cancel{ background:rgba(255,255,255,.07); color:rgba(255,255,255,.7) }
+.ca-btn-cancel:hover{ background:rgba(255,255,255,.12); color:#fff }
+.ca-btn-save{ background:var(--accent, #35d99a); color:#0e1116; font-weight:700 }
+.ca-btn-save:hover{ filter:brightness(1.1); transform:translateY(-1px) }
 
 /* Alcohol sub-card - amber/orange accent */
 .cmdSubCard--alcohol{
@@ -2836,12 +2903,18 @@ function caSlotHtml(idx, act){
   const min = act ? (act.minutes||10) : 10;
   const col = act ? (act.color||CA_PALETTE[0].hex) : CA_PALETTE[idx % CA_PALETTE.length].hex;
   let h = '<div class="ca-slot" data-idx="'+idx+'">';
-  h += '<div class="ca-slot-row"><label>Nom</label><input type="text" class="ca-name" value="'+name.replace(/"/g,"&quot;")+'" maxlength="20" placeholder="Ex: Courses"><label style="margin-left:8px">Min</label><input type="number" class="ca-min" value="'+min+'" min="0" max="120"><button class="ca-del" onclick="caRemoveSlot('+idx+')">Supprimer</button></div>';
-  h += '<div class="ca-slot-row"><label>Couleur</label><div class="ca-palette">';
+  h += '<div class="ca-slot-top">';
+  h += '<input type="text" class="ca-name" value="'+name.replace(/"/g,"&quot;")+'" maxlength="20" placeholder="Nom de l\'action">';
+  h += '<span class="ca-slot-lbl">min</span>';
+  h += '<input type="number" class="ca-min" value="'+min+'" min="1" max="120">';
+  h += '</div>';
+  h += '<div class="ca-colors"><span class="ca-slot-lbl">Couleur</span>';
   for(const c of CA_PALETTE){
-    h += '<div class="ca-swatch'+(c.hex===col?' selected':'')+'" style="background:'+c.hex+'" data-color="'+c.hex+'" title="'+c.label+'" onclick="caPickColor(this)"></div>';
+    h += '<button class="ca-swatch'+(c.hex===col?' selected':'')+'" style="--sw-color:'+c.hex+'" data-color="'+c.hex+'" title="'+c.label+'" onclick="caPickColor(this)"></button>';
   }
-  h += '</div></div></div>';
+  h += '</div>';
+  h += '<button class="ca-del" onclick="caRemoveSlot('+idx+')">Supprimer</button>';
+  h += '</div>';
   return h;
 }
 
@@ -2893,12 +2966,19 @@ function openCustomActionsModal(){
   const container = document.getElementById("caSlots");
   container._caData = getCustomActions().map(a=>({label:a.label,minutes:a.minutes,color:a.color}));
   caRenderSlots();
-  document.getElementById("customActionsModal").classList.add("open");
+  const overlay = document.getElementById("customActionsModal");
+  overlay.classList.add("open");
+  /* UX T.100: focus first interactive */
+  setTimeout(()=>{ const f = overlay.querySelector("input,button"); if(f) f.focus(); }, 250);
+  document.addEventListener("keydown", _caEscHandler);
 }
 
 function closeCustomActionsModal(){
   document.getElementById("customActionsModal").classList.remove("open");
+  document.removeEventListener("keydown", _caEscHandler);
 }
+
+function _caEscHandler(e){ if(e.key==="Escape") closeCustomActionsModal(); }
 
 async function saveCustomActions(){
   caSyncData();
@@ -4258,10 +4338,13 @@ document.addEventListener('click', () => {
 })();
 </script>
 
-<!-- Custom Actions Modal -->
-<div class="ca-overlay" id="customActionsModal">
-  <div class="ca-modal">
-    <h3><span>&#9881;</span> Actions personnalis&#233;es</h3>
+<!-- Custom Actions Modal (UX T.100 ARIA) -->
+<div class="ca-overlay" id="customActionsModal" onclick="if(event.target===this)closeCustomActionsModal()">
+  <div class="ca-modal" role="dialog" aria-modal="true" aria-labelledby="caTitle">
+    <div class="ca-header">
+      <h3 id="caTitle">Actions personnalis&#233;es</h3>
+      <button class="ca-close" onclick="closeCustomActionsModal()" aria-label="Fermer">&times;</button>
+    </div>
     <div id="caSlots"></div>
     <button class="ca-add" id="caAddBtn" onclick="caAddSlot()">+ Ajouter une action</button>
     <div class="ca-footer">
