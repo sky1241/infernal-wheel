@@ -839,12 +839,12 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .ca-btn-save{ background:var(--accent, #35d99a); color:#0e1116; font-weight:700 }
 .ca-btn-save:hover{ filter:brightness(1.1); transform:translateY(-1px) }
 
-/* Alcohol sub-card - amber/orange accent */
+/* Alcohol sub-card — neutral like others */
 .cmdSubCard--alcohol{
-  border-color:rgba(255,153,85,.2);
-  background:linear-gradient(135deg, rgba(255,153,85,.05), rgba(16,22,29,.6));
+  border-color:rgba(255,255,255,.08);
+  background:linear-gradient(135deg, rgba(255,255,255,.03), rgba(16,22,29,.6));
 }
-.cmdSubCard--alcohol:hover{ border-color:rgba(255,153,85,.4) }
+.cmdSubCard--alcohol:hover{ border-color:rgba(255,255,255,.15) }
 
 /* System sub-card - blue accent */
 .cmdSubCard--system{
@@ -859,27 +859,32 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .cmdBtn__icon{ display:none }
 .cmdBtn__label{ font-size:.9rem; font-weight:700; letter-spacing:.5px }
 
-/* Alcohol buttons - redesign avec volumes */
-.alcFieldRow{ margin-top:var(--sp-8); gap:var(--sp-12) }
+/* Alcohol buttons — solid pills like image 3 */
+.alcFieldRow{ margin-top:var(--sp-8); gap:10px; display:flex; flex-wrap:wrap; align-items:center }
 .alcBtn{
   display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:2px; padding:var(--sp-8) var(--sp-16); min-height:3.25rem; min-width:7rem;
-  background:rgba(18,22,28,.85); border:1.5px solid rgba(200,160,60,.6); border-radius:8px;
+  gap:2px; padding:10px 20px; min-height:44px;
+  background:var(--alc-bg, hsl(35,60%,35%));
+  border:none; border-radius:12px; color:#fff;
+  box-shadow:0 3px 10px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08);
+  text-shadow:0 1px 3px rgba(0,0,0,.6);
+  transition:transform .15s ease, box-shadow .15s ease, filter .15s ease;
+  cursor:pointer;
 }
 .alcBtn:hover{
-  background:rgba(30,35,42,.9); border-color:rgba(220,180,80,.9);
-  box-shadow:0 4px 20px rgba(200,160,60,.3);
+  transform:translateY(-3px) scale(1.06);
+  box-shadow:0 6px 22px var(--alc-glow, rgba(0,0,0,.4)), 0 0 30px var(--alc-glow, rgba(255,255,255,.05));
+  filter:brightness(1.18) saturate(1.2);
 }
-.alcBtn .alcLabel{ display:flex; align-items:center; gap:6px; font-weight:600; font-size:.95rem }
-.alcBtn .alcVol{ font-size:.7rem; color:var(--muted); font-weight:400 }
-/* VIN - fond bordeaux */
-.alcBtn.alcBtn--wine{
-  background:rgba(120,30,50,.65); border-color:rgba(180,60,90,.7);
-}
-.alcBtn.alcBtn--wine:hover{
-  background:rgba(140,40,65,.75); border-color:rgba(200,80,110,.9);
-  box-shadow:0 4px 20px rgba(180,60,90,.35);
-}
+.alcBtn:active{transform:scale(0.96); filter:brightness(0.92)}
+.alcBtn .alcLabel{ display:flex; align-items:center; gap:6px; font-weight:700; font-size:.85rem; letter-spacing:.3px }
+.alcBtn .alcVol{ font-size:.65rem; color:rgba(255,255,255,.6); font-weight:400 }
+/* Beer — amber */
+.alcBtn{ --alc-bg:hsl(35,60%,35%); --alc-glow:hsla(35,60%,35%,.5) }
+/* Wine — bordeaux */
+.alcBtn.alcBtn--wine{ --alc-bg:hsl(345,50%,35%); --alc-glow:hsla(345,50%,35%,.5) }
+/* Strong — deep orange */
+.alcBtn.alcBtn--strong{ --alc-bg:hsl(25,65%,40%); --alc-glow:hsla(25,65%,40%,.5) }
 .alcStatus{ margin-left:auto; color:var(--muted) }
 .alcAdjustToggle{ margin-top:var(--sp-8) }
 .alcAdjustWrap{ margin-top:var(--sp-8); padding:var(--sp-12); background:rgba(0,0,0,.2); border-radius:var(--sp-8) }
@@ -2481,14 +2486,14 @@ body{
           <input id="drinkN" class="input drinkInput" type="number" min="1" step="1" value="1" aria-describedby="drinkHint"/>
         </div>
         <button class="btn alcBtn tooltip" data-tooltip="Ajouter canette(s) de biere" data-drink-btn="1" onclick="addDrink('beer')">
-          <span class="alcLabel"><span aria-hidden="true">&#127866;</span> BIERE</span>
+          <span class="alcLabel"><span aria-hidden="true">&#127866;</span> BI&#200;RE</span>
           <span class="alcVol">1 can. = 0.5 L</span>
         </button>
         <button class="btn alcBtn alcBtn--wine tooltip" data-tooltip="Ajouter verre(s) de vin" data-drink-btn="1" onclick="addDrink('wine')">
           <span class="alcLabel"><span aria-hidden="true">&#127863;</span> VIN</span>
           <span class="alcVol">1 verre = 0.2 L</span>
         </button>
-        <button class="btn alcBtn tooltip" data-tooltip="Ajouter verre(s) d'alcool fort" data-drink-btn="1" onclick="addDrink('strong')">
+        <button class="btn alcBtn alcBtn--strong tooltip" data-tooltip="Ajouter verre(s) d'alcool fort" data-drink-btn="1" onclick="addDrink('strong')">
           <span class="alcLabel"><span aria-hidden="true">&#127864;</span> FORT</span>
           <span class="alcVol">1 verre = 0.2 L</span>
         </button>
