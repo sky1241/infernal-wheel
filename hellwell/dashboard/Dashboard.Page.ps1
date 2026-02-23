@@ -707,15 +707,14 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 }
 .cmdSubCard--actions:hover{ border-color:rgba(255,210,0,.4) }
 
-/* Gear button — compact, visible */
+/* Gear button — naked icon, subtle */
 .gear-btn{
   display:inline-flex; align-items:center; justify-content:center;
-  width:20px; height:20px; border-radius:999px;
-  border:1px solid rgba(255,255,255,.18); color:rgba(231,237,243,.5); font-size:.7rem;
+  color:rgba(255,255,255,.3); font-size:.8rem;
   margin-left:6px; cursor:pointer; user-select:none;
-  transition:color .2s, border-color .2s, transform .3s;
+  transition:color .2s, transform .3s;
 }
-.gear-btn:hover{ color:rgba(231,237,243,.9); border-color:rgba(255,255,255,.45); transform:rotate(90deg) }
+.gear-btn:hover{ color:rgba(255,255,255,.7); transform:rotate(90deg) }
 
 /* Custom Actions Modal */
 /* ===== Custom Actions Modal (UX T.97-100) ===== */
@@ -2090,15 +2089,14 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 /* [UX] Help tooltip - hover (PC) + tap (mobile) */
 .help{
   display:inline-flex; align-items:center; justify-content:center;
-  width:20px; height:20px; border-radius:999px;
-  border:1px solid rgba(255,255,255,.18); color:rgba(231,237,243,.5); font-size:.65rem; font-weight:600;
+  color:rgba(255,255,255,.3); font-size:.75rem; font-weight:400;
   margin-left:6px; vertical-align:middle;
   cursor:pointer; position:relative;
   -webkit-tap-highlight-color:transparent;
   user-select:none;
-  transition:all 150ms ease;
+  transition:color 150ms ease;
 }
-.help:hover{color:var(--text); border-color:rgba(255,255,255,.5); background:rgba(255,255,255,.06)}
+.help:hover{color:rgba(255,255,255,.7)}
 .help::after{
   content:attr(data-tip);
   position:absolute; bottom:calc(100% + 8px); left:50%;
@@ -2281,7 +2279,7 @@ textarea{width:100%; min-height:70vh; resize:vertical; background:rgba(16,22,29,
 }
 
 /* [WEB §E Rule 21] Touch target 44px recommended - invisible padding extends hit area */
-.help{min-width:20px;min-height:20px;width:20px;height:20px;padding:4px;box-sizing:content-box}
+.help{min-width:auto;min-height:auto;width:auto;height:auto;padding:4px;box-sizing:content-box}
 .legendDot{min-width:12px;min-height:12px}
 a.pill,button.btn{min-width:44px;min-height:44px}
 .recentItem{min-height:24px}
