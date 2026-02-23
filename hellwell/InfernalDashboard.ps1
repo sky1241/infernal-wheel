@@ -621,9 +621,6 @@ document.getElementById("btnNotif").onclick = ()=> toast("Nouvelle notification"
         $alcBeerIntensity = [math]::Min(5, [math]::Max(0, $alcTotals.beer))
         $alcWineIntensity = [math]::Min(5, [math]::Max(0, $alcTotals.wine))
         $alcStrongIntensity = [math]::Min(5, [math]::Max(0, $alcTotals.strong))
-        # Pour l'export txt on garde un format lisible
-        $alcDisplayStr = "Bière: $($alcTotals.beer), Vin: $($alcTotals.wine), Fort: $($alcTotals.strong)"
-
         # Sport: aujourd'hui vs hier (plus = mieux = vert)
         $diffSport = $sportMin - $sportMinYesterday
         $trendSportClass = if ($diffSport -gt 0) { "good" } elseif ($diffSport -lt 0) { "bad" } else { "warn" }
@@ -690,6 +687,16 @@ document.getElementById("btnNotif").onclick = ()=> toast("Nouvelle notification"
         $dayNames = @("Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi")
         $dayName = $dayNames[[int]$dateObj.DayOfWeek]
         $dateDisplay = $dateObj.ToString("dd MMMM yyyy", [System.Globalization.CultureInfo]::GetCultureInfo("fr-FR"))
+
+        # Generate dynamic CSS for custom actions
+        $customActionCss = ""
+        foreach ($a in $settingsObj.actions) {
+            if ($a.custom -and $a.color) {
+                $k = $a.key; $c = $a.color
+                $customActionCss += ".btn.action-${k}{--btn-border:${c};--btn-bg:${c}40;--btn-glow:${c}60}`n"
+                $customActionCss += ".timeline-bar.action-${k}{background:linear-gradient(180deg,${c}b3,${c}66)}`n"
+            }
+        }
 
         $page = @"
 <!doctype html><html lang="fr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -1419,6 +1426,7 @@ a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:4px}
 ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.35)}
 @supports(scrollbar-color:auto){*{scrollbar-color:rgba(255,255,255,.2) rgba(255,255,255,.05);scrollbar-width:thin}}
+$customActionCss
 </style>
 </head>
 <body>
@@ -2640,12 +2648,16 @@ function exportDayData(){
   }
 
   // DONNEES AUTO
-  html += "<h2>Donnees du jour</h2>";
+  html += "<h2>Donn\u00e9es du jour</h2>";
   html += "<table>";
   html += "<tr><td>Sommeil</td><td><strong>$sleepStrYesterday</strong></td><td></td></tr>";
   html += "<tr><td>Travail</td><td><strong>$workStr</strong></td><td></td></tr>";
-  html += "<tr><td>Clopes</td><td><strong>$clopeCount</strong></td><td></td></tr>";
-  html += "<tr><td>Alcool</td><td><strong>$alcDisplayStr</strong></td><td></td></tr>";
+  html += "<tr><td>1\u00e8re clope</td><td><strong>$firstClopeStr</strong></td><td style='color:#7f8c8d'>d\u00e9lai: $delayClopeStr min</td></tr>";
+  html += "<tr><td>Clopes total</td><td><strong>$clopeCount</strong></td><td></td></tr>";
+  html += "<tr><td>1er alcool</td><td><strong>$firstAlcoolStr</strong></td><td style='color:#7f8c8d'>d\u00e9lai: $delayAlcoolStr min</td></tr>";
+  html += "<tr><td>Bi\u00e8re</td><td><strong>$($alcTotals.beer)</strong></td><td></td></tr>";
+  html += "<tr><td>Vin</td><td><strong>$($alcTotals.wine)</strong></td><td></td></tr>";
+  html += "<tr><td>Alcool fort</td><td><strong>$($alcTotals.strong)</strong></td><td></td></tr>";
   html += "<tr><td>Sport</td><td><strong>${sportMin} min</strong></td><td></td></tr>";
   html += "<tr><td>Glandouille</td><td><strong>${glandouilleMin} min</strong></td><td></td></tr>";
   html += "</table>";
@@ -3255,6 +3267,59 @@ console.log('[INIT] initInputListeners done - ALL READY');
         Start-TimerIfStopped
         Add-CommandLine $cmd
         Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true; cmd=$cmd} | ConvertTo-Json))
+        continue
+      }
+      if ($path -eq "/api/settings/custom-actions") {
+        try {
+          $incoming = @()
+          if ($data.actions) { $incoming = @($data.actions) }
+          if ($incoming.Count -gt 3) { $incoming = $incoming[0..2] }
+
+          $settings = Invoke-WithMutexRetry -Name $M_SETTINGS -TimeoutMs 1200 -Retries 10 -Script {
+            Read-JsonSafe -Path $SettingsPath -BackupPath $SettingsBak
+          }
+          if (-not $settings) { $settings = @{ actions = @() } }
+
+          # Remove old custom actions
+          $kept = @()
+          foreach ($a in $settings.actions) {
+            if (-not $a.custom) { $kept += $a }
+          }
+
+          # Add new custom actions
+          foreach ($raw in $incoming) {
+            $label = [string]($raw.label ?? "")
+            if (-not $label.Trim()) { continue }
+            $key = $label.Trim().ToLowerInvariant() -replace '[^a-z0-9]',''
+            if (-not $key) { continue }
+            # Avoid collision with existing keys
+            $existingKeys = $kept | ForEach-Object { $_.key }
+            if ($existingKeys -contains $key) { $key = "c_$key" }
+            $minutes = 10
+            try { $minutes = [int]($raw.minutes ?? 10) } catch { $minutes = 10 }
+            if ($minutes -lt 0) { $minutes = 0 }
+            if ($minutes -gt 120) { $minutes = 120 }
+            $color = [string]($raw.color ?? "#ff9955")
+            $kept += @{
+              key = $key
+              label = $label.Trim()
+              mode = "break"
+              minutes = $minutes
+              requireOk = $true
+              custom = $true
+              color = $color
+            }
+          }
+
+          $settings.actions = $kept
+          Invoke-WithMutexRetry -Name $M_SETTINGS -TimeoutMs 1200 -Retries 10 -Script {
+            $json = $settings | ConvertTo-Json -Depth 12
+            Write-TextAtomic -Path $SettingsPath -Text $json -MutexName $M_SETTINGS
+          }
+          Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true} | ConvertTo-Json))
+        } catch {
+          Write-HttpResponse $ctx 500 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error=$_.Exception.Message} | ConvertTo-Json))
+        }
         continue
       }
       if ($path -eq "/api/drinks/add") {

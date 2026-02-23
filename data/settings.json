@@ -1,4 +1,4 @@
-{
+﻿{
   "actions": [
     {
       "key": "work",
@@ -16,7 +16,7 @@
     },
     {
       "key": "clope",
-      "minutes": 10,
+      "minutes": 7,
       "label": "Clope",
       "mode": "break",
       "requireOk": true
@@ -31,7 +31,7 @@
     {
       "key": "menage",
       "minutes": 20,
-      "label": "M\u00e9nage",
+      "label": "Ménage",
       "mode": "break",
       "requireOk": true
     },
@@ -52,13 +52,13 @@
     {
       "key": "reveille",
       "minutes": 10,
-      "label": "R\u00e9veille",
+      "label": "Réveille",
       "mode": "break",
       "requireOk": true
     },
     {
       "key": "meditation",
-      "label": "M\u00e9ditation",
+      "label": "Méditation",
       "mode": "break",
       "minutes": 15,
       "requireOk": true
@@ -76,6 +76,15 @@
       "label": "Sport",
       "mode": "break",
       "requireOk": true
+    },
+    {
+      "minutes": 10,
+      "mode": "break",
+      "key": "lecture",
+      "custom": true,
+      "color": "#ffcc00",
+      "requireOk": true,
+      "label": "lecture"
     }
   ],
   "penalty": {

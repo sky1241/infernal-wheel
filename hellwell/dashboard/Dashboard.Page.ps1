@@ -582,14 +582,35 @@ small{color:var(--muted)}
 .btn.danger:hover{border-color:rgba(255,107,107,.9); background:rgba(255,107,107,.2); box-shadow:0 6px 20px rgba(255,107,107,.3), 0 0 20px rgba(255,107,107,.25)}
 .btn.primary{border-color:rgba(38,211,140,.7); background:rgba(38,211,140,.14)}
 .btn.action{
-  border-color:var(--btn-border, var(--border));
-  background:var(--btn-bg, rgba(16,22,29,.65));
-  color:var(--btn-ink, var(--text));
-  box-shadow:0 0 16px var(--btn-glow, rgba(0,0,0,.2)), 1px 1px 0 rgba(0,0,0,.18);
-  text-shadow:0 1px 0 rgba(0,0,0,.35);
+  background:var(--act-bg, #2d3436);
+  color:#fff;
+  border:none;
+  border-radius:50px;
+  padding:10px 24px;
+  font-size:.85rem;
+  font-weight:600;
+  letter-spacing:.4px;
+  min-height:44px;
+  box-shadow:0 3px 10px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08);
+  text-shadow:0 1px 3px rgba(0,0,0,.6);
+  transition:transform .15s ease, box-shadow .15s ease, filter .15s ease;
+  white-space:nowrap;
+  cursor:pointer;
 }
-.btn.action:hover{filter:brightness(1.1) saturate(1.3); transform:translateY(-2px) scale(1.03); box-shadow:0 0 28px var(--btn-glow, rgba(255,255,255,.3)), 0 8px 24px rgba(0,0,0,.4)}
-.btn.action:active{filter:brightness(0.95) saturate(1.4); transform:translateY(0) scale(0.98)}
+.btn.action:hover{
+  transform:translateY(-3px) scale(1.06);
+  box-shadow:0 6px 22px var(--act-glow, rgba(0,0,0,.4)), 0 0 30px var(--act-glow, rgba(255,255,255,.05));
+  filter:brightness(1.18) saturate(1.2);
+}
+.btn.action:active{transform:scale(0.96); filter:brightness(0.92)}
+
+/* Actions flow → flex-wrap centered pills */
+.cmdSubCard--actions .grid{
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:10px !important;
+  justify-content:center !important;
+}
 .btn.cmd{
   border-color:var(--cmd-border, var(--border));
   background:var(--cmd-bg, rgba(16,22,29,.65));
@@ -605,18 +626,18 @@ small{color:var(--muted)}
 a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--blue);outline-offset:0;border-color:var(--blue)}
 
-.btn.action-clope{--btn-border:rgba(255,77,77,.95); --btn-bg:rgba(255,77,77,.28); --btn-glow:rgba(255,77,77,.4)}
-.btn.action-manger{--btn-border:rgba(255,93,143,.95); --btn-bg:rgba(255,93,143,.28); --btn-glow:rgba(255,93,143,.4)}
-.btn.action-menage{--btn-border:rgba(0,225,170,.95); --btn-bg:rgba(0,225,170,.26); --btn-glow:rgba(0,225,170,.4); --btn-ink:#ffffff}
-.btn.action-douche{--btn-border:rgba(77,181,255,.95); --btn-bg:rgba(77,181,255,.28); --btn-glow:rgba(77,181,255,.4)}
-.btn.action-marche{--btn-border:rgba(255,255,255,.98); --btn-bg:rgba(255,255,255,.32); --btn-glow:rgba(255,255,255,.45); --btn-ink:#ffffff}
-.btn.action-sport{--btn-border:rgba(60,255,122,.95); --btn-bg:rgba(60,255,122,.28); --btn-glow:rgba(60,255,122,.4)}
-.btn.action-push{--btn-border:rgba(178,123,255,.95); --btn-bg:rgba(178,123,255,.28); --btn-glow:rgba(178,123,255,.4)}
-.btn.action-rego{--btn-border:rgba(255,210,0,.98); --btn-bg:rgba(255,210,0,.32); --btn-glow:rgba(255,210,0,.45); --btn-ink:#0e1116}
-.btn.action-reveille{--btn-border:rgba(0,212,255,.98); --btn-bg:rgba(0,212,255,.3); --btn-glow:rgba(0,212,255,.45); --btn-ink:#ffffff}
-.btn.action-meditation{--btn-border:rgba(79,107,255,.95); --btn-bg:rgba(79,107,255,.28); --btn-glow:rgba(79,107,255,.4)}
-.btn.action-glandouille{--btn-border:rgba(155,92,255,.98); --btn-bg:rgba(155,92,255,.3); --btn-glow:rgba(155,92,255,.45)}
-.btn.action-chier{--btn-border:rgba(255,153,85,.95); --btn-bg:rgba(255,153,85,.28); --btn-glow:rgba(255,153,85,.4)}
+.btn.action-clope{--act-bg:#b33025; --act-glow:rgba(179,48,37,.5)}
+.btn.action-manger{--act-bg:#c2185b; --act-glow:rgba(194,24,91,.5)}
+.btn.action-menage{--act-bg:#00897b; --act-glow:rgba(0,137,123,.5)}
+.btn.action-douche{--act-bg:#1565c0; --act-glow:rgba(21,101,192,.5)}
+.btn.action-marche{--act-bg:#455a64; --act-glow:rgba(69,90,100,.5)}
+.btn.action-sport{--act-bg:#2e7d32; --act-glow:rgba(46,125,50,.5)}
+.btn.action-push{--act-bg:#7b1fa2; --act-glow:rgba(123,31,162,.5)}
+.btn.action-rego{--act-bg:#f57f17; --act-glow:rgba(245,127,23,.5)}
+.btn.action-reveille{--act-bg:#00838f; --act-glow:rgba(0,131,143,.5)}
+.btn.action-meditation{--act-bg:#283593; --act-glow:rgba(40,53,147,.5)}
+.btn.action-glandouille{--act-bg:#6a1b9a; --act-glow:rgba(106,27,154,.5)}
+.btn.action-chier{--act-bg:#d84315; --act-glow:rgba(216,67,21,.5)}
 
 .btn.cmd-start{--cmd-border:rgba(107,255,133,.98); --cmd-bg:rgba(107,255,133,.32); --cmd-glow:rgba(107,255,133,.45); --cmd-ink:#ffffff}
 .btn.cmd-work{--cmd-border:rgba(255,79,216,.98); --cmd-bg:rgba(255,79,216,.3); --cmd-glow:rgba(255,79,216,.45)}
@@ -669,6 +690,60 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
   background:linear-gradient(135deg, rgba(255,210,0,.05), rgba(16,22,29,.6));
 }
 .cmdSubCard--actions:hover{ border-color:rgba(255,210,0,.4) }
+
+/* Gear button (custom actions) */
+.gear-btn{
+  margin-left:auto; cursor:pointer; font-size:1rem; opacity:.45;
+  transition:opacity .2s, transform .3s; user-select:none;
+}
+.gear-btn:hover{ opacity:.9; transform:rotate(90deg) }
+
+/* Custom Actions Modal */
+.ca-overlay{
+  position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,.65); backdrop-filter:blur(4px);
+  display:none; align-items:center; justify-content:center;
+}
+.ca-overlay.open{ display:flex }
+.ca-modal{
+  background:var(--card-bg, #141a21); border:1px solid rgba(255,255,255,.12);
+  border-radius:var(--sp-12); padding:var(--sp-24);
+  width:min(420px, 90vw); max-height:85vh; overflow-y:auto;
+  box-shadow:0 16px 48px rgba(0,0,0,.5);
+}
+.ca-modal h3{ margin:0 0 var(--sp-16); font-size:1rem; font-weight:700; display:flex; align-items:center; gap:var(--sp-8) }
+.ca-slot{
+  background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+  border-radius:var(--sp-8); padding:var(--sp-12); margin-bottom:var(--sp-12);
+}
+.ca-slot-row{ display:flex; gap:var(--sp-8); align-items:center; margin-bottom:var(--sp-8) }
+.ca-slot-row label{ font-size:.75rem; color:var(--muted); min-width:35px }
+.ca-slot-row input[type="text"]{ flex:1; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:4px; padding:6px 8px; color:var(--ink); font-size:.85rem }
+.ca-slot-row input[type="number"]{ width:60px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:4px; padding:6px 8px; color:var(--ink); font-size:.85rem; text-align:center }
+.ca-palette{ display:flex; gap:6px; flex-wrap:wrap }
+.ca-swatch{
+  width:24px; height:24px; border-radius:50%; cursor:pointer; border:2px solid transparent;
+  transition:border-color .15s, transform .15s;
+}
+.ca-swatch:hover{ transform:scale(1.2) }
+.ca-swatch.selected{ border-color:#fff; transform:scale(1.15) }
+.ca-del{ background:none; border:none; color:rgba(255,77,77,.7); cursor:pointer; font-size:.75rem; margin-left:auto; padding:2px 6px }
+.ca-del:hover{ color:#ff4d4d }
+.ca-add{
+  display:flex; align-items:center; justify-content:center; gap:var(--sp-4);
+  width:100%; padding:8px; background:rgba(255,255,255,.04); border:1px dashed rgba(255,255,255,.15);
+  border-radius:var(--sp-8); color:var(--muted); cursor:pointer; font-size:.8rem;
+  transition:border-color .2s, color .2s;
+}
+.ca-add:hover{ border-color:rgba(255,210,0,.4); color:rgba(255,210,0,.9) }
+.ca-footer{ display:flex; justify-content:flex-end; gap:var(--sp-8); margin-top:var(--sp-16) }
+.ca-footer button{
+  padding:8px 16px; border-radius:6px; font-size:.8rem; cursor:pointer; border:none;
+  transition:opacity .2s;
+}
+.ca-btn-cancel{ background:rgba(255,255,255,.08); color:var(--ink) }
+.ca-btn-save{ background:rgba(53,217,154,.8); color:#0e1116; font-weight:600 }
+.ca-btn-save:hover{ opacity:.85 }
 
 /* Alcohol sub-card - amber/orange accent */
 .cmdSubCard--alcohol{
@@ -2299,6 +2374,7 @@ body{
         <span class="cmdSubCard__icon" aria-hidden="true">&#9889;</span>
         <span class="cmdSubCard__title">Actions rapides</span>
         <span class="help" data-tip="Pauses, activites et routines.">?</span>
+        <span class="gear-btn" id="btnCustomActions" onclick="openCustomActionsModal()" title="Ajouter des actions">&#9881;</span>
       </div>
       <div class="grid" id="actionsGrid"></div>
     </div>
@@ -2723,6 +2799,7 @@ async function loadSettings(){
       grid.innerHTML = "<div class='emptyState' style='grid-column:1/-1'><div class='emptyTitle'>Aucune action</div><div class='emptyDesc'>Ajoute des actions dans settings.json.</div></div>";
       return;
     }
+    injectCustomActionCSS(acts);
     for(const a of acts){
       const key = (a.key||"").trim(); if(!key) continue;
       const label = (a.label||key);
@@ -2739,6 +2816,119 @@ async function loadSettings(){
     }
     showToast("Erreur chargement actions.", "error", "Actions");
   }
+}
+
+/* ===================== Custom Actions ===================== */
+const CA_PALETTE = [
+  {hex:"#ff9955",label:"Orange"},{hex:"#ffcc00",label:"Jaune"},
+  {hex:"#ff66b2",label:"Rose"},{hex:"#66ccff",label:"Bleu"},
+  {hex:"#99ff66",label:"Lime"},{hex:"#cc99ff",label:"Lavande"}
+];
+const CA_MAX = 3;
+
+function getCustomActions(){
+  if (!SETTINGS || !SETTINGS.actions) return [];
+  return SETTINGS.actions.filter(a => a.custom === true);
+}
+
+function caSlotHtml(idx, act){
+  const name = act ? (act.label||"") : "";
+  const min = act ? (act.minutes||10) : 10;
+  const col = act ? (act.color||CA_PALETTE[0].hex) : CA_PALETTE[idx % CA_PALETTE.length].hex;
+  let h = '<div class="ca-slot" data-idx="'+idx+'">';
+  h += '<div class="ca-slot-row"><label>Nom</label><input type="text" class="ca-name" value="'+name.replace(/"/g,"&quot;")+'" maxlength="20" placeholder="Ex: Courses"><label style="margin-left:8px">Min</label><input type="number" class="ca-min" value="'+min+'" min="0" max="120"><button class="ca-del" onclick="caRemoveSlot('+idx+')">Supprimer</button></div>';
+  h += '<div class="ca-slot-row"><label>Couleur</label><div class="ca-palette">';
+  for(const c of CA_PALETTE){
+    h += '<div class="ca-swatch'+(c.hex===col?' selected':'')+'" style="background:'+c.hex+'" data-color="'+c.hex+'" title="'+c.label+'" onclick="caPickColor(this)"></div>';
+  }
+  h += '</div></div></div>';
+  return h;
+}
+
+function caRenderSlots(){
+  const container = document.getElementById("caSlots");
+  const existing = getCustomActions();
+  if(!container._caData) container._caData = existing.length ? existing.map(a=>({label:a.label,minutes:a.minutes,color:a.color})) : [];
+  let html = "";
+  container._caData.forEach((a,i) => { html += caSlotHtml(i, a); });
+  container.innerHTML = html;
+  document.getElementById("caAddBtn").style.display = container._caData.length >= CA_MAX ? "none" : "";
+}
+
+function caAddSlot(){
+  const container = document.getElementById("caSlots");
+  if(!container._caData) container._caData = [];
+  if(container._caData.length >= CA_MAX) return;
+  const idx = container._caData.length;
+  container._caData.push({label:"",minutes:10,color:CA_PALETTE[idx % CA_PALETTE.length].hex});
+  caRenderSlots();
+}
+
+function caRemoveSlot(idx){
+  const container = document.getElementById("caSlots");
+  container._caData.splice(idx,1);
+  caRenderSlots();
+}
+
+function caPickColor(el){
+  const row = el.closest(".ca-palette");
+  row.querySelectorAll(".ca-swatch").forEach(s => s.classList.remove("selected"));
+  el.classList.add("selected");
+}
+
+function caSyncData(){
+  const container = document.getElementById("caSlots");
+  const slots = container.querySelectorAll(".ca-slot");
+  container._caData = [];
+  slots.forEach(slot => {
+    const name = slot.querySelector(".ca-name").value.trim();
+    const min = parseInt(slot.querySelector(".ca-min").value)||10;
+    const selColor = slot.querySelector(".ca-swatch.selected");
+    const color = selColor ? selColor.dataset.color : CA_PALETTE[0].hex;
+    container._caData.push({label:name,minutes:min,color:color});
+  });
+}
+
+function openCustomActionsModal(){
+  const container = document.getElementById("caSlots");
+  container._caData = getCustomActions().map(a=>({label:a.label,minutes:a.minutes,color:a.color}));
+  caRenderSlots();
+  document.getElementById("customActionsModal").classList.add("open");
+}
+
+function closeCustomActionsModal(){
+  document.getElementById("customActionsModal").classList.remove("open");
+}
+
+async function saveCustomActions(){
+  caSyncData();
+  const container = document.getElementById("caSlots");
+  const actions = (container._caData||[]).filter(a => a.label && a.label.trim());
+  try{
+    const r = await postJSON("/api/settings/custom-actions", {actions:actions});
+    if(r && r.ok){
+      closeCustomActionsModal();
+      await loadSettings();
+      showToast("Actions enregistr\u00e9es", "success", "Actions");
+    } else {
+      showToast(r.error||"Erreur", "error", "Actions");
+    }
+  }catch(e){
+    showToast("Erreur r\u00e9seau", "error", "Actions");
+  }
+}
+
+function injectCustomActionCSS(actions){
+  let el = document.getElementById("customActionStyles");
+  if(!el){ el = document.createElement("style"); el.id = "customActionStyles"; document.head.appendChild(el); }
+  let css = "";
+  for(const a of actions){
+    if(!a.custom || !a.color) continue;
+    const k = a.key, c = a.color;
+    css += ".btn.action-"+k+"{--act-bg:"+c+";--act-glow:"+c+"80}\n";
+    css += ".timeline-bar.action-"+k+"{background:linear-gradient(180deg,"+c+"b3,"+c+"66)}\n";
+  }
+  el.textContent = css;
 }
 
 function initOnboarding(){
@@ -4067,6 +4257,20 @@ document.addEventListener('click', () => {
   bindReportNav();
 })();
 </script>
+
+<!-- Custom Actions Modal -->
+<div class="ca-overlay" id="customActionsModal">
+  <div class="ca-modal">
+    <h3><span>&#9881;</span> Actions personnalis&#233;es</h3>
+    <div id="caSlots"></div>
+    <button class="ca-add" id="caAddBtn" onclick="caAddSlot()">+ Ajouter une action</button>
+    <div class="ca-footer">
+      <button class="ca-btn-cancel" onclick="closeCustomActionsModal()">Annuler</button>
+      <button class="ca-btn-save" onclick="saveCustomActions()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
 '@
