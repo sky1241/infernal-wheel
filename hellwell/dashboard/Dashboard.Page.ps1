@@ -693,12 +693,6 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .cmdSubCard__icon{ font-size:1.1rem; opacity:.85 }
 .cmdSubCard__title{ font-weight:700; font-size:.95rem; letter-spacing:.3px }
 
-/* Separator between cmd buttons and actions */
-.cmdSep{
-  height:1px; margin:12px 0;
-  background:linear-gradient(90deg, transparent, rgba(255,255,255,.08) 20%, rgba(255,255,255,.08) 80%, transparent);
-}
-
 /* Actions sub-card — subtle border */
 .cmdSubCard--actions{
   border-color:rgba(255,255,255,.08);
@@ -853,7 +847,6 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .cmdSubCard--system:hover{ border-color:rgba(91,178,255,.35) }
 
 /* Command buttons with icons */
-.cmdGrid{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center }
 .cmdBtn{ display:inline-flex; align-items:center; gap:0 }
 .cmdBtn__icon{ display:none }
 .cmdBtn__label{ font-size:.9rem; font-weight:700; letter-spacing:.5px }
@@ -2446,22 +2439,17 @@ body{
         <span class="help" data-tip="Commandes et pauses.">?</span>
         <span class="gear-btn" id="btnCustomActions" onclick="openCustomActionsModal()" title="Ajouter des actions">&#9881;</span>
       </div>
-      <div class="cmdGrid">
-        <button class="btn cmd cmd-start tooltip cmdBtn" data-tooltip="Demarrer la journee" onclick="send('start', this)">
-          <span class="cmdBtn__icon" aria-hidden="true">&#9654;</span>
+      <div class="grid" id="actionsGrid">
+        <button class="btn cmd cmd-start tooltip cmdBtn" data-cmd="1" data-tooltip="Demarrer la journee" onclick="send('start', this)">
           <span class="cmdBtn__label">START</span>
         </button>
-        <button class="btn cmd cmd-work tooltip cmdBtn" data-tooltip="Commencer a travailler" onclick="send('work', this)">
-          <span class="cmdBtn__icon" aria-hidden="true">&#128188;</span>
+        <button class="btn cmd cmd-work tooltip cmdBtn" data-cmd="1" data-tooltip="Commencer a travailler" onclick="send('work', this)">
           <span class="cmdBtn__label">WORK</span>
         </button>
-        <button class="btn cmd cmd-dodo tooltip cmdBtn" data-tooltip="Mode sommeil" onclick="send('dodo', this)">
-          <span class="cmdBtn__icon" aria-hidden="true">&#127769;</span>
+        <button class="btn cmd cmd-dodo tooltip cmdBtn" data-cmd="1" data-tooltip="Mode sommeil" onclick="send('dodo', this)">
           <span class="cmdBtn__label">DODO</span>
         </button>
       </div>
-      <div class="cmdSep"></div>
-      <div class="grid" id="actionsGrid"></div>
     </div>
 
     <!-- [UX] Sub-card: Comptage alcool -->
@@ -2878,10 +2866,14 @@ async function loadSettings(){
     if (!r.ok) { throw new Error("http"); }
     SETTINGS = await r.json();
     const grid = document.getElementById("actionsGrid");
-    grid.innerHTML = "";
+    /* Remove only dynamic action buttons, keep static cmd buttons (data-cmd) */
+    Array.from(grid.children).forEach(c => { if(!c.dataset.cmd) grid.removeChild(c); });
     const acts = (SETTINGS.actions || []).filter(a => (a.mode||"break")==="break");
     if (!acts.length) {
-      grid.innerHTML = "<div class='emptyState' style='grid-column:1/-1'><div class='emptyTitle'>Aucune action</div><div class='emptyDesc'>Ajoute des actions dans settings.json.</div></div>";
+      const empty = document.createElement("div");
+      empty.className = "emptyState";
+      empty.innerHTML = "<div class='emptyTitle'>Aucune action</div><div class='emptyDesc'>Ajoute des actions dans settings.json.</div>";
+      grid.appendChild(empty);
       return;
     }
     injectCustomActionCSS(acts);
@@ -2897,7 +2889,12 @@ async function loadSettings(){
   } catch(e){
     const grid = document.getElementById("actionsGrid");
     if (grid) {
-      grid.innerHTML = "<div class='emptyState' style='grid-column:1/-1'><div class='emptyTitle'>Impossible de charger les actions</div><div class='emptyDesc'>Verifie le serveur.</div></div>";
+      /* Keep cmd buttons on error too */
+      Array.from(grid.children).forEach(c => { if(!c.dataset.cmd) grid.removeChild(c); });
+      const err = document.createElement("div");
+      err.className = "emptyState";
+      err.innerHTML = "<div class='emptyTitle'>Impossible de charger les actions</div><div class='emptyDesc'>Verifie le serveur.</div>";
+      grid.appendChild(err);
     }
     showToast("Erreur chargement actions.", "error", "Actions");
   }
