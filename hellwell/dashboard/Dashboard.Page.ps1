@@ -604,20 +604,6 @@ small{color:var(--muted)}
   filter:brightness(1.18) saturate(1.2);
 }
 .btn.action:active{transform:scale(0.96); filter:brightness(0.92)}
-/* Delete X — inline right side, slides in on hover */
-.btn.action .act-del{
-  display:inline-flex; align-items:center; justify-content:center;
-  width:0; overflow:hidden; opacity:0;
-  margin-left:0; padding:0;
-  font-size:.7rem; font-weight:700; color:rgba(255,255,255,.5);
-  border-left:1px solid rgba(255,255,255,.15);
-  cursor:pointer;
-  transition:width .18s ease, opacity .18s ease, margin .18s ease, padding .18s ease, color .12s;
-}
-.btn.action:hover .act-del{
-  width:22px; opacity:1; margin-left:10px; padding:0 0 0 8px;
-}
-.btn.action .act-del:hover{ color:#ff6b6b }
 
 /* Actions flow → flex-wrap centered pills */
 .cmdSubCard--actions .grid{
@@ -707,12 +693,11 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .cmdSubCard__icon{ font-size:1.1rem; opacity:.85 }
 .cmdSubCard__title{ font-weight:700; font-size:.95rem; letter-spacing:.3px }
 
-/* Primary sub-card — subtle border like actions */
-.cmdSubCard--primary{
-  border-color:rgba(255,255,255,.08);
-  background:linear-gradient(135deg, rgba(255,255,255,.03), rgba(16,22,29,.6));
+/* Separator between cmd buttons and actions */
+.cmdSep{
+  height:1px; margin:12px 0;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,.08) 20%, rgba(255,255,255,.08) 80%, transparent);
 }
-.cmdSubCard--primary:hover{ border-color:rgba(255,255,255,.15) }
 
 /* Actions sub-card — subtle border */
 .cmdSubCard--actions{
@@ -787,39 +772,32 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .ca-slot-lbl{ font-size:.7rem; color:rgba(255,255,255,.35); text-transform:uppercase; letter-spacing:.5px; font-weight:600 }
 /* Color palette — horizontal scroll (UX O.tables overflow pattern) */
 .ca-colors{
-  display:flex; align-items:center; gap:4px; margin-top:4px;
-  overflow-x:auto; overflow-y:hidden;
-  padding:6px 6px 6px 6px;
-  scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.15) transparent;
-  -webkit-overflow-scrolling:touch;
+  display:flex; align-items:center; gap:2px; margin-top:4px;
+  overflow:visible;
+  padding:4px 0;
+  flex-wrap:wrap;
 }
-.ca-colors::-webkit-scrollbar{ height:4px }
-.ca-colors::-webkit-scrollbar-track{ background:transparent }
-.ca-colors::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.15); border-radius:4px }
-.ca-colors .ca-slot-lbl{ margin-right:2px; flex-shrink:0 }
+.ca-colors .ca-slot-lbl{ margin-right:4px; flex-shrink:0 }
 .ca-swatch{
-  width:24px; height:24px; border-radius:50%; cursor:pointer;
-  border:2px solid transparent; padding:3px; flex-shrink:0;
+  width:30px; height:30px; border-radius:50%; cursor:pointer;
+  border:2.5px solid transparent; padding:0;
   transition:border-color .12s, transform .12s, box-shadow .12s;
-  min-width:32px; min-height:32px; box-sizing:content-box;
   display:flex; align-items:center; justify-content:center;
-  background:transparent !important;
-}
-.ca-swatch::after{
-  content:""; display:block; width:24px; height:24px; border-radius:50%;
-  background:var(--sw-color);
+  background:var(--sw-color) !important;
+  flex-shrink:0;
 }
 .ca-swatch:hover{ transform:scale(1.15); border-color:rgba(255,255,255,.25) }
 .ca-swatch.selected{ border-color:#fff; box-shadow:0 0 12px var(--sw-color) }
-/* Delete button — bottom of slot */
+/* Delete button — clear destructive style (UX T.97 destructive action) */
 .ca-del{
-  display:flex; align-items:center; justify-content:center;
-  width:100%; margin-top:10px; padding:7px;
-  background:rgba(255,77,77,.06); border:1px solid rgba(255,77,77,.15); border-radius:8px;
-  color:rgba(255,77,77,.55); cursor:pointer; font-size:.78rem; font-weight:500;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  width:100%; margin-top:12px; padding:8px;
+  background:rgba(255,60,60,.12); border:none; border-radius:8px;
+  color:rgba(255,100,100,.9); cursor:pointer; font-size:.8rem; font-weight:600;
   transition:all .15s;
 }
-.ca-del:hover{ background:rgba(255,77,77,.14); color:#ff6b6b; border-color:rgba(255,77,77,.4) }
+.ca-del:hover{ background:rgba(255,60,60,.25); color:#ff6b6b }
+.ca-del::before{ content:"\2715"; font-size:.7rem }
 /* Add button */
 .ca-add{
   display:flex; align-items:center; justify-content:center;
@@ -828,6 +806,27 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
   transition:all .2s;
 }
 .ca-add:hover{ border-color:rgba(53,217,154,.4); color:rgba(53,217,154,.9); background:rgba(53,217,154,.04) }
+/* Section labels & divider */
+.ca-section-lbl{ font-size:.7rem; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.8px; font-weight:700; margin-bottom:8px }
+.ca-divider{ height:1px; margin:16px 0; background:linear-gradient(90deg, transparent, rgba(255,255,255,.08) 20%, rgba(255,255,255,.08) 80%, transparent) }
+/* Existing action row */
+.ca-action-row{
+  display:flex; align-items:center; gap:10px;
+  padding:8px 12px; margin-bottom:4px;
+  border-radius:8px;
+  transition:background .12s;
+}
+.ca-action-row:hover{ background:rgba(255,255,255,.04) }
+.ca-action-dot{ width:12px; height:12px; border-radius:50%; flex-shrink:0 }
+.ca-action-name{ flex:1; font-size:.88rem; color:rgba(255,255,255,.85) }
+.ca-action-badge{ font-size:.6rem; color:rgba(255,255,255,.3); padding:2px 6px; border:1px solid rgba(255,255,255,.1); border-radius:4px }
+.ca-action-rm{
+  width:28px; height:28px; border-radius:6px;
+  background:none; border:none; color:rgba(255,255,255,.25);
+  font-size:.8rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:all .12s;
+}
+.ca-action-rm:hover{ background:rgba(255,60,60,.15); color:rgba(255,100,100,.9) }
 /* Footer buttons */
 .ca-footer{ display:flex; justify-content:flex-end; gap:10px; margin-top:20px }
 .ca-footer button{
@@ -2439,11 +2438,13 @@ body{
       <span class="section-header-badge cmdBadge">Centre de controle</span>
     </div>
 
-    <!-- [UX] Sub-card: Commandes principales -->
-    <div class="cmdSubCard cmdSubCard--primary">
+    <!-- [UX] Unified command + actions card -->
+    <div class="cmdSubCard cmdSubCard--actions">
       <div class="cmdSubCard__header">
-        <span class="cmdSubCard__icon" aria-hidden="true">&#9654;</span>
-        <span class="cmdSubCard__title">Demarrage</span>
+        <span class="cmdSubCard__icon" aria-hidden="true">&#9889;</span>
+        <span class="cmdSubCard__title">Actions</span>
+        <span class="help" data-tip="Commandes et pauses.">?</span>
+        <span class="gear-btn" id="btnCustomActions" onclick="openCustomActionsModal()" title="Ajouter des actions">&#9881;</span>
       </div>
       <div class="cmdGrid">
         <button class="btn cmd cmd-start tooltip cmdBtn" data-tooltip="Demarrer la journee" onclick="send('start', this)">
@@ -2459,16 +2460,7 @@ body{
           <span class="cmdBtn__label">DODO</span>
         </button>
       </div>
-    </div>
-
-    <!-- [UX] Sub-card: Actions rapides -->
-    <div class="cmdSubCard cmdSubCard--actions">
-      <div class="cmdSubCard__header">
-        <span class="cmdSubCard__icon" aria-hidden="true">&#9889;</span>
-        <span class="cmdSubCard__title">Actions rapides</span>
-        <span class="help" data-tip="Pauses, activites et routines.">?</span>
-        <span class="gear-btn" id="btnCustomActions" onclick="openCustomActionsModal()" title="Ajouter des actions">&#9881;</span>
-      </div>
+      <div class="cmdSep"></div>
       <div class="grid" id="actionsGrid"></div>
     </div>
 
@@ -2899,13 +2891,7 @@ async function loadSettings(){
       const b = document.createElement("button");
       b.className = "btn action action-" + key;
       b.textContent = label;
-      b.onclick = function(e){ if(!e.target.classList.contains("act-del")) send(key, b); };
-      const x = document.createElement("span");
-      x.className = "act-del";
-      x.textContent = "\u2715";
-      x.title = "Supprimer " + label;
-      x.onclick = function(e){ e.stopPropagation(); removeAction(key, label); };
-      b.appendChild(x);
+      b.onclick = function(){ send(key, b); };
       grid.appendChild(b);
     }
   } catch(e){
@@ -3000,10 +2986,39 @@ function caSyncData(){
   });
 }
 
+function renderExistingActions(){
+  const list = document.getElementById("caExistingList");
+  if(!list || !SETTINGS) return;
+  const acts = (SETTINGS.actions||[]).filter(a=>(a.mode||"break")==="break");
+  const COLORS = {clope:"hsl(4,65%,52%)",manger:"hsl(330,58%,52%)",menage:"hsl(165,55%,40%)",douche:"hsl(210,60%,48%)",marche:"hsl(200,12%,42%)",sport:"hsl(145,55%,40%)",reveille:"hsl(187,58%,42%)",meditation:"hsl(230,50%,45%)",glandouille:"hsl(280,48%,45%)",chier:"hsl(18,62%,48%)"};
+  let html = "";
+  for(const a of acts){
+    const key = a.key||"";
+    const label = a.label||key;
+    const color = a.custom && a.color ? a.color : (COLORS[key]||"#666");
+    const badge = a.custom ? "<span class='ca-action-badge'>custom</span>" : "";
+    const protect = (key==="work"||key==="dodo");
+    const rm = protect ? "" : "<button class='ca-action-rm' title='Supprimer "+label+"' onclick='caRemoveExisting(\""+key+"\",\""+label+"\")'>\u2715</button>";
+    html += "<div class='ca-action-row'><span class='ca-action-dot' style='background:"+color+"'></span><span class='ca-action-name'>"+label+"</span>"+badge+rm+"</div>";
+  }
+  if(!acts.length) html = "<div style='text-align:center;color:rgba(255,255,255,.3);padding:12px;font-size:.85rem'>Aucune action</div>";
+  list.innerHTML = html;
+}
+
+async function caRemoveExisting(key, label){
+  if(!confirm("Supprimer \u00ab "+label+" \u00bb ?")) return;
+  try{
+    const r = await postJSON("/api/settings/remove-action",{key:key});
+    if(r && r.ok){ showToast(label+" supprim\u00e9e","ok","Actions"); await loadSettings(); renderExistingActions(); }
+    else{ showToast(r.error||"Erreur","error","Actions"); }
+  }catch(e){ showToast("Erreur r\u00e9seau","error","Actions"); }
+}
+
 function openCustomActionsModal(){
   const container = document.getElementById("caSlots");
   container._caData = getCustomActions().map(a=>({label:a.label,color:a.color}));
   caRenderSlots();
+  renderExistingActions();
   const overlay = document.getElementById("customActionsModal");
   overlay.classList.add("open");
   /* UX T.100: focus first interactive */
@@ -4376,17 +4391,21 @@ document.addEventListener('click', () => {
 })();
 </script>
 
-<!-- Custom Actions Modal (UX T.100 ARIA) -->
+<!-- Action Manager Modal (UX T.100 ARIA) -->
 <div class="ca-overlay" id="customActionsModal" onclick="if(event.target===this)closeCustomActionsModal()">
   <div class="ca-modal" role="dialog" aria-modal="true" aria-labelledby="caTitle">
     <div class="ca-header">
-      <h3 id="caTitle">Actions personnalis&#233;es</h3>
+      <h3 id="caTitle">G&#233;rer les actions</h3>
       <button class="ca-close" onclick="closeCustomActionsModal()" aria-label="Fermer">&times;</button>
     </div>
+    <div class="ca-section-lbl">Actions actives</div>
+    <div id="caExistingList"></div>
+    <div class="ca-divider"></div>
+    <div class="ca-section-lbl">Cr&#233;er une action</div>
     <div id="caSlots"></div>
-    <button class="ca-add" id="caAddBtn" onclick="caAddSlot()">+ Ajouter une action</button>
+    <button class="ca-add" id="caAddBtn" onclick="caAddSlot()">+ Ajouter</button>
     <div class="ca-footer">
-      <button class="ca-btn-cancel" onclick="closeCustomActionsModal()">Annuler</button>
+      <button class="ca-btn-cancel" onclick="closeCustomActionsModal()">Fermer</button>
       <button class="ca-btn-save" onclick="saveCustomActions()">Enregistrer</button>
     </div>
   </div>
