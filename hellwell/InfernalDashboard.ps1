@@ -3354,14 +3354,15 @@ console.log('[INIT] initInputListeners done - ALL READY');
         $n = 1
         try { $n = if ($data.n) { [int]$data.n } else { 1 } } catch { $n = 1 }
         if ($n -lt 1) { $n = 1 }
+        $dayParam = if ($data.day) { [string]$data.day } else { "" }
 
         try {
-          Add-DrinkLog ("attempt type={0} n={1}" -f $type, $n)
+          Add-DrinkLog ("attempt type={0} n={1} day={2}" -f $type, $n, $dayParam)
           $line = $null
           switch ($type.ToLowerInvariant()) {
-            "wine"   { $line = Add-DrinksEntry -Wine $n }
-            "beer"   { $line = Add-DrinksEntry -Beer $n }
-            "strong" { $line = Add-DrinksEntry -Strong $n }
+            "wine"   { $line = Add-DrinksEntry -Wine $n -Day $dayParam }
+            "beer"   { $line = Add-DrinksEntry -Beer $n -Day $dayParam }
+            "strong" { $line = Add-DrinksEntry -Strong $n -Day $dayParam }
             default  {
               Add-DrinkLog ("reject type={0} n={1}" -f $type, $n)
               Write-HttpResponse $ctx 400 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error="type must be wine|beer|strong"} | ConvertTo-Json))
@@ -3374,7 +3375,7 @@ console.log('[INIT] initInputListeners done - ALL READY');
           } else {
             Add-DrinkLog ("ok type={0} n={1}" -f $type, $n)
           }
-          $dayKey = Get-InfernalDayKey (Get-Date)
+          $dayKey = if ($dayParam -eq "yesterday") { Get-InfernalDayKey ((Get-Date).AddDays(-1)) } else { Get-InfernalDayKey (Get-Date) }
           $currTotals = Get-DailyAlcoholTotals $dayKey
           Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true; type=$type; n=$n; day=$dayKey; totals=$currTotals; line=$line} | ConvertTo-Json))
         } catch {

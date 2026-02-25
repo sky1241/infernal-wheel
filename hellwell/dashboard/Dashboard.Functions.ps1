@@ -37,10 +37,16 @@ function Get-TimeOfDayMinutes([datetime]$dt) {
 }
 
 function Add-DrinksEntry {
-  param([int]$Wine=0, [int]$Beer=0, [int]$Strong=0)
+  param([int]$Wine=0, [int]$Beer=0, [int]$Strong=0, [string]$Day="")
 
   $at = Get-Date
-  $dayKey = Get-InfernalDayKey $at
+  if ($Day -eq "yesterday") {
+    $dayKey = Get-InfernalDayKey ($at.AddDays(-1))
+  } elseif ($Day -and $Day -ne "") {
+    $dayKey = $Day
+  } else {
+    $dayKey = Get-InfernalDayKey $at
+  }
   $line = '{0},{1},{2},{3},{4}' -f `
     $at.ToString("yyyy-MM-dd HH:mm:ss"), $dayKey, $Wine, $Beer, $Strong
 

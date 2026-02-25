@@ -612,6 +612,41 @@ small{color:var(--muted)}
   gap:10px !important;
   justify-content:center !important;
 }
+/* Progressive disclosure: overflow actions */
+.actions-overflow{
+  display:flex; flex-wrap:wrap; gap:10px; justify-content:center;
+  max-height:0; overflow:hidden; opacity:0;
+  transition:max-height .3s ease, opacity .25s ease, margin .3s ease;
+  width:100%;
+}
+.actions-overflow.open{
+  max-height:300px; opacity:1; margin-top:10px;
+}
+/* +N expand button */
+.btn-expand{
+  background:rgba(255,255,255,.08);
+  color:rgba(255,255,255,.55);
+  border:1px dashed rgba(255,255,255,.15);
+  border-radius:50px;
+  padding:8px 20px;
+  font-size:.8rem;
+  font-weight:600;
+  letter-spacing:.3px;
+  min-height:40px;
+  cursor:pointer;
+  transition:all .2s ease;
+  white-space:nowrap;
+}
+.btn-expand:hover{
+  background:rgba(255,255,255,.14);
+  color:rgba(255,255,255,.8);
+  border-color:rgba(255,255,255,.3);
+}
+.btn-expand.open{
+  background:rgba(255,255,255,.05);
+  color:rgba(255,255,255,.4);
+  border-style:solid;
+}
 /* Cmd buttons — same pill style as .btn.action */
 .btn.cmd{
   background:var(--act-bg, #2d3436);
@@ -878,9 +913,24 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 /* Strong — deep orange */
 .alcBtn.alcBtn--strong{ --alc-bg:hsl(25,65%,40%); --alc-glow:hsla(25,65%,40%,.5) }
 .alcStatus{ margin-left:auto; color:var(--muted) }
-.alcAdjustToggle{ margin-top:var(--sp-8) }
-.alcAdjustWrap{ margin-top:var(--sp-8); padding:var(--sp-12); background:rgba(0,0,0,.2); border-radius:var(--sp-8) }
-.alcSelect{ width:auto; min-width:140px }
+/* Day chip toggle for drink logging */
+.alcDayChips{ display:flex; gap:6px; margin-bottom:10px }
+.alcDayChip{
+  background:rgba(255,255,255,.06); color:rgba(255,255,255,.5);
+  border:1px solid rgba(255,255,255,.1); border-radius:50px;
+  padding:6px 16px; font-size:.75rem; font-weight:600;
+  cursor:pointer; transition:all .2s ease; letter-spacing:.3px;
+}
+.alcDayChip:hover{ background:rgba(255,255,255,.12); color:rgba(255,255,255,.7) }
+.alcDayChip.active{
+  background:hsl(35,60%,35%); color:#fff;
+  border-color:hsl(35,60%,45%);
+  box-shadow:0 2px 8px hsla(35,60%,35%,.4);
+}
+.alcDayLabel{
+  font-size:.7rem; color:rgba(255,255,255,.35);
+  text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px;
+}
 
 /* System row */
 .cmdStatusRow{ margin-top:var(--sp-8) }
@@ -2459,6 +2509,12 @@ body{
         <span class="cmdSubCard__title">Comptage alcool</span>
         <span class="help" data-tip="Ajoute ou ajuste les consommations du jour.">?</span>
       </div>
+      <!-- [UX §165] Day chip toggle — progressive disclosure for past days -->
+      <div class="alcDayLabel">Jour</div>
+      <div class="alcDayChips">
+        <button class="alcDayChip active" data-day="" onclick="setDrinkDay(this, '')">Aujourd'hui</button>
+        <button class="alcDayChip" data-day="yesterday" onclick="setDrinkDay(this, 'yesterday')">Hier</button>
+      </div>
       <!-- [UX_BEHAVIORAL_PDF C11] Labels visibles au-dessus des champs -->
       <div class="fieldRow alcFieldRow">
         <div class="fieldGroup">
@@ -2480,30 +2536,6 @@ body{
         <small id="drinkStatus" role="status" aria-live="polite" class="alcStatus">-</small>
       </div>
       <small id="drinkHint" class="fieldHint">Quantite minimum : 1</small>
-      <div class="alcAdjustToggle">
-        <button class="btn ghost" id="adjustToggle" aria-expanded="false" aria-controls="adjustWrap">&#9881; Ajustements</button>
-      </div>
-      <div id="adjustWrap" class="disclose alcAdjustWrap">
-        <!-- [UX_BEHAVIORAL_PDF C11] Labels visibles au-dessus des champs -->
-        <div class="fieldRow">
-          <div class="fieldGroup">
-            <label for="adjustType" class="fieldLabel">Type</label>
-            <select id="adjustType" class="input alcSelect">
-              <option value="beer" selected>&#127866; Biere</option>
-              <option value="wine">&#127863; Vin</option>
-              <option value="strong">&#129380; Alcool fort</option>
-            </select>
-          </div>
-          <div class="fieldGroup">
-            <label for="adjustTotal" class="fieldLabel">Nouveau total</label>
-            <input id="adjustTotal" class="input adjustInput" type="number" min="0" step="1" value="0" aria-describedby="adjustHint"/>
-          </div>
-          <button class="btn primary tooltip" data-tooltip="Ajuster le total du jour" data-adjust-btn="1" onclick="adjustDrink()">Ajuster</button>
-          <small id="adjustStatus" role="status" aria-live="polite">-</small>
-        </div>
-        <small class="muted">Ajuste le total du jour (ajoute seulement la difference).</small>
-        <small id="adjustHint" class="fieldHint">Total minimum : 0</small>
-      </div>
       <div id="drinkRecent" class="recentList"></div>
     </div>
 
@@ -2796,10 +2828,6 @@ async function getJSON(url){
 function setStatus(t){
   document.getElementById("status").textContent = t;
 }
-function setAdjustStatus(t){
-  const el = document.getElementById("adjustStatus");
-  if (el) { el.textContent = t; }
-}
 function setButtonBusy(btn, busy, title){
   if (!btn) return;
   btn.disabled = !!busy;
@@ -2827,8 +2855,6 @@ let SETTINGS = null;
 let agendaScrollUntil = 0;
 const drinkInput = document.getElementById("drinkN");
 const drinkHint = document.getElementById("drinkHint");
-const adjustInput = document.getElementById("adjustTotal");
-const adjustHint = document.getElementById("adjustHint");
 
 function validateDrinkInput(){
   if (!drinkInput) return;
@@ -2845,20 +2871,6 @@ function validateDrinkInput(){
   setDrinkButtonsDisabled(drinkBusy);
 }
 
-function validateAdjustInput(){
-  if (!adjustInput) return;
-  const v = parseInt(adjustInput.value || "0", 10);
-  const wasValid = adjustInputValid;
-  adjustInputValid = !isNaN(v) && v >= 0;
-  adjustInput.classList.toggle("invalid", !adjustInputValid);
-  /* [UX_BEHAVIORAL_PDF] Shake si devient invalide */
-  if (wasValid && !adjustInputValid) { shakeInput(adjustInput); }
-  if (adjustHint) {
-    adjustHint.classList.toggle("error", !adjustInputValid);
-    adjustHint.textContent = adjustInputValid ? "Total minimum : 0" : "Total invalide (>= 0)";
-  }
-  setAdjustButtonsDisabled(adjustBusy);
-}
 
 async function loadSettings(){
   try{
@@ -2877,14 +2889,42 @@ async function loadSettings(){
       return;
     }
     injectCustomActionCSS(acts);
-    for(const a of acts){
+    const VISIBLE_COUNT = 4;
+    const visible = acts.slice(0, VISIBLE_COUNT);
+    const overflow = acts.slice(VISIBLE_COUNT);
+    /* Visible actions */
+    for(const a of visible){
       const key = (a.key||"").trim(); if(!key) continue;
-      const label = (a.label||key);
       const b = document.createElement("button");
       b.className = "btn action action-" + key;
-      b.textContent = label;
+      b.textContent = (a.label||key);
       b.onclick = function(){ send(key, b); };
       grid.appendChild(b);
+    }
+    /* Overflow: +N button + hidden container */
+    if(overflow.length > 0){
+      const expandBtn = document.createElement("button");
+      expandBtn.className = "btn-expand";
+      expandBtn.textContent = "+" + overflow.length;
+      expandBtn.id = "actionsExpandBtn";
+      const overflowDiv = document.createElement("div");
+      overflowDiv.className = "actions-overflow";
+      overflowDiv.id = "actionsOverflow";
+      for(const a of overflow){
+        const key = (a.key||"").trim(); if(!key) continue;
+        const b = document.createElement("button");
+        b.className = "btn action action-" + key;
+        b.textContent = (a.label||key);
+        b.onclick = function(){ send(key, b); };
+        overflowDiv.appendChild(b);
+      }
+      expandBtn.onclick = function(){
+        const isOpen = overflowDiv.classList.toggle("open");
+        expandBtn.classList.toggle("open", isOpen);
+        expandBtn.textContent = isOpen ? "Moins" : "+" + overflow.length;
+      };
+      grid.appendChild(expandBtn);
+      grid.appendChild(overflowDiv);
     }
   } catch(e){
     const grid = document.getElementById("actionsGrid");
@@ -3073,46 +3113,18 @@ function initOnboarding(){
   });
 }
 
-function initAdjustToggle(){
-  const t = document.getElementById("adjustToggle");
-  const w = document.getElementById("adjustWrap");
-  if (!t || !w) return;
-  const open = localStorage.getItem("iw_adjust_open") === "1";
-  if (open) { w.classList.add("show"); t.setAttribute("aria-expanded","true"); t.textContent = "Masquer ajustements"; }
-  t.addEventListener("click", ()=>{
-    const isOpen = w.classList.toggle("show");
-    t.setAttribute("aria-expanded", isOpen ? "true" : "false");
-    t.textContent = isOpen ? "Masquer ajustements" : "Afficher ajustements";
-    localStorage.setItem("iw_adjust_open", isOpen ? "1" : "0");
-  });
-}
-
 function val(id){ return document.getElementById(id).value || ""; }
 function setDrinkStatus(t){ document.getElementById("drinkStatus").textContent = t; }
 let drinkBusy = false;
-let adjustBusy = false;
 let drinkInputValid = true;
-let adjustInputValid = true;
 function setDrinkButtonsDisabled(dis){
   drinkBusy = !!dis;
   document.querySelectorAll("[data-drink-btn]").forEach(b=>{
     const disabled = drinkBusy || !drinkInputValid;
     b.disabled = disabled;
     b.style.opacity = disabled ? "0.55" : "1";
-    /* [UX_BEHAVIORAL_PDF A1+A5] Loading spinner + tooltip explicatif */
     if (drinkBusy) { b.classList.add("loading"); b.setAttribute("title", "Envoi en cours, veuillez patienter..."); }
     else { b.classList.remove("loading"); if (!drinkInputValid) { b.setAttribute("title", "Entrez une quantite >= 1 pour activer"); } else { b.removeAttribute("title"); } }
-  });
-}
-function setAdjustButtonsDisabled(dis){
-  adjustBusy = !!dis;
-  document.querySelectorAll("[data-adjust-btn]").forEach(b=>{
-    const disabled = adjustBusy || !adjustInputValid;
-    b.disabled = disabled;
-    b.style.opacity = disabled ? "0.55" : "1";
-    /* [UX_BEHAVIORAL_PDF A1+A5] Loading spinner + tooltip explicatif */
-    if (adjustBusy) { b.classList.add("loading"); b.setAttribute("title", "Envoi en cours, veuillez patienter..."); }
-    else { b.classList.remove("loading"); if (!adjustInputValid) { b.setAttribute("title", "Entrez un total >= 0 pour activer"); } else { b.removeAttribute("title"); } }
   });
 }
 function renderRecentDrinks(list){
@@ -3134,21 +3146,27 @@ async function undoDrink(type, n, totals){
   const key = map[type] || type;
   const current = Number(totals[key] || 0);
   const target = Math.max(0, current - n);
-  setAdjustStatus("undo...");
+  setDrinkStatus("undo...");
   setDrinkButtonsDisabled(true);
-  setAdjustButtonsDisabled(true);
   const j = await postJSON("/api/drinks/adjust", {type:key, total:target});
   setDrinkButtonsDisabled(false);
-  setAdjustButtonsDisabled(false);
   if (j && j.ok) {
-    setAdjustStatus("ok: undo");
+    setDrinkStatus("ok: undo");
     showToast("Annule : -" + n + " " + (key==="beer"?"biere":(key==="wine"?"vin":"alcool fort")), "success", "Alcool");
     refreshLive();
     setTimeout(refreshLive, 1200);
   } else {
-    setAdjustStatus("error");
+    setDrinkStatus("error");
     showToast("Impossible d'annuler.", "error", "Alcool");
   }
+}
+
+/* Day chip state for drink logging */
+let drinkDay = "";
+function setDrinkDay(el, day){
+  drinkDay = day;
+  document.querySelectorAll(".alcDayChip").forEach(c => c.classList.remove("active"));
+  el.classList.add("active");
 }
 
 async function addDrink(type){
@@ -3158,19 +3176,20 @@ async function addDrink(type){
     return;
   }
   const n = Math.max(1, parseInt(val("drinkN") || "1", 10));
+  const dayLabel = drinkDay === "yesterday" ? " (hier)" : "";
   setDrinkStatus("sending...");
   setDrinkButtonsDisabled(true);
-  setAdjustButtonsDisabled(true);
-  const j = await postJSON("/api/drinks/add", {type:type, n:n});
+  const payload = {type:type, n:n};
+  if (drinkDay) payload.day = drinkDay;
+  const j = await postJSON("/api/drinks/add", payload);
   setDrinkButtonsDisabled(false);
-  setAdjustButtonsDisabled(false);
     if (j && j.ok) {
       const t = j.totals || {};
       const totals = "B" + (t.beer||0) + " V" + (t.wine||0) + " AF" + (t.strong||0);
       const labelMap = { beer: "bi\u00e8re", wine: "vin", strong: "alcool fort" };
       const label = labelMap[type] || type;
-      setDrinkStatus("ok: +" + n + " " + label + " (" + totals + ")");
-      showToast("Ajoute : +" + n + " " + label, "success", "Alcool", "Annuler", ()=> undoDrink(type, n, t));
+      setDrinkStatus("ok: +" + n + " " + label + dayLabel + " (" + totals + ")");
+      showToast("+" + n + " " + label + dayLabel, "success", "Alcool", "Annuler", ()=> undoDrink(type, n, t));
       refreshLive();
       setTimeout(refreshLive, 1200);
   } else {
@@ -3179,37 +3198,6 @@ async function addDrink(type){
     showToast("Erreur ajout boisson : " + err, "error", "Alcool");
   }
 }
-async function adjustDrink(){
-  if (!adjustInputValid) {
-    setAdjustStatus("error: total invalide");
-    showToast("Total invalide (>= 0).", "warn", "Alcool");
-    return;
-  }
-  const type = val("adjustType");
-  let total = parseInt(val("adjustTotal") || "0", 10);
-  if (isNaN(total) || total < 0) {
-    setAdjustStatus("error: total invalide");
-    showToast("Total invalide (>= 0).", "warn", "Alcool");
-    return;
-  }
-  setAdjustStatus("sending...");
-  setDrinkButtonsDisabled(true);
-  setAdjustButtonsDisabled(true);
-  const j = await postJSON("/api/drinks/adjust", {type:type, total:total});
-  setDrinkButtonsDisabled(false);
-  setAdjustButtonsDisabled(false);
-  if (j && j.ok) {
-    setAdjustStatus("ok: +" + j.added + " (now " + j.total + ")");
-    showToast("Ajuste : +" + j.added + " (total " + j.total + ")", "success", "Alcool");
-    refreshLive();
-    setTimeout(refreshLive, 1200);
-  } else {
-    const err = (j && j.error) ? j.error : "unknown";
-    setAdjustStatus("error: " + err);
-    showToast("Erreur ajustement : " + err, "error", "Alcool");
-  }
-}
-
 function setEngineStatus(t){ document.getElementById("engineStatus").textContent = t; }
 
 async function restartEngine(){
@@ -4188,15 +4176,12 @@ refreshLive();
 loadSettings();
 loadMonthlySummary();
 initOnboarding();
-initAdjustToggle();
 initRippleEffects();
 initActivityTooltips();
 updateOfflineCount();
 syncOfflineQueue();
 if (drinkInput) { drinkInput.addEventListener("input", validateDrinkInput); }
-if (adjustInput) { adjustInput.addEventListener("input", validateAdjustInput); }
 validateDrinkInput();
-validateAdjustInput();
 window.addEventListener("resize", ()=>{ if (MONTHLY_DATA) { renderMonthlyChart(MONTHLY_DATA); } });
 
 /* [N3] Pause infinite animations when tab is hidden (GPU optimization) */
