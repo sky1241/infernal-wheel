@@ -52,12 +52,15 @@ if (-not (Test-Path $DrinksPath)) {
 
 try { Write-TextAtomic -Path $PidPath -Text "$PID" } catch {}
 
+# Fixed ABV percentages
+$WINE_ABV = 0.135
+$BEER_ABV = 0.055
+$STRONG_ABV = 0.425
+
+# Default volumes (overridable from settings.json alcoholVolumes)
 $WINE_L   = 0.2
 $BEER_L   = 0.5
 $STRONG_L = 0.2
-$WINE_ABV = 0.13
-$BEER_ABV = 0.05
-$STRONG_ABV = 0.40
 $WINE_BOTTLE_L = 0.75
 $STRONG_BOTTLE_L = 0.70
 
@@ -526,6 +529,7 @@ document.getElementById("btnNotif").onclick = ()=> toast("Nouvelle notification"
         continue
       }
       if ($path -eq "/notes") {
+        Sync-AlcoholVolumes
         # Utiliser InfernalDay (basé sur cycle réveil/dodo, pas minuit)
         $d = if ($qs.ContainsKey("d")) { $qs["d"] } else { Get-InfernalDayKey (Get-Date) }
         $content = Get-NoteContent $d
@@ -3344,6 +3348,34 @@ console.log('[INIT] initInputListeners done - ALL READY');
             Write-TextAtomic -Path $SettingsPath -Text $json -MutexName $M_SETTINGS
           }
           Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true} | ConvertTo-Json))
+        } catch {
+          Write-HttpResponse $ctx 500 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error=$_.Exception.Message} | ConvertTo-Json))
+        }
+        continue
+      }
+      if ($path -eq "/api/settings/alcohol-volumes") {
+        try {
+          $vBeer = 0.5; $vWine = 0.2; $vStrong = 0.2
+          try { $vBeer = [double]$data.beer } catch {}
+          try { $vWine = [double]$data.wine } catch {}
+          try { $vStrong = [double]$data.strong } catch {}
+          if ($vBeer -lt 0.05 -or $vBeer -gt 3) { $vBeer = 0.5 }
+          if ($vWine -lt 0.05 -or $vWine -gt 2) { $vWine = 0.2 }
+          if ($vStrong -lt 0.02 -or $vStrong -gt 2) { $vStrong = 0.2 }
+          $settings = Invoke-WithMutexRetry -Name $M_SETTINGS -TimeoutMs 1200 -Retries 10 -Script {
+            Read-JsonSafe -Path $SettingsPath -BackupPath $SettingsBak
+          }
+          if (-not $settings) { $settings = @{} }
+          $settings.alcoholVolumes = @{ beer = $vBeer; wine = $vWine; strong = $vStrong }
+          Invoke-WithMutexRetry -Name $M_SETTINGS -TimeoutMs 1200 -Retries 10 -Script {
+            $json = $settings | ConvertTo-Json -Depth 12
+            Write-TextAtomic -Path $SettingsPath -Text $json -MutexName $M_SETTINGS
+          }
+          # Update runtime globals
+          $script:BEER_L = $vBeer
+          $script:WINE_L = $vWine
+          $script:STRONG_L = $vStrong
+          Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true; beer=$vBeer; wine=$vWine; strong=$vStrong} | ConvertTo-Json))
         } catch {
           Write-HttpResponse $ctx 500 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error=$_.Exception.Message} | ConvertTo-Json))
         }

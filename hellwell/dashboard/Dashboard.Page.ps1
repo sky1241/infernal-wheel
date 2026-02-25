@@ -1,4 +1,5 @@
 function New-PageHtml([string]$ym) {
+  Sync-AlcoholVolumes
   $now = Get-Date
   $todayKey = Get-InfernalDayKey $now
   $todayCalKey = $now.ToString("yyyy-MM-dd")
@@ -182,7 +183,7 @@ function New-PageHtml([string]$ym) {
     $beerChip = "<div class='alcUnitChip alcUnitChip--beer alcUnitChip--header'><span class='alcUnitChip__icon' aria-hidden='true'>&#127866;</span><div class='alcUnitChip__content'><span class='alcUnitChip__label'>Bi&egrave;re</span><span class='alcUnitChip__value'>1 can. = __BEER_UNIT__ L</span></div></div>"
     $wineChip = "<div class='alcUnitChip alcUnitChip--wine alcUnitChip--header'><span class='alcUnitChip__icon' aria-hidden='true'>&#127863;</span><div class='alcUnitChip__content'><span class='alcUnitChip__label'>Vin</span><span class='alcUnitChip__value'>1 verre = __WINE_UNIT__ L</span></div></div>"
     $strongChip = "<div class='alcUnitChip alcUnitChip--strong alcUnitChip--header'>$whiskySvg<div class='alcUnitChip__content'><span class='alcUnitChip__label'>Fort</span><span class='alcUnitChip__value'>1 verre = __STRONG_UNIT__ L</span></div></div>"
-    $pureChip = "<div class='alcUnitChip alcUnitChip--pure alcUnitChip--header'><span class='alcUnitChip__icon' aria-hidden='true'>&#128167;</span><div class='alcUnitChip__content'><span class='alcUnitChip__label'>Pure</span><span class='alcUnitChip__value'>alcool pur (g)</span></div></div>"
+    $pureChip = "<div class='alcUnitChip alcUnitChip--pure alcUnitChip--header'><span class='alcUnitChip__icon' aria-hidden='true'>&#128167;</span><div class='alcUnitChip__content'><span class='alcUnitChip__label'>Pur</span><span class='alcUnitChip__value'>alcool pur (g)</span></div></div>"
     # Header OUTSIDE scroll, data rows INSIDE scroll
     $weeksHtml = "<div class='weeksWrap'>"
     $weeksHtml += "<div class='weeksTableHeader'><div class='weekLine headLine'><div class='weekRow head'><div class='weekCell'>Semaine</div><div class='weekCell'>P&eacute;riode</div><div class='weekCell num'>$beerChip</div><div class='weekCell num'>$wineChip</div><div class='weekCell num'>$strongChip</div><div class='weekCell num doseHead'>$pureChip</div></div><div class='weekDelta headDelta'></div></div></div>"
@@ -763,6 +764,15 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
   transition:transform .25s ease-out;
 }
 .ca-overlay.open .ca-modal{ transform:translateY(0) scale(1) }
+.ca-modal--sm{ width:min(340px, 90vw) }
+/* Alcohol volume form */
+.alcVol-form{ display:flex; flex-direction:column; gap:14px }
+.alcVol-row{ display:flex; align-items:center; gap:10px }
+.alcVol-icon{ font-size:1.2rem; width:28px; text-align:center }
+.alcVol-label{ flex:1; font-weight:600; font-size:.85rem; color:rgba(255,255,255,.8) }
+.alcVol-input{ width:80px !important; text-align:center; font-size:.9rem }
+.alcVol-unit{ font-size:.8rem; color:rgba(255,255,255,.4); font-weight:600 }
+.alcVol-hint{ font-size:.7rem; color:rgba(255,255,255,.3); text-align:center; margin-top:4px }
 /* Header */
 .ca-header{
   display:flex; align-items:center; justify-content:space-between;
@@ -906,12 +916,12 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .alcBtn:active{transform:scale(0.96); filter:brightness(0.92)}
 .alcBtn .alcLabel{ display:flex; align-items:center; gap:6px; font-weight:700; font-size:.85rem; letter-spacing:.3px }
 .alcBtn .alcVol{ font-size:.65rem; color:rgba(255,255,255,.6); font-weight:400 }
-/* Beer — amber */
-.alcBtn{ --alc-bg:hsl(35,60%,35%); --alc-glow:hsla(35,60%,35%,.5) }
-/* Wine — bordeaux */
-.alcBtn.alcBtn--wine{ --alc-bg:hsl(345,50%,35%); --alc-glow:hsla(345,50%,35%,.5) }
-/* Strong — deep orange */
-.alcBtn.alcBtn--strong{ --alc-bg:hsl(25,65%,40%); --alc-glow:hsla(25,65%,40%,.5) }
+/* Beer — golden yellow (matches weekly chip) */
+.alcBtn{ --alc-bg:hsl(48,55%,30%); --alc-glow:hsla(48,55%,30%,.5) }
+/* Wine — red/bordeaux (matches weekly chip) */
+.alcBtn.alcBtn--wine{ --alc-bg:hsl(350,45%,32%); --alc-glow:hsla(350,45%,32%,.5) }
+/* Strong — warm orange (matches weekly chip) */
+.alcBtn.alcBtn--strong{ --alc-bg:hsl(30,58%,34%); --alc-glow:hsla(30,58%,34%,.5) }
 .alcStatus{ margin-left:auto; color:var(--muted) }
 /* Day chip toggle for drink logging */
 .alcDayChips{ display:flex; gap:6px; margin-bottom:10px }
@@ -2508,6 +2518,7 @@ body{
         <span class="cmdSubCard__icon" aria-hidden="true">&#127867;</span>
         <span class="cmdSubCard__title">Comptage alcool</span>
         <span class="help" data-tip="Ajoute ou ajuste les consommations du jour.">?</span>
+        <span class="gear-btn" onclick="openAlcVolModal()" title="Configurer les volumes">&#9881;</span>
       </div>
       <!-- [UX §165] Day chip toggle — progressive disclosure for past days -->
       <div class="alcDayLabel">Jour</div>
@@ -2523,15 +2534,15 @@ body{
         </div>
         <button class="btn alcBtn tooltip" data-tooltip="Ajouter canette(s) de biere" data-drink-btn="1" onclick="addDrink('beer')">
           <span class="alcLabel"><span aria-hidden="true">&#127866;</span> BI&#200;RE</span>
-          <span class="alcVol">1 can. = 0.5 L</span>
+          <span class="alcVol" id="alcVolBeer">1 can. = 0.5 L</span>
         </button>
         <button class="btn alcBtn alcBtn--wine tooltip" data-tooltip="Ajouter verre(s) de vin" data-drink-btn="1" onclick="addDrink('wine')">
           <span class="alcLabel"><span aria-hidden="true">&#127863;</span> VIN</span>
-          <span class="alcVol">1 verre = 0.2 L</span>
+          <span class="alcVol" id="alcVolWine">1 verre = 0.2 L</span>
         </button>
         <button class="btn alcBtn alcBtn--strong tooltip" data-tooltip="Ajouter verre(s) d'alcool fort" data-drink-btn="1" onclick="addDrink('strong')">
-          <span class="alcLabel"><span aria-hidden="true">&#127864;</span> FORT</span>
-          <span class="alcVol">1 verre = 0.2 L</span>
+          <span class="alcLabel"><svg class="dm-whisky" style="width:16px;height:16px;vertical-align:middle" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 4 L4 20 Q4 22 6 22 L18 22 Q20 22 20 20 L20 4 Z" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/><path d="M5 14 L5 20 Q5 21 6 21 L18 21 Q19 21 19 20 L19 14 Z" fill="#c17f24"/><rect x="5.5" y="6" width="7" height="9" rx="1.5" fill="#a8e0f0"/><rect x="11" y="8" width="7" height="8" rx="1.5" fill="#8ed0e8"/><path d="M6 7 L11.5 7 L11 12 L6.5 12 Z" fill="rgba(255,255,255,.55)"/><path d="M11.5 9 L17 9 L16.5 14 L12 14 Z" fill="rgba(255,255,255,.45)"/></svg> FORT</span>
+          <span class="alcVol" id="alcVolStrong">1 verre = 0.2 L</span>
         </button>
         <small id="drinkStatus" role="status" aria-live="polite" class="alcStatus">-</small>
       </div>
@@ -2877,6 +2888,7 @@ async function loadSettings(){
     const r = await fetch("/api/settings");
     if (!r.ok) { throw new Error("http"); }
     SETTINGS = await r.json();
+    syncAlcVolLabels();
     const grid = document.getElementById("actionsGrid");
     /* Remove only dynamic action buttons, keep static cmd buttons (data-cmd) */
     Array.from(grid.children).forEach(c => { if(!c.dataset.cmd) grid.removeChild(c); });
@@ -3069,6 +3081,56 @@ function closeCustomActionsModal(){
 }
 
 function _caEscHandler(e){ if(e.key==="Escape") closeCustomActionsModal(); }
+
+/* ===================== Alcohol Volume Config ===================== */
+function openAlcVolModal(){
+  const s = SETTINGS && SETTINGS.alcoholVolumes || {};
+  document.getElementById("alcVolBeerIn").value = s.beer || 0.5;
+  document.getElementById("alcVolWineIn").value = s.wine || 0.2;
+  document.getElementById("alcVolStrongIn").value = s.strong || 0.2;
+  document.getElementById("alcVolModal").classList.add("open");
+  document.addEventListener("keydown", _alcVolEsc);
+}
+function closeAlcVolModal(){
+  document.getElementById("alcVolModal").classList.remove("open");
+  document.removeEventListener("keydown", _alcVolEsc);
+}
+function _alcVolEsc(e){ if(e.key==="Escape") closeAlcVolModal(); }
+async function saveAlcVolumes(){
+  const beer = parseFloat(document.getElementById("alcVolBeerIn").value) || 0.5;
+  const wine = parseFloat(document.getElementById("alcVolWineIn").value) || 0.2;
+  const strong = parseFloat(document.getElementById("alcVolStrongIn").value) || 0.2;
+  const j = await postJSON("/api/settings/alcohol-volumes", {beer:beer, wine:wine, strong:strong});
+  if(j && j.ok){
+    showToast("Volumes enregistr\u00e9s","success","Alcool");
+    closeAlcVolModal();
+    /* Update button labels */
+    const bEl = document.getElementById("alcVolBeer");
+    const wEl = document.getElementById("alcVolWine");
+    const sEl = document.getElementById("alcVolStrong");
+    if(bEl) bEl.textContent = "1 = " + beer + " L";
+    if(wEl) wEl.textContent = "1 = " + wine + " L";
+    if(sEl) sEl.textContent = "1 = " + strong + " L";
+    /* Update SETTINGS cache */
+    if(!SETTINGS.alcoholVolumes) SETTINGS.alcoholVolumes = {};
+    SETTINGS.alcoholVolumes.beer = beer;
+    SETTINGS.alcoholVolumes.wine = wine;
+    SETTINGS.alcoholVolumes.strong = strong;
+  } else {
+    showToast(j && j.error || "Erreur","error","Alcool");
+  }
+}
+/* Sync button labels on loadSettings */
+function syncAlcVolLabels(){
+  if(!SETTINGS || !SETTINGS.alcoholVolumes) return;
+  const v = SETTINGS.alcoholVolumes;
+  const bEl = document.getElementById("alcVolBeer");
+  const wEl = document.getElementById("alcVolWine");
+  const sEl = document.getElementById("alcVolStrong");
+  if(bEl && v.beer) bEl.textContent = "1 = " + v.beer + " L";
+  if(wEl && v.wine) wEl.textContent = "1 = " + v.wine + " L";
+  if(sEl && v.strong) sEl.textContent = "1 = " + v.strong + " L";
+}
 
 async function saveCustomActions(){
   caSyncData();
@@ -4372,6 +4434,41 @@ document.addEventListener('click', () => {
   bindReportNav();
 })();
 </script>
+
+<!-- Alcohol Volume Config Modal -->
+<div class="ca-overlay" id="alcVolModal" onclick="if(event.target===this)closeAlcVolModal()">
+  <div class="ca-modal ca-modal--sm" role="dialog" aria-modal="true" aria-labelledby="alcVolTitle">
+    <div class="ca-header">
+      <h3 id="alcVolTitle">Volumes par unit&#233;</h3>
+      <button class="ca-close" onclick="closeAlcVolModal()" aria-label="Fermer">&times;</button>
+    </div>
+    <div class="alcVol-form">
+      <div class="alcVol-row">
+        <span class="alcVol-icon">&#127866;</span>
+        <label class="alcVol-label">Bi&#232;re</label>
+        <input id="alcVolBeerIn" class="input alcVol-input" type="number" min="0.1" max="2" step="0.01" value="0.5"/>
+        <span class="alcVol-unit">L</span>
+      </div>
+      <div class="alcVol-row">
+        <span class="alcVol-icon">&#127863;</span>
+        <label class="alcVol-label">Vin</label>
+        <input id="alcVolWineIn" class="input alcVol-input" type="number" min="0.05" max="1" step="0.01" value="0.2"/>
+        <span class="alcVol-unit">L</span>
+      </div>
+      <div class="alcVol-row">
+        <span class="alcVol-icon"><svg class="dm-whisky" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 4 L4 20 Q4 22 6 22 L18 22 Q20 22 20 20 L20 4 Z" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/><path d="M5 14 L5 20 Q5 21 6 21 L18 21 Q19 21 19 20 L19 14 Z" fill="#c17f24"/><rect x="5.5" y="6" width="7" height="9" rx="1.5" fill="#a8e0f0"/><rect x="11" y="8" width="7" height="8" rx="1.5" fill="#8ed0e8"/><path d="M6 7 L11.5 7 L11 12 L6.5 12 Z" fill="rgba(255,255,255,.55)"/><path d="M11.5 9 L17 9 L16.5 14 L12 14 Z" fill="rgba(255,255,255,.45)"/></svg></span>
+        <label class="alcVol-label">Fort</label>
+        <input id="alcVolStrongIn" class="input alcVol-input" type="number" min="0.02" max="1" step="0.01" value="0.2"/>
+        <span class="alcVol-unit">L</span>
+      </div>
+      <div class="alcVol-hint">Les calculs d'alcool pur se mettent &#224; jour automatiquement.</div>
+    </div>
+    <div class="ca-footer">
+      <button class="ca-btn-cancel" onclick="closeAlcVolModal()">Annuler</button>
+      <button class="ca-btn-save" onclick="saveAlcVolumes()">Enregistrer</button>
+    </div>
+  </div>
+</div>
 
 <!-- Action Manager Modal (UX T.100 ARIA) -->
 <div class="ca-overlay" id="customActionsModal" onclick="if(event.target===this)closeCustomActionsModal()">

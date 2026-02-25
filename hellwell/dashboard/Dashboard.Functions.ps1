@@ -6,6 +6,16 @@ function Test-PsesHost {
   return $false
 }
 
+function Sync-AlcoholVolumes {
+  $s = Read-JsonSafe -Path $SettingsPath -BackupPath $SettingsBak
+  if ($s.alcoholVolumes) {
+    $v = $s.alcoholVolumes
+    if ($v.beer)   { $script:BEER_L   = [double]$v.beer }
+    if ($v.wine)   { $script:WINE_L   = [double]$v.wine }
+    if ($v.strong) { $script:STRONG_L = [double]$v.strong }
+  }
+}
+
 function Get-AlcoholUnits {
   param([int]$Wine=0, [int]$Beer=0, [int]$Strong=0)
   $beerPure = [double]$BEER_L * $BEER_ABV
