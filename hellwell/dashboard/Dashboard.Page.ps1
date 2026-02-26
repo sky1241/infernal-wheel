@@ -541,7 +541,7 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
   -webkit-backdrop-filter:blur(12px);
   border-radius:var(--r); padding:16px; margin:16px 0;
   box-shadow:0 8px 32px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.05) inset;
-  position:relative; overflow:hidden;
+  position:relative;
   transition:all .3s cubic-bezier(.4,0,.2,1);
 }
 .card::before{
@@ -552,6 +552,7 @@ a{color:var(--blue); text-decoration:none} a:hover{text-decoration:underline}
   content:""; position:absolute; left:-30%; top:-40%; width:120%; height:70%;
   background:radial-gradient(closest-side, rgba(91,178,255,.08), transparent 70%);
   opacity:.45; pointer-events:none;
+  clip-path:inset(0 round var(--r));
 }
 /* [N2] Subtle hover for data cards - less motion */
 .card:hover{
@@ -600,9 +601,9 @@ small{color:var(--muted)}
   position:relative;
 }
 .btn.action:hover{
-  transform:translateY(-3px) scale(1.06);
-  box-shadow:0 6px 22px var(--act-glow, rgba(0,0,0,.4)), 0 0 30px var(--act-glow, rgba(255,255,255,.05));
-  filter:brightness(1.18) saturate(1.2);
+  transform:translateY(-2px) scale(1.04);
+  box-shadow:0 6px 20px var(--act-glow, rgba(0,0,0,.4)), 0 0 24px var(--act-glow, rgba(255,255,255,.05));
+  filter:brightness(1.15) saturate(1.15);
 }
 .btn.action:active{transform:scale(0.96); filter:brightness(0.92)}
 
@@ -610,18 +611,21 @@ small{color:var(--muted)}
 .cmdSubCard--actions .grid{
   display:flex !important;
   flex-wrap:wrap !important;
+  grid-template-columns:none !important;
   gap:10px !important;
   justify-content:center !important;
+  padding:4px 0 8px !important;
+  max-width:100%; box-sizing:border-box;
 }
 /* Progressive disclosure: overflow actions */
 .actions-overflow{
   display:flex; flex-wrap:wrap; gap:10px; justify-content:center;
   max-height:0; overflow:hidden; opacity:0;
   transition:max-height .3s ease, opacity .25s ease, margin .3s ease;
-  width:100%;
+  width:100%; box-sizing:border-box;
 }
 .actions-overflow.open{
-  max-height:300px; opacity:1; margin-top:10px;
+  max-height:300px; opacity:1; margin-top:10px; padding:8px 0 12px; overflow:visible;
 }
 /* +N expand button */
 .btn-expand{
@@ -666,9 +670,9 @@ small{color:var(--muted)}
   cursor:pointer;
 }
 .btn.cmd:hover{
-  transform:translateY(-3px) scale(1.06);
-  box-shadow:0 6px 22px var(--act-glow, rgba(0,0,0,.4)), 0 0 30px var(--act-glow, rgba(255,255,255,.05));
-  filter:brightness(1.18) saturate(1.2);
+  transform:translateY(-2px) scale(1.04);
+  box-shadow:0 6px 20px var(--act-glow, rgba(0,0,0,.4)), 0 0 24px var(--act-glow, rgba(255,255,255,.05));
+  filter:brightness(1.15) saturate(1.15);
 }
 .btn.cmd:active{transform:scale(0.96); filter:brightness(0.92)}
 /* [web_focus_visible_wcag_2_4_7] + [web_focus_appearance_min_wcag_2_4_13] */
