@@ -24,6 +24,9 @@
 | **Galaxy Watch 7 (44mm)** | 1.47" | 480x480 | ~327 | Rond | 425 mAh | 2 GB | Exynos W1000 (3nm) |
 | **Galaxy Watch Ultra** | 1.47" | 480x480 | ~327 | Rond (coussin) | 590 mAh | 2 GB | Exynos W1000 (3nm) |
 | **Galaxy Watch FE** | 1.19" | 396x396 | ~330 | Rond | 247 mAh | 1.5 GB | Exynos W920 (5nm) |
+| **Galaxy Watch 8 (40mm)** | 1.31" | 432x432 | ~330 | Rond | 325 mAh | 2 GB | Exynos W1000 (3nm) |
+| **Galaxy Watch 8 (44mm)** | 1.47" | 480x480 | ~327 | Rond | 435 mAh | 2 GB | Exynos W1000 (3nm) |
+| **Galaxy Watch 8 Classic** | 1.34" | 480x480 | ~350 | Rond | 445 mAh | 2 GB | Exynos W1000 (3nm) |
 | **Pixel Watch 1** | 1.24" | 450x450 | ~320 | Rond | 294 mAh | 2 GB | Exynos 9110 + Cortex-M33 |
 | **Pixel Watch 2** | 1.20" | 450x450 | ~320 | Rond | 306 mAh | 2 GB | Snapdragon W5 |
 | **Pixel Watch 3 (41mm)** | 1.27" | 408x408 | ~320 | Rond | 307 mAh | 2 GB | Snapdragon W5 |
@@ -187,7 +190,7 @@
 | Flick poignet vers le haut | Scroll vers le bas | Wear OS (opt-in) | - |
 | Flick poignet vers le bas | Scroll vers le haut | Wear OS (opt-in) | - |
 | Secouer (shake) | Undo | watchOS | - |
-| Double tap (pouce+index) | Action principale | watchOS 10+ (Series 9/Ultra 2) | 2 taps en ~500ms |
+| Double tap (pouce+index) | Action principale | watchOS 10+ (Series 9/Ultra 2) | 2 taps en ~500ms. watchOS 11: scroll listes + `.handGestureShortcut(.primaryAction)` |
 | Couvrir l'ecran (paume) | Couper le son | watchOS | ~3s |
 | Incliner (tilt) | Parallax / scroll | Wear OS (experimental) | - |
 | Long press bouton | Action systeme | Wear OS (~500ms) | 500ms |
@@ -248,16 +251,126 @@
 - `rememberResponsiveColumnPadding()` → **26.5%** padding horizontal automatique pour ecrans ronds
 - Enhanced date/time pickers, media controls, volume screen
 - Rotary input ameliore avec haptic feedback
+- ScalingLazyColumn avec snap-and-fling (pour navigation precise)
 
-**Architecture ecran Wear OS:**
+### 8b. Migration Material 2.5 → Material 3 (Wear OS 6+)
+
+**Dependances M3:**
+```gradle
+implementation("androidx.wear.compose:compose-material3:1.6.0-beta01")
+implementation("androidx.wear.compose:compose-foundation:1.6.0-beta01")
 ```
-AppScaffold {                    // Gere TimeText global + transitions
-  ScreenScaffold {               // Par ecran: ScrollIndicator + TimeText
-    ScalingLazyColumn {          // Liste principale
-      item { TimeText }          // Heure (courbe, haut)
-      item { Chip("Action 1") } // Items de la liste
-      item { Chip("Action 2") }
-      item { Button("CTA") }    // Action principale
+
+**Renommages majeurs M2.5 → M3:**
+
+| M2.5 | M3 | Notes |
+|------|-----|-------|
+| `Chip` | `Button`, `OutlinedButton`, `FilledTonalButton`, `ChildButton` | Split en variantes |
+| `CompactChip` | `CompactButton` | Renomme |
+| `Button` (circulaire) | `IconButton` ou `TextButton` | Split en specialises |
+| `ToggleChip` | `CheckboxButton`, `RadioButton`, `SwitchButton` | Par type de toggle |
+| `SplitToggleChip` | `SplitCheckboxButton`, `SplitRadioButton`, `SplitSwitchButton` | Idem |
+| `ToggleButton` | `IconToggleButton` ou `TextToggleButton` | Split |
+| `InlineSlider` | `Slider` | Renomme |
+| `PositionIndicator` | `ScrollIndicator` | API simplifiee |
+| `Scaffold` | `AppScaffold` + `ScreenScaffold` | Split en 2 composants |
+| `Alert` | `AlertDialog` | Renomme |
+| `Confirmation` | `ConfirmationDialog` | Renomme |
+| `Vignette` | SUPPRIME | Plus dans M3 |
+| `ScalingLazyColumn` | `TransformingLazyColumn` | Morphing animations |
+
+**Nouveaux composants M3 (sans equivalent M2.5):**
+
+| Composant | Role |
+|-----------|------|
+| **EdgeButton** | Bouton epousant le bord bas de l'ecran rond, 4 tailles |
+| **AnimatedText** | Texte anime avec flex fonts |
+| **ButtonGroup** | Groupe de boutons organises |
+| **SegmentedCircularProgressIndicator** | Progress segmente |
+| **HorizontalPagerScaffold** | Scaffold avec paging horizontal |
+| **VerticalPagerScaffold** | Scaffold avec paging vertical |
+| **OpenOnPhoneDialog** | Dialog "Ouvrir sur le telephone" |
+| **DatePicker** | Selecteur de date |
+| **LevelIndicator** | Indicateur de niveau/range |
+| **ListSubHeader** | Sous-titre de section dans liste |
+
+**Systeme de couleurs M3:**
+- M2.5: 13 couleurs → M3: **28 couleurs** (primary, secondary, tertiary, surface variants)
+- **Dynamic Color** (Wear OS 6): theme auto genere depuis les couleurs du watch face
+- `dynamicColorScheme(LocalContext.current)` → palette auto
+
+**Shape morphing M3:**
+- Boutons animent leur forme lors d'interactions
+- `IconButtonDefaults.animatedShape()`, `TextButtonDefaults.animatedShape()`
+- Feedback visuel micro-animation sans coder custom
+
+**Typographie M3 etendue:**
+- Ajout: `bodyExtraSmall`, `numeralExtraLarge`, `numeralExtraSmall`
+- **Flex Fonts**: poids, largeur, rondeur configurables dynamiquement
+- `AnimatedText` utilise flex fonts pour transitions fluides
+
+### 8c. TransformingLazyColumn (M3)
+
+Remplace `ScalingLazyColumn` pour les listes avec effets de morphing.
+
+```kotlin
+val columnState = rememberTransformingLazyColumnState()
+val contentPadding = rememberResponsiveColumnPadding(
+    first = ColumnItemType.ListHeader,
+    last = ColumnItemType.Button,
+)
+val transformationSpec = rememberTransformationSpec()
+
+ScreenScaffold(scrollState = columnState, contentPadding = contentPadding) { cp ->
+    TransformingLazyColumn(state = columnState, contentPadding = cp) {
+        item {
+            ListHeader(
+                modifier = Modifier.fillMaxWidth()
+                    .transformedHeight(this, transformationSpec),
+                transformation = SurfaceTransformation(transformationSpec)
+            ) { Text("Header") }
+        }
+        // items...
+    }
+}
+```
+
+**TransformingLazyColumn vs ScalingLazyColumn (Horologist):**
+
+| Feature | TransformingLazyColumn | ScalingLazyColumn |
+|---------|----------------------|-------------------|
+| Scaling/Morphing | Oui (transformation riche) | Basique (scale + alpha) |
+| Snap-and-Fling | Non | Oui (RotaryMode.Snap) |
+| Rotary input | Supporte | Supporte (snap mode) |
+| Cas d'usage | Listes standard M3 | Navigation precise item par item |
+| Librairie | wear.compose.foundation | Horologist |
+
+### 8d. EdgeButton (M3 - Nouveau)
+
+Bouton epousant le bord inferieur de l'ecran rond. Maximise l'espace du facteur de forme circulaire.
+
+| Taille | Usage |
+|--------|-------|
+| Extra Small | Actions secondaires compactes |
+| Small | Actions standard |
+| Medium | Actions importantes |
+| Large | CTA principal (recommande pour notre bouton "+1") |
+
+- Place dans `ScreenScaffold(edgeButton = { EdgeButton(...) })`
+- Parametre `edgeButtonSpacing` pour l'espace entre le bouton et la liste
+- Ideal pour l'action principale sur chaque ecran
+
+**Architecture ecran M3 (Wear OS 6):**
+```
+AppScaffold {
+  ScreenScaffold(
+    scrollState = columnState,
+    edgeButton = { EdgeButton(onClick = {}, ...) }
+  ) { contentPadding ->
+    TransformingLazyColumn(state = columnState, contentPadding = contentPadding) {
+      item { ListHeader(...) }
+      item { Button("Action 1", ...) }  // Ex-Chip en M3
+      item { Button("Action 2", ...) }
     }
   }
 }
@@ -331,7 +444,32 @@ AppScaffold {                    // Gere TimeText global + transitions
 - Pas d'animation dans les tiles
 - Background data: utiliser WorkManager, cacher en local
 
+**Tiles Wear OS 6 (M3 Expressive):**
+- Nouveau framework ProtoLayout Material 3: `protolayout-material3` (Kotlin only)
+- Layout 3 slots: title slot + main content slot + bottom slot
+- Support jusqu'a **3 colonnes** dans le contenu principal
+- Lottie animations supportees dans les tiles
+- Gradients supplementaires et nouveaux styles arc lines
+- Police systeme alignee automatiquement (Wear OS 6+)
+- Dynamic color: theme auto aligne sur le watch face
+
 **Source:** [Android Developers - Tiles](https://developer.android.com/training/wearables/tiles)
+
+### 10b. Smart Stack (watchOS 11)
+
+| Aspect | Detail |
+|--------|--------|
+| Acces | Tourner Digital Crown depuis watch face |
+| Live Activities | Apparaissent automatiquement depuis l'app iOS |
+| Persistance | Smart Stack reste visible quand le poignet est baisse (watchOS 11) |
+| Custom view | Vue personnalisee pour Apple Watch (optionnelle, sinon Dynamic Island compact) |
+| Double Tap | `.handGestureShortcut(.primaryAction)` sur bouton/toggle dans widget |
+| Widgets | WidgetKit, memes widgets que complications mais en plus grand |
+
+**Pour notre app (watchOS):**
+- Widget Smart Stack: timer "depuis derniere cigarette" + compteur jour
+- Live Activity: pendant une session de monitoring active
+- Double Tap action: "+1 cigarette" (action primaire)
 
 ### 11. Complications
 
@@ -467,7 +605,7 @@ AppScaffold {                    // Gere TimeText global + transitions
 | AOD mal implemente (<85% noir) | +20-40% drain/jour |
 | Tilt-to-wake seulement | +2-5% drain/jour |
 
-**Wear OS 6+ (API 36+):** "Global AOD" - l'app reste visible et tourne en mode dimmed (plus de screenshot floute). Controle ambient complet par l'app.
+**Wear OS 6+ (API 36+):** "Global AOD" - l'app reste visible et tourne en mode dimmed (plus de screenshot floute). Controle ambient complet par l'app. +10% autonomie batterie vs Wear OS 5.
 
 **Low-bit ambient:** Certains appareils limitent a 1-bit (noir/blanc seulement). Verifier `deviceHasLowBitAmbient`. Desactiver l'anti-aliasing.
 
@@ -1535,6 +1673,18 @@ Notification permanente (foreground service):
 | Watch 8 | Bezel tactile digital | Bezel physique rotatif (ameliore) |
 | Watch Ultra | Bouton Quick Action | N/A |
 
+**One UI 8 Watch (2025 - Galaxy Watch 8):**
+- Premier smartwatch avec **Google Gemini** integre
+- Tourne sur **Wear OS 6** out of the box
+- Tiles redesignees: optimisees pour petits ecrans, info plus lisible d'un coup d'oeil
+- **Nouvelles features sante:**
+  - Bedtime Guidance (optimisation sommeil)
+  - Vascular Load (stress vasculaire pendant sommeil)
+  - Running Coach (strategies d'entrainement personnalisees)
+  - Antioxidant Index (niveau carotenoides)
+- Stockage: 32 GB (standard), **64 GB (Classic)**
+- Autonomie: ~40h sans AOD, ~30h avec AOD
+
 **Samsung BioActive sensor (Galaxy Watch 4+):**
 
 | Capteur | Disponibilite | Acces tiers |
@@ -1676,12 +1826,18 @@ HAPTIQUE      SON + HAPTIQUE
 
 | Aspect | Regle |
 |--------|-------|
-| Format | Watch Face Format (WFF) pour Wear OS |
+| Format | Watch Face Format (WFF) v4 pour Wear OS 6 |
 | Complications | Exposer 2-4 slots minimum |
 | Ambient mode | Obligatoire, < 15% pixels allumes |
 | Burn-in | Shift pixels si requis |
 | Battery | Minimiser updates, pas d'animation en ambient |
 | Interaction | Tap sur complication → ouvre l'app |
+
+**WFF v4 nouveautes (Wear OS 6):**
+- Photo watch faces: collections de photos utilisateur
+- Transitions animees ambient ↔ interactif
+- Watch Face Push API: distribution via marketplace tiers
+- **Deadline migration:** Toutes les watch faces legacy doivent migrer vers WFF avant le **14 janvier 2026** (plus de publication AndroidX/WSL legacy sur Play Store)
 
 **Watch Face pour notre app:**
 - Complication RANGED_VALUE: progression objectif quotidien
@@ -1760,6 +1916,21 @@ HAPTIQUE      SON + HAPTIQUE
 | Actions max | 2-3 |
 | SHORT_TEXT max chars | 7 |
 | Ongoing | Obligatoire pour foreground service |
+
+### Migration M3
+
+| Quoi | Valeur |
+|------|--------|
+| Lib M3 | `compose-material3:1.6.0-beta01` |
+| Couleurs M2.5 → M3 | 13 → 28 parametres |
+| Chip → | Button / OutlinedButton / ChildButton |
+| PositionIndicator → | ScrollIndicator |
+| Scaffold → | AppScaffold + ScreenScaffold |
+| ScalingLazyColumn → | TransformingLazyColumn |
+| Vignette | SUPPRIME en M3 |
+| Nouveau: EdgeButton | Bouton epousant le bord bas (4 tailles) |
+| Dynamic Color | Auto depuis watch face (Wear OS 6) |
+| WFF deadline | 14 janvier 2026 (plus de legacy) |
 
 ### Composants
 
