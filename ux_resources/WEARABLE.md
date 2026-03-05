@@ -79,6 +79,16 @@
 | Bord extreme | <5% du diametre | PositionIndicator, ArcLine, decorations |
 | Coins (ecran rond) | Hors cercle | INUTILISABLE - toujours noir |
 
+**Glanceability (temps de comprehension):**
+- Cible: l'utilisateur comprend l'ecran en **< 3 secondes** (etudes NNGroup)
+- Session moyenne sur montre: **8-12 secondes** (vs 4 min sur telephone)
+- Max 1 info principale + 2 secondaires par ecran
+- Hierarchie: gros chiffre > icone > texte court > detail
+- Nombre de boutons max: **3** par ecran (ideal: 1-2)
+- Cognitive load: **1 decision max** par ecran (oui/non, +1/annuler)
+- Sessions/jour montre: ~80-100 micro-sessions (vs ~50 sur telephone)
+- Negative space: minimum **30-40%** de l'ecran doit etre vide/noir
+
 **Anti-patterns ecran rond:**
 - Placer du texte ou boutons dans les coins → coupe/invisible
 - Utiliser des marges fixes en dp → ne scale pas entre 192dp et 240dp
@@ -544,6 +554,53 @@ Ecran principal montre:
 - Total hebdo avec ligne limite recommandee (14 unites/semaine)
 - Timer "temps depuis dernier verre"
 
+### 16b. Analyse Apps Addiction Existantes (Montre)
+
+| App | Ce qui marche | Ce qui est nul |
+|-----|--------------|---------------|
+| **SmokeFree** (Sean Allen) | Timer prominent, milestones clairs, widget iOS | Pas de Wear OS standalone, compteur pas assez visible |
+| **QuitNow!** | Stats detaillees (argent, temps, sante) | Surcharge d'info sur montre, UX desktop portee |
+| **I Am Sober** | Motivation quotes, communaute, pledges | Pas de detection auto, timer seulement |
+| **Nomo** | Multi-addictions, timer par addiction | UI datee, pas de quick-log 1 tap |
+| **EasyQuit** | Achievement system, body recovery timeline | Pas de companion montre |
+| **Quit Tracker** | Visualisation argent economise | UI minimaliste mais trop basique montre |
+| **Smoke Free** (app distincte) | Gamification poussee, missions | Trop de contenu pour montre |
+| **HabitBull** | Tracking multi-habitudes, streaks | Generique, pas specialise addiction |
+
+**Lecons pour notre app:**
+- Timer "depuis derniere" = feature #1 (I Am Sober, SmokeFree le prouvent)
+- Quick-log 1 tap = aucune app ne le fait bien sur montre → notre avantage
+- Detection auto ML = ZERO app existante → differentiation totale
+- Gamification legere (streaks, milestones) = retention prouvee
+- Trop d'info = echec sur montre (QuitNow erreur classique)
+- Argent economise = motivant mais secondaire (complication ou telephone)
+
+### 16c. Gamification sur Montre
+
+| Element | Implementation montre | Telephone |
+|---------|----------------------|-----------|
+| **Streaks** | Icone flamme + compteur jours, toujours visible | Historique complet |
+| **Badges** | Notification + haptique quand debloque | Galerie complete |
+| **Milestones** | 1j, 3j, 7j, 14j, 30j, 90j, 1an → celebration | Detail + partage |
+| **Daily challenge** | Tile: "Objectif: max 8 cig" | Personnalisation |
+| **Argent economise** | Complication SHORT_TEXT: "12.50 CHF" | Graphique detaille |
+
+**Celebrations sur montre:**
+- Haptique pattern special (QUICK_RISE + THUD + TICK x3) = "confetti haptique"
+- Animation courte (< 2s): icone animee (check, flamme, etoile)
+- PAS de confetti visuel (trop charge sur petit ecran)
+- Frequence: max 1-2 celebrations/jour (fatigue sinon)
+- Son optionnel (petit "ding" satisfaisant si pas en silencieux)
+
+**Craving log rapide:**
+```
+Ecran craving (2 taps total):
+Tap 1: Bouton "Envie" sur ecran principal
+Tap 2: Intensite 1-5 (5 gros boutons en arc)
+→ Log + haptique confirmation
+→ Message encourageant ("Vous avez resiste!")
+```
+
 ### 17. Health Connect Integration
 
 | API | Usage | Limitation |
@@ -742,6 +799,69 @@ Gyroscope (50Hz)   →            → TFLite inference (< 100ms)
 
 **Source:** [Android Developers - Data Layer](https://developer.android.com/training/wearables/data/overview)
 
+### 21b. watchOS Watch Connectivity
+
+| API | Usage | Persistance | Timing |
+|-----|-------|-------------|--------|
+| `sendMessage(_:replyHandler:)` | Messages temps reel | Non (fire-and-forget) | Immediat si reachable |
+| `updateApplicationContext(_:)` | Etat courant (last-value-wins) | Oui (dernier etat) | Prochain wake |
+| `transferUserInfo(_:)` | Events importants (queue FIFO) | Oui (queued, reliable) | Background, fiable |
+| `transferFile(_:metadata:)` | Gros fichiers | Oui (queued) | Background |
+| `transferCurrentComplicationUserInfo(_:)` | Donnees complication | Oui | Budget limite/jour |
+
+**Quand utiliser quoi (watchOS):**
+- `sendMessage` → commandes live ("ouvre l'app telephone")
+- `updateApplicationContext` → settings, etat courant (ecrase le precedent)
+- `transferUserInfo` → **chaque event cigarette** (fiable, queue, garanti)
+- `transferFile` → export donnees, modele ML mis a jour
+
+**Conflict resolution (cross-platform):**
+- Regle simple: **derniere ecriture gagne** (timestamp UTC)
+- Compteur: utiliser des operations CRDT (increment-only counter)
+- Settings: telephone = source de verite, montre = lecture seule
+- En cas de conflit: telephone gagne toujours
+
+**Schema versioning:**
+- Inclure `schemaVersion: Int` dans chaque message/DataItem
+- Montre v1 + telephone v2: telephone doit comprendre les deux formats
+- Migration: telephone met a jour en premier, montre suit via Play Store auto-update
+- Fallback: ignorer les champs inconnus (pas crash)
+
+### 21c. Testing Montre
+
+| Type de test | Outil | Notes |
+|-------------|-------|-------|
+| UI layout | Emulateur Wear OS (Android Studio) | Tester rond + carre, 192dp + 225dp |
+| Ambient mode | `adb shell am broadcast -a com.google.android.wearable.action.AMBIENT_UPDATE` | Trigger manuel |
+| Battery drain | `adb shell dumpsys batterystats` + Battery Historian | Mesurer drain reel |
+| Haptique | Device reel UNIQUEMENT | Emulateur ne vibre pas |
+| Performance | Android Studio Profiler (CPU, Memory) | Via WiFi debug |
+| TalkBack | Device reel | Tester navigation complete screen reader |
+| Tiles | Tile preview dans Android Studio | + test sur device |
+| Complications | Complication preview + watch face testeur | Sur device |
+| Field testing | Porter la montre 1 journee complete | Notes sur les problemes reels |
+| Monkey test | `adb shell monkey -p com.pkg -v 10000` | Stress test random |
+| UI Espresso | `androidx.test.espresso` + Wear OS rules | Tests automatises |
+
+**Emulateur vs Device reel:**
+
+| Feature | Emulateur | Device reel |
+|---------|-----------|-------------|
+| Layout/UI | OK | OK |
+| Sensors | Simules (limites) | Reels |
+| Haptique | NON | OUI |
+| Battery drain | NON mesurable | OUI |
+| Bezel/crown | Simule (scroll souris) | Reel |
+| Performance | Plus rapide que device | Reference |
+| Ambient mode | Simulable via ADB | Automatique |
+
+**ADB WiFi debugging:**
+```bash
+# Activer le debug WiFi sur la montre
+# Settings > Developer Options > ADB Debugging > Debug over WiFi
+adb connect <watch-ip>:5555
+```
+
 ---
 
 ## I. Accessibilite
@@ -774,6 +894,35 @@ Gyroscope (50Hz)   →            → TFLite inference (< 100ms)
 - Sur complications: `SmallImageComplicationData.Builder.contentDescription(...)`
 
 **Source:** [Android Developers - Accessibility](https://developer.android.com/training/wearables/accessibility)
+
+### 22b. Motor Accessibility
+
+| Feature | Plateforme | Description |
+|---------|-----------|-------------|
+| **AssistiveTouch** | watchOS | Naviguer par gestes main: clench, double clench, pinch, double pinch |
+| **Voice Control** | Toutes | Naviguer et interagir entierement par la voix |
+| **Switch Control** | watchOS | Utiliser un accessoire Bluetooth externe pour naviguer |
+| **Reduce Motion** | Toutes | Desactiver animations → respecter ce setting |
+| **Touch Accommodations** | watchOS | Hold duration augmentee, ignore repeat taps |
+| **Rotary input** | Wear OS | Alternative au tactile pour scroll (bezel/crown) |
+
+**Regles motor accessibility:**
+- Touch targets agrandis >= 52dp pour utilisateurs avec tremblements
+- TOUJOURS supporter le rotary input comme alternative au scroll tactile
+- `Modifier.semantics { Role.Button }` pour TalkBack actions
+- Pas de gestes complexes (double tap, long press) comme SEUL moyen d'acceder a une feature
+- Toujours avoir un fallback tactile simple pour chaque interaction avancee
+
+### 22c. Cognitive Accessibility
+
+| Regle | Implementation |
+|-------|---------------|
+| Langage simple | Phrases courtes, mots courants, pas de jargon |
+| Icones + texte | Jamais icones seules pour actions importantes |
+| Navigation consistante | Meme pattern dans toute l'app |
+| Error recovery | Undo toujours disponible, pas de punition |
+| Etat clair | L'utilisateur sait toujours ou il est et ce qu'il peut faire |
+| Choix limites | Max 3-4 options par ecran |
 
 ---
 
@@ -933,6 +1082,94 @@ Notification permanente (foreground service):
 
 ---
 
+## K-bis. App Lifecycle & State Management
+
+### 24b. Cycle de Vie App sur Montre
+
+| Phase | Timing | Comportement |
+|-------|--------|-------------|
+| **Cold start** | 2-5s (cible < 2s) | Premier lancement, tout initialise. Baseline profiles = -20-40% |
+| **Warm start** | < 500ms | App en background, resume rapide |
+| **Hot start** | < 200ms | App en memoire, juste onResume |
+| **Kill par systeme** | Apres ~5-15 min en background | LowMemoryKiller tue les apps non-foreground |
+| **Foreground service** | Indefini | Seul moyen de garantir la survie en background |
+
+**Memory Management:**
+- `LowMemoryKiller` priorite: Foreground > Visible > Service > Background > Empty
+- Apps montre tuees plus agressivement que sur telephone (RAM limitee)
+- Heap par defaut: 128-192 MB, largeHeap: 256 MB
+- Target < 50 MB en pratique pour etre un bon citoyen
+- `onTrimMemory(TRIM_MEMORY_RUNNING_LOW)` → liberer caches
+- `onSaveInstanceState` → sauvegarder compteur + timer obligatoirement
+
+**Resume et Continuite:**
+
+| Scenario | Comportement attendu |
+|----------|---------------------|
+| Retour apres < 5min | Meme ecran, meme etat |
+| Retour apres 5-30min | Ecran principal, donnees fraiches |
+| Retour apres > 30min | Ecran principal, refresh complet |
+| Apres kill systeme | Restaurer via SavedInstanceState + DB locale |
+| Raise-to-wake | Montre = watch face. Derniere app si < 2min (configurable) |
+| Timer en cours | TOUJOURS recalculer au resume (SystemClock.elapsedRealtime) |
+
+**RecentApps timeout Wear OS:** ~3-5 minutes par defaut avant de disparaitre des recents.
+
+**Transition interactif → ambient → interactif:**
+- Pas de flash blanc (fond #000000 = smooth)
+- Ambient: simplifier l'UI (outlines, moins d'elements)
+- Resume: restaurer l'UI complete sans animation de transition lourde
+- Timing: ~300ms pour transition complete
+
+### 24c. Wrist Detection et On-Body State
+
+| Etat | Detection | Impact |
+|------|-----------|--------|
+| Au poignet | Capteur capacitif, latence 1-3s | Tous capteurs actifs, ecran unlock |
+| Retire du poignet | Perte contact | Lock screen + PIN, capteurs HR off |
+| Remis au poignet | Contact detecte | Demande PIN, resume capteurs |
+| Sur le chargeur | Detecte via BatteryManager | Nightstand mode, sync complete |
+
+**Impact tracking:**
+- Arreter capteurs HR/SpO2 si montre retiree (donnees invalides)
+- Accelerometre sur table = bruit non pertinent → ignorer
+- Logger le gap dans les donnees (timestamps debut/fin retrait)
+- Resume automatique du monitoring a la remise au poignet
+- API: `SensorManager.getDefaultSensor(Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT)`
+
+### 24d. Charging UX et Battery States
+
+**Nightstand mode (sur chargeur):**
+- Ecran always-on acceptable (pas de souci batterie)
+- Afficher horloge + prochain alarme
+- Tracking: PAUSE la detection (pas au poignet)
+- Sync complete: profiter du WiFi + charge pour gros transferts
+- Mise a jour modele ML si disponible
+
+**Battery states UX:**
+
+| Niveau | Seuil | Action app |
+|--------|-------|-----------|
+| Normal | > 30% | Toutes features actives |
+| Low | 15-30% | Reduire sampling capteurs (50Hz → 10Hz) |
+| Critical | 5-15% | Desactiver ML, garder compteur manuel |
+| Ultra low | < 5% | Notification "batterie faible", mode minimal |
+
+**Charge rapide par modele:**
+
+| Modele | 0-100% | 30 min = |
+|--------|--------|----------|
+| Galaxy Watch 7 | ~90 min | ~50% |
+| Pixel Watch 3 | ~75 min | ~55% |
+| Apple Watch S10 | ~75 min | ~80% (fast charge) |
+
+**Eviter "battery drain notification":**
+- Optimiser sampling (batching, event-triggered)
+- Budget total < 10-15% batterie/jour pour toutes apps tierces
+- Foreground notification: formuler positivement ("Monitoring actif") pas negativement
+
+---
+
 ## L. Onboarding & Permissions
 
 ### 25. First-Run Experience
@@ -1055,6 +1292,28 @@ Notification permanente (foreground service):
 - Ambient mode: blanc/gris seulement (pas de couleurs)
 - Contraste 4.5:1 minimum pour texte, 3:1 pour UI
 
+### 29b. Couleurs - Daltonisme et Gradients
+
+**Daltonisme (8% des hommes):**
+- NE JAMAIS encoder l'info UNIQUEMENT par la couleur
+- Toujours doubler: couleur + icone OU couleur + forme OU couleur + texte
+- Rouge/vert: utiliser rouge + triangle warning vs vert + checkmark
+- Simuler avec Android Studio (Color Blind simulator) ou Figma plugin
+- Modes specifiques: Deuteranopia (vert), Protanopia (rouge), Tritanopia (bleu)
+
+**Gradients sur montre:**
+- Utilisation limitee: boutons gradient acceptes (Compose for Wear OS Chip gradient)
+- Backgrounds: NON (fond toujours #000000)
+- Progress arcs: gradient acceptable (ex: bleu→vert progression)
+- Ambient mode: PAS de gradients (trop de pixels allumes)
+
+**Nombre de couleurs max dans une app montre:**
+- 1 couleur primaire (brand/accent)
+- 1 couleur secondaire (optionnelle)
+- Gris pour texte secondaire
+- Vert/rouge/orange pour statuts semantiques
+- Total: **4-5 couleurs max** (plus = confusion sur petit ecran)
+
 ### 30. Icones
 
 | Type | Taille | Format |
@@ -1063,6 +1322,46 @@ Notification permanente (foreground service):
 | Complication icon | Monochromatique, tintable | SVG/VectorDrawable |
 | Action notification | 24x24 dp | Monochromatique |
 | Bouton icon | 24-30 dp selon taille bouton | Material Icons |
+
+### 30b. Design Tokens Wearable
+
+**Spacing scale montre (plus petite que mobile):**
+
+| Token | Valeur | Usage |
+|-------|--------|-------|
+| space-xxs | 2dp | Intra-component gaps |
+| space-xs | 4dp | Entre elements lies (icone-label) |
+| space-sm | 6dp | Entre items de liste |
+| space-md | 8dp | Sections mineures |
+| space-lg | 12dp | Card padding |
+| space-xl | 16dp | Section separators |
+| space-xxl | 24dp | Top/bottom content padding |
+
+**Comparaison mobile vs montre:**
+- Mobile spacing base: 8dp → Montre: 4dp
+- Mobile padding: 16dp → Montre: 8-12dp
+- Mobile section gap: 24dp → Montre: 12-16dp
+
+**Border radius:**
+- Boutons: circulaires (50% radius)
+- Cards: 24dp (suit la courbure de l'ecran)
+- Chips: 16dp (coins arrondis)
+- Dialogs: full-screen (pas de radius)
+
+**Elevation sur OLED noir:**
+- Pas de shadows (invisibles sur noir)
+- Utiliser couleurs de surface (#1E1E1E, #272727) pour hierarchie
+- Plus clair = plus eleve (inverse du mode light)
+
+**SwiftUI watchOS - composants cles:**
+- `NavigationStack` → navigation hierarchique
+- `List` → liste native avec swipe actions
+- `TabView` → pages swipables (style PageTabViewStyle)
+- `Gauge` → jauge semi-circulaire (objectif/progress)
+- `ProgressView` → progress circulaire ou lineaire
+- `.digitalCrownRotation` → binding au Digital Crown
+- `TimelineView` → updates periodiques (complications)
+- `ContainerBackground` → fond custom derriere le contenu
 
 ---
 
@@ -1144,6 +1443,24 @@ Notification permanente (foreground service):
 - Texte explicatif long
 - Interaction pour reveler des donnees (hover impossible)
 
+**Regles data viz montre:**
+- Pas d'axes visibles (pas de place)
+- Pas de legendes separees (integrer dans le chart)
+- Max 7 data points visibles (7 barres, 7 segments)
+- Animation entry: ~300ms ease-out
+- Tap sur chart → "Voir details sur telephone" (deep link)
+- Couleur = information semantique (vert=bon, rouge=mauvais)
+
+**Comparaison Aujourd'hui vs Historique:**
+
+| Format | Exemple | Quand |
+|--------|---------|-------|
+| Fleche + pourcentage | "↑ 25%" ou "↓ 12%" | Tendance vs hier/moyenne |
+| Delta absolu | "+3 vs hier" | Compteur, difference exacte |
+| Progress ring | Anneau rempli a 75% | Objectif quotidien |
+| Sparkline | Mini-courbe 7 jours | Tendance hebdo |
+| Couleur seule | Vert/orange/rouge | Statut rapide (glanceable) |
+
 **Regle d'or:** 1 metrique par ecran, contexte minimal, drill-down vers telephone pour details.
 
 ---
@@ -1182,6 +1499,14 @@ Notification permanente (foreground service):
 - Background access: demande separee obligatoire
 - Chaque permission dangereuse doit etre accordee sur la montre separement (pas de sync depuis telephone)
 
+**Privacy UX:**
+- Onboarding: expliquer clairement quelles donnees sont collectees et pourquoi
+- Settings: section "Vos donnees" accessible (liste permissions + toggle)
+- Delete my data: bouton clair, confirmation, irreversible, accessible depuis telephone
+- No-cloud option: tout garder 100% local = argument de vente pour donnees addiction
+- Anonymisation: si sync cloud, hasher les identifiants
+- Export: JSON/CSV depuis telephone, avec chiffrement optionnel
+
 ---
 
 ## T. Samsung One UI Watch Specificites
@@ -1210,11 +1535,29 @@ Notification permanente (foreground service):
 | Watch 8 | Bezel tactile digital | Bezel physique rotatif (ameliore) |
 | Watch Ultra | Bouton Quick Action | N/A |
 
+**Samsung BioActive sensor (Galaxy Watch 4+):**
+
+| Capteur | Disponibilite | Acces tiers |
+|---------|--------------|-------------|
+| HR (PPG) | Tous modeles | Health Services API (libre) |
+| ECG | GW4+ | Privileged SDK (demande Samsung) |
+| BIA (body composition) | GW4+ | Privileged SDK (demande Samsung) |
+| SpO2 | GW4+ | Health Services API (libre) |
+| Temperature peau | GW5+ | Health Services API (Wear OS 4+) |
+| Blood Pressure | GW4+ (marches limites) | Privileged SDK (tres restreint) |
+
+**Sampling rates Samsung:**
+- HR: 1Hz (continu), 0.1Hz (periodic), on-demand (single)
+- Accelerometre: 25Hz, 50Hz, 100Hz, 200Hz (configurable)
+- Gyroscope: 25Hz, 50Hz, 100Hz, 200Hz
+- Pour notre app: accelerometre 25-50Hz suffit pour detection geste cigarette
+
 **Samsung Health integration:**
 - Samsung Health peut lire Health Connect
-- Privileged SDK: acces restreint (demande Samsung)
-- Custom data dans Samsung Health: limite
+- Privileged SDK: acces restreint (formulaire demande Samsung Developer)
+- Custom data dans Samsung Health: limite (pas de type "cigarette")
 - Tile dans Samsung Health dashboard: pas possible pour apps tierces
+- One UI Watch 6: integration plus profonde Health Connect, nouvelles APIs sante
 
 ---
 
@@ -1476,6 +1819,40 @@ HAPTIQUE      SON + HAPTIQUE
 | Double tap watchOS | 2 taps en ~500ms |
 | Voice latency on-device | ~200-500ms |
 | Voice latency cloud | ~1-3s |
+
+### Lifecycle
+
+| Quoi | Valeur |
+|------|--------|
+| Cold start target | < 2s (baseline profiles = -20-40%) |
+| Warm start | < 500ms |
+| Hot start | < 200ms |
+| RecentApps timeout | ~3-5 min |
+| Resume same screen | < 5 min d'absence |
+| Kill par systeme | ~5-15 min background |
+| Ambient transition | ~300ms |
+
+### Spacing (Design Tokens)
+
+| Quoi | Valeur |
+|------|--------|
+| Base | 4dp (montre) vs 8dp (mobile) |
+| Card padding | 12dp |
+| Content padding | 8-12dp |
+| Section gap | 12-16dp |
+| Top/bottom padding | 24dp |
+| Negative space min | 30-40% ecran |
+
+### Glanceability
+
+| Quoi | Valeur |
+|------|--------|
+| Temps comprehension | < 3 secondes |
+| Session moyenne montre | 8-12 secondes |
+| Sessions/jour | ~80-100 micro-sessions |
+| Max boutons/ecran | 3 (ideal 1-2) |
+| Max decisions/ecran | 1 |
+| Max couleurs dans l'app | 4-5 |
 
 ---
 
