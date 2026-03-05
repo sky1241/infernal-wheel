@@ -710,7 +710,9 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | Data viz (sparkline, ring) | R. Data Viz | 35 |
 | Securite, GDPR, encryption | S. Securite | 36 |
 | Samsung One UI, BioActive | T. Samsung | 37 |
+| Motion & animation tokens M3 | I-bis. Motion | 22d |
 | Standalone vs Companion | U. Architecture | 38 |
+| Detection companion, CapabilityClient | U. Architecture | 38b |
 | Loading patterns, errors | V. Loading | 39-40 |
 | Audio / son | W. Audio | 41 |
 | Watch Faces (WFF v4) | X. Watch Faces | 42 |

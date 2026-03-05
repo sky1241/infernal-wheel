@@ -1744,6 +1744,53 @@ adb connect <watch-ip>:5555
 | Etat clair | L'utilisateur sait toujours ou il est et ce qu'il peut faire |
 | Choix limites | Max 3-4 options par ecran |
 
+### 22d. Motion & Animation Tokens (Material 3)
+
+**Duration tokens (official M3):**
+
+| Token | Valeur | Usage |
+|-------|--------|-------|
+| `short1` | 50ms | Micro-feedback (ripple) |
+| `short2` | 100ms | Fade, color change |
+| `short3` | 150ms | Small element enter/exit |
+| `short4` | 200ms | Button press feedback |
+| `medium1` | 250ms | Card expand/collapse |
+| `medium2` | 300ms | Screen transitions simples |
+| `medium3` | 350ms | Dialog enter |
+| `medium4` | 400ms | Complex transitions |
+| `long1` | 450ms | Full-screen transitions |
+| `long2` | 500ms | Sheet expand |
+| `long3` | 550ms | Complex multi-element |
+| `long4` | 600ms | Large surface morph |
+| `extra-long1` | 700ms | Splash → content |
+| `extra-long2` | 800ms | Complex orchestration |
+| `extra-long3` | 900ms | Major layout change |
+| `extra-long4` | 1000ms | Dramatic reveal |
+
+**Sur montre:** Privilegier short1-4 et medium1-2 (sessions 8-12s, pas de temps pour long).
+
+**Easing tokens (cubic-bezier):**
+
+| Token | Valeur | Usage |
+|-------|--------|-------|
+| `standard` | `(0.2, 0, 0, 1)` | Mouvement general (enter + exit) |
+| `standard.accelerate` | `(0.3, 0, 1, 1)` | Element quitte l'ecran |
+| `standard.decelerate` | `(0, 0, 0, 1)` | Element arrive a l'ecran |
+| `emphasized.accelerate` | `(0.3, 0, 0.8, 0.15)` | Sortie avec emphase |
+| `emphasized.decelerate` | `(0.05, 0.7, 0.1, 1)` | Entree avec emphase (spring-like) |
+| `legacy` | `(0.4, 0, 0.2, 1)` | Ancien standard M2 (compat) |
+| `linear` | `(0, 0, 1, 1)` | Progress bars, color fade |
+
+**Regles animation sur montre:**
+- Eviter animations > 400ms (medium4) sauf transition ecran majeure
+- Pas de boucles longues — pause entre boucles >= duree animation
+- Animations shape morphing M3: automatiques via MotionScheme, pas besoin de custom
+- Privilegier `emphasized.decelerate` pour entrees (plus vif, plus reactif)
+- `standard` pour la majorite des animations generales
+- Tester avec System Trace pour valider la latence
+
+**Source:** [Material Design 3 - Motion Tokens](https://github.com/material-foundation/material-tokens/blob/json/json/motion.json)
+
 ---
 
 ## J. Haptics & Feedback
@@ -2630,6 +2677,60 @@ CLOUD (optionnel):
     android:name="android.hardware.type.watch" />
 ```
 
+### 38b. Detection Companion App & Mode Offline
+
+**Capability system (wear.xml):**
+
+```xml
+<!-- Mobile app: res/values/wear.xml -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@array/android_wear_capabilities">
+    <string-array name="android_wear_capabilities">
+        <item>verify_remote_infernal_phone_app</item>
+    </string-array>
+</resources>
+
+<!-- Watch app: res/values/wear.xml -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@array/android_wear_capabilities">
+    <string-array name="android_wear_capabilities">
+        <item>verify_remote_infernal_wear_app</item>
+    </string-array>
+</resources>
+```
+
+**Detection du telephone depuis la montre:**
+
+```kotlin
+// Type de telephone
+val phoneType = PhoneTypeHelper.getPhoneDeviceType(context)
+// DEVICE_TYPE_ANDROID, DEVICE_TYPE_IOS, DEVICE_TYPE_UNKNOWN, DEVICE_TYPE_ERROR
+
+// App companion installee ?
+val capabilityInfo = capabilityClient
+    .getCapability("verify_remote_infernal_phone_app", CapabilityClient.FILTER_REACHABLE)
+    .await()
+val phoneAppInstalled = capabilityInfo.nodes.isNotEmpty()
+
+// Si pas installee → ouvrir Play Store sur telephone
+if (!phoneAppInstalled && phoneType == DEVICE_TYPE_ANDROID) {
+    RemoteActivityHelper(context).startRemoteActivity(
+        Intent(Intent.ACTION_VIEW)
+            .setData(Uri.parse("market://details?id=com.infernal.smokingdetector"))
+    )
+}
+```
+
+**Offline-first regles:**
+- L'app montre DOIT fonctionner sans telephone (standalone=true)
+- Stocker toutes les donnees localement (Room/DataStore)
+- Sync opportuniste quand telephone est reachable
+- Bluetooth LE: max ~4 KB/s → minimiser les donnees envoyees
+- Afficher clairement si connecte ou non (icone status)
+- Jamais de crash si telephone absent
+
+**Source:** [Android Developers - Standalone Apps](https://developer.android.com/training/wearables/apps/standalone-apps)
+
 ---
 
 ## V. Patterns de Chargement
@@ -3072,6 +3173,29 @@ adb shell dumpsys activity service WearableService  # Data Layer usage
 | Max boutons/ecran | 3 (ideal 1-2) |
 | Max decisions/ecran | 1 |
 | Max couleurs dans l'app | 4-5 |
+
+### Motion & Animation
+
+| Quoi | Valeur |
+|------|--------|
+| Duree recommandee montre | short1-4 (50-200ms), medium1-2 (250-300ms) |
+| Max animation montre | 400ms sauf transition majeure |
+| Standard easing | cubic-bezier(0.2, 0, 0, 1) |
+| Emphasized decelerate | cubic-bezier(0.05, 0.7, 0.1, 1) |
+| Legacy (M2 compat) | cubic-bezier(0.4, 0, 0.2, 1) |
+| Shape morphing | Auto via MotionScheme (M3 Expressive) |
+| Pause entre boucles | >= duree animation |
+
+### Standalone & Offline
+
+| Quoi | Valeur |
+|------|--------|
+| Standalone manifest | `com.google.android.wearable.standalone` = true |
+| Bluetooth LE bandwidth | ~4 KB/s max |
+| CapabilityClient | Detection app companion |
+| PhoneTypeHelper | ANDROID / IOS / UNKNOWN |
+| RemoteActivityHelper | Ouvrir Play Store sur telephone |
+| Offline-first | OBLIGATOIRE (jamais crash si pas de phone) |
 
 ### Google Play Quality (memo)
 
