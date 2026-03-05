@@ -41,13 +41,13 @@
 ```
 Qui est l'utilisateur?
          |
-    +----+----+
-    |         |
-  Mobile    Desktop
-  First?    First?
-    |         |
-    v         v
- MOBILE.md  WEB.md
+    +----+----+--------+
+    |         |        |
+  Mobile    Desktop  Wearable
+  First?    First?   (montre)?
+    |         |        |
+    v         v        v
+ MOBILE.md  WEB.md  WEARABLE.md
 ```
 
 ---
@@ -645,14 +645,15 @@ start  guide   seulement
 ## QUICK DECISION
 
 ```
-PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MOBILE
+PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MOBILE/WEARABLE
      |
      v
-  Mobile?  → MOBILE.md sections A-Z
-  Web?     → WEB.md sections A-V
-  Les deux → Croiser les deux fichiers
+  Mobile?    → MOBILE.md sections A-Z
+  Web?       → WEB.md sections A-V
+  Wearable?  → WEARABLE.md sections A-Z
+  Les deux+  → Croiser les fichiers concernes
 ```
 
 ---
 
-*Mind map - pour le code complet voir WEB.md et MOBILE.md*
+*Mind map - pour le code complet voir WEB.md, MOBILE.md et WEARABLE.md*
