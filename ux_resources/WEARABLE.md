@@ -56,6 +56,60 @@
 
 **Regle cle:** Designer d'abord pour 192dp, puis adapter pour 225dp+ avec contenu supplementaire.
 
+### 2b. Responsive Layouts & Quality Tiers
+
+**Breakpoint principal:**
+
+```kotlin
+const val LARGE_DISPLAY_BREAKPOINT = 225  // dp
+
+@Composable
+fun isLargeDisplay() =
+    LocalConfiguration.current.screenWidthDp >= LARGE_DISPLAY_BREAKPOINT
+```
+
+**3 tiers de qualite Google:**
+
+| Tier | Objectif | Critere |
+|------|----------|---------|
+| **Tier 1: Ready** | Marche sur tous les ecrans | Marges en %, pas de clipping, contenu centre |
+| **Tier 2: Responsive** | Plus de contenu sur grands ecrans | Layouts adaptatifs, composants redimensionnes |
+| **Tier 3: Adaptive** | Experiences differenciees | Breakpoints, features uniques grands ecrans, shape morphing |
+
+**Regles critiques:**
+- Marges TOUJOURS en pourcentage (pas en dp fixe)
+- Un grand ecran ne doit JAMAIS afficher MOINS qu'un petit
+- Scrolling views: top/bottom/side margins = percentages
+- Non-scrolling views: percentages + vertical constraints
+- Designer pour 192-216dp d'abord, puis enrichir a 225dp+
+
+**Responsive padding (Horologist):**
+
+```kotlin
+val contentPadding = rememberResponsiveColumnPadding(
+    first = ColumnItemType.ListHeader,
+    last = ColumnItemType.Button,
+)
+```
+
+**Screenshot testing multi-tailles (Roborazzi):**
+
+```kotlin
+@RunWith(ParameterizedRobolectricTestRunner::class)
+class ScreenTest(override val device: WearDevice) : WearScreenshotTest() {
+    override val tolerance = 0.02f
+    @Test fun test() = runTest { AppScaffold { MyScreen() } }
+    companion object {
+        @JvmStatic @ParameterizedRobolectricTestRunner.Parameters
+        fun devices() = WearDevice.entries
+    }
+}
+// ./gradlew recordRoborazziDebug  → generer golden images
+// ./gradlew verifyRoborazziDebug  → verifier contre golden
+```
+
+**Source:** [Android Developers - Screen Sizes](https://developer.android.com/training/wearables/compose/screen-size)
+
 ### 3. Zone Utile sur Ecran Rond
 
 ```
@@ -180,6 +234,56 @@
 - SELECT/START = confirmer
 - BACK/LAP = retour / action secondaire
 - LIGHT (long press) = menu power
+
+### 6b. Rotary Input Implementation (Compose)
+
+**Built-in:** `TransformingLazyColumn`, `ScalingLazyColumn`, `Picker` supportent le rotary par defaut dans AppScaffold/ScreenScaffold.
+
+**Scroll indicator integre:**
+
+```kotlin
+val listState = rememberTransformingLazyColumnState()
+ScreenScaffold(
+    scrollState = listState,
+    scrollIndicator = { ScrollIndicator(state = listState) }
+) { /* content */ }
+```
+
+**Custom rotary (ex: controle volume):**
+
+```kotlin
+val focusRequester = remember { FocusRequester() }
+
+TransformingLazyColumn(
+    modifier = Modifier
+        .fillMaxSize()
+        .onRotaryScrollEvent {
+            viewModel.onVolumeChange(it.verticalScrollPixels)
+            true  // true = event consomme
+        }
+        .focusRequester(focusRequester)
+        .focusable(),
+) { /* items */ }
+
+LaunchedEffect(Unit) { focusRequester.requestFocus() }
+```
+
+**Snap fling (items qui s'accrochent):**
+
+```kotlin
+ScalingLazyColumn(
+    state = state,
+    flingBehavior = ScalingLazyColumnDefaults.snapFlingBehavior(state = state)
+) { /* items */ }
+```
+
+**Regles:**
+- `onRotaryScrollEvent` retourne `Boolean` (true = consomme, false = propage)
+- `focusRequester` + `.focusable()` OBLIGATOIRES pour recevoir les events
+- Toujours fournir un feedback visuel (ScrollIndicator ou changement de valeur)
+- Utiliser `focusTarget` au lieu de `focusable` pour meilleures performances (M3)
+
+**Source:** [Android Developers - Rotary Input](https://developer.android.com/training/wearables/compose/rotary-input)
 
 ### 7. Wrist Gestures
 
@@ -392,6 +496,104 @@ AppScaffold {
 
 **Source:** [Android Developers - Compose for Wear OS](https://developer.android.com/training/wearables/compose)
 
+### 8e-bis. M3 Expressive (Wear OS 6+)
+
+**Shape Morphing:** Les shapes reagissent aux interactions. Les boutons changent de forme dynamiquement (press, check).
+
+| Composant | Comportement |
+|-----------|-------------|
+| `IconButton` | Shape morph on press (variante expressive) |
+| `TextButton` | Shape morph on press |
+| `IconToggleButton` | Shape morph on check/uncheck |
+| `TextToggleButton` | Shape morph on check/uncheck |
+| `ButtonGroup` | Groupe de boutons en ligne, shape-morph quand un est touche |
+
+**ButtonGroup (nouveau):**
+- Boutons en ligne qui shape-morphent quand l'un est presse
+- 2 strategies de distribution:
+  - **Evenly distributed** — symetrie
+  - **Strategic arrangement** — hierarchie visuelle, emphase, guidage
+
+**Edge-Hugging Containers:**
+- Conteneurs qui epousent la forme ronde de l'ecran
+- Maximisent l'espace utilisable sur le canvas circulaire
+- Pattern iconique du design Wear OS
+
+**Variable Fonts (Roboto Flex):**
+- 3 axes dynamiques: weight, width, weight+width
+- Nouveaux type roles specifiques Wear:
+  - **Arc Text** — pour titres en arc sur le bord
+  - **Numerals** — grands chiffres styles (compteurs, timers)
+  - **Proactive content** — texte avec espace pour contenu live
+
+**Motion Scheme:**
+- Nouveau `MotionScheme` dans le theme M3
+- Springs expressives pour animations
+- Shape transitions et morphing fluide
+- Variable font axes animes pour feedback interactif
+
+**Corner Radius:**
+- Formes flexibles avec rounding/sharpening
+- Variete entre conteneurs pour distinction visuelle
+- Etablit des relations visuelles entre formes
+
+**Source:** [Android Developers - M3 Expressive](https://developer.android.com/design/ui/wear/guides/get-started/design-language)
+
+### 8f. Dialogs, Pickers & Confirmations (Wear OS)
+
+**AlertDialog (M3):**
+- Responsive par defaut (s'adapte aux tailles d'ecran)
+- Scrollable automatiquement si contenu depasse
+- Variantes: ok/cancel buttons OU EdgeButton
+
+```kotlin
+AlertDialog(
+    show = showDialog,
+    onDismissRequest = { showDialog = false },
+    title = { Text("Confirmer ?") },
+    text = { Text("Supprimer cette entree ?") },
+    confirmButton = {
+        Button(onClick = { onConfirm(); showDialog = false }) {
+            Text("Oui")
+        }
+    },
+    dismissButton = {
+        Button(onClick = { showDialog = false }) {
+            Text("Non")
+        }
+    }
+)
+```
+
+**ConfirmationDialog (M3):**
+- Affiche message + animation avec timeout auto
+- 3 types: success, failure, open-on-phone
+- Auto-dismiss apres animation (typiquement ~4s)
+
+**ConfirmationActivity (Views legacy):**
+
+```kotlin
+val intent = Intent(this, ConfirmationActivity::class.java).apply {
+    putExtra(ConfirmationActivity.EXTRA_ANIMATION_TYPE, ConfirmationActivity.SUCCESS_ANIMATION)
+    putExtra(ConfirmationActivity.EXTRA_MESSAGE, "Cigarette enregistree")
+}
+startActivity(intent)
+// Types: SUCCESS_ANIMATION, FAILURE_ANIMATION, OPEN_ON_PHONE_ANIMATION
+```
+
+**TimePicker:**
+- Layouts: 24h (avec/sans secondes), 12h avec AM/PM
+- `initialSelection` pour composant selectionne au demarrage
+- Type `MinutesSeconds` pour timer
+- Animation heading: fade-out + fade-in en Spring
+
+**DatePicker:**
+- Ordre configurable: day-month-year, month-day-year, year-month-day
+- Min/max dates optionnels
+- Meme animation Spring que TimePicker
+
+**Source:** [Android Developers - Dialogs](https://developer.android.com/design/ui/wear/guides/m2-5/components/dialogs)
+
 ### 8e. Principes Google Officiels pour Wear OS
 
 **5 principes fondamentaux** ([source](https://developer.android.com/training/wearables/principles)):
@@ -499,6 +701,90 @@ AppScaffold {
 - Bottom bar avec 5+ items
 - Forcer l'utilisateur a chercher une fonctionnalite
 - Listes de plus de 20 items sans sections
+
+### 9b. Navigation Compose Implementation
+
+**Dependance:** `androidx.wear.compose:compose-navigation:1.5.6+` (PAS `androidx.navigation:navigation-compose`)
+
+**Pattern complet AppScaffold + SwipeDismissableNavHost:**
+
+```kotlin
+AppScaffold {
+    val navController = rememberSwipeDismissableNavController()
+    SwipeDismissableNavHost(
+        navController = navController,
+        startDestination = "home"
+    ) {
+        composable("home") {
+            HomeScreen(
+                onDetailClick = { id -> navController.navigate("detail/$id") }
+            )
+        }
+        composable("detail/{id}") {
+            DetailScreen(id = it.arguments?.getString("id")!!)
+        }
+    }
+}
+
+@Composable
+fun DetailScreen(id: String) {
+    val scrollState = rememberTransformingLazyColumnState()
+    val padding = rememberResponsiveColumnPadding(first = ColumnItemType.BodyText)
+    ScreenScaffold(scrollState = scrollState, contentPadding = padding) { cp ->
+        TransformingLazyColumn(state = scrollState, contentPadding = cp) {
+            // content
+        }
+    }
+}
+```
+
+**Differences vs Navigation mobile:**
+
+| Aspect | Mobile | Wear OS |
+|--------|--------|---------|
+| NavController | `rememberNavController()` | `rememberSwipeDismissableNavController()` |
+| NavHost | `NavHost` | `SwipeDismissableNavHost` |
+| Container top | Aucun | `AppScaffold` (OBLIGATOIRE) |
+| Container ecran | Aucun | `ScreenScaffold` |
+| Back | Bouton retour | Swipe droite (automatique) |
+| TimeText | Manuel | Automatique via ScreenScaffold |
+
+**Wear OS 6+:** Animations de transition mises a jour automatiquement (API 36+).
+
+**Source:** [Android Developers - Navigation Compose](https://developer.android.com/training/wearables/compose/navigation)
+
+### 9c. HorizontalPager & Page Indicators
+
+**HorizontalPagerScaffold (M3):**
+
+```kotlin
+AppScaffold {
+    val pagerState = rememberPagerState(pageCount = { 3 })
+    HorizontalPagerScaffold(pagerState = pagerState) {
+        HorizontalPager(state = pagerState) { page ->
+            when (page) {
+                0 -> CounterScreen()
+                1 -> StatsScreen()
+                2 -> SettingsScreen()
+            }
+        }
+    }
+}
+```
+
+**HorizontalPageIndicator:**
+- Max **6 dots** affichees (peu importe le nombre de pages)
+- Sur ecran rond: indicateur courbe automatiquement
+- Position: centre-end par defaut
+- TimeText et indicateur apparaissent/disparaissent selon le paging
+
+**Regles:**
+- Pages lazy-loaded (composees a la demande)
+- Pages non requises sont supprimees automatiquement
+- `HorizontalPagerScaffold` gere TimeText + PageIndicator coordonnes
+- Aussi disponible: `VerticalPagerScaffold` pour scroll vertical entre pages
+
+**Source:** [Android Developers - Page Indicators](https://developer.android.com/training/wearables/compose/pagination)
 
 ### 10. Tiles (Wear OS)
 
@@ -843,6 +1129,65 @@ val dynamicCount = DynamicComplicationText(
 - Branding ou decoration
 - Meme contenu que le mode interactif (trop charge)
 - Polices grasses/epaisses (burn-in) → utiliser outlines fines
+
+**Source:** [Android Developers - Always-on](https://developer.android.com/training/wearables/always-on)
+
+### 14b. Ambient Mode Implementation (Compose)
+
+**3 etats possibles:**
+
+| Wear OS | targetSDK | Callback | Resultat |
+|---------|-----------|----------|----------|
+| ≤ 5 | Any | Non | AOD Lite (screenshot floue + heure) |
+| 6+ | 36+ | Non | Global AOD (app dimmed, 1x/min) |
+| Any | Any | Oui | Ambiactive (app gere son propre AOD) |
+
+**2 timeouts d'inactivite:**
+1. Interactive → Ambient (premier timeout)
+2. Ambient → Retour au watch face (deuxieme timeout, sauf Ongoing Activity)
+
+**AmbientLifecycleObserver:**
+
+```kotlin
+val ambientCallback = object : AmbientLifecycleObserver.AmbientLifecycleCallback {
+    override fun onEnterAmbient(ambientDetails: AmbientLifecycleObserver.AmbientDetails) {
+        // ambientDetails.deviceHasLowBitAmbient → desactiver anti-aliasing
+        // ambientDetails.burnInProtectionRequired → shifter le contenu
+    }
+    override fun onExitAmbient() { /* restaurer le plein UI */ }
+    override fun onUpdateAmbient() { /* 1x/minute max */ }
+}
+
+// Dans Activity.onCreate():
+lifecycle.addObserver(AmbientLifecycleObserver(this, ambientCallback))
+```
+
+**AmbientAware (Horologist, pour Compose):**
+
+```kotlin
+AmbientAware { ambientState ->
+    if (ambientState.isAmbient) {
+        AmbientContent()  // UI low-power
+    } else {
+        InteractiveContent()  // UI complet
+    }
+}
+```
+
+**Regles ambient:**
+- **85%+ ecran noir** pour economiser la batterie
+- Icones/boutons en outline, pas en remplissage solide
+- Remplacer donnees live (chrono, HR) par `--` statique
+- Burn-in protection: shifter le contenu periodiquement si `burnInProtectionRequired`
+- Low-bit ambient: desactiver anti-aliasing si `deviceHasLowBitAmbient`
+- `TimeText` est automatiquement ambient-aware (update 1x/min, pas besoin de code)
+
+**Debugging:**
+
+```bash
+adb shell input keyevent KEYCODE_SLEEP   # entrer en ambient
+adb shell input keyevent KEYCODE_WAKEUP  # sortir de ambient
+```
 
 **Source:** [Android Developers - Always-on](https://developer.android.com/training/wearables/always-on)
 
@@ -1649,6 +1994,113 @@ Notification permanente (foreground service):
 - Budget total < 10-15% batterie/jour pour toutes apps tierces
 - Foreground notification: formuler positivement ("Monitoring actif") pas negativement
 
+### 24e. Ongoing Activity API
+
+**But:** Garder l'app visible sur watch face + Recents pendant une session longue (workout, tracking).
+
+**Dependances:**
+
+```gradle
+implementation "androidx.wear:wear-ongoing:1.1.0"
+implementation "androidx.core:core:1.17.0"
+```
+
+**Implementation:**
+
+```kotlin
+val pendingIntent = PendingIntent.getActivity(this, 0,
+    Intent(this, MainActivity::class.java).apply {
+        flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+    },
+    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+)
+
+val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
+    .setSmallIcon(R.drawable.ic_smoking)
+    .setContentTitle("Monitoring actif")
+    .setCategory(NotificationCompat.CATEGORY_WORKOUT)
+    .setOngoing(true)
+
+val ongoingActivity = OngoingActivity.Builder(applicationContext, NOTIFICATION_ID, notificationBuilder)
+    .setAnimatedIcon(R.drawable.ic_animated_smoke)  // noir/blanc, fond transparent
+    .setStaticIcon(R.drawable.ic_smoke_static)      // pour ambient
+    .setTouchIntent(pendingIntent)                  // tap → retour dans l'app
+    .setStatus(
+        Status.Builder()
+            .addTemplate("#count# cigarettes")
+            .addPart("count", Status.TextPart("5"))
+            .build()
+    )
+    .build()
+
+ongoingActivity.apply(applicationContext)
+startForeground(NOTIFICATION_ID, notificationBuilder.build())
+```
+
+**Surfaces affichees:**
+
+| Surface | Mode actif | Mode ambient |
+|---------|-----------|-------------|
+| Watch face | Icone animee (tappable) | Icone statique |
+| Recents launcher | Item + status dynamique | Item |
+
+**Categories de priorite:**
+`CATEGORY_CALL` > `CATEGORY_NAVIGATION` > `CATEGORY_TRANSPORT` > `CATEGORY_ALARM` > `CATEGORY_WORKOUT` > `CATEGORY_STOPWATCH`
+
+**Regles:**
+- Icone statique OBLIGATOIRE (sinon `IllegalArgumentException`)
+- Touch intent OBLIGATOIRE
+- Icones noir/blanc avec fond transparent
+- Updates: quelques fois par minute raisonnable
+- Stop: simplement `notificationManager.cancel(NOTIFICATION_ID)`
+
+**Source:** [Android Developers - Ongoing Activity](https://developer.android.com/training/wearables/notifications/ongoing-activity)
+
+### 24f. Splash Screen (Wear OS)
+
+**Dependance:** `androidx.core:core-splashscreen:1.2.0+`
+
+**Theme (`res/values/styles.xml`):**
+
+```xml
+<style name="Theme.App.Starting" parent="Theme.SplashScreen">
+    <item name="windowSplashScreenBackground">@android:color/black</item>
+    <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+    <item name="postSplashScreenTheme">@style/Theme.App</item>
+</style>
+<!-- Icone non-ronde: parent="Theme.SplashScreen.IconBackground" -->
+```
+
+**Drawable (`res/drawable/splash_icon.xml`):**
+
+```xml
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:width="48dp" android:height="48dp"
+          android:drawable="@mipmap/ic_launcher" android:gravity="center" />
+</layer-list>
+<!-- Icone non-ronde: 36dp au lieu de 48dp -->
+```
+
+**Manifest:**
+
+```xml
+<activity android:name=".MainActivity"
+    android:theme="@style/Theme.App.Starting"
+    android:exported="true">
+```
+
+**Activity:**
+
+```kotlin
+override fun onCreate(savedInstanceState: Bundle?) {
+    installSplashScreen()  // AVANT super.onCreate()
+    super.onCreate(savedInstanceState)
+    setContent { WearApp() }
+}
+```
+
+**Source:** [Android Developers - Splash Screen](https://developer.android.com/training/wearables/apps/splash-screen)
+
 ---
 
 ## L. Onboarding & Permissions
@@ -1689,6 +2141,58 @@ Notification permanente (foreground service):
 | Settings | Config complete | Debug, export |
 
 **Regle:** L'utilisateur ne devrait JAMAIS avoir besoin de plus de 2 taps pour accomplir l'action principale.
+
+### 26b. Permissions sur Wear OS
+
+**Permissions cles pour notre app:**
+
+| Permission | API level | Usage |
+|-----------|-----------|-------|
+| `BODY_SENSORS` | ≤ 35 | Capteurs biometriques (HR, etc.) |
+| `android.permission.health.READ_HEART_RATE` | 36+ | Remplace BODY_SENSORS |
+| `ACTIVITY_RECOGNITION` | 29+ | Detection activite physique |
+| `POST_NOTIFICATIONS` | 33+ | Notifications |
+| `FOREGROUND_SERVICE_HEALTH` | 34+ | Service foreground sante |
+
+**Compose permission state:**
+
+```kotlin
+val permissionState = rememberPermissionState(
+    permission = Manifest.permission.BODY_SENSORS,
+    onPermissionResult = { granted ->
+        if (granted) startMonitoring()
+    }
+)
+
+if (permissionState.status.isGranted) {
+    MonitoringScreen()
+} else {
+    PermissionRequestScreen(
+        onRequest = { permissionState.launchPermissionRequest() }
+    )
+}
+```
+
+**4 scenarios de permissions:**
+1. **Watch demande permission watch** — Dialog systeme standard
+2. **Watch demande permission phone** — Renvoyer l'utilisateur au telephone
+3. **Phone demande permission watch** — Renvoyer l'utilisateur a la montre
+4. **Phone demande plusieurs d'un coup** (Android 12+) — `CompanionDeviceManager`
+
+**Patterns UX pour permissions:**
+- **Ask in context** — Demander quand le besoin est evident (tap "detecter" → permission capteurs)
+- **Educate in context** — Expliquer AVANT si pas evident, utiliser `shouldShowRequestPermissionRationale()`
+- Icone cadenas pour features desactivees par permission refusee
+- Ne JAMAIS bloquer l'app entiere pour une permission refusee
+
+**Denial flow:**
+1. Premier refus → peut re-demander
+2. Deuxieme refus → option "Don't show again"
+3. Apres "Don't show again" → Settings uniquement
+
+**Watch faces:** NE PAS demander de permissions directement, utiliser les complications.
+
+**Source:** [Android Developers - Permissions](https://developer.android.com/training/wearables/apps/permissions)
 
 ---
 
@@ -2268,6 +2772,148 @@ HAPTIQUE      SON + HAPTIQUE
 - Detection auto = "wow factor" mais faux positifs > 20% = desinstallation rapide
 - Gamification legere (pas excessive) = engagement sans fatigue
 
+### 43c. Recherche UX NNGroup - 6 Types d'Interactions Montre
+
+**Source:** NNGroup diary study, 11 participants, 200+ interactions documentees.
+
+| Type | Description | Frequence |
+|------|-------------|-----------|
+| **1. Receiving** | Recevoir notifications (updates, rappels, feedback, suggestions) | Tres frequent |
+| **2. Referencing** | Consulter info disponible (heure, meteo, compteur) | Frequent |
+| **3. Recording** | Capturer des donnees (workout, eau, sommeil, cigarettes) | Frequent |
+| **4. Controlling** | Controler d'autres appareils (musique, maison, alarme) | Plus positif |
+| **5. Communicating** | Appels, messages, reponses rapides | Important |
+| **6. Guiding** | Direction en temps reel (navigation, exercice guide, respiration) | Situel |
+
+**Interactions PAS adaptees a la montre:**
+- **Consuming** (video, articles) — ecran trop petit
+- **Creating** (ecrire, dessiner) — input trop difficile
+- **Browsing** (shopping, exploration) — pas de comportement oriente but
+- **Searching** (requetes complexes) — input + affichage insuffisants
+
+**Principes UX cles (NNGroup):**
+
+| Principe | Explication |
+|----------|-------------|
+| **Glanceable** | Lisible en 2-3 secondes max |
+| **Informative** | Assez de detail pour eviter de sortir le telephone |
+| **Personalized** | Contenu generique/promo = agacement immediat |
+| **Timely** | Delivre au bon moment = valeur percue x10 |
+| **Accessible** | Hierarchie plate, pas de profondeur |
+| **Easy initiation** | 2-3 gestes max pour demarrer un recording |
+| **Contextually prompted** | Detection auto d'activite = delight |
+| **Accurate (perceived)** | Inexactitude = perte de confiance immediate |
+
+**Statistiques comportementales:**
+- 1 Americain sur 5 possede une smartwatch (Pew Research 2020)
+- **80%+ des interactions** = apps natives (messages, activite, timers)
+- Adoption apps tierces sur montre = minimale
+- Users voient la montre comme un **filtre de contenu** — tolerent MOINS l'irrelevant que sur telephone
+- Checker la montre est **socialement plus acceptable** que sortir le telephone
+- "Device inertia": les gens completent des taches sur l'appareil le moins optimal pour eviter de changer
+
+**Pour notre app (smoking tracker):**
+- Type "Recording" = notre cas principal (quick input +1 cigarette)
+- Type "Referencing" = compteur du jour visible en complication
+- Type "Receiving" = rappels/encouragements (NON culpabilisants)
+- Type "Controlling" = demarrer/arreter le monitoring
+- Easy initiation CRITIQUE: tile/complication → 1 tap
+
+**Source:** [NNGroup - Smartwatch Interactions](https://www.nngroup.com/articles/smartwatch-interactions/)
+
+### 43d. Quand Construire une App Montre (NNGroup)
+
+**Construire SI:**
+- Fournit de la valeur impossible/inconvenante sur telephone
+- Supporte des micro-interactions deja tentees sur mobile
+- Exploite des donnees uniques (capteurs, biometrie, mouvement)
+- Acces rapide dans des situations ou le telephone est indisponible
+
+**NE PAS construire SI:**
+- Replique simplement une fonctionnalite telephone basique
+- Relation temporaire avec l'utilisateur (app hotel, service ponctuel)
+- Interactions complexes (lecture longue, ecriture, video)
+- L'utilisateur a probablement son telephone a portee de main
+
+**Design reco:**
+- Prioriser les notifications efficaces AVANT de faire une app standalone
+- Eviter les resumes multi-ecrans (>3 ecrans de scroll = personne ne lit)
+- Decouverte/recherche UX AVANT le dev pour valider la valeur
+
+**Source:** [NNGroup - Should You Build a Smartwatch App?](https://www.nngroup.com/articles/smartwatch-app/)
+
+### 43e. Power Conservation Hierarchy
+
+**Impact batterie par source (ordre decroissant):**
+
+| Source | Impact | Mitigation |
+|--------|--------|-----------|
+| Network (LTE/Wi-Fi) | Tres eleve | Differer jusqu'au chargement |
+| Ecran on / mode interactif | Eleve | Utiliser ambient mode |
+| GPS | Eleve | Seulement sur demande utilisateur |
+| CPU intensif | Eleve | Batching, idle max |
+| Heart rate sensor | Moyen | Health Services (batched) |
+| Bluetooth | Moyen | Sessions courtes |
+| Wakelocks | Moyen | WorkManager a la place |
+
+**Regles batterie:**
+- Ne JAMAIS copier l'app mobile telle quelle → deleguer le travail lourd au telephone
+- Differer downloads jusqu'a **charging + Wi-Fi** (WorkManager avec constraints)
+- Prefetch quand en charge ce que l'utilisateur voudra probablement
+- Interactions courtes (secondes, pas minutes)
+- Animations: eviter boucles longues, pause entre boucles >= duree animation
+- Data Layer: envoyer des changements d'etat, PAS des updates continues
+
+**WorkManager sur montre:**
+
+```kotlin
+WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+    "data_sync", ExistingPeriodicWorkPolicy.KEEP,
+    PeriodicWorkRequestBuilder<SyncWorker>(2, TimeUnit.HOURS)
+        .setConstraints(Constraints.Builder()
+            .setRequiresCharging(true)
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+        ).build()
+)
+```
+
+**Monitoring capteurs:**
+
+```bash
+adb shell dumpsys sensorservice          # registrations capteurs
+adb shell dumpsys batterystats           # stats batterie
+adb shell dumpsys activity service WearableService  # Data Layer usage
+```
+
+**Verification:**
+- ExerciseClient: app ne se reveille PAS plus d'1x toutes les 1-2 min
+- Tiles/complications: disable auto-refresh OU >= 2h d'intervalle
+- Partager une seule database entre app, tiles, et complications
+- Apres swipe-dismiss ou ecran off: verifier que les capteurs se desenregistrent
+
+**Source:** [Android Developers - Power](https://developer.android.com/training/wearables/apps/power)
+
+### 43f. Touch Lock & Fitness UX
+
+**Touch lock:** Desactiver le tactile pendant une activite (workout, tracking actif).
+- Empeche les touches accidentelles pendant le mouvement
+- Utilisateur doit appuyer un bouton physique pour debloquer
+- Recommande pour toute app de tracking continu
+
+**Haptics pour confirmer les actions fitness:**
+- Start monitoring → vibration confirmation
+- Stop monitoring → vibration distincte
+- Auto-detection cigarette → vibration + notification
+- Milestone (objectif quotidien atteint) → vibration de celebration
+
+**Complement phone vs duplicate:**
+- Montre = collecte de donnees + resume minimal
+- Analyse detaillee post-session → app telephone
+- Ne faire que les taches critiques au poignet
+
+**Source:** [Android Developers - Principles](https://developer.android.com/training/wearables/principles)
+
 ---
 
 ## Z. Valeurs Cles (Memo Rapide)
@@ -2455,7 +3101,84 @@ HAPTIQUE      SON + HAPTIQUE
 | Max taps workout | 3 avant friction |
 | Faux positifs ML seuil | < 20% pour retention |
 
+### Navigation Compose
+
+| Quoi | Valeur |
+|------|--------|
+| NavHost Wear | `SwipeDismissableNavHost` (PAS NavHost) |
+| NavController Wear | `rememberSwipeDismissableNavController()` |
+| Container top | `AppScaffold` (OBLIGATOIRE) |
+| Container ecran | `ScreenScaffold` |
+| Navigation lib | `wear-compose:compose-navigation:1.5.6+` |
+| Pager max dots | 6 (HorizontalPageIndicator) |
+| Pager scaffold | `HorizontalPagerScaffold` / `VerticalPagerScaffold` |
+
+### Ongoing Activity & Splash
+
+| Quoi | Valeur |
+|------|--------|
+| Ongoing Activity lib | `wear-ongoing:1.1.0` |
+| Ongoing icon type | Noir/blanc, fond transparent |
+| Ongoing categories | CALL > NAVIGATION > TRANSPORT > ALARM > WORKOUT |
+| Splash lib | `core-splashscreen:1.2.0+` |
+| Splash icon round | 48dp |
+| Splash icon non-round | 36dp (avec background) |
+| `installSplashScreen()` | AVANT `super.onCreate()` |
+
+### Ambient Mode
+
+| Quoi | Valeur |
+|------|--------|
+| Ecran noir min ambient | 85% |
+| Update ambient | 1x/minute max |
+| Burn-in protection | Shifter contenu si `burnInProtectionRequired` |
+| Low-bit ambient | Desactiver anti-aliasing si flag |
+| TimeText ambient | Auto-aware, pas besoin de code |
+| Horologist ambient | `AmbientAware` composable |
+
+### Permissions
+
+| Quoi | Valeur |
+|------|--------|
+| BODY_SENSORS | API ≤ 35 |
+| READ_HEART_RATE | API 36+ (remplace BODY_SENSORS) |
+| ACTIVITY_RECOGNITION | API 29+ |
+| Max denials avant "don't show" | 2 |
+| Watch faces | JAMAIS demander de permissions directement |
+
+### NNGroup UX Research
+
+| Quoi | Valeur |
+|------|--------|
+| 6 types interactions | Receiving, Referencing, Recording, Controlling, Communicating, Guiding |
+| Glance time | 2-3 secondes |
+| 80%+ interactions | Apps natives (pas tierces) |
+| Tolerance irrelevant | Plus basse que telephone |
+| Device inertia | Watch > Phone > Desktop (les gens evitent de changer) |
+| Easy initiation | 2-3 gestes max |
+
+### M3 Expressive
+
+| Quoi | Valeur |
+|------|--------|
+| Shape morphing | Boutons changent de forme au press/check |
+| ButtonGroup | Ligne de boutons shape-morphing |
+| Variable fonts | Roboto Flex (weight, width, weight+width) |
+| MotionScheme | Springs expressives dans le theme |
+| Arc Text | Nouveau type role pour titres en arc |
+| Numerals | Nouveau type role pour grands chiffres |
+| Edge-hugging | Conteneurs epousant la forme ronde |
+
+### Quality Tiers
+
+| Quoi | Valeur |
+|------|--------|
+| Tier 1: Ready | Marges %, pas de clipping |
+| Tier 2: Responsive | Plus de contenu sur grands ecrans |
+| Tier 3: Adaptive | Breakpoints, features differenciees |
+| Regle absolue | Grand ecran JAMAIS moins d'info que petit |
+
 ---
 
 *Bible UX Wearable - Mise a jour mars 2026*
-*Sources: [Android Developers](https://developer.android.com/wear), [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/designing-for-watchos), [Samsung Developer](https://developer.samsung.com/one-ui-watch), [GSMArena](https://www.gsmarena.com), [Wear OS App Quality](https://developer.android.com/docs/quality-guidelines/wear-app-quality), [Color Roles M3](https://developer.android.com/design/ui/wear/guides/styles/color/roles-tokens)*
+*Sources: [Android Developers](https://developer.android.com/wear), [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/designing-for-watchos), [Samsung Developer](https://developer.samsung.com/one-ui-watch), [GSMArena](https://www.gsmarena.com), [Wear OS App Quality](https://developer.android.com/docs/quality-guidelines/wear-app-quality), [Color Roles M3](https://developer.android.com/design/ui/wear/guides/styles/color/roles-tokens), [NNGroup](https://www.nngroup.com/articles/smartwatch-interactions/)*

@@ -667,13 +667,18 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | EdgeButton (nouveau M3) | C. Composants | 8d |
 | Principes Google officiels | C. Principes | 8e |
 | Checklist Play Store | C. Quality | 8g |
+| M3 Expressive (shape morph, ButtonGroup) | C. Composants | 8e-bis |
+| Dialogs, Pickers, Confirmations | C. Composants | 8f |
 | Navigation, profondeur | C. Navigation | 9 |
+| Navigation Compose (SwipeDismissableNavHost) | C. Navigation | 9b |
+| HorizontalPager, PageIndicator | C. Navigation | 9c |
 | Tiles, Smart Stack | C. Tiles | 10, 10b |
 | Tile interactions (code, +1 pattern) | C. Tiles | 10 |
 | Complications | C. Complications | 11 |
 | Complication implementation (code) | C. Complications | 11b |
 | Typographie M3, watchOS | D. Typographie | 12-13 |
 | Ambient / AOD | E. Ambient | 14-15 |
+| Ambient mode implementation (code) | E. Ambient | 14b |
 | Tracking addiction, compteur | F. Sante | 16 |
 | Apps addiction existantes | F. Analyse apps | 16b |
 | Gamification montre | F. Gamification | 16c |
@@ -692,7 +697,10 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | App Lifecycle (cold/warm start) | K-bis. Lifecycle | 24b |
 | Wrist detection | K-bis. Wrist | 24c |
 | Charging / battery states | K-bis. Charging | 24d |
+| Ongoing Activity API (code) | K-bis. Ongoing | 24e |
+| Splash Screen (code) | K-bis. Splash | 24f |
 | Onboarding, permissions | L. Onboarding | 25-26 |
+| Permissions Wear (BODY_SENSORS, code) | L. Permissions | 26b |
 | i18n, RTL, troncature | M. i18n | 27 |
 | Distribution Play Store | N. Distribution | 28 |
 | Couleurs OLED, M3 tokens 28 | O. Design System | 29-29c |
@@ -706,7 +714,13 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | Loading patterns, errors | V. Loading | 39-40 |
 | Audio / son | W. Audio | 41 |
 | Watch Faces (WFF v4) | X. Watch Faces | 42 |
+| Responsive layouts, quality tiers | A. Ecran | 2b |
+| Rotary input implementation (code) | B. Rotary | 6b |
 | Anti-patterns + benchmarks | Y. Anti-patterns | 43-43b |
+| NNGroup 6 types interactions | Y. Research | 43c |
+| Quand construire app montre | Y. Research | 43d |
+| Power conservation hierarchy | Y. Batterie | 43e |
+| Touch lock, fitness UX | Y. Fitness | 43f |
 | Memo rapide (toutes valeurs) | Z. Valeurs Cles | - |
 
 ---
