@@ -1534,9 +1534,19 @@ val supportsHR = DataType.HEART_RATE_BPM in capabilities.supportedDataTypesPassi
 - Macrobenchmark + JankStats + System Trace
 - Valider les animations M3 Expressive (flex fonts, shape morphing) sur device reel
 
-**Source:** [Compose Performance Wear OS](https://developer.android.com/training/wearables/compose/performance)
+**Checklist performance Compose Wear:**
+1. Compose >= 1.8+ (gains significatifs stabilite + perf)
+2. Baseline profiles avec key workflows
+3. R8 active avec resource shrinking
+4. Valider: `adb shell dumpsys package dexopt | grep -A 1 $PACKAGE` → `speed-profile`
+5. Startup profiles (optionnel, augmente taille APK)
+6. Macrobenchmarks sur device physique
+7. JankStats pour tracker les jank frames
+8. System Trace pour diagnostiquer latence animations
+9. Tester sur devices representatifs du user base cible
+10. `adb shell cmd package bg-dexopt-job` pour forcer l'optimisation apres install (~40s)
 
-**Source:** [Android Developers - Power](https://developer.android.com/training/wearables/apps/power)
+**Source:** [Compose Performance Wear OS](https://developer.android.com/training/wearables/compose/performance), [Power](https://developer.android.com/training/wearables/apps/power)
 
 ### 20. TensorFlow Lite sur Montre
 
@@ -1724,6 +1734,35 @@ adb connect <watch-ip>:5555
 - PAS de "complication", "tile", "bouton" dans la description
 - Ex: pour date "13 decembre" → description = "13 decembre" (pas "Date: 13 decembre")
 - Sur complications: `SmallImageComplicationData.Builder.contentDescription(...)`
+
+**Compose accessibility modifiers:**
+
+```kotlin
+// Content description sur Image/Icon
+Icon(
+    imageVector = Icons.Default.Add,
+    contentDescription = "Ajouter une cigarette"  // OBLIGATOIRE si interactif, null si decoratif
+)
+
+// Custom traversal order (si l'ordre par defaut ne convient pas)
+Box(Modifier.semantics { isTraversalGroup = true }) {
+    Text("Compteur", Modifier.semantics { traversalIndex = 0f })
+    Button(onClick = { }, Modifier.semantics { traversalIndex = 1f }) {
+        Text("+1")
+    }
+}
+
+// Merge semantics (regrouper pour TalkBack)
+Row(Modifier.semantics(mergeDescendants = true) { }) {
+    Icon(Icons.Default.Info, contentDescription = null)
+    Text("5 cigarettes aujourd'hui")
+    // TalkBack lit: "5 cigarettes aujourd'hui" (pas icone separement)
+}
+```
+
+**PickerGroup (built-in accessibility):**
+- `PickerGroup` utilise un coordinateur de focus pour assigner le focus au bon `Picker`
+- Utiliser les composants built-in quand possible → meilleure accessibilite automatique
 
 **Source:** [Android Developers - Accessibility](https://developer.android.com/training/wearables/accessibility)
 
