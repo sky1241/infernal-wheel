@@ -344,108 +344,262 @@ ScalingLazyColumn(
 
 **Principe fondamental:** La montre n'est PAS faite pour taper du texte. Eviter autant que possible.
 
+> "Help people complete tasks on the watch within seconds to avoid ergonomic discomfort or arm fatigue."
+> — [Principles of Wear OS development](https://developer.android.com/training/wearables/principles)
+
 **Hierarchie des methodes d'input (du meilleur au pire):**
 
-| Rang | Methode | Quand utiliser | Latence |
-|------|---------|----------------|---------|
-| 1 | **Pre-defined choices** | Choix parmi options fixes (humeur, raison) | Instantane |
-| 2 | **Voice dictation** | Texte libre, mains libres, environnement calme | ~1-3s |
-| 3 | **Canned responses** | Reponses rapides a messages | Instantane |
-| 4 | **Emoji** | Reactions, sentiments | ~2 taps |
-| 5 | **Handwriting (Scribble)** | Texte court, pas de voix possible | ~1s/lettre |
-| 6 | **Clavier on-screen** | Dernier recours, texte court | Lent |
+| Rang | Methode | Quand utiliser | Latence | Plateforme |
+|------|---------|----------------|---------|------------|
+| 1 | **Pre-defined choices** | Choix parmi options fixes (humeur, raison) | Instantane | Wear OS + watchOS |
+| 2 | **Voice dictation** | Texte libre, mains libres, environnement calme | ~1-3s | Wear OS + watchOS |
+| 3 | **Canned responses / Smart Reply** | Reponses rapides a messages, notifications | Instantane | Wear OS + watchOS |
+| 4 | **Emoji** | Reactions, sentiments, feedback rapide | ~2 taps | Wear OS + watchOS |
+| 5 | **Handwriting (Scribble)** | Texte court, pas de voix possible, bruyant | ~1s/lettre | Wear OS + watchOS |
+| 6 | **Clavier on-screen** | Dernier recours, texte tres court | Lent | Wear OS (Gboard/Samsung) + watchOS (Series 7+) |
 
-**RemoteInput (Wear OS) — pour notifications et saisie texte:**
+**Quand NE PAS demander de texte sur montre:**
+
+| Situation | Alternative |
+|-----------|-------------|
+| Mot de passe | OAuth / token sharing depuis telephone |
+| Texte > 2-3 mots | Rediriger vers telephone via `RemoteActivityHelper` |
+| Formulaire multi-champs | Companion app sur telephone |
+| Donnees structurees (email, URL) | Companion app |
+| Validation complexe (regex, format) | Companion app |
+
+#### 7c-1. RemoteInput API (Wear OS)
+
+L'API principale pour le texte sur Wear OS. Ecran systeme avec: dictee, emoji, canned responses, smart reply, et IME.
+
+**Dependance Gradle:**
 
 ```kotlin
-// Creer un RemoteInput pour une notification
-val remoteInput = RemoteInput.Builder("reply_key")
+implementation("androidx.wear:wear-input:1.2.0-alpha02")
+implementation("androidx.core:core-ktx:1.13.1")
+```
+
+**RemoteInput pour notifications (reply action):**
+
+```kotlin
+private const val KEY_TEXT_REPLY = "key_text_reply"
+
+val remoteInput = RemoteInput.Builder(KEY_TEXT_REPLY)
     .setLabel("Reponse rapide")
     .setChoices(arrayOf("OK", "En route", "Plus tard", "Appelle-moi"))
     .build()
 
-// Ajouter a une action de notification
 val replyAction = NotificationCompat.Action.Builder(
-    R.drawable.ic_reply, "Repondre",
-    replyPendingIntent
-).addRemoteInput(remoteInput).build()
+    R.drawable.ic_reply, "Repondre", replyPendingIntent
+)
+    .addRemoteInput(remoteInput)
+    .setAllowGeneratedResponses(true)  // Active Smart Reply ML
+    .build()
+
+// MessagingStyle recommande (donne plus de contexte au Smart Reply)
+val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+    .setSmallIcon(R.drawable.ic_message)
+    .setStyle(
+        NotificationCompat.MessagingStyle(person)
+            .addMessage("Salut, tu fumes?", timestamp, sender)
+    )
+    .addAction(replyAction)
+    .build()
 ```
 
-**RemoteInput standalone (dans l'app, Wear OS):**
+**Recuperer la reponse (BroadcastReceiver):**
 
 ```kotlin
-// Lancer l'intent RemoteInput directement dans l'app
-val intent = RemoteInputIntentHelper.createActionRemoteInputIntent()
-RemoteInputIntentHelper.putRemoteInputsExtra(
-    intent, listOf(
-        RemoteInput.Builder("user_input")
+class ReplyReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val results = RemoteInput.getResultsFromIntent(intent)
+        val replyText = results?.getCharSequence(KEY_TEXT_REPLY)
+        if (replyText != null) processReply(replyText.toString())
+    }
+}
+```
+
+**setChoices() — Canned Responses (i18n):**
+
+```kotlin
+// res/values/strings.xml → <string-array name="smoking_reasons">
+val choices = context.resources.getStringArray(R.array.smoking_reasons)
+val remoteInput = RemoteInput.Builder("reason_key")
+    .setLabel("Pourquoi cette cigarette?")
+    .setChoices(choices)
+    .setAllowFreeFormInput(true)  // true = choix + texte libre
+    .build()
+```
+
+#### 7c-2. RemoteInput Standalone dans l'App (Compose)
+
+**Important:** Compose for Wear OS n'a PAS de `TextField`. Utiliser `RemoteInputIntentHelper`.
+
+```kotlin
+@Composable
+fun TextInputScreen() {
+    var userInput by remember { mutableStateOf("") }
+
+    val inputLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val results = RemoteInput.getResultsFromIntent(
+                result.data ?: return@rememberLauncherForActivityResult
+            )
+            userInput = results?.getCharSequence("input_key")?.toString() ?: ""
+        }
+    }
+
+    val remoteInputs = listOf(
+        RemoteInput.Builder("input_key")
             .setLabel("Note rapide")
             .setChoices(arrayOf("Stress", "Social", "Habitude", "Ennui"))
+            .setAllowFreeFormInput(true)
             .build()
     )
-)
-startActivityForResult(intent, REQUEST_CODE_INPUT)
 
-// Recuperer le resultat
-override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-    if (requestCode == REQUEST_CODE_INPUT && resultCode == RESULT_OK) {
-        val results = RemoteInput.getResultsFromIntent(data!!)
-        val userText = results?.getCharSequence("user_input")
-    }
+    val intent = RemoteInputIntentHelper.createActionRemoteInputIntent()
+    RemoteInputIntentHelper.putRemoteInputsExtra(intent, remoteInputs)
+    RemoteInputIntentHelper.putTitleExtra(intent, "Raison de la cigarette")
+
+    Chip(
+        onClick = { inputLauncher.launch(intent) },
+        label = { Text("Ajouter une note") },
+        secondaryLabel = {
+            Text(userInput.ifEmpty { "Appuyer pour saisir" },
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+        },
+        icon = { Icon(Icons.Default.Edit, contentDescription = "Saisir") }
+    )
 }
 ```
 
-**SpeechRecognizer (dictee vocale standalone):**
+#### 7c-3. Voice Dictation (Compose)
 
 ```kotlin
-val speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-    putExtra(RecognizerIntent.EXTRA_PROMPT, "Pourquoi cette cigarette?")
+@Composable
+fun VoiceInputScreen() {
+    var spokenText by remember { mutableStateOf("") }
+
+    val voiceLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        result.data?.let { data ->
+            val results = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            spokenText = results?.firstOrNull() ?: ""
+        }
+    }
+
+    val voiceIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        putExtra(RecognizerIntent.EXTRA_PROMPT, "Pourquoi cette cigarette?")
+    }
+
+    Chip(
+        onClick = { voiceLauncher.launch(voiceIntent) },
+        label = { Text("Dicter une note") },
+        secondaryLabel = { Text(spokenText.ifEmpty { "Appuyer pour parler" }) }
+    )
 }
-startActivityForResult(speechIntent, REQUEST_SPEECH)
 ```
 
-**watchOS Text Input:**
+**Limitations voix:** Micro au poignet sensible au vent/bruit. Cloud = 1-3s latence, on-device = 200-500ms (Wear OS 3+).
+
+#### 7c-4. On-Screen Keyboard (IME)
+
+| Clavier | Marque | Features |
+|---------|--------|----------|
+| **Gboard** | Google (Pixel Watch) | QWERTY, glide typing, dictee, emoji, handwriting |
+| **Samsung Keyboard** | Samsung (Galaxy Watch) | QWERTY, T9, handwriting, dictee, emoji |
+
+**Handwriting:** Disponible via Gboard/Samsung Keyboard. Character par character, plus lent que voix mais fonctionne en environnement bruyant. Pas d'API separee.
+
+#### 7c-5. watchOS Text Input
+
+| Methode | Disponibilite | Description |
+|---------|---------------|-------------|
+| **Dictation** | Tous modeles | Parler pour transcrire. Ponctuation vocale supportee |
+| **Scribble** | Tous modeles | Ecrire lettres avec doigt. Crown = suggestions |
+| **On-screen keyboard** | Series 7+ / Ultra (PAS SE, PAS Series 6) | QWERTY + QuickPath (glide) |
+| **Emoji** | Tous modeles | Via bouton emoji depuis n'importe quelle methode |
+
+**TextField (watchOS 7+) — champ inline:**
 
 ```swift
-// TextField (watchOS 7+) - clavier systeme
-TextField("Note", text: $noteText)
+TextField("Note rapide", text: $noteText)
     .textInputAutocapitalization(.sentences)
+    .submitLabel(.done)
+    .onSubmit { saveNote(noteText) }
+```
 
-// TextFieldLink (watchOS 9+) - ouvre un ecran de saisie dedie
-TextFieldLink("Ajouter note") {
-    // Configure l'intent pour la saisie
-}
+**TextFieldLink (watchOS 9+) — ecran dedie, meilleur UX:**
 
-// Dictation directe
-// L'utilisateur peut toujours dicter via le micro sur le clavier systeme
+```swift
+TextFieldLink(
+    prompt: "Pourquoi cette cigarette?",
+    label: { Label("Raison", systemImage: "pencil") }
+) { newText in noteText = newText }
+```
 
-// Suggestions de reponses rapides
+**Quick replies (pattern recommande):**
+
+```swift
 List {
     ForEach(quickReplies, id: \.self) { reply in
-        Button(reply) { sendReply(reply) }
+        Button(reply) { submitReason(reply) }
+    }
+    TextFieldLink("Autre...") { customText in
+        submitReason(customText)
     }
 }
 ```
 
-**Bonnes pratiques Text Input montre:**
+**TextField vs TextFieldLink:**
 
-| Regle | Detail |
-|-------|--------|
-| **Max 1-2 mots** | Si besoin de plus, rediriger vers le telephone |
-| **Toujours offrir des choix** | Boutons pre-definis > texte libre |
-| **Voice = default** | Le clavier est un fallback, pas le mode principal |
-| **Pas de validation complexe** | Pas de regex, pas de format impose sur montre |
-| **Pas de mot de passe** | Utiliser OAuth/token sharing depuis le telephone |
-| **Feedback immediat** | Confirmer la saisie avec haptique + visuel |
-| **Annuler facile** | Swipe-to-dismiss doit annuler la saisie |
-| **Context-aware** | Proposer des suggestions basees sur l'heure/contexte |
+| Aspect | TextField | TextFieldLink |
+|--------|-----------|---------------|
+| Disponibilite | watchOS 7+ | watchOS 9+ |
+| Apparence | Champ inline | Bouton → ecran dedie |
+| Texte initial | Supporte (`$binding`) | Ne supporte PAS de texte initial |
+| UX recommande | Formulaires simples | Saisie ponctuelle (prefere) |
+
+#### 7c-6. Accessibilite Text Input
+
+| Aspect | Detail |
+|--------|--------|
+| Voice en premier | Toujours offrir la dictee comme option principale |
+| Choix pre-definis | Reduisent besoin saisie manuelle |
+| Feedback haptique | Confirmer chaque action de saisie |
+| TalkBack + clavier | Mode full-screen IME mieux supporte |
+| watchOS VoiceOver | Supporte avec TextField et TextFieldLink |
+| Clavier Bluetooth watchOS | Pairable pour saisie accessible |
+
+#### 7c-7. Decision Tree — Quel Input Choisir
+
+```
+Besoin de saisie texte sur montre?
+├── NON → Ne pas demander. Utiliser boutons/sliders.
+└── OUI → Peut-on offrir des choix pre-definis?
+    ├── OUI → setChoices() (Wear OS) / List de Button (watchOS)
+    └── NON → Texte libre necessaire?
+        ├── Court (1-5 mots) → Voice dictation + IME fallback
+        │   ├── Wear OS: RemoteInputIntentHelper
+        │   └── watchOS: TextFieldLink (watchOS 9+)
+        └── Long (phrase+) → Rediriger vers telephone
+            ├── Wear OS: RemoteActivityHelper
+            └── watchOS: WCSession transferUserInfo
+
+Max recommande: ~50 caracteres. Single-line ONLY.
+```
 
 **Pour Infernal Wheel specifiquement:**
 - Raison de la cigarette: **boutons pre-definis** (Stress, Social, Habitude, Ennui, Pause, Autre)
-- Note libre: **rediriger vers le telephone** via RemoteActivityHelper
+- Note libre optionnelle: **voice dictation** (max 1 phrase) OU rediriger vers telephone
 - Humeur: **emoji ou slider** (pas de texte)
+
+**Sources:** [Voice input](https://developer.android.com/training/wearables/user-input/voice), [Wear IME](https://developer.android.com/training/wearables/user-input/wear-ime), [RemoteInputIntentHelper](https://developer.android.com/reference/androidx/wear/input/RemoteInputIntentHelper), [TextFieldLink](https://developer.apple.com/documentation/swiftui/textfieldlink)
 
 ---
 
@@ -4516,6 +4670,302 @@ adb shell dumpsys activity service WearableService  # Data Layer usage
 | Impact AOD | Peut etre desactive auto |
 | watchOS Low Power | ProcessInfo.isLowPowerModeEnabled |
 | Regle app | Garder compteur, desactiver ML/animations |
+
+---
+
+## AA. Outils de Prototypage & Design
+
+### 44. Figma pour Wearables
+
+#### a) Kits de Design Officiels Google (Wear OS)
+
+Google fournit deux kits Figma officiels pour Wear OS, tous deux supportant **Material 3 Expressive** :
+
+| Kit | Contenu | Lien Figma Community |
+|-----|---------|---------------------|
+| **M3 Wear OS Apps Design Kit** | Composants, styles, variables, layouts pour apps | [figma.com/community/file/1506418396052412186](https://www.figma.com/community/file/1506418396052412186) |
+| **M3 Wear OS Tiles Design Kit** | Composants, styles, variables, layouts pour tiles | [figma.com/community/file/1507852095734722321](https://www.figma.com/community/file/1507852095734722321) |
+
+**Composants inclus dans le kit Apps :**
+- Buttons (Button, OutlinedButton, ChildButton, EdgeButton, ButtonGroup)
+- Cards, Lists (TransformingLazyColumn items)
+- Dialogs, Confirmations, Pickers
+- Navigation (SwipeDismiss, HorizontalPager, PageIndicator)
+- ScrollIndicator, TimeText, ProgressIndicator
+- Couleurs dynamiques M3 (28 parametres)
+- Typographie M3 (ArcLine, Numerals)
+
+**Page officielle :** [developer.android.com/design/ui/wear/guides/get-started/design-kits](https://developer.android.com/design/ui/wear/guides/get-started/design-kits)
+
+#### b) Templates Apple Watch (Figma)
+
+| Ressource | Description | Lien |
+|-----------|-------------|------|
+| **watchOS 26 (officiel Apple)** | Kit UI complet, bezels, templates, guides typographiques | [figma.com/community/file/1540060090060216489](https://www.figma.com/community/file/1540060090060216489) |
+| **watchOS 11** | Version precedente, encore utile pour retrocompat | [figma.com/community/file/1483534709614446054](https://www.figma.com/community/file/1483534709614446054) |
+| **Apple Design Resources** | Source officielle (Figma + Sketch) | [developer.apple.com/design/resources](https://developer.apple.com/design/resources/) |
+
+**Tip :** Le kit watchOS officiel Apple inclut les bezels de toutes tailles (41mm, 45mm, 42mm, 46mm, 49mm Ultra), les complications, et les templates de notifications.
+
+#### c) Contraintes Ecran Rond dans Figma
+
+Figma ne supporte pas nativement les frames circulaires. Workarounds :
+
+| Technique | Comment |
+|-----------|---------|
+| **Frame carre + Clip Content** | Creer un frame carre (ex: 450x450), activer "Clip content", ajouter un masque circulaire par-dessus |
+| **Corner Radius max** | Frame 450x450 avec corner radius = 225 (= 50%) simule un ecran rond |
+| **Plugin "Device Frames"** | Ajoute des frames avec masque rond integre |
+| **Overlay bezel** | Placer l'image du bezel par-dessus le frame avec blend mode darken |
+| **Composant masque reutilisable** | Creer un composant "Watch Frame" avec masque circulaire, reutilisable dans tous les ecrans |
+
+**Regle critique :** Toujours designer dans un frame carre avec masque rond. Ne PAS designer dans un frame rectangulaire puis "imaginer" le clipping — les coins caches contiennent souvent du contenu essentiel.
+
+**Safe area ecran rond :**
+- Contenu textuel : rester dans le cercle inscrit (70.7% de la surface)
+- Marges horizontales : 5.2% minimum (Horologist = 26.5% padding horizontal pour texte)
+- Elements interactifs : jamais dans les 10% exterieurs du rayon
+
+#### d) Composants Material 3 pour Wear OS dans Figma
+
+Le kit M3 Wear OS Apps utilise les **Variables Figma** pour :
+- Color tokens (28 roles : primary, onPrimary, secondary, tertiary, surface, etc.)
+- Typography tokens (Display, Title, Label, Body + ArcLine, Numerals)
+- Shape tokens (Full, Large, Medium, Small + morphing states)
+- Spacing tokens (base 4dp)
+
+**Workflow recommande :** Dupliquer le kit Community > activer les variables locales > overrider les couleurs pour votre brand > designer vos ecrans.
+
+### 45. Outils Android Studio
+
+#### a) Wear OS Preview (@Preview)
+
+Compose pour Wear OS fournit des annotations de preview specifiques dans `androidx.wear.compose.ui.tooling.preview` :
+
+| Annotation | Effet |
+|------------|-------|
+| `@WearPreviewDevices` | Genere des previews pour toutes les tailles d'ecran Wear OS |
+| `@WearPreviewFontScales` | Genere des previews pour differentes tailles de police |
+| `@WearPreviewSmallRound` | Preview sur petit ecran rond (192dp) |
+| `@WearPreviewLargeRound` | Preview sur grand ecran rond (227dp) |
+| `@WearPreviewSquare` | Preview sur ecran carre |
+| `@Preview(device = WearDevices.SMALL_ROUND)` | Preview specifique petit rond |
+| `@Preview(device = WearDevices.LARGE_ROUND)` | Preview specifique grand rond |
+
+```kotlin
+// Exemple: preview multi-device
+@WearPreviewDevices
+@WearPreviewFontScales
+@Composable
+fun MyScreenPreview() {
+    MyWearTheme {
+        MyScreen()
+    }
+}
+```
+
+**Dependance requise :**
+```kotlin
+implementation("androidx.wear.compose:compose-ui-tooling-preview:1.5.0+")
+debugImplementation("androidx.compose.ui:ui-tooling")
+```
+
+#### b) Emulateurs Wear OS (configurations disponibles)
+
+| Profil Emulateur | Taille | Forme | API | Notes |
+|-----------------|--------|-------|-----|-------|
+| **Wear OS Small Round** | 192dp | Rond | 33-36 | Taille minimum a tester |
+| **Wear OS Large Round** | 227dp | Rond | 33-36 | Taille standard Galaxy Watch / Pixel Watch |
+| **Wear OS Square** | 180dp | Carre | 30-33 | Legacy (Wear OS 2.x) |
+| **Wear OS 6 (API 36)** | Variable | Rond | 36 | Android 16 "Baklava", M3 Expressive |
+
+**Configuration :**
+1. SDK Manager > installer system image Wear OS (x86_64 ou arm64-v8a, 64-bit uniquement API 33+)
+2. Device Manager > Create Device > categorie "Wear OS"
+3. Selectionner profil materiel + system image
+
+**Fonctionnalites speciales de l'emulateur Wear :**
+- Panneau **Health Services** (icone coeur) : simuler rythme cardiaque, pas, calories, exercice
+- **Capteurs** : accelerometre, gyroscope, temperature ambiante, champ magnetique, proximite, lumiere, pression, humidite
+- **Boutons physiques** : Button 1, Button 2 via barre d'outils
+- **Palming** : icone paume pour simuler le geste de couverture de l'ecran
+- **Rotary input** : accessible via menu overflow (**...**) de la barre d'outils
+- **Pairing** avec emulateur telephone via Device Manager
+
+**Limitations connues (API 36) :**
+- `DashedArcLine` : rendu incorrect sur emulateur
+- `CircularProgressIndicator` : rendu incorrect sur emulateur
+- Performance batterie non representative — toujours valider sur device reel
+
+#### c) Layout Inspector sur Montre
+
+Le Layout Inspector fonctionne sur les appareils Wear OS (physiques et emulateurs) :
+
+| Etape | Action |
+|-------|--------|
+| 1 | Lancer l'app sur le device/emulateur |
+| 2 | Android Studio > Running Devices > Toggle Layout Inspector |
+| 3 | Inspecter la hierarchie de vues, proprietes, contraintes |
+| 4 | Utiliser la vue 3D pour identifier les couches superposees |
+
+**Cas d'usage montre :**
+- Verifier que le contenu ne depasse pas le masque rond
+- Valider les marges sur ecrans de differentes tailles
+- Inspecter les paddings du `ScreenScaffold` et `AppScaffold`
+- Debugger les problemes de `TransformingLazyColumn` (scaling, alpha)
+
+#### d) Direct Surface Launch (Tiles & Complications)
+
+Pour debugger les Tiles et Complications sans naviguer dans le systeme :
+
+| Surface | Methode |
+|---------|---------|
+| **Tile** | Clic droit sur `TileService` > Run (ou icone gutter) > se lance directement |
+| **Complication** | Run configuration > selectionner ComplicationDataSourceService |
+| **Watch Face** | Run configuration > lance directement sur le cadran |
+
+```
+// Run configuration pour Tile
+Type: Wear OS Tile
+Module: app
+Tile: com.example.MyTileService
+```
+
+**Avantage :** Evite de swiper vers la tile dans le carrousel — gain de temps enorme en iterations de design.
+
+### 46. Autres Outils
+
+#### a) Samsung Galaxy Watch - Ressources Design
+
+| Ressource | Usage | Lien |
+|-----------|-------|------|
+| **Watch Face Studio** | Design de cadrans sans code (drag & drop) | [developer.samsung.com/watch-face-studio](https://developer.samsung.com/watch-face-studio/user-guide/create.html) |
+| **One UI Watch Design Guidelines** | Principes UX circulaire, bezel rotatif, touch bezel | [developer.samsung.com/galaxy-watch-design](https://developer.samsung.com/galaxy-watch-design/principle.html) |
+| **Design Resources (Tizen legacy)** | Templates, composants, icones | [developer.samsung.com/one-ui-watch-tizen/resource](https://developer.samsung.com/one-ui-watch-tizen/resource.html) |
+
+**Watch Face Studio** supporte :
+- Preview sur differentes tailles d'ecran Samsung
+- Animation conditionnelle (heure, pas, batterie, meteo)
+- Barres de progression circulaires et lineaires
+- Export direct au format WFF (Watch Face Format)
+- Test sur device connecte en temps reel
+
+#### b) Outils de Prototypage Ecran Rond
+
+| Outil | Support rond | Points forts | Limites |
+|-------|-------------|--------------|---------|
+| **ProtoPie** | Natif (masque rond + player Wear OS) | Prototype hi-fi sans code, test sur vrai device Wear OS, interactions connectees multi-device | Payant ($13+/mois) |
+| **Figma Prototyping** | Via masque (workaround) | Integre au workflow design, transitions basiques | Pas de test sur device reel, interactions limitees |
+| **Principle** | Via masque | Animations avancees, timeline | Mac only, pas de partage device |
+| **Framer** | Via masque | Code-based, React components | Pas de player montre |
+| **Android Studio Preview** | Natif | Compose interactif, Live Edit | Pas d'animation de transition |
+
+**Recommandation :** ProtoPie est le seul outil avec un **Player Wear OS natif** permettant de tester les prototypes directement sur une montre physique.
+
+**ProtoPie Player for Wear OS :**
+- Installer ProtoPie Player depuis le Play Store sur la montre
+- Envoyer le prototype via ProtoPie Connect
+- Tester les interactions tactiles, rotary, et gestures sur l'ecran rond reel
+- Supporter les interactions connectees montre-telephone (ex: notification sur montre declenchant une action sur le prototype telephone)
+
+**Source :** [protopie.io/solutions/smartwatch](https://www.protopie.io/solutions/smartwatch), [protopie.io/learn/docs/player/player-for-wear-os](https://www.protopie.io/learn/docs/player/player-for-wear-os)
+
+#### c) Outils de Test d'Accessibilite
+
+| Outil | Plateforme | Usage |
+|-------|-----------|-------|
+| **TalkBack** | Wear OS | Screen reader integre, tester navigation sequentielle |
+| **VoiceOver** | watchOS | Screen reader Apple, gestes specifiques montre |
+| **Accessibility Scanner** | Android (emulateur) | Analyse automatique des problemes (contraste, touch targets, labels) |
+| **Font Size Override** | Wear OS + watchOS | Tester avec taille police maximale |
+| **Switch Access** | Wear OS | Navigation via boutons externes |
+| **@WearPreviewFontScales** | Android Studio | Voir le rendu a toutes les echelles de police |
+
+**Checklist accessibilite a tester :**
+1. TalkBack : chaque element interactif a un `contentDescription`
+2. Touch targets : minimum 48dp (voir Section B)
+3. Contraste : ratio 4.5:1 pour texte, 3:1 pour elements graphiques
+4. Font scaling : l'UI ne casse pas a 200% de taille de police
+5. Navigation sequentielle : ordre logique de focus
+6. Haptics : feedback vibratoire pour les actions sans retour visuel (ecran loin des yeux)
+
+### 47. Workflow Design-to-Dev
+
+#### a) Workflow Recommande
+
+```
+DESIGN                          DEV                            TEST
+  |                               |                              |
+  1. Kit Figma M3 Wear OS        |                              |
+  |                               |                              |
+  2. Ecrans dans frame rond       |                              |
+     (450x450 + masque)           |                              |
+  |                               |                              |
+  3. Prototype ProtoPie           |                              |
+     (test sur vraie montre)      |                              |
+  |                               |                              |
+  4. Handoff Figma               5. Implementation Compose       |
+     (inspect mode, tokens)          @WearPreviewDevices          |
+  |                               |                              |
+  |                              6. Emulateur                    |
+  |                                 (Small Round + Large Round)  |
+  |                               |                              |
+  |                              7. Layout Inspector             |
+  |                                 (verifier marges, clipping)  |
+  |                               |                              |
+  |                              8. Device reel                  |
+  |                                 (batterie, lisibilite        |
+  |                                  soleil, mouvement)          |
+  |                               |                              |
+  |                               |                            9. Accessibility
+  |                               |                               (TalkBack, font
+  |                               |                                scaling, contraste)
+```
+
+**Regles du workflow :**
+- Toujours commencer par le plus petit ecran (192dp rond)
+- Designer d'abord pour rond, adapter ensuite pour carre si necessaire
+- Valider le prototype sur montre reelle AVANT le dev (evite les iterations couteuses)
+- Utiliser les memes tokens couleur/typo entre Figma et Compose (variables Figma = M3 tokens)
+
+#### b) Gestion Rond vs Carre en Design
+
+| Aspect | Rond | Carre | Strategy |
+|--------|------|-------|----------|
+| **Surface utile** | 78.5% du carre englobant | 100% | Designer pour rond = compatible carre |
+| **Texte** | Marges 26.5% horizontales | Marges 5-8% | Utiliser `ResponsiveBoxInsetConstraints` |
+| **Listes** | Items centraux plus larges (scaling) | Largeur uniforme | `TransformingLazyColumn` gere automatiquement |
+| **Boutons** | Centrer, eviter les bords | Aligner sur grille | `EdgeButton` epouse le bord rond |
+| **Navigation** | Swipe back naturel | Idem | `SwipeDismissableNavHost` |
+
+**Regle d'or :** Depuis Wear OS 4+, 99%+ des appareils sont ronds. Designer uniquement pour rond sauf besoin legacy explicite.
+
+#### c) Test Device Reel vs Emulateur
+
+| Critere | Emulateur | Device Reel |
+|---------|-----------|-------------|
+| **Iteration rapide** | Excellent (hot reload, Live Edit) | Lent (deploiement + navigation) |
+| **Layout / UI** | Fiable (sauf DashedArcLine API 36) | Reference absolue |
+| **Performance** | Non representative | Seule source fiable |
+| **Batterie** | Impossible a mesurer | Critique a valider |
+| **Lisibilite soleil** | Impossible | Test en exterieur obligatoire |
+| **Haptics** | Non supporte | Seul moyen de valider |
+| **Capteurs** | Simules (panneau Health Services) | Donnees reelles |
+| **Rotary input** | Simule (menu overflow) | Bezel physique ou couronne |
+| **Mouvement** | Impossible | Tester en marchant, en courant |
+| **Burn-in OLED** | Non applicable | Verifier shift ambient |
+| **Glove mode** | Impossible | Tester avec gants |
+| **Cout** | Gratuit | $200-400+ par device |
+
+**Strategie recommandee :**
+1. **Dev quotidien :** Emulateur Small Round (192dp) + Large Round (227dp) + `@WearPreviewDevices`
+2. **Validation UI :** Layout Inspector sur emulateur
+3. **Validation UX :** Prototype ProtoPie sur montre reelle (avant dev)
+4. **Validation finale :** Device reel pour performance, batterie, lisibilite, haptics
+5. **Accessibilite :** TalkBack sur device reel (emulateur acceptable en fallback)
+6. **Minimum devices reels :** 1 Pixel Watch + 1 Galaxy Watch (couvrent 90%+ du marche Wear OS)
+
+**Sources :** [Android Developers - Wear OS Design Kits](https://developer.android.com/design/ui/wear/guides/get-started/design-kits), [Android Developers - Emulator](https://developer.android.com/training/wearables/get-started/emulator), [Android Developers - Debugging](https://developer.android.com/training/wearables/get-started/debugging), [Android Developers - Compose Previews](https://developer.android.com/develop/ui/compose/tooling/previews), [Android Developers - Accessibility](https://developer.android.com/training/wearables/accessibility), [ProtoPie Smartwatch](https://www.protopie.io/solutions/smartwatch), [Apple Design Resources](https://developer.apple.com/design/resources/), [Samsung Developer](https://developer.samsung.com/galaxy-watch-design/principle.html)
 
 ---
 

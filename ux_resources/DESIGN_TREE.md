@@ -746,6 +746,19 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | Testing Compose Wear OS (UI, screenshot, benchmark) | H. Testing | 21d |
 | Dependencies BOM, SDK versions (2025-2026) | H. Testing | 21e |
 | Outils prototypage (Figma, AS preview, workflow) | O. Design | 30c |
+| Figma kits (M3 Wear OS Apps + Tiles, watchOS 26) | AA. Outils Prototypage | 44 |
+| Ecran rond dans Figma (masque, safe area, workarounds) | AA. Outils Prototypage | 44c |
+| M3 Figma variables (color, typo, shape tokens) | AA. Outils Prototypage | 44d |
+| @WearPreviewDevices, @WearPreviewFontScales | AA. Outils Android Studio | 45a |
+| Emulateurs Wear OS (profils, capteurs, Health Services) | AA. Outils Android Studio | 45b |
+| Layout Inspector montre (3D, marges, clipping) | AA. Outils Android Studio | 45c |
+| Direct Surface Launch (Tiles, Complications debug) | AA. Outils Android Studio | 45d |
+| Samsung Watch Face Studio (WFF export) | AA. Autres Outils | 46a |
+| ProtoPie (player Wear OS natif, interactions connectees) | AA. Autres Outils | 46b |
+| Accessibilite testing (TalkBack, Scanner, font scaling) | AA. Autres Outils | 46c |
+| Workflow design-to-dev wearable (9 etapes) | AA. Workflow | 47a |
+| Rond vs carre (strategy design, 78.5% surface) | AA. Workflow | 47b |
+| Emulateur vs device reel (12 criteres comparaison) | AA. Workflow | 47c |
 | Memo rapide (toutes valeurs) | Z. Valeurs Cles | - |
 
 ---
