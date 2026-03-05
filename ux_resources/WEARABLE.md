@@ -340,6 +340,113 @@ ScalingLazyColumn(
 - Utiliser `safeAreaInsets` pour la zone de contenu
 - Typography: bold + alignement gauche (watchOS 11+, meilleure lisibilite)
 
+### 7c. Text Input sur Montre
+
+**Principe fondamental:** La montre n'est PAS faite pour taper du texte. Eviter autant que possible.
+
+**Hierarchie des methodes d'input (du meilleur au pire):**
+
+| Rang | Methode | Quand utiliser | Latence |
+|------|---------|----------------|---------|
+| 1 | **Pre-defined choices** | Choix parmi options fixes (humeur, raison) | Instantane |
+| 2 | **Voice dictation** | Texte libre, mains libres, environnement calme | ~1-3s |
+| 3 | **Canned responses** | Reponses rapides a messages | Instantane |
+| 4 | **Emoji** | Reactions, sentiments | ~2 taps |
+| 5 | **Handwriting (Scribble)** | Texte court, pas de voix possible | ~1s/lettre |
+| 6 | **Clavier on-screen** | Dernier recours, texte court | Lent |
+
+**RemoteInput (Wear OS) — pour notifications et saisie texte:**
+
+```kotlin
+// Creer un RemoteInput pour une notification
+val remoteInput = RemoteInput.Builder("reply_key")
+    .setLabel("Reponse rapide")
+    .setChoices(arrayOf("OK", "En route", "Plus tard", "Appelle-moi"))
+    .build()
+
+// Ajouter a une action de notification
+val replyAction = NotificationCompat.Action.Builder(
+    R.drawable.ic_reply, "Repondre",
+    replyPendingIntent
+).addRemoteInput(remoteInput).build()
+```
+
+**RemoteInput standalone (dans l'app, Wear OS):**
+
+```kotlin
+// Lancer l'intent RemoteInput directement dans l'app
+val intent = RemoteInputIntentHelper.createActionRemoteInputIntent()
+RemoteInputIntentHelper.putRemoteInputsExtra(
+    intent, listOf(
+        RemoteInput.Builder("user_input")
+            .setLabel("Note rapide")
+            .setChoices(arrayOf("Stress", "Social", "Habitude", "Ennui"))
+            .build()
+    )
+)
+startActivityForResult(intent, REQUEST_CODE_INPUT)
+
+// Recuperer le resultat
+override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    if (requestCode == REQUEST_CODE_INPUT && resultCode == RESULT_OK) {
+        val results = RemoteInput.getResultsFromIntent(data!!)
+        val userText = results?.getCharSequence("user_input")
+    }
+}
+```
+
+**SpeechRecognizer (dictee vocale standalone):**
+
+```kotlin
+val speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+    putExtra(RecognizerIntent.EXTRA_PROMPT, "Pourquoi cette cigarette?")
+}
+startActivityForResult(speechIntent, REQUEST_SPEECH)
+```
+
+**watchOS Text Input:**
+
+```swift
+// TextField (watchOS 7+) - clavier systeme
+TextField("Note", text: $noteText)
+    .textInputAutocapitalization(.sentences)
+
+// TextFieldLink (watchOS 9+) - ouvre un ecran de saisie dedie
+TextFieldLink("Ajouter note") {
+    // Configure l'intent pour la saisie
+}
+
+// Dictation directe
+// L'utilisateur peut toujours dicter via le micro sur le clavier systeme
+
+// Suggestions de reponses rapides
+List {
+    ForEach(quickReplies, id: \.self) { reply in
+        Button(reply) { sendReply(reply) }
+    }
+}
+```
+
+**Bonnes pratiques Text Input montre:**
+
+| Regle | Detail |
+|-------|--------|
+| **Max 1-2 mots** | Si besoin de plus, rediriger vers le telephone |
+| **Toujours offrir des choix** | Boutons pre-definis > texte libre |
+| **Voice = default** | Le clavier est un fallback, pas le mode principal |
+| **Pas de validation complexe** | Pas de regex, pas de format impose sur montre |
+| **Pas de mot de passe** | Utiliser OAuth/token sharing depuis le telephone |
+| **Feedback immediat** | Confirmer la saisie avec haptique + visuel |
+| **Annuler facile** | Swipe-to-dismiss doit annuler la saisie |
+| **Context-aware** | Proposer des suggestions basees sur l'heure/contexte |
+
+**Pour Infernal Wheel specifiquement:**
+- Raison de la cigarette: **boutons pre-definis** (Stress, Social, Habitude, Ennui, Pause, Autre)
+- Note libre: **rediriger vers le telephone** via RemoteActivityHelper
+- Humeur: **emoji ou slider** (pas de texte)
+
 ---
 
 ## C. Composants UI
@@ -849,6 +956,109 @@ AppScaffold {
 
 **Source:** [Android Developers - Page Indicators](https://developer.android.com/training/wearables/compose/pagination)
 
+### 9d. Deep Linking (Wear OS)
+
+```kotlin
+// Dans le NavGraph
+@Serializable data class Detail(val id: String)
+
+composable<Detail>(
+    deepLinks = listOf(
+        navDeepLink<Detail>(basePath = "https://myapp.com/detail")
+    )
+) { backStackEntry ->
+    DetailScreen(id = backStackEntry.toRoute<Detail>().id)
+}
+```
+
+**PendingIntent depuis deep link (pour notifications/Ongoing Activity):**
+
+```kotlin
+val deepLinkIntent = Intent(
+    Intent.ACTION_VIEW,
+    "https://myapp.com/detail/$id".toUri(),
+    context,
+    MainActivity::class.java
+)
+val pendingIntent = TaskStackBuilder.create(context).run {
+    addNextIntentWithParentStack(deepLinkIntent)
+    getPendingIntent(0,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+}
+```
+
+**Regles:**
+- Deep links pas exposes aux apps externes par defaut
+- Ajouter `<intent-filter>` dans le manifest pour exposition externe
+- Utiliser `androidx.wear.compose:compose-navigation` (PAS la version mobile)
+
+### 9e. State Restoration (Wear OS)
+
+**Process death plus frequent** sur montre (memoire limitee) — sauvegarder l'etat est critique.
+
+| Evenement | UI (Composable) | Business (ViewModel) |
+|-----------|-----------------|---------------------|
+| Config change (rotation) | `rememberSaveable` | Automatique |
+| Process death systeme | `rememberSaveable` | `SavedStateHandle` |
+
+```kotlin
+// UI layer — survit au process death
+@Composable
+fun CounterScreen() {
+    var count by rememberSaveable { mutableStateOf(0) }
+    // ...
+}
+
+// ViewModel layer — survit au process death
+class TrackingViewModel(
+    private val savedStateHandle: SavedStateHandle
+) : ViewModel() {
+    var cigaretteCount by savedStateHandle.saveable {
+        mutableStateOf(0)
+    }
+        private set
+
+    // StateFlow alternative
+    val filterState: StateFlow<FilterType> =
+        savedStateHandle.getStateFlow("filter", FilterType.TODAY)
+}
+```
+
+**Regles:**
+- `SavedStateHandle` ne sauvegarde que quand l'Activity est **stopped**
+- Force stop / reboot efface le saved state
+- Tester avec `StateRestorationTester` API
+- Sur montre: **toujours** utiliser `rememberSaveable` au lieu de `remember` pour l'etat important
+
+### 9f. Disconnection UI
+
+| Placement | Cas d'usage |
+|-----------|-------------|
+| **Haut de l'ecran** | Fonctionnalite partielle indisponible (griser les features) |
+| **Bas de la liste** | Plus de contenu chargeable tant que deconnecte |
+
+**Lifecycle-aware Data Layer observer:**
+
+```kotlin
+class WearDataLayerObserver(
+    private val dataClient: DataClient,
+    private val onDataReceived: (DataEventBuffer) -> Unit
+) : DefaultLifecycleObserver, DataClient.OnDataChangedListener {
+
+    override fun onDataChanged(dataEvents: DataEventBuffer) {
+        onDataReceived(dataEvents)
+    }
+    override fun onResume(owner: LifecycleOwner) {
+        dataClient.addListener(this)
+    }
+    override fun onPause(owner: LifecycleOwner) {
+        dataClient.removeListener(this)
+    }
+}
+```
+
+**Source:** [Disconnection indicators](https://developer.android.com/design/ui/wear/guides/m2-5/behaviors-and-patterns/disconnect)
+
 ### 10. Tiles (Wear OS)
 
 | Aspect | Valeur |
@@ -922,6 +1132,67 @@ val count = requestParams.currentState.stateMap[intAppDataKey("count")] ?: 0
 ```
 
 **Eviter le flicker:** mettre a jour seulement le contenu qui change, pas toute la structure du layout.
+
+**TileService M3 implementation:**
+
+```kotlin
+class SmokingTileService : TileService() {
+    override fun onTileRequest(requestParams: RequestBuilders.TileRequest) =
+        Futures.immediateFuture(
+            Tile.Builder()
+                .setResourcesVersion("1")
+                .setTileTimeline(
+                    Timeline.fromLayoutElement(
+                        materialScope(this, requestParams.deviceConfiguration) {
+                            primaryLayout(
+                                titleSlot = { text("Aujourd'hui".layoutString) },
+                                mainSlot = {
+                                    text("5 cigarettes".layoutString,
+                                        typography = BODY_LARGE)
+                                },
+                                bottomSlot = {
+                                    textEdgeButton(
+                                        labelContent = { text("+1".layoutString) },
+                                        onClick = clickable(/*...*/)
+                                    )
+                                }
+                            )
+                        }
+                    )
+                ).build()
+        )
+}
+```
+
+**Manifest tile:**
+```xml
+<service android:name=".SmokingTileService"
+    android:label="@string/tile_label"
+    android:exported="true"
+    android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+    <intent-filter>
+        <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+    </intent-filter>
+    <meta-data android:name="androidx.wear.tiles.PREVIEW"
+        android:resource="@drawable/tile_preview" />
+</service>
+```
+
+**Composants M3 tiles disponibles:**
+- Buttons: `textButton()`, `iconButton()`, `compactButton()`, `textEdgeButton()`, `iconEdgeButton()`
+- Cards: `titleCard()`, `appCard()`, `textDataCard()`, `iconDataCard()`
+- Progress: `circularProgressIndicator()`, `segmentedCircularProgressIndicator()`
+- Layout: `buttonGroup()`, `primaryLayout()`
+
+**Dependencies tiles:**
+```kotlin
+implementation("androidx.wear.tiles:tiles:1.5.0")
+implementation("androidx.wear.protolayout:protolayout:1.3.0")
+implementation("androidx.wear.protolayout:protolayout-material3:1.3.0")
+implementation("androidx.wear.protolayout:protolayout-expression:1.3.0")
+```
+
+**Source:** [Get started with tiles](https://developer.android.com/training/wearables/tiles/get_started?version=3)
 
 **Source:** [Tile Interactions](https://developer.android.com/training/wearables/tiles/interactions)
 
@@ -1702,7 +1973,39 @@ Gyroscope (50Hz)   →            → TFLite inference (< 100ms)
 [Dashboard Web]
 ```
 
-**Source:** [Android Developers - Data Layer](https://developer.android.com/training/wearables/data/overview)
+**WearableListenerService (background sync):**
+
+```kotlin
+class SmokeDataListenerService : WearableListenerService() {
+    override fun onDataChanged(dataEvents: DataEventBuffer) {
+        dataEvents.forEach { event ->
+            if (event.type == DataEvent.TYPE_CHANGED) {
+                val path = event.dataItem.uri.path
+                if (path == "/smoke-event") {
+                    // Traiter l'event cigarette recu du telephone
+                    val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
+                    val timestamp = dataMap.getLong("timestamp")
+                    // Sauvegarder en base locale...
+                }
+            }
+        }
+    }
+}
+```
+
+```xml
+<!-- Manifest -->
+<service android:name=".SmokeDataListenerService"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+        <data android:scheme="wear" android:host="*"
+            android:path="/smoke-event" />
+    </intent-filter>
+</service>
+```
+
+**Source:** [Android Developers - Data Layer](https://developer.android.com/training/wearables/data/overview), [Handle Data Layer events](https://developer.android.com/training/wearables/data/events)
 
 ### 21b. watchOS Watch Connectivity
 
@@ -1765,6 +2068,181 @@ Gyroscope (50Hz)   →            → TFLite inference (< 100ms)
 # Activer le debug WiFi sur la montre
 # Settings > Developer Options > ADB Debugging > Debug over WiFi
 adb connect <watch-ip>:5555
+```
+
+### 21d. Testing Compose for Wear OS
+
+**UI Testing avec ComposeTestRule:**
+
+```kotlin
+@get:Rule
+val composeTestRule = createComposeRule()
+
+@Test
+fun counterDisplaysCorrectly() {
+    composeTestRule.setContent {
+        CigaretteCounterScreen(count = 5)
+    }
+    composeTestRule.onNodeWithText("5").assertIsDisplayed()
+    composeTestRule.onNodeWithContentDescription("Ajouter une cigarette")
+        .performClick()
+}
+
+@Test
+fun swipeToDismissWorks() {
+    composeTestRule.setContent {
+        SwipeDismissableNavHost(/*...*/) { /*...*/ }
+    }
+    // Simuler swipe-to-dismiss
+    composeTestRule.onRoot().performTouchInput {
+        swipeRight(startX = 0f, endX = centerX)
+    }
+}
+```
+
+**Screenshot Testing (Roborazzi pour Wear OS):**
+
+```kotlin
+@RunWith(ParameterizedRobolectricTestRunner::class)
+class WearScreenshotTest(
+    private val deviceConfig: DeviceConfig
+) {
+    @get:Rule
+    val composeTestRule = createComposeRule()
+
+    companion object {
+        @JvmStatic
+        @ParameterizedRobolectricTestRunner.Parameters
+        fun devices() = listOf(
+            DeviceConfig(screenWidth = 192, screenHeight = 192, isRound = true),  // Small round
+            DeviceConfig(screenWidth = 225, screenHeight = 225, isRound = true),  // Large round
+            DeviceConfig(screenWidth = 280, screenHeight = 280, isRound = true),  // XL round
+        )
+    }
+
+    @Test
+    fun mainScreen_snapshot() {
+        composeTestRule.setContent {
+            MainWearScreen(count = 3)
+        }
+        composeTestRule.onRoot().captureRoboImage("main_${deviceConfig.screenWidth}.png")
+    }
+}
+// ./gradlew recordRoborazziDebug  → generer golden images
+// ./gradlew verifyRoborazziDebug  → comparer contre golden
+```
+
+**Macrobenchmark pour Wear OS:**
+
+```kotlin
+@LargeTest
+@RunWith(AndroidJUnit4::class)
+class StartupBenchmark {
+    @get:Rule
+    val benchmarkRule = MacrobenchmarkRule()
+
+    @Test
+    fun startupCold() = benchmarkRule.measureRepeated(
+        packageName = "com.infernal.wear",
+        metrics = listOf(StartupTimingMetric()),
+        iterations = 5,
+        startupMode = StartupMode.COLD,
+        compilationMode = CompilationMode.DEFAULT
+    ) {
+        pressHome()
+        startActivityAndWait()
+    }
+}
+```
+
+**Tile Testing:**
+
+```kotlin
+// Preview dans Android Studio (pas de test automatise officiel)
+// Utiliser TilePreviewHelper pour visualiser
+@Preview(device = WearDevices.SMALL_ROUND)
+@Composable
+fun TilePreview() {
+    // Render du contenu tile en Compose pour preview
+    TileLayoutPreview(myTileLayout())
+}
+```
+
+### 21e. Dependencies & BOM (2025-2026)
+
+**Compose for Wear OS BOM (centralise les versions):**
+
+```kotlin
+// build.gradle.kts (module :wear)
+dependencies {
+    // BOM — gere les versions de toutes les libs Wear Compose
+    val composeBom = platform("androidx.compose:compose-bom:2025.03.00")
+    implementation(composeBom)
+
+    // Wear Compose (versions gerees par BOM)
+    implementation("androidx.wear.compose:compose-material3")
+    implementation("androidx.wear.compose:compose-foundation")
+    implementation("androidx.wear.compose:compose-navigation")
+
+    // Horologist (supplements Google)
+    implementation("com.google.android.horologist:horologist-compose-layout:0.6.20")
+    implementation("com.google.android.horologist:horologist-compose-material:0.6.20")
+    implementation("com.google.android.horologist:horologist-tiles:0.6.20")
+
+    // Tiles & ProtoLayout
+    implementation("androidx.wear.tiles:tiles:1.5.0")
+    implementation("androidx.wear.tiles:tiles-material3:1.5.0")
+    implementation("androidx.wear.protolayout:protolayout:1.3.0")
+    implementation("androidx.wear.protolayout:protolayout-material3:1.3.0")
+    implementation("androidx.wear.protolayout:protolayout-expression:1.3.0")
+
+    // Health Services
+    implementation("androidx.health:health-services-client:1.1.0-alpha05")
+
+    // Health Connect (telephone)
+    implementation("androidx.health.connect:connect-client:1.1.0-alpha10")
+
+    // Data Layer
+    implementation("com.google.android.gms:play-services-wearable:19.0.0")
+
+    // Wear ongoing activity
+    implementation("androidx.wear:wear-ongoing:1.1.0")
+
+    // Complications data source
+    implementation("androidx.wear.watchface:watchface-complications-data-source-ktx:1.2.1")
+
+    // Testing
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+```
+
+**SDK Requirements (2025-2026):**
+
+| Parametre | Valeur | Notes |
+|-----------|--------|-------|
+| `compileSdk` | **35** (Android 15) | Minimum pour M3 Wear complet |
+| `targetSdk` | **34** (Android 14) | Requis Play Store depuis aout 2024 |
+| `minSdk` | **30** (Wear OS 3) | Minimum pour Compose for Wear OS |
+| Kotlin | **1.9.22+** | Pour Compose compiler 1.5+ |
+| AGP | **8.3+** | Android Gradle Plugin |
+| Compose compiler | **1.5.10+** | Via BOM |
+
+**Versions emulateurs Android Studio:**
+
+| Config emulateur | API | Taille ecran | Forme |
+|-----------------|-----|-------------|-------|
+| Wear OS Small Round | 33-35 | 192x192 dp | Rond |
+| Wear OS Large Round | 33-35 | 225x225 dp | Rond |
+| Wear OS Square | 33 | 280x280 dp | Carre |
+| Galaxy Watch 4 | 30 | 396x396 px | Rond |
+| Pixel Watch | 33 | 384x384 px | Rond |
+| Pixel Watch 2 | 34 | 384x384 px | Rond |
+
+**Gradle wrapper (recommande):**
+```properties
+# gradle-wrapper.properties
+distributionUrl=https\://services.gradle.org/distributions/gradle-8.6-bin.zip
 ```
 
 ---
@@ -1904,6 +2382,132 @@ Row(Modifier.semantics(mergeDescendants = true) { }) {
 - Tester avec System Trace pour valider la latence
 
 **Source:** [Material Design 3 - Motion Tokens](https://github.com/material-foundation/material-tokens/blob/json/json/motion.json)
+
+### 22e. Compose Animation APIs
+
+**AnimationSpec types:**
+
+```kotlin
+// tween — duration-based, uses easing curve
+val spec = tween<Float>(
+    durationMillis = 300,
+    delayMillis = 0,
+    easing = FastOutSlowInEasing   // = M2 standard
+)
+
+// spring — physics-based (preferred for natural feel)
+val spec = spring<Float>(
+    dampingRatio = Spring.DampingRatioMediumBouncy,  // 0.5
+    stiffness = Spring.StiffnessMedium               // 1500f
+)
+
+// keyframes — multi-step timeline
+val spec = keyframes<Float> {
+    durationMillis = 300
+    0f at 0 using LinearEasing
+    0.5f at 150 using FastOutSlowInEasing
+    1f at 300
+}
+
+// snap — immediate, no animation (state switch)
+val spec = snap<Float>(delayMillis = 0)
+
+// repeatable — loop with finite count
+val spec = repeatable<Float>(
+    iterations = 3,
+    animation = tween(200),
+    repeatMode = RepeatMode.Reverse
+)
+```
+
+**Sur montre:** Privilegier `spring` pour les gestes (plus naturel), `tween` avec short/medium tokens pour les transitions UI. Eviter `repeatable` avec iterations > 3.
+
+### 22f. MotionScheme (M3 Expressive)
+
+`MotionScheme` dans `MaterialTheme` fournit 2 specs preconfigures:
+
+| Spec | Peut depasser les bornes (overshoot) | Usage |
+|------|--------------------------------------|-------|
+| `defaultSpatialSpec()` | Oui (spring) | Position, taille, forme (shape morphing) |
+| `defaultEffectsSpec()` | Non (strict) | Couleur, opacite, alpha |
+
+```kotlin
+// Utilisation dans un composable
+val motionScheme = MaterialTheme.motionScheme
+
+// Spatial — pour deplacement/redimensionnement (peut overshoot)
+val positionSpec = motionScheme.defaultSpatialSpec<IntOffset>()
+
+// Effects — pour couleur/opacite (pas d'overshoot)
+val alphaSpec = motionScheme.defaultEffectsSpec<Float>()
+```
+
+**Regle:** Ne JAMAIS utiliser `defaultSpatialSpec` pour des couleurs/alpha (l'overshoot produirait des valeurs invalides). Utiliser `defaultEffectsSpec` pour tout ce qui a des bornes strictes.
+
+### 22g. Tile Animations (ProtoLayout)
+
+**Contraintes tiles:**
+- **Max 4 elements animes simultanement** dans une tile
+- Enter/exit transitions supportees: `fadeIn`, `fadeOut`, `slideIn`, `slideOut`
+- Pas de spring — uniquement duration-based
+- Les tiles ont un framerate reduit par rapport a Compose
+
+```kotlin
+// ProtoLayout tile animation
+setEnterTransition(
+    EnterTransition.Builder()
+        .setFadeIn(FadeInTransition.Builder().build())
+        .setSlideIn(SlideInTransition.Builder()
+            .setDirection(SlideDirection.SLIDE_DIRECTION_BOTTOM_TO_TOP)
+            .build())
+        .build()
+)
+```
+
+### 22h. Shared Element Transitions
+
+**Compose (Wear OS):**
+```kotlin
+// sharedElement — element identique entre 2 ecrans (icon, image)
+Modifier.sharedElement(
+    rememberSharedContentState(key = "item_$id"),
+    animatedVisibilityScope = this
+)
+
+// sharedBounds — conteneur qui change de taille/position
+Modifier.sharedBounds(
+    rememberSharedContentState(key = "container_$id"),
+    animatedVisibilityScope = this
+)
+```
+
+**watchOS (SwiftUI):**
+```swift
+.matchedGeometryEffect(id: "item_\(id)", in: namespace)
+```
+
+### 22i. Regles Critiques Animation Montre
+
+| Regle | Detail |
+|-------|--------|
+| **Durees 30% plus courtes** | Une animation de 300ms mobile = ~200ms sur montre |
+| **Target 30 FPS** | Suffisant pour la montre, economise la batterie |
+| **Pas d'animation au lancement** | L'utilisateur veut l'info immediatement |
+| **Max 1 animation a la fois** | Eviter les orchestrations complexes |
+| **Privilegier spring** | Plus naturel que tween pour les gestes |
+
+**Comparaison cross-platform:**
+
+| Aspect | Wear OS (Compose) | watchOS (SwiftUI) |
+|--------|-------------------|-------------------|
+| Physics | `spring()` | `.smooth(duration: 0.5)` |
+| Bounce | `DampingRatioMediumBouncy` | `.snappy(duration: 0.5, extraBounce: 0.1)` |
+| High bounce | `DampingRatioHighBouncy` | `.bouncy(duration: 0.5, extraBounce: 0.2)` |
+| Duration-based | `tween(300ms)` | `.easeInOut(duration: 0.3)` |
+| Shared element | `sharedElement()` / `sharedBounds()` | `matchedGeometryEffect` |
+| Tile/Widget | ProtoLayout (max 4 animes) | WidgetKit (limited) |
+
+**Sources:** [Compose Animation docs](https://developer.android.com/develop/ui/compose/animation), [SwiftUI Animation](https://developer.apple.com/documentation/swiftui/animation)
 
 ---
 
@@ -2149,6 +2753,49 @@ Notification permanente (foreground service):
 | Galaxy Watch 7 | ~90 min | ~50% |
 | Pixel Watch 3 | ~75 min | ~55% |
 | Apple Watch S10 | ~75 min | ~80% (fast charge) |
+
+**System Battery Saver Mode (Wear OS):**
+
+```kotlin
+// Detecter le mode economie d'energie systeme
+val powerManager = getSystemService(PowerManager::class.java)
+val isBatterySaver = powerManager.isPowerSaveMode
+
+// Ecouter les changements
+val filter = IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED)
+registerReceiver(object : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val saving = powerManager.isPowerSaveMode
+        if (saving) disableNonEssentialFeatures()
+        else restoreNormalOperation()
+    }
+}, filter)
+```
+
+**Comportement systeme en Battery Saver (Wear OS 5+):**
+
+| Impact | Detail |
+|--------|--------|
+| Network | Connexions differees, pas de sync en arriere-plan |
+| Location | GPS desactive sauf foreground actif |
+| Jobs | WorkManager/JobScheduler differes jusqu'a charge |
+| Vibration | Reduite ou desactivee |
+| AOD | Peut etre desactive automatiquement |
+| App standby | Buckets plus restrictifs |
+
+**Bonnes pratiques Battery Saver:**
+- Detecter `isPowerSaveMode` et reduire proactivement (capteurs, animations, sync)
+- NE JAMAIS demander a l'utilisateur de desactiver Battery Saver
+- Garder la fonctionnalite core (compteur cigarettes) meme en mode eco
+- Desactiver: ML inference, animations non-essentielles, sync frequente
+- Garder: compteur manuel, haptique confirmation, affichage basique
+
+**watchOS Low Power Mode (watchOS 9+):**
+- `ProcessInfo.processInfo.isLowPowerModeEnabled`
+- Observe via `NSProcessInfoPowerStateDidChange`
+- Reduit: background app refresh, heart rate, WiFi, Always-On Display
+- Complications: updates moins frequentes (1x/heure max)
+- App doit reduire animations et network calls
 
 **Eviter "battery drain notification":**
 - Optimiser sampling (batching, event-triggered)
@@ -2539,6 +3186,105 @@ MaterialTheme(colorScheme = dynamicColors ?: myBrandColors) { ... }
 - `TimelineView` → updates periodiques (complications)
 - `ContainerBackground` → fond custom derriere le contenu
 
+### 30c. Outils de Prototypage & Design
+
+**Figma — Kits officiels:**
+
+| Kit | Source | Contenu |
+|-----|--------|---------|
+| **Material 3 for Wear OS** | Google (Figma Community) | Composants M3, couleurs, typo, layouts rond |
+| **Apple Watch Design Kit** | Apple (Figma Community) | Composants watchOS, ecrans types, metrics |
+| **Samsung Galaxy Watch** | Samsung Developers | One UI Watch composants, bezel simulation |
+
+**Configurer Figma pour ecran rond:**
+- Frame 384x384 px (Pixel Watch) ou 450x450 px (Galaxy Watch 6)
+- Masque circulaire sur le frame (clip content)
+- Plugin "Watch Face" ou "Circle Mask" pour preview rapide
+- Grille 8dp pour alignement (4dp pour micro-spacing)
+- Exporter: **2x** pour densite OLED (1.5-2x selon modele)
+
+**Android Studio — Outils de design:**
+
+```kotlin
+// Preview Compose pour montre
+@Preview(
+    device = WearDevices.SMALL_ROUND,  // 192dp
+    showSystemUi = true,
+    showBackground = true,
+    backgroundColor = 0xFF000000
+)
+@Composable
+fun MainScreenPreview() {
+    InfernalWearTheme {
+        MainScreen(count = 5)
+    }
+}
+
+// Preview multi-devices
+@Preview(device = WearDevices.SMALL_ROUND, name = "Small")
+@Preview(device = WearDevices.LARGE_ROUND, name = "Large")
+@Preview(
+    device = "spec:width=280dp,height=280dp,isRound=true",
+    name = "XL Custom"
+)
+@Composable
+fun ResponsivePreview() { /* ... */ }
+
+// Preview en mode ambient
+@Preview(
+    device = WearDevices.SMALL_ROUND,
+    uiMode = Configuration.UI_MODE_TYPE_WATCH
+)
+@Composable
+fun AmbientPreview() { /* ... */ }
+```
+
+**Layout Inspector sur montre:**
+- Connecter via WiFi ADB
+- Android Studio > Tools > Layout Inspector
+- Selectionner le process Wear OS
+- Fonctionne pour Compose (composition tree) + View-based
+
+**Workflow design-to-dev recommande:**
+
+```
+1. Figma (design)
+   ├── Utiliser kit M3 Wear officiel
+   ├── Tester sur frame rond + carre
+   ├── Exporter assets @1x @1.5x @2x
+   └── Design tokens → theme Compose
+2. Android Studio (dev)
+   ├── @Preview multi-devices
+   ├── Interactive mode (click/scroll dans IDE)
+   ├── Hot reload sur emulateur
+   └── Layout Inspector
+3. Emulateur (test rapide)
+   ├── Tester rond + carre
+   ├── Simuler ambient mode via ADB
+   └── Screenshot testing (Roborazzi)
+4. Device reel (validation finale)
+   ├── Haptique
+   ├── Performance reelle
+   ├── Luminosite en exterieur
+   └── Test au poignet (ergonomie, glanceability)
+```
+
+**Samsung Galaxy Watch Studio:**
+- Outil gratuit pour creer des watch faces (pas pour apps)
+- Templates pour bezel rotatif
+- Exporte directement en WFF (Watch Face Format)
+
+**Outils complementaires:**
+
+| Outil | Usage | Prix |
+|-------|-------|------|
+| **ProtoPie** | Prototypage interactif, supporte ecran rond | Payant |
+| **Principle** | Animation prototyping (macOS) | Payant |
+| **Android Studio** | Preview + emulateur | Gratuit |
+| **Accessibility Scanner** | Test a11y automatise | Gratuit (Google) |
+| **Battery Historian** | Analyse consommation batterie | Gratuit (Google) |
+| **Roborazzi** | Screenshot testing | Gratuit (open-source) |
+
 ---
 
 ## P. Curved UI & System Overlay
@@ -2902,6 +3648,122 @@ if (!phoneAppInstalled && phoneType == DEVICE_TYPE_ANDROID) {
 - Jamais de crash si telephone absent
 
 **Source:** [Android Developers - Standalone Apps](https://developer.android.com/training/wearables/apps/standalone-apps)
+
+### 38c. Multi-Device Continuity (Watch ↔ Phone)
+
+**Principe:** L'utilisateur commence une tache sur un device, la continue sur un autre. Seamless.
+
+**RemoteActivityHelper (Wear OS → Phone):**
+
+```kotlin
+// Ouvrir une activite sur le telephone depuis la montre
+val remoteActivityHelper = RemoteActivityHelper(context)
+
+// Ouvrir l'app telephone avec des donnees specifiques
+remoteActivityHelper.startRemoteActivity(
+    Intent(Intent.ACTION_VIEW).apply {
+        setData(Uri.parse("infernal://stats/today"))
+        addCategory(Intent.CATEGORY_BROWSABLE)
+    },
+    targetNodeId // optionnel, null = premier telephone trouve
+).addOnSuccessListener {
+    // Confirmer a l'utilisateur: "Ouvert sur le telephone"
+    showConfirmation(ConfirmationActivity.OPEN_ON_PHONE_ANIMATION)
+}.addOnFailureListener { e ->
+    // Telephone pas connecte ou app pas installee
+    showError("Telephone non disponible")
+}
+```
+
+**Phone → Watch (ouvrir une activite sur la montre):**
+
+```kotlin
+// Depuis l'app telephone, ouvrir l'app montre
+val remoteActivityHelper = RemoteActivityHelper(context)
+remoteActivityHelper.startRemoteActivity(
+    Intent("com.infernal.QUICK_LOG").apply {
+        addCategory(Intent.CATEGORY_DEFAULT)
+    },
+    targetNodeId = wearNodeId
+)
+```
+
+**Patterns de continuation recommandes:**
+
+| Scenario | Initie sur | Continue sur | Methode |
+|----------|-----------|-------------|---------|
+| Voir stats detaillees | Montre | Telephone | RemoteActivityHelper + deep link |
+| Ajouter note longue | Montre | Telephone | RemoteActivityHelper + intent data |
+| Configurer parametres | Telephone | Montre | DataItem sync |
+| Partager progres | Montre | Telephone | RemoteActivityHelper → share sheet |
+| Debug/logs | Montre | Telephone | MessageClient one-shot |
+
+**Confirmation visuelle (CRITIQUE):**
+
+```kotlin
+// Toujours confirmer l'action cross-device a l'utilisateur
+// Wear OS fournit 3 animations built-in:
+startActivity(Intent(context, ConfirmationActivity::class.java).apply {
+    putExtra(ConfirmationActivity.EXTRA_ANIMATION_TYPE,
+        ConfirmationActivity.OPEN_ON_PHONE_ANIMATION)  // icone telephone
+    putExtra(ConfirmationActivity.EXTRA_MESSAGE, "Ouvert sur le telephone")
+    putExtra(ConfirmationActivity.EXTRA_ANIMATION_DURATION_MILLIS, 2000)
+})
+```
+
+**watchOS Handoff (NSUserActivity):**
+
+```swift
+// Sur la montre: declarer une activite en cours
+let activity = NSUserActivity(activityType: "com.infernal.viewStats")
+activity.title = "Voir statistiques"
+activity.userInfo = ["date": Date()]
+activity.isEligibleForHandoff = true
+self.userActivity = activity
+
+// Sur l'iPhone: recevoir le handoff
+func application(_ application: UIApplication,
+    continue userActivity: NSUserActivity,
+    restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+    if userActivity.activityType == "com.infernal.viewStats" {
+        let date = userActivity.userInfo?["date"] as? Date
+        navigateToStats(date: date)
+        return true
+    }
+    return false
+}
+```
+
+**Android 17+ Handoff API (nouveau, 2026):**
+
+```kotlin
+// Nouvelle API cross-device (Android 17 beta)
+// setHandoffEnabled() sur une Activity
+override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    setHandoffEnabled(true)  // Active le handoff pour cette activity
+}
+
+override fun onHandoffActivityRequested(): HandoffActivityData {
+    return HandoffActivityData.Builder()
+        .setDeepLink(Uri.parse("infernal://stats/${currentDate}"))
+        .setExtras(bundleOf("userId" to userId))
+        .build()
+}
+```
+
+**Regles UX cross-device:**
+
+| Regle | Detail |
+|-------|--------|
+| **Confirmer toujours** | Animation + message "Ouvert sur telephone" |
+| **Fallback gracieux** | Si telephone absent → message explicite, pas de crash |
+| **Pas de donnees perdues** | Sauvegarder localement AVANT le handoff |
+| **Latence acceptable** | 1-3s pour le handoff, montrer un spinner si >1s |
+| **Directionnel** | Montre→telephone pour complexite, telephone→montre pour rapidite |
+| **Deep link requis** | L'app cible doit supporter les deep links pour restaurer le contexte |
+
+**Source:** [RemoteActivityHelper](https://developer.android.com/reference/androidx/wear/remote/interactions/RemoteActivityHelper), [Android 17 Handoff](https://developer.android.com/about/versions/17)
 
 ---
 
@@ -3457,11 +4319,20 @@ adb shell dumpsys activity service WearableService  # Data Layer usage
 |------|--------|
 | Duree recommandee montre | short1-4 (50-200ms), medium1-2 (250-300ms) |
 | Max animation montre | 400ms sauf transition majeure |
+| **Regle duree montre** | **30% plus court que mobile** |
+| **Target FPS montre** | **30 FPS** (suffisant, economise batterie) |
 | Standard easing | cubic-bezier(0.2, 0, 0, 1) |
 | Emphasized decelerate | cubic-bezier(0.05, 0.7, 0.1, 1) |
 | Legacy (M2 compat) | cubic-bezier(0.4, 0, 0.2, 1) |
 | Shape morphing | Auto via MotionScheme (M3 Expressive) |
 | Pause entre boucles | >= duree animation |
+| `defaultSpatialSpec` | Peut overshoot (position, taille, forme) |
+| `defaultEffectsSpec` | Strict (couleur, alpha, opacite) |
+| Tile animations max | 4 elements simultanes |
+| Shared element Wear | `sharedElement()` / `sharedBounds()` |
+| Shared element watchOS | `matchedGeometryEffect` |
+| Spring Wear OS | `spring(dampingRatio, stiffness)` |
+| Spring watchOS | `.smooth` / `.snappy` / `.bouncy` |
 
 ### Standalone & Offline
 
@@ -3513,6 +4384,12 @@ adb shell dumpsys activity service WearableService  # Data Layer usage
 | Navigation lib | `wear-compose:compose-navigation:1.5.6+` |
 | Pager max dots | 6 (HorizontalPageIndicator) |
 | Pager scaffold | `HorizontalPagerScaffold` / `VerticalPagerScaffold` |
+| Deep links | `navDeepLink<Route>(basePath = ...)` dans `composable()` |
+| State UI | `rememberSaveable` (survit process death) |
+| State ViewModel | `SavedStateHandle.saveable {}` ou `.getStateFlow()` |
+| Process death | Plus frequent sur montre (memoire limitee) |
+| Disconnect top | Fonctionnalite partielle indisponible |
+| Disconnect bottom | Plus de contenu chargeable |
 
 ### Ongoing Activity & Splash
 
@@ -3592,6 +4469,53 @@ adb shell dumpsys activity service WearableService  # Data Layer usage
 | Smartwatch users monde | 562.86M (2026) |
 | Users tracking sante | 83% |
 | Poignet gauche | ~90% (non-dominant) |
+
+### Text Input
+
+| Quoi | Valeur |
+|------|--------|
+| Input method prioritaire | Pre-defined choices > Voice > Handwriting > Keyboard |
+| Max texte libre sur montre | 1-2 mots, au-dela → telephone |
+| RemoteInput (Wear OS) | Supporte voix + clavier + choix pre-definis |
+| TextFieldLink (watchOS 9+) | Ecran de saisie dedie |
+| Dictation latence (on-device) | 200-500ms |
+| Dictation latence (cloud) | 1-3s |
+
+### Multi-Device
+
+| Quoi | Valeur |
+|------|--------|
+| RemoteActivityHelper | Ouvrir app telephone depuis montre |
+| ConfirmationActivity | 3 types: SUCCESS, FAILURE, OPEN_ON_PHONE |
+| Handoff latence | 1-3s acceptable |
+| Android 17 Handoff API | setHandoffEnabled() + onHandoffActivityRequested() |
+| watchOS Handoff | NSUserActivity + isEligibleForHandoff |
+| Deep link requis | Obligatoire pour restaurer contexte apres handoff |
+
+### Testing & BOM
+
+| Quoi | Valeur |
+|------|--------|
+| compileSdk | 35 (Android 15) |
+| targetSdk | 34 (Android 14, requis Play Store) |
+| minSdk | 30 (Wear OS 3, requis Compose) |
+| Emulateurs | Small (192dp), Large (225dp), XL (280dp) |
+| Screenshot test | Roborazzi (./gradlew recordRoborazziDebug) |
+| Benchmark | Macrobenchmark avec StartupTimingMetric |
+| Horologist | 0.6.x (supplements Google) |
+| Compose BOM | 2025.03.00 |
+
+### Battery Saver
+
+| Quoi | Valeur |
+|------|--------|
+| Detection | PowerManager.isPowerSaveMode |
+| Broadcast | ACTION_POWER_SAVE_MODE_CHANGED |
+| Impact network | Sync background bloquee |
+| Impact GPS | Desactive sauf foreground |
+| Impact AOD | Peut etre desactive auto |
+| watchOS Low Power | ProcessInfo.isLowPowerModeEnabled |
+| Regle app | Garder compteur, desactiver ML/animations |
 
 ---
 

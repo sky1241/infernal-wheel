@@ -713,6 +713,11 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | Authentication (Credential Manager, OAuth) | S. Auth | 36b |
 | Samsung One UI, BioActive | T. Samsung | 37 |
 | Motion & animation tokens M3 | I-bis. Motion | 22d |
+| Compose animation APIs (tween/spring/keyframes) | I-bis. Motion | 22e |
+| MotionScheme (spatial vs effects) | I-bis. Motion | 22f |
+| Tile animations (ProtoLayout, max 4) | I-bis. Motion | 22g |
+| Shared element transitions | I-bis. Motion | 22h |
+| Regles critiques animation montre | I-bis. Motion | 22i |
 | Standalone vs Companion | U. Architecture | 38 |
 | Detection companion, CapabilityClient | U. Architecture | 38b |
 | Loading patterns, errors | V. Loading | 39-40 |
@@ -720,6 +725,11 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | Watch Faces (WFF v4) | X. Watch Faces | 42 |
 | Responsive layouts, quality tiers | A. Ecran | 2b |
 | Rotary input implementation (code) | B. Rotary | 6b |
+| Deep linking (PendingIntent, NavGraph) | D. Navigation | 9d |
+| State restoration (rememberSaveable, SavedStateHandle) | D. Navigation | 9e |
+| Disconnection UI (placement, Data Layer observer) | D. Navigation | 9f |
+| WearableListenerService (background sync) | H. Data Layer | 21 |
+| TileService M3 (materialScope, primaryLayout) | E. Tiles | 10 |
 | Anti-patterns + benchmarks | Y. Anti-patterns | 43-43b |
 | NNGroup 6 types interactions | Y. Research | 43c |
 | Quand construire app montre | Y. Research | 43d |
@@ -730,6 +740,12 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | Notification triage (watch vs phone) | Y. Research | 43i |
 | Cognitive load petit ecran | Y. Research | 43j |
 | Marche global 2026, statistiques | Y. Stats | 43k |
+| Text input sur montre (RemoteInput, voix, clavier) | B. Input | 7c |
+| Battery saver mode (system, Wear OS 5+, watchOS) | K-bis. Lifecycle | 24d |
+| Multi-device continuity (handoff watch↔phone) | U. Standalone | 38c |
+| Testing Compose Wear OS (UI, screenshot, benchmark) | H. Testing | 21d |
+| Dependencies BOM, SDK versions (2025-2026) | H. Testing | 21e |
+| Outils prototypage (Figma, AS preview, workflow) | O. Design | 30c |
 | Memo rapide (toutes valeurs) | Z. Valeurs Cles | - |
 
 ---
