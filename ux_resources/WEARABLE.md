@@ -216,11 +216,25 @@
 
 **watchOS screen widths en points (pour design):**
 
-| Taille montre | Largeur ecran (pt) |
-|--------------|-------------------|
-| 41mm | 162 pt |
-| 45mm | 176 pt |
-| 49mm Ultra | 187 pt |
+| Taille montre | Largeur ecran (pt) | Padding liste (px) |
+|--------------|-------------------|--------------------|
+| 38mm / 40mm | 136 pt / 162 pt | ~15 px chaque cote |
+| 41mm / 42mm | 162 pt / 176 pt | ~15 px chaque cote |
+| 44mm / 45mm | 176 pt | ~15 px chaque cote |
+| 49mm Ultra 2 | 187 pt | ~18 px chaque cote |
+
+**watchOS tailles minimales controles:**
+
+| Type | 42mm | 38mm |
+|------|------|------|
+| Controle circulaire | 80x80 px min | 75x75 px min |
+| Bouton rectangulaire | Hauteur 53 px min | Hauteur 50 px min |
+| Touch target | 44x44 pt | 44x44 pt |
+
+**watchOS layout margins:**
+- Utiliser `systemMinimumLayoutMargins` pour respecter les marges systeme
+- Utiliser `safeAreaInsets` pour la zone de contenu
+- Typography: bold + alignement gauche (watchOS 11+, meilleure lisibilite)
 
 ---
 
@@ -377,6 +391,85 @@ AppScaffold {
 ```
 
 **Source:** [Android Developers - Compose for Wear OS](https://developer.android.com/training/wearables/compose)
+
+### 8e. Principes Google Officiels pour Wear OS
+
+**5 principes fondamentaux** ([source](https://developer.android.com/training/wearables/principles)):
+
+1. **Design for critical tasks** — 1-2 taches max, pas de port du mobile sur le poignet
+2. **Optimize for the wrist** — Taches en secondes, pas de fatigue du bras
+3. **Glanceable surfaces** — Complications + Tiles = surfaces prioritaires
+4. **Always relevant** — Contenu adapte au contexte (heure, lieu, activite)
+5. **Works offline** — Fonctionne sans connexion (sport, transport)
+
+**Best practices layout** ([source](https://developer.android.com/design/ui/wear/guides/surfaces/apps/best-practices)):
+- Layout **vertical uniquement** — jamais mixer scroll vertical + horizontal
+- Action principale **en haut** de l'ecran, pas en bas d'une longue page
+- Scrollbar visible **uniquement** sur les ecrans scrollables
+- TimeText (heure) visible partout **sauf** sur dialogues/pickers temporaires
+- Labels texte + icones pour tous les points d'entree (jamais icones seules)
+- Labels de section pour les dialogues longs avec contenu mixte
+- Composants **full-width** (pas de largeur fixe qui ne scale pas)
+- Marges en **pourcentages** (pas en dp fixes)
+
+**Surface priority par type d'info:**
+
+| Surface | Priorite | Contenu |
+|---------|----------|---------|
+| Complication | P1 | Info instantanee (compteur, timer) |
+| Notification | P1 | Alertes temps-reel (detection cigarette) |
+| Tile | P1-P2 | Resume + action rapide |
+| App | P1-P3 | Interface complete + settings |
+
+**Principes fitness/health** ([source](https://developer.android.com/training/wearables/principles)):
+- Permission `ACTIVITY_RECOGNITION` requise (API 29+)
+- App montre = data gathering, analyse detaillee → telephone
+- Ecran resume post-workout sur montre
+- `OngoingActivity` API pour activites longues (workout, monitoring)
+- **Touch Lock** : desactiver le tactile pendant workout/monitoring actif
+- Haptic pour confirmer: start, stop, auto-pause, auto-lap
+- **JAMAIS** de wake lock → utiliser Health Services API (CPU dort entre lectures)
+- Sensor batching **toujours** quand possible
+- Flush sensors quand l'ecran s'active
+- Changer la longueur de batch quand l'ecran s'eteint
+- Desenregistrer les listeners quand plus necessaires
+
+**Media/audio:**
+- Speaker montre = alarmes/rappels, **PAS** pour musique (→ ecouteurs BT)
+- Supporter ecouteurs Bluetooth directement depuis la montre
+- Si pas d'ecouteurs connectes → ouvrir Settings Bluetooth
+- Indiquer clairement la source audio (montre vs telephone)
+- Telecharger contenu offline en priorite (pas streaming sauf LTE)
+- **WorkManager** pour telechargements differres (sur chargeur + WiFi)
+
+### 8g. Checklist Qualite Google Play (Wear OS)
+
+| ID | Regle | Valeur |
+|----|-------|--------|
+| WO-V1 | Font scaling utilisateur | Respecter, pas de chevauchement/coupure |
+| WO-V2 | Touch targets | **48x48 dp** minimum |
+| WO-V3 | Back navigation | Swipe-to-close quasi partout (sauf workout, maps) |
+| WO-V4 | Ongoing activity | Indicateur watch face + recent apps + tile |
+| WO-V5 | Preserve app state | Restaurer si resume en minutes |
+| WO-V8 | Scroll bar | Afficher sur vues scrollables |
+| WO-V13 | Background | **Noir** (#000000) apps et tiles |
+| WO-V14 | Font min | **12sp** essentiel, **10sp** non-essentiel |
+| WO-V15 | Splash screen | Icone **48x48 dp** sur fond noir |
+| WO-V16 | Watch shapes | Contenu >= 192dp cercle, pas coupe |
+| WO-P1 | Target API | **Android 14 (API 34)** min (aout 2025) |
+| WO-P6 | Auth | **JAMAIS** username/password sur montre (utiliser `CredentialManager` ou `RemoteAuthClient`) |
+| WO-P7 | AOD pixels | **Max 15%** (verifie toutes les ~10 min) |
+| WO-P8 | Memory WFF | **10 MB** ambient, **100 MB** interactif |
+| WO-P10 | Complication slots | Max **8** par watch face |
+| WO-G5 | Screenshots Play | **1:1 aspect ratio**, pas de device frame |
+| WO-G7 | Package | Meme package name + signing key que companion |
+
+**Tests requis Google Play:**
+- Emulateur: **small round 1.2" (192dp)** + **large round 1.39" (227dp)**
+- Wear OS 3.0 ou superieur
+- Firebase Test Lab: Pixel Watch devices
+
+**Source:** [Wear OS App Quality](https://developer.android.com/docs/quality-guidelines/wear-app-quality)
 
 ### 9. Navigation Patterns
 
@@ -1146,6 +1239,12 @@ Intensite descendante = attire l'attention sans agacer. Distinct des notificatio
 | Navigation | Haptique (en conduisant) |
 | Appel entrant | Son + haptique |
 
+**Principes haptic design Google** ([source](https://developer.android.com/develop/ui/views/haptics/haptics-principles)):
+- **Consistance** : meme effet haptic = meme type d'interaction partout
+- **Integration** : co-designer visuel + audio + haptique ensemble (congruent)
+- **Moderation** : less is more — trop de vibrations = agacant + engourdissement
+- **Semantique** : chaque pattern = une signification universelle dans l'app
+
 **Regles:**
 - Haptique = feedback principal sur montre (pas le son)
 - Son = reserve aux alarmes/timers critiques
@@ -1429,6 +1528,36 @@ Notification permanente (foreground service):
 - Couleurs desaturees vs mobile (ecran petit = plus intense percu)
 - Ambient mode: blanc/gris seulement (pas de couleurs)
 - Contraste 4.5:1 minimum pour texte, 3:1 pour UI
+- Toutes les paires de couleurs M3 garantissent **minimum 3:1 contraste**
+
+### 29c. Systeme de Couleurs M3 Expressive (28 tokens)
+
+**3 couches d'accent + 2 couches neutres:**
+
+| Groupe | Roles | Usage |
+|--------|-------|-------|
+| **Primary** | primary, onPrimary, primaryDim, primaryContainer, onPrimaryContainer | Actions principales (EdgeButton, CTA, etats actifs) |
+| **Secondary** | secondary, onSecondary, secondaryDim, secondaryContainer, onSecondaryContainer | Actions secondaires, zones denses |
+| **Tertiary** | tertiary, onTertiary, tertiaryDim, tertiaryContainer, onTertiaryContainer | Accents contrastants, badges, objectif atteint |
+| **Error** | error, onError, errorDim, errorContainer, onErrorContainer | Supprimer, fermer, alertes urgence (rouge teinte) |
+| **Surface** | surfaceContainerLow, surfaceContainer, surfaceContainerHigh, onSurface, onSurfaceVariant | Fonds, conteneurs, texte |
+
+**Modificateurs de tokens:**
+- **On-** = texte/icones SUR la couleur parente (ex: onPrimary = texte sur fond primary)
+- **-Dim** = version attenuee, pas d'attention immediate
+- **-Container** = fill pour elements foreground (boutons, cards), PAS pour texte
+- **-Variant** = alternative moins marquee
+
+**Dynamic Color (Wear OS 6+):**
+```kotlin
+val dynamicColors = dynamicColorScheme(LocalContext.current)
+MaterialTheme(colorScheme = dynamicColors ?: myBrandColors) { ... }
+```
+- Palette auto generee depuis les couleurs du watch face Pixel
+- Fallback sur les couleurs brand si non supporte
+- Coherence visuelle: app s'integre naturellement au cadran choisi
+
+**Source:** [Color Roles and Tokens](https://developer.android.com/design/ui/wear/guides/styles/color/roles-tokens)
 
 ### 29b. Couleurs - Daltonisme et Gradients
 
@@ -1865,6 +1994,35 @@ HAPTIQUE      SON + HAPTIQUE
 | Sync temps reel continue | Batterie drainee | Batched sync, DataItems non-urgents |
 | Meme UI que le telephone | L'ecran est 10x plus petit | Redesigner pour le poignet |
 | Ignorer le bezel/crown | Input naturel gaspille | Supporter rotary input |
+| Animations lourdes | -30% batterie possible | Animations simples, reduire fps en workout (30fps) |
+| Username/password sur montre | Interdit (Google Play WO-P6) | CredentialManager / RemoteAuthClient |
+| Marges fixes en dp | Ne scale pas | Marges en pourcentages |
+| Icones sans labels | Inaccessible | Toujours icone + label texte |
+| Scroll horizontal + vertical | Desorientant | Vertical uniquement |
+| Wake lock continu | Battery killer | Health Services API (CPU dort entre lectures) |
+| Ignorer font scaling | Texte coupe, Play Store rejet | Respecter le setting systeme |
+
+### 43b. Benchmarks Industrie & Recherche UX
+
+| Metrique | Valeur | Source |
+|----------|--------|--------|
+| Session moyenne montre | **8-12 secondes** | NNGroup / etudes smartwatch |
+| Sessions/jour montre | **~80-100** micro-sessions | Etudes comportementales |
+| Retention app sante J30 | **~7%** des utilisateurs | Industry research 2024 |
+| Interactions utiles montre | **6 types** identifies | NNGroup |
+| Max taps pendant workout | **3 taps** avant friction | UX research 2024 |
+| Temps attention montre | **1-3 secondes** par glance | Google Wear OS principles |
+| Apps Wear OS installees | **3-8** en moyenne | Google Play data |
+| Perte battery par animations | Jusqu'a **-30%** | Appventurez research 2024 |
+| Precision tap sur montre | ~85-90% pour 48dp | Etudes touch target wearable |
+| Precision tap avec gants | ~50-60% pour 48dp | Community empirical |
+
+**Facteurs cles retention apps addiction montre:**
+- Quick-log 1 tap = engagement quotidien (#1 facteur)
+- Streaks >= 7 jours = +3.6x retention
+- Notifications non-culpabilisantes = -40% desinstallation vs culpabilisantes
+- Detection auto = "wow factor" mais faux positifs > 20% = desinstallation rapide
+- Gamification legere (pas excessive) = engagement sans fatigue
 
 ---
 
@@ -2025,7 +2183,35 @@ HAPTIQUE      SON + HAPTIQUE
 | Max decisions/ecran | 1 |
 | Max couleurs dans l'app | 4-5 |
 
+### Google Play Quality (memo)
+
+| Quoi | Valeur |
+|------|--------|
+| Font min essentiel | 12sp |
+| Font min non-essentiel | 10sp |
+| Target API min | Android 14 (API 34) |
+| Auth sur montre | JAMAIS username/password |
+| AOD max pixels | 15% |
+| WFF assets ambient | 10 MB max |
+| WFF assets interactif | 100 MB max |
+| Splash icon | 48x48 dp sur noir |
+| Background | #000000 obligatoire |
+| Screenshots Play | 1:1 aspect ratio |
+| Test emulateur | 192dp + 227dp round |
+| WFF deadline legacy | 14 janvier 2026 |
+
+### Retention & Engagement
+
+| Quoi | Valeur |
+|------|--------|
+| Retention J30 health app | ~7% |
+| Session moyenne montre | 8-12 secondes |
+| Sessions/jour | ~80-100 |
+| Streak seuil retention | 7 jours (+3.6x) |
+| Max taps workout | 3 avant friction |
+| Faux positifs ML seuil | < 20% pour retention |
+
 ---
 
 *Bible UX Wearable - Mise a jour mars 2026*
-*Sources: [Android Developers](https://developer.android.com/wear), [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/designing-for-watchos), [Samsung Developer](https://developer.samsung.com/one-ui-watch-tizen), [GSMArena](https://www.gsmarena.com)*
+*Sources: [Android Developers](https://developer.android.com/wear), [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/designing-for-watchos), [Samsung Developer](https://developer.samsung.com/one-ui-watch), [GSMArena](https://www.gsmarena.com), [Wear OS App Quality](https://developer.android.com/docs/quality-guidelines/wear-app-quality), [Color Roles M3](https://developer.android.com/design/ui/wear/guides/styles/color/roles-tokens)*
