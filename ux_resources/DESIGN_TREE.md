@@ -760,6 +760,26 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | Rond vs carre (strategy design, 78.5% surface) | AA. Workflow | 47b |
 | Emulateur vs device reel (12 criteres comparaison) | AA. Workflow | 47c |
 | Memo rapide (toutes valeurs) | Z. Valeurs Cles | - |
+| **Multi-device continuity & handoff** | **AC. Cross-Device** | **50-54** |
+| RemoteActivityHelper (ouvrir app phone depuis montre) | AC. Wear OS Handoff | 50a |
+| ConfirmationActivity (SUCCESS, FAILURE, OPEN_ON_PHONE) | AC. Wear OS Handoff | 50b |
+| Ongoing Activity API (continuite watch face + recents) | AC. Wear OS Handoff | 50c |
+| Deep link notification montre -> app phone | AC. Wear OS Handoff | 50d |
+| CapabilityClient (verifier app phone installee) | AC. Wear OS Handoff | 50e |
+| Phone confirmation pattern (montre initie, phone confirme) | AC. Wear OS Handoff | 50f |
+| MessageClient (sendMessage, sendRequest, 100KB max) | AC. Wear OS Handoff | 50g |
+| Android 17 Handoff (setHandoffEnabled, HandoffActivityData) | AC. Wear OS Handoff | 50h |
+| NSUserActivity Handoff (watchOS -> iPhone) | AC. watchOS Handoff | 51a |
+| WCSession (5 methodes: sendMessage, transferUserInfo, etc.) | AC. watchOS Handoff | 51b |
+| Arbre decision WCSession (quelle methode utiliser) | AC. watchOS Handoff | 51c |
+| Quand rediriger vers phone vs gerer sur montre | AC. UX Cross-Device | 52a |
+| Loading/waiting states pendant handoff | AC. UX Cross-Device | 52b |
+| Error handling phone inatteignable (5 cas) | AC. UX Cross-Device | 52c |
+| Reconnexion delais (Doze 4min, Bluetooth <1s) | AC. UX Cross-Device | 52d |
+| NNGroup 5 composantes omnichannel (continuite, proactivite) | AC. UX Cross-Device | 52e |
+| Decision tree handoff vs local | AC. UX Cross-Device | 52f |
+| Standalone manifest + Horologist helpers | AC. Standalone Config | 53 |
+| Checklist implementateur cross-device (14 items) | AC. Checklist | 54 |
 
 ---
 

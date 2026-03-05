@@ -3713,44 +3713,13 @@ if (!phoneAppInstalled && phoneType == DEVICE_TYPE_ANDROID) {
 
 ### 38c. Multi-Device Continuity (Watch ↔ Phone)
 
-**Principe:** L'utilisateur commence une tache sur un device, la continue sur un autre. Seamless.
+> **Section detaillee : voir AC. Multi-Device Continuity & Handoff Patterns (sections 50-54)**
+> Contient: RemoteActivityHelper, ConfirmationActivity, Ongoing Activity API, CapabilityClient,
+> MessageClient (100KB limit), Android 17 Handoff, watchOS NSUserActivity/WCSession (5 methodes),
+> cross-device UX patterns (14 taches categoriees), error handling (5 types), reconnection delays,
+> NNGroup 5 omnichannel components, decision tree, 14-point implementation checklist.
 
-**RemoteActivityHelper (Wear OS → Phone):**
-
-```kotlin
-// Ouvrir une activite sur le telephone depuis la montre
-val remoteActivityHelper = RemoteActivityHelper(context)
-
-// Ouvrir l'app telephone avec des donnees specifiques
-remoteActivityHelper.startRemoteActivity(
-    Intent(Intent.ACTION_VIEW).apply {
-        setData(Uri.parse("infernal://stats/today"))
-        addCategory(Intent.CATEGORY_BROWSABLE)
-    },
-    targetNodeId // optionnel, null = premier telephone trouve
-).addOnSuccessListener {
-    // Confirmer a l'utilisateur: "Ouvert sur le telephone"
-    showConfirmation(ConfirmationActivity.OPEN_ON_PHONE_ANIMATION)
-}.addOnFailureListener { e ->
-    // Telephone pas connecte ou app pas installee
-    showError("Telephone non disponible")
-}
-```
-
-**Phone → Watch (ouvrir une activite sur la montre):**
-
-```kotlin
-// Depuis l'app telephone, ouvrir l'app montre
-val remoteActivityHelper = RemoteActivityHelper(context)
-remoteActivityHelper.startRemoteActivity(
-    Intent("com.infernal.QUICK_LOG").apply {
-        addCategory(Intent.CATEGORY_DEFAULT)
-    },
-    targetNodeId = wearNodeId
-)
-```
-
-**Patterns de continuation recommandes:**
+**Resume rapide — Patterns de continuation:**
 
 | Scenario | Initie sur | Continue sur | Methode |
 |----------|-----------|-------------|---------|
@@ -3758,74 +3727,14 @@ remoteActivityHelper.startRemoteActivity(
 | Ajouter note longue | Montre | Telephone | RemoteActivityHelper + intent data |
 | Configurer parametres | Telephone | Montre | DataItem sync |
 | Partager progres | Montre | Telephone | RemoteActivityHelper → share sheet |
-| Debug/logs | Montre | Telephone | MessageClient one-shot |
+| Debug/logs | Montre | Telephone | MessageClient one-shot (100KB max) |
 
-**Confirmation visuelle (CRITIQUE):**
-
-```kotlin
-// Toujours confirmer l'action cross-device a l'utilisateur
-// Wear OS fournit 3 animations built-in:
-startActivity(Intent(context, ConfirmationActivity::class.java).apply {
-    putExtra(ConfirmationActivity.EXTRA_ANIMATION_TYPE,
-        ConfirmationActivity.OPEN_ON_PHONE_ANIMATION)  // icone telephone
-    putExtra(ConfirmationActivity.EXTRA_MESSAGE, "Ouvert sur le telephone")
-    putExtra(ConfirmationActivity.EXTRA_ANIMATION_DURATION_MILLIS, 2000)
-})
-```
-
-**watchOS Handoff (NSUserActivity):**
-
-```swift
-// Sur la montre: declarer une activite en cours
-let activity = NSUserActivity(activityType: "com.infernal.viewStats")
-activity.title = "Voir statistiques"
-activity.userInfo = ["date": Date()]
-activity.isEligibleForHandoff = true
-self.userActivity = activity
-
-// Sur l'iPhone: recevoir le handoff
-func application(_ application: UIApplication,
-    continue userActivity: NSUserActivity,
-    restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-    if userActivity.activityType == "com.infernal.viewStats" {
-        let date = userActivity.userInfo?["date"] as? Date
-        navigateToStats(date: date)
-        return true
-    }
-    return false
-}
-```
-
-**Android 17+ Handoff API (nouveau, 2026):**
-
-```kotlin
-// Nouvelle API cross-device (Android 17 beta)
-// setHandoffEnabled() sur une Activity
-override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-    setHandoffEnabled(true)  // Active le handoff pour cette activity
-}
-
-override fun onHandoffActivityRequested(): HandoffActivityData {
-    return HandoffActivityData.Builder()
-        .setDeepLink(Uri.parse("infernal://stats/${currentDate}"))
-        .setExtras(bundleOf("userId" to userId))
-        .build()
-}
-```
-
-**Regles UX cross-device:**
-
-| Regle | Detail |
-|-------|--------|
-| **Confirmer toujours** | Animation + message "Ouvert sur telephone" |
-| **Fallback gracieux** | Si telephone absent → message explicite, pas de crash |
-| **Pas de donnees perdues** | Sauvegarder localement AVANT le handoff |
-| **Latence acceptable** | 1-3s pour le handoff, montrer un spinner si >1s |
-| **Directionnel** | Montre→telephone pour complexite, telephone→montre pour rapidite |
-| **Deep link requis** | L'app cible doit supporter les deep links pour restaurer le contexte |
-
-**Source:** [RemoteActivityHelper](https://developer.android.com/reference/androidx/wear/remote/interactions/RemoteActivityHelper), [Android 17 Handoff](https://developer.android.com/about/versions/17)
+**Regles UX cross-device cles:**
+- Confirmer toujours (ConfirmationActivity.OPEN_ON_PHONE_ANIMATION)
+- Fallback gracieux si telephone absent
+- Sauvegarder localement AVANT le handoff
+- Deep link requis pour restaurer le contexte
+- Timeout handoff: 5s max, spinner si >1s
 
 ---
 
@@ -4543,16 +4452,28 @@ adb shell dumpsys activity service WearableService  # Data Layer usage
 | Dictation latence (on-device) | 200-500ms |
 | Dictation latence (cloud) | 1-3s |
 
-### Multi-Device
+### Multi-Device (details: section AC, 50-54)
 
 | Quoi | Valeur |
 |------|--------|
 | RemoteActivityHelper | Ouvrir app telephone depuis montre |
 | ConfirmationActivity | 3 types: SUCCESS, FAILURE, OPEN_ON_PHONE |
-| Handoff latence | 1-3s acceptable |
+| Handoff latence | 1-3s acceptable, timeout 5s max |
 | Android 17 Handoff API | setHandoffEnabled() + onHandoffActivityRequested() |
 | watchOS Handoff | NSUserActivity + isEligibleForHandoff |
 | Deep link requis | Obligatoire pour restaurer contexte apres handoff |
+| CapabilityClient | wear.xml + FILTER_REACHABLE / FILTER_ALL |
+| MessageClient max | 100 KB, pas de persistance, pas de retry |
+| WCSession sendMessage | Immediat si isReachable, sinon fallback transferUserInfo |
+| WCSession transferUserInfo | Queue FIFO, livraison garantie |
+| WCSession updateApplicationContext | Dernier gagne (ecrase) |
+| Reconnexion apres Doze | Jusqu'a 4 minutes |
+| Ongoing Activity lib | `wear-ongoing:1.1.0` |
+| Ongoing update frequence | Quelques MAJ/minute max |
+| Notification dismissal sync | `setDismissalId()` |
+| Regle NNGroup handoff | > 10s ou > 3 taps -> envisager phone |
+| PhoneTypeHelper | ANDROID / IOS / UNKNOWN / ERROR |
+| Horologist | google.github.io/horologist (helpers recommandes) |
 
 ### Testing & BOM
 
@@ -4877,5 +4798,837 @@ DESIGN                          DEV                            TEST
 
 ---
 
+## AC. Multi-Device Continuity & Handoff Patterns
+
+> Patterns officiels pour la continuite entre montre et telephone.
+> Sources: [Android Developers](https://developer.android.com/training/wearables), [Apple Developer](https://developer.apple.com/documentation/watchconnectivity), [NNGroup](https://www.nngroup.com/articles/smartwatch-interactions/)
+
+### 50. Wear OS -> Android Phone Handoff
+
+#### 50a. RemoteActivityHelper (ouvrir l'app phone depuis la montre)
+
+**Package:** `androidx.wear.remote.interactions`
+
+**Dependance Gradle:**
+```gradle
+implementation "androidx.wear:wear-remote-interactions:1.1.0"
+```
+
+**Principe:** Permet de lancer une Activity sur le telephone companion depuis la montre. Supporte les intents avec `ACTION_VIEW`, un URI de donnees, et la categorie `CATEGORY_BROWSABLE`.
+
+**Code Kotlin - Ouvrir l'app phone:**
+```kotlin
+import androidx.wear.remote.interactions.RemoteActivityHelper
+import android.content.Intent
+import android.net.Uri
+import kotlinx.coroutines.guava.await
+
+// Ouvrir une page specifique sur le phone
+suspend fun openOnPhone(context: Context) {
+    val remoteActivityHelper = RemoteActivityHelper(context)
+
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        data = Uri.parse("https://example.com/details/123")
+        addCategory(Intent.CATEGORY_BROWSABLE)
+    }
+
+    try {
+        remoteActivityHelper.startRemoteActivity(intent).await()
+        // Afficher confirmation "Ouvert sur le telephone"
+        showOpenOnPhoneAnimation(context)
+    } catch (e: Exception) {
+        // Phone non connecte ou app non installee
+        showFailureAnimation(context)
+    }
+}
+
+// Ouvrir le Play Store pour installer l'app companion
+suspend fun promptInstallPhoneApp(context: Context) {
+    val remoteActivityHelper = RemoteActivityHelper(context)
+    val marketIntent = Intent(Intent.ACTION_VIEW).apply {
+        data = Uri.parse("market://details?id=com.example.myapp")
+        addCategory(Intent.CATEGORY_BROWSABLE)
+    }
+    remoteActivityHelper.startRemoteActivity(marketIntent).await()
+}
+```
+
+**Contraintes:**
+- Intent doit avoir `ACTION_VIEW` + `CATEGORY_BROWSABLE`
+- Donnees via `Intent.setData(Uri)` uniquement
+- Retourne `TARGET_NODE_NOT_CONNECTED` si le phone est deconnecte
+- Pas de retry automatique
+
+**Source:** [RemoteActivityHelper API](https://developer.android.com/reference/androidx/wear/remote/interactions/RemoteActivityHelper)
+
+#### 50b. ConfirmationActivity (feedback visuel apres handoff)
+
+**Trois types d'animation:**
+
+| Constante | Usage |
+|-----------|-------|
+| `SUCCESS_ANIMATION` | Action completee sur la montre |
+| `FAILURE_ANIMATION` | Action echouee |
+| `OPEN_ON_PHONE_ANIMATION` | Contenu redirige vers le telephone |
+
+**Manifest:**
+```xml
+<activity android:name="androidx.wear.activity.ConfirmationActivity" />
+```
+
+**Code Kotlin:**
+```kotlin
+fun showOpenOnPhoneAnimation(context: Context) {
+    val intent = Intent(context, ConfirmationActivity::class.java).apply {
+        putExtra(
+            ConfirmationActivity.EXTRA_ANIMATION_TYPE,
+            ConfirmationActivity.OPEN_ON_PHONE_ANIMATION
+        )
+        putExtra(
+            ConfirmationActivity.EXTRA_MESSAGE,
+            context.getString(R.string.opening_on_phone)
+        )
+    }
+    context.startActivity(intent)
+}
+```
+
+**Comportement:** Affiche l'animation plein ecran, puis `finish()` automatique -> retour a l'Activity precedente.
+
+**Source:** [Show confirmations on Wear](https://developer.android.com/training/wearables/views/confirm)
+
+#### 50c. Ongoing Activity (continuite sur les surfaces Wear OS)
+
+**Dependances:**
+```gradle
+dependencies {
+    implementation "androidx.wear:wear-ongoing:1.1.0"
+    implementation "androidx.core:core:1.17.0"
+}
+```
+
+**Principe:** Expose une activite longue (workout, navigation, media) sur le watch face (icone tappable) et dans les Recents du launcher. L'utilisateur peut revenir a l'app en un tap.
+
+**Code Kotlin complet:**
+```kotlin
+// 1. Creer la notification ongoing
+val pendingIntent = PendingIntent.getActivity(
+    this, 0,
+    Intent(this, TrackingActivity::class.java).apply {
+        flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+    },
+    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+)
+
+val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
+    .setContentTitle("Suivi cigarette")
+    .setContentText("Detection en cours")
+    .setSmallIcon(R.drawable.ic_smoking)
+    .setCategory(NotificationCompat.CATEGORY_WORKOUT)
+    .setContentIntent(pendingIntent)
+    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+    .setOngoing(true)
+
+// 2. Creer l'OngoingActivity avec status dynamique
+val startTime = SystemClock.elapsedRealtime()
+val status = Status.Builder()
+    .addTemplate("#type# #time#")
+    .addPart("type", Status.TextPart("Suivi"))
+    .addPart("time", Status.StopwatchPart(startTime))
+    .build()
+
+val ongoingActivity = OngoingActivity.Builder(
+    applicationContext, NOTIFICATION_ID, notificationBuilder
+)
+    .setAnimatedIcon(R.drawable.ic_smoking_animated)
+    .setStaticIcon(R.drawable.ic_smoking_static)
+    .setTouchIntent(pendingIntent)
+    .setStatus(status)
+    .build()
+
+// 3. Appliquer et poster
+ongoingActivity.apply(applicationContext)
+startForeground(NOTIFICATION_ID, notificationBuilder.build())
+```
+
+**Mise a jour du status:**
+```kotlin
+// Quelques MAJ par minute max (systeme ignore si trop frequent)
+OngoingActivity.recoverOngoingActivity(context)
+    ?.update(context, newStatus)
+```
+
+**Arret:** `notificationManager.cancel(NOTIFICATION_ID)`
+
+**Categories supportees:**
+
+| Categorie | Usage |
+|-----------|-------|
+| `CATEGORY_WORKOUT` | Exercice, suivi sante |
+| `CATEGORY_NAVIGATION` | Navigation GPS |
+| `CATEGORY_TRANSPORT` | Lecture media |
+| `CATEGORY_STOPWATCH` | Chronometre |
+| `CATEGORY_CALL` | Appels voix/video |
+| `CATEGORY_LOCATION_SHARING` | Partage de position |
+| `CATEGORY_ALARM` | Alarmes/minuteries |
+
+**Source:** [Ongoing Activity API](https://developer.android.com/training/wearables/notifications/ongoing-activity)
+
+#### 50d. Deep Link Watch Notification -> Phone App
+
+**Pattern bridged notification (automatique):**
+Les notifications creees sur le phone sont automatiquement bridgees vers la montre. Elles incluent automatiquement un bouton pour ouvrir l'app sur le phone.
+
+**Pattern local notification (manuel):**
+```kotlin
+// Action specifique montre qui ouvre le phone
+val openOnPhoneAction = NotificationCompat.Action.Builder(
+    R.drawable.ic_phone,
+    "Voir sur le telephone",
+    phoneOpenPendingIntent
+).build()
+
+val wearableExtender = NotificationCompat.WearableExtender()
+    .addAction(openOnPhoneAction)   // Action visible UNIQUEMENT sur la montre
+    .setDismissalId("tracking_123") // Sync dismissal cross-device
+
+val notification = NotificationCompat.Builder(context, channelId)
+    .setContentTitle("5 cigarettes aujourd'hui")
+    .setContentText("Voir les details sur le telephone")
+    .extend(wearableExtender)
+    .build()
+```
+
+**Sync de dismissal:** `setDismissalId()` synchronise la suppression de la notification entre montre et phone.
+
+**Eviter les doublons:** Utiliser les Bridging APIs quand l'app est installee sur les deux appareils. Critique sur Wear OS 5+.
+
+**Source:** [Notifications on Wear OS](https://developer.android.com/training/wearables/notifications)
+
+#### 50e. CapabilityClient (verifier disponibilite app phone)
+
+**Principe:** Detecter si l'app companion est installee sur le phone, et quelles fonctionnalites elle supporte.
+
+**Configuration statique - wear.xml:**
+
+*Dans l'app mobile (res/values/wear.xml):*
+```xml
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@array/android_wear_capabilities">
+    <string-array name="android_wear_capabilities">
+        <item>verify_remote_infernal_wheel_phone</item>
+    </string-array>
+</resources>
+```
+
+*Dans l'app Wear OS (res/values/wear.xml):*
+```xml
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@array/android_wear_capabilities">
+    <string-array name="android_wear_capabilities">
+        <item>verify_remote_infernal_wheel_wear</item>
+    </string-array>
+</resources>
+```
+
+**Code Kotlin - Detecter l'app phone:**
+```kotlin
+import com.google.android.gms.wearable.CapabilityClient
+import com.google.android.gms.wearable.Wearable
+
+suspend fun checkPhoneAppInstalled(context: Context): Boolean {
+    val capabilityClient = Wearable.getCapabilityClient(context)
+    val capabilityInfo = capabilityClient.getCapability(
+        "verify_remote_infernal_wheel_phone",
+        CapabilityClient.FILTER_REACHABLE
+    ).await()
+    return capabilityInfo.nodes.isNotEmpty()
+}
+
+// Detecter le type d'appareil companion
+val phoneType = PhoneTypeHelper.getPhoneDeviceType(context)
+// DEVICE_TYPE_ANDROID, DEVICE_TYPE_IOS, DEVICE_TYPE_UNKNOWN, DEVICE_TYPE_ERROR
+```
+
+**Configuration dynamique a runtime:**
+```kotlin
+// Ajouter une capability dynamiquement
+capabilityClient.addLocalCapability("feature_cigarette_detection").await()
+
+// Retirer une capability
+capabilityClient.removeLocalCapability("feature_cigarette_detection").await()
+```
+
+**Filtre FILTER_ALL vs FILTER_REACHABLE:**
+- `FILTER_REACHABLE`: Noeuds actuellement connectes (Bluetooth/WiFi)
+- `FILTER_ALL`: Tous les noeuds connus (meme offline)
+
+**Reconnexion:** Les appareils peuvent mettre jusqu'a 4 minutes pour se reconnecter apres Doze, retrait du poignet, ou inactivite.
+
+**Source:** [Discover devices on network](https://developer.android.com/training/wearables/data/discover-devices), [Standalone apps](https://developer.android.com/training/wearables/apps/standalone-apps)
+
+#### 50f. Phone Confirmation Pattern (montre initie, phone confirme)
+
+**Flow complet en Compose:**
+```kotlin
+@Composable
+fun HandoffToPhoneButton(
+    context: Context,
+    onSuccess: () -> Unit,
+    onError: (String) -> Unit
+) {
+    var isLoading by remember { mutableStateOf(false) }
+    var phoneAvailable by remember { mutableStateOf<Boolean?>(null) }
+
+    // Verifier la disponibilite du phone au lancement
+    LaunchedEffect(Unit) {
+        phoneAvailable = checkPhoneAppInstalled(context)
+    }
+
+    val coroutineScope = rememberCoroutineScope()
+
+    Button(
+        onClick = {
+            coroutineScope.launch {
+                isLoading = true
+                try {
+                    if (phoneAvailable == true) {
+                        // Envoyer les donnees au phone
+                        sendMessageToPhone(context, "/open/details", dataPayload)
+                        // Afficher confirmation
+                        showOpenOnPhoneAnimation(context)
+                        onSuccess()
+                    } else {
+                        // Proposer installation
+                        promptInstallPhoneApp(context)
+                    }
+                } catch (e: Exception) {
+                    onError("Telephone non disponible")
+                } finally {
+                    isLoading = false
+                }
+            }
+        },
+        enabled = !isLoading
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(modifier = Modifier.size(16.dp))
+        } else {
+            Icon(Icons.Default.PhoneAndroid, contentDescription = null)
+            Spacer(Modifier.width(4.dp))
+            Text("Voir sur telephone")
+        }
+    }
+}
+```
+
+#### 50g. MessageClient (communication watch <-> phone)
+
+**Caracteristiques:**
+
+| Propriete | Valeur |
+|-----------|--------|
+| Persistance | Aucune (fire-and-forget) |
+| Taille max fiable | 100 KB |
+| Retry automatique | Non |
+| Mode offline | Non supporte |
+| Methodes | `sendMessage()` (one-way), `sendRequest()` (request-response) |
+
+**Code Kotlin:**
+```kotlin
+import com.google.android.gms.wearable.Wearable
+import com.google.android.gms.wearable.MessageClient
+
+// Envoyer un message au phone
+suspend fun sendMessageToPhone(context: Context, path: String, data: ByteArray) {
+    val nodeClient = Wearable.getNodeClient(context)
+    val nodes = nodeClient.connectedNodes.await()
+
+    val phoneNode = nodes.firstOrNull { it.isNearby }
+        ?: throw Exception("Phone not connected")
+
+    Wearable.getMessageClient(context)
+        .sendMessage(phoneNode.id, path, data)
+        .await()
+}
+
+// Recevoir des messages (dans WearableListenerService)
+class PhoneListenerService : WearableListenerService() {
+    override fun onMessageReceived(messageEvent: MessageEvent) {
+        when (messageEvent.path) {
+            "/cigarette/logged" -> {
+                // Phone a confirme l'enregistrement
+                val count = messageEvent.data.toString(Charsets.UTF_8).toInt()
+                updateWatchUI(count)
+            }
+            "/sync/request" -> {
+                // Phone demande une synchro
+                sendCurrentData()
+            }
+        }
+    }
+}
+```
+
+**Manifest pour le service:**
+```xml
+<service
+    android:name=".PhoneListenerService"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+        <data android:scheme="wear" android:host="*" android:pathPrefix="/cigarette" />
+        <data android:scheme="wear" android:host="*" android:pathPrefix="/sync" />
+    </intent-filter>
+</service>
+```
+
+**Source:** [Data Layer messages](https://developer.android.com/training/wearables/data/messages)
+
+#### 50h. Android 17 Handoff (nouveau, 2026)
+
+**Nouveau:** Android 17 introduit un systeme de Handoff natif similaire a Apple Handoff.
+
+**API:**
+- `setHandoffEnabled(true)` sur l'Activity pour activer le handoff
+- `onHandoffActivityRequested()` callback pour fournir les donnees de restauration
+- Retourne un `HandoffActivityData` avec l'etat a transferer
+- Surfaces d'entree: launcher et taskbar sur l'appareil recepteur
+- Supporte phone -> tablette -> Chromebook -> Android TV
+- Fallback: app-to-web Handoff si l'app n'est pas installee sur l'appareil cible
+
+**Source:** [Android 17 Handoff (9to5Google)](https://9to5google.com/2026/02/13/android-17-handoff/)
+
+---
+
+### 51. watchOS -> iPhone Handoff
+
+#### 51a. Handoff API (NSUserActivity)
+
+**Principe:** Permet a l'utilisateur de commencer une tache sur la montre et la continuer sur l'iPhone. L'activite apparait sur l'ecran de verrouillage de l'iPhone (icone en bas).
+
+**Code Swift - Cote Watch:**
+```swift
+import Foundation
+
+class TrackingController: WKInterfaceController {
+
+    override func willActivate() {
+        super.willActivate()
+
+        // Creer l'activite utilisateur
+        let activity = NSUserActivity(activityType: "com.infernalwheel.viewDetails")
+        activity.title = "Voir les details du suivi"
+        activity.isEligibleForHandoff = true
+        activity.userInfo = [
+            "cigaretteCount": 5,
+            "date": Date().timeIntervalSince1970
+        ]
+
+        // Rendre l'activite courante
+        update(activity)
+    }
+}
+```
+
+**Code Swift - Cote iPhone (AppDelegate):**
+```swift
+func application(
+    _ application: UIApplication,
+    continue userActivity: NSUserActivity,
+    restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
+) -> Bool {
+    if userActivity.activityType == "com.infernalwheel.viewDetails" {
+        let count = userActivity.userInfo?["cigaretteCount"] as? Int ?? 0
+        // Naviguer vers l'ecran de details
+        navigateToDetails(cigaretteCount: count)
+        return true
+    }
+    return false
+}
+```
+
+**Info.plist (les deux apps):**
+```xml
+<key>NSUserActivityTypes</key>
+<array>
+    <string>com.infernalwheel.viewDetails</string>
+    <string>com.infernalwheel.viewStats</string>
+</array>
+```
+
+**Limitations:**
+- L'icone de handoff apparait en bas de l'ecran de verrouillage iPhone -> l'utilisateur doit swiper vers le haut
+- Pas toutes les apps supportent le handoff
+- Cout d'interaction eleve selon NNGroup ("utterly bizarre interaction design")
+
+**Source:** [Continuing User Activities with Handoff](https://developer.apple.com/documentation/Foundation/continuing-user-activities-with-handoff)
+
+#### 51b. WCSession (Watch Connectivity)
+
+**5 methodes de transfert:**
+
+| Methode | Persistance | Timing | Taille | Usage |
+|---------|-------------|--------|--------|-------|
+| `sendMessage(_:)` | Non | Immediat (si reachable) | Petit | RPC temps reel |
+| `transferUserInfo(_:)` | Oui (queue FIFO) | Background | Petit-moyen | Donnees incrementales |
+| `updateApplicationContext(_:)` | Oui (dernier gagne) | Background | Petit | Etat global sync |
+| `transferFile(_:metadata:)` | Oui (queue) | Background | Fichiers | Fichiers volumineux |
+| `transferCurrentComplicationUserInfo(_:)` | Oui (prioritaire) | Immediat | Petit | MAJ complications |
+
+**Code Swift - Setup et communication:**
+```swift
+import WatchConnectivity
+
+class ConnectivityManager: NSObject, WCSessionDelegate {
+
+    static let shared = ConnectivityManager()
+
+    func activate() {
+        guard WCSession.isSupported() else { return }
+        let session = WCSession.default
+        session.delegate = self
+        session.activate()
+    }
+
+    // Envoi temps reel (phone doit etre reachable)
+    func sendCigaretteLogged(count: Int) {
+        guard WCSession.default.isReachable else {
+            // Fallback: transferUserInfo pour livraison garantie
+            WCSession.default.transferUserInfo(["count": count, "timestamp": Date()])
+            return
+        }
+        WCSession.default.sendMessage(
+            ["action": "cigaretteLogged", "count": count],
+            replyHandler: { reply in
+                // Phone a confirme
+            },
+            errorHandler: { error in
+                // Fallback vers transferUserInfo
+                WCSession.default.transferUserInfo(["count": count])
+            }
+        )
+    }
+
+    // Sync etat global (dernier etat ecrase le precedent)
+    func syncState(totalToday: Int, goal: Int) {
+        try? WCSession.default.updateApplicationContext([
+            "totalToday": totalToday,
+            "goal": goal
+        ])
+    }
+
+    // MARK: - Delegate
+
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        if let action = message["action"] as? String {
+            switch action {
+            case "updateGoal":
+                let newGoal = message["goal"] as? Int ?? 0
+                updateLocalGoal(newGoal)
+            default: break
+            }
+        }
+    }
+
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        // Traiter les donnees en queue (garanties)
+    }
+
+    func session(
+        _ session: WCSession,
+        activationDidCompleteWith state: WCSessionActivationState,
+        error: Error?
+    ) {
+        // Gerer l'activation
+    }
+}
+```
+
+**Regles critiques:**
+- `sendMessage` echoue silencieusement si `isReachable == false`
+- `transferUserInfo` est queue FIFO -> livraison garantie meme si phone eteint
+- `updateApplicationContext` ecrase la valeur precedente -> uniquement pour etat courant
+- `transferCurrentComplicationUserInfo` a un budget limite (~50/jour en background)
+- Le simulateur watchOS ne supporte PAS `transferFile`, `transferUserInfo`, `transferCurrentComplicationUserInfo` -> tester sur appareil physique
+
+**Source:** [WCSession](https://developer.apple.com/documentation/watchconnectivity/wcsession)
+
+#### 51c. Arbre de decision: quelle methode WCSession utiliser
+
+```
+Donnees a envoyer?
+       |
+   +---+---+
+   |       |
+Temps reel  Peut attendre
+   |            |
+isReachable? transferUserInfo()
+   |         (queue FIFO, garanti)
+ +---+
+ |   |
+Oui  Non
+ |    |
+sendMessage()  updateApplicationContext()
+(immediat)     (dernier etat, ecrase)
+```
+
+---
+
+### 52. UX Patterns Cross-Device
+
+#### 52a. Quand rediriger vers le phone vs gerer sur la montre
+
+**Garder sur la montre:**
+
+| Tache | Raison |
+|-------|--------|
+| Controles single-tap | Pas de friction |
+| Lecture de notifications | Glanceable |
+| Suivi workout/tracking | Capteurs sur le poignet |
+| Navigation (prochain virage) | Mains libres |
+| Controles media (play/pause) | Telecommande naturelle |
+| Minuteries/chronometre | Acces rapide |
+| Enregistrement d'evenement (cigarette) | Un bouton suffit |
+
+**Rediriger vers le phone:**
+
+| Tache | Raison |
+|-------|--------|
+| Saisie de texte longue | Clavier impossible sur montre |
+| Analyse detaillee post-workout | Graphiques complexes, ecran trop petit |
+| Navigation de playlists | Trop de scrolling |
+| Configuration/parametres avances | Trop de champs |
+| Historique detaille | Tableaux, listes longues |
+| Photos/videos | Resolution insuffisante |
+| Recherche | Input difficile |
+| Gestion d'erreurs complexes | Trop d'info a afficher |
+
+**Regle NNGroup:** "A watch is not a smaller phone." Si l'interaction depasse 10-15 secondes ou requiert plus de 2-3 taps, envisager le handoff.
+
+**Source:** [6 Types of Smartwatch Interactions (NNGroup)](https://www.nngroup.com/articles/smartwatch-interactions/), [Principles of Wear OS development](https://developer.android.com/training/wearables/principles)
+
+#### 52b. Loading/Waiting States pendant le handoff
+
+**Pattern recommande:**
+
+```
+1. Utilisateur tape "Voir sur telephone"
+     |
+2. Afficher CircularProgressIndicator (1-3s max)
+     |
+3a. Succes -> ConfirmationActivity(OPEN_ON_PHONE_ANIMATION)
+    Message: "Ouvert sur le telephone"
+    Auto-dismiss apres 2s
+     |
+3b. Echec -> ConfirmationActivity(FAILURE_ANIMATION)
+    Message: "Telephone non disponible"
+    + Action "Reessayer"
+```
+
+**Code Compose pour le loading:**
+```kotlin
+@Composable
+fun HandoffLoadingState() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                strokeWidth = 3.dp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Ouverture sur le telephone...",
+                style = MaterialTheme.typography.body2,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+```
+
+**Timeout:** Ne pas depasser 5 secondes d'attente. Au-dela, afficher l'erreur.
+
+#### 52c. Error Handling quand le phone est inatteignable
+
+**Hierarchie d'erreurs:**
+
+| Erreur | Message utilisateur | Action |
+|--------|-------------------|--------|
+| Phone non connecte Bluetooth | "Telephone non connecte" | "Parametres Bluetooth" |
+| App phone non installee | "Installez l'app sur le telephone" | Ouvrir Play Store |
+| Phone en mode avion | "Telephone non disponible" | "Reessayer" |
+| Timeout (>5s) | "Connexion lente" | "Reessayer" ou "Annuler" |
+| Phone eteint/batterie vide | "Telephone non disponible" | Proposer action locale si possible |
+
+**Principe NNGroup:** Ne JAMAIS dire "Allez sur l'iPhone et ouvrez l'app." Utiliser le handoff automatique pour eviter a l'utilisateur de chercher l'app manuellement. "Apps should hand over situations like these to the phone app, instead of having people launch the app by themselves."
+
+**Code Kotlin - Gestion d'erreur robuste:**
+```kotlin
+sealed class HandoffResult {
+    object Success : HandoffResult()
+    data class PhoneNotConnected(val canRetry: Boolean) : HandoffResult()
+    object AppNotInstalled : HandoffResult()
+    object Timeout : HandoffResult()
+}
+
+suspend fun performHandoff(context: Context): HandoffResult {
+    // 1. Verifier que l'app phone existe
+    val hasPhoneApp = checkPhoneAppInstalled(context)
+    if (!hasPhoneApp) return HandoffResult.AppNotInstalled
+
+    // 2. Verifier la connectivite
+    val nodeClient = Wearable.getNodeClient(context)
+    val nodes = nodeClient.connectedNodes.await()
+    if (nodes.isEmpty()) return HandoffResult.PhoneNotConnected(canRetry = true)
+
+    // 3. Tenter le handoff avec timeout
+    return try {
+        withTimeout(5000L) {
+            val remoteHelper = RemoteActivityHelper(context)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                data = Uri.parse("infernalwheel://details")
+                addCategory(Intent.CATEGORY_BROWSABLE)
+            }
+            remoteHelper.startRemoteActivity(intent).await()
+            HandoffResult.Success
+        }
+    } catch (e: TimeoutCancellationException) {
+        HandoffResult.Timeout
+    } catch (e: Exception) {
+        HandoffResult.PhoneNotConnected(canRetry = true)
+    }
+}
+```
+
+**Source:** [Apple Watch UX Appraisal (NNGroup)](https://www.nngroup.com/articles/smartwatch/)
+
+#### 52d. Reconnexion et delais
+
+| Scenario | Delai typique | Action |
+|----------|--------------|--------|
+| Bluetooth actif, proximite | < 1s | Immediat |
+| Sortie de Doze (phone) | Jusqu'a 4 min | Attendre ou prevenir |
+| Montre retiree du poignet | Jusqu'a 4 min | Re-detection au porter |
+| Interaction simultanee (2 appareils) | Accelere | Reconnexion plus rapide |
+
+**Source:** [Discover devices on network](https://developer.android.com/training/wearables/data/discover-devices)
+
+#### 52e. Principes NNGroup pour le cross-device
+
+**5 composantes d'une UX omnichannel reussie:**
+
+1. **Coherence** - Experiences consistantes entre montre et phone (memes couleurs, terminologie, structure mentale)
+2. **Optimisation contextuelle** - Adapter l'experience a chaque appareil (montre = glanceable, phone = detail)
+3. **Continuite transparente** - L'utilisateur reprend ou il en etait sans friction. "If you can pick up where you left off, the user experience will be seamless."
+4. **Proactivite** - Anticiper les transitions (ex: Google Maps "Envoyer au telephone")
+5. **Collaboration** - Utiliser les 2 appareils en meme temps (telecommande media)
+
+**Solutions techniques pour la continuite:**
+
+| Methode | Implementation |
+|---------|---------------|
+| Authentification | Sign-in gate (activites de valeur) |
+| Envoi de liens | Email/SMS de reprise, QR codes, passcodes |
+| Handoff natif | RemoteActivityHelper (Android), NSUserActivity (Apple) |
+| Deep linking | URI schemes pour restaurer le contexte exact |
+| Persistence | Wishlists, save-for-later, donnees locales |
+
+**Anti-patterns a eviter:**
+
+| Anti-pattern | Pourquoi c'est mauvais | Solution |
+|-------------|----------------------|----------|
+| "Ouvrez l'app sur le telephone" sans handoff | Force l'utilisateur a chercher l'app | Utiliser RemoteActivityHelper |
+| Contenu tronque sans moyen de voir la suite | Frustration, information incomplete | Handoff vers phone avec deep link |
+| Sync manuelle requise | Friction inutile (ex: Delta Airlines) | Sync automatique en background |
+| Meme UX exacte montre/phone | Montre pas adaptee au contenu detaille | Adapter au contexte de chaque appareil |
+| Pas de feedback apres handoff | Utilisateur ne sait pas si ca a marche | ConfirmationActivity obligatoire |
+| Barcode/scan qui echoue sans fallback | Blocage total | Proposer saisie manuelle ou code |
+
+**Source:** [Seamlessness in Omnichannel UX (NNGroup)](https://www.nngroup.com/articles/seamless-cross-channel/), [Smartwatch Interactions (NNGroup)](https://www.nngroup.com/articles/smartwatch-interactions/), [Apple Watch UX (NNGroup)](https://www.nngroup.com/articles/smartwatch/)
+
+#### 52f. Decision Tree - Handoff vs Local
+
+```
+Action demandee par l'utilisateur
+              |
+     +--------+--------+
+     |                  |
+  < 10s              > 10s
+  < 3 taps           ou texte/detail
+     |                  |
+  MONTRE             PHONE?
+  (local)               |
+                   +----+----+
+                   |         |
+              Phone       Phone non
+            connecte      connecte
+                   |         |
+              HANDOFF    Possible
+            avec feedback  localement?
+                   |       |      |
+              Confirma-   Oui    Non
+              tion        |      |
+              Animation  LOCAL  Erreur +
+                         (degrade) "Connectez
+                                    votre tel."
+```
+
+---
+
+### 53. Standalone Configuration & Horologist
+
+**Manifest Wear OS:**
+```xml
+<manifest>
+    <application>
+        <!-- Declarer comme app Wear OS -->
+        <uses-feature android:name="android.hardware.type.watch" />
+
+        <!-- Standalone: true si l'app fonctionne sans phone -->
+        <meta-data
+            android:name="com.google.android.wearable.standalone"
+            android:value="true" />
+    </application>
+</manifest>
+```
+
+**Regle Google:** Meme les apps non-standalone peuvent etre installees avant l'app phone companion. Toujours prevoir le cas ou le phone n'a pas l'app et proposer l'installation.
+
+**Horologist (librairie Google recommandee):**
+Le projet [Horologist](https://google.github.io/horologist/) fournit des helpers pour:
+- Monitoring connexion phone <-> montre
+- Implementation CapabilityClient simplifiee
+- Detection type d'appareil companion (PhoneTypeHelper)
+- Datalayer helpers avec samples
+
+**Source:** [Standalone apps](https://developer.android.com/training/wearables/apps/standalone-apps), [Horologist](https://google.github.io/horologist/)
+
+---
+
+### 54. Checklist Implementateur Cross-Device
+
+| # | Item | API/Pattern |
+|---|------|------------|
+| 1 | Declarer capabilities dans wear.xml (phone + watch) | CapabilityClient |
+| 2 | Verifier app phone installee au lancement | `checkPhoneAppInstalled()` |
+| 3 | Proposer installation si absente | `RemoteActivityHelper` -> Play Store |
+| 4 | Feedback visuel apres chaque handoff | `ConfirmationActivity` |
+| 5 | Timeout 5s max sur les operations cross-device | `withTimeout()` |
+| 6 | Fallback local si phone indisponible | Mode degrade |
+| 7 | Sync dismissal des notifications | `setDismissalId()` |
+| 8 | Eviter doublons notifications | Bridging APIs |
+| 9 | Ongoing Activity pour taches longues | `OngoingActivity.Builder` |
+| 10 | MessageClient pour RPC, DataClient pour sync etat | Data Layer API |
+| 11 | Tester reconnexion apres Doze (4 min delai) | Scenario de test |
+| 12 | Gerer `DEVICE_TYPE_IOS` differemment | `PhoneTypeHelper` |
+| 13 | Deep link requis pour restaurer contexte | URI scheme custom |
+| 14 | Ne jamais dire "ouvrez l'app manuellement" | Handoff auto |
+
+---
+
 *Bible UX Wearable - Mise a jour mars 2026*
-*Sources: [Android Developers](https://developer.android.com/wear), [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/designing-for-watchos), [Samsung Developer](https://developer.samsung.com/one-ui-watch), [GSMArena](https://www.gsmarena.com), [Wear OS App Quality](https://developer.android.com/docs/quality-guidelines/wear-app-quality), [Color Roles M3](https://developer.android.com/design/ui/wear/guides/styles/color/roles-tokens), [NNGroup](https://www.nngroup.com/articles/smartwatch-interactions/), [PMC](https://pmc.ncbi.nlm.nih.gov/articles/PMC11054424/)*
+*Sources: [Android Developers](https://developer.android.com/wear), [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/designing-for-watchos), [Samsung Developer](https://developer.samsung.com/one-ui-watch), [GSMArena](https://www.gsmarena.com), [Wear OS App Quality](https://developer.android.com/docs/quality-guidelines/wear-app-quality), [Color Roles M3](https://developer.android.com/design/ui/wear/guides/styles/color/roles-tokens), [NNGroup](https://www.nngroup.com/articles/smartwatch-interactions/), [PMC](https://pmc.ncbi.nlm.nih.gov/articles/PMC11054424/), [Ongoing Activity API](https://developer.android.com/training/wearables/notifications/ongoing-activity), [RemoteActivityHelper](https://developer.android.com/reference/androidx/wear/remote/interactions/RemoteActivityHelper), [WCSession](https://developer.apple.com/documentation/watchconnectivity/wcsession), [NNGroup Omnichannel](https://www.nngroup.com/articles/seamless-cross-channel/), [NNGroup Apple Watch](https://www.nngroup.com/articles/smartwatch/)*
