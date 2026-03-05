@@ -650,9 +650,59 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
      v
   Mobile?    → MOBILE.md sections A-Z
   Web?       → WEB.md sections A-V
-  Wearable?  → WEARABLE.md sections A-Z
+  Wearable?  → WEARABLE.md sections A-Z (2217 lignes)
   Les deux+  → Croiser les fichiers concernes
 ```
+
+### Index WEARABLE.md (recherche rapide)
+
+| Besoin | Section | # |
+|--------|---------|---|
+| Ecrans, tailles, breakpoints | A. Fondamentaux Ecran | 1-3 |
+| Touch targets, boutons M3 | B. Touch Targets | 4 |
+| Gestures, bezel, crown, voice | B. Interactions | 5-7b |
+| Composants Compose M3 | C. Composants UI | 8 |
+| Migration M2.5 → M3 | C. Migration | 8b |
+| TransformingLazyColumn | C. Composants | 8c |
+| EdgeButton (nouveau M3) | C. Composants | 8d |
+| Principes Google officiels | C. Principes | 8e |
+| Checklist Play Store | C. Quality | 8g |
+| Navigation, profondeur | C. Navigation | 9 |
+| Tiles, Smart Stack | C. Tiles | 10, 10b |
+| Complications | C. Complications | 11 |
+| Typographie M3, watchOS | D. Typographie | 12-13 |
+| Ambient / AOD | E. Ambient | 14-15 |
+| Tracking addiction, compteur | F. Sante | 16 |
+| Apps addiction existantes | F. Analyse apps | 16b |
+| Gamification montre | F. Gamification | 16c |
+| Health Connect | F. Health API | 17 |
+| Battery, sensors, optimisation | G. Performance | 18-19 |
+| TensorFlow Lite montre | G. ML | 20 |
+| Wear Data Layer API | H. Sync | 21 |
+| watchOS Watch Connectivity | H. Sync | 21b |
+| Testing montre | H. Testing | 21c |
+| Accessibilite (TalkBack, motor) | I. Accessibilite | 22-22c |
+| Haptics (VibrationEffect, WKHapticType) | J. Haptics | 23 |
+| Notifications (bridged, local) | K. Notifications | 24 |
+| App Lifecycle (cold/warm start) | K-bis. Lifecycle | 24b |
+| Wrist detection | K-bis. Wrist | 24c |
+| Charging / battery states | K-bis. Charging | 24d |
+| Onboarding, permissions | L. Onboarding | 25-26 |
+| i18n, RTL, troncature | M. i18n | 27 |
+| Distribution Play Store | N. Distribution | 28 |
+| Couleurs OLED, M3 tokens 28 | O. Design System | 29-29c |
+| Icones, design tokens | O. Design System | 30-30b |
+| Curved UI, system overlay | P. Curved UI | 31-32 |
+| Contextes (pluie, gants, nuit) | Q. Contextes | 33-34 |
+| Data viz (sparkline, ring) | R. Data Viz | 35 |
+| Securite, GDPR, encryption | S. Securite | 36 |
+| Samsung One UI, BioActive | T. Samsung | 37 |
+| Standalone vs Companion | U. Architecture | 38 |
+| Loading patterns, errors | V. Loading | 39-40 |
+| Audio / son | W. Audio | 41 |
+| Watch Faces (WFF v4) | X. Watch Faces | 42 |
+| Anti-patterns + benchmarks | Y. Anti-patterns | 43-43b |
+| Memo rapide (toutes valeurs) | Z. Valeurs Cles | - |
 
 ---
 
