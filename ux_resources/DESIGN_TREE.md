@@ -725,6 +725,11 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | Quand construire app montre | Y. Research | 43d |
 | Power conservation hierarchy | Y. Batterie | 43e |
 | Touch lock, fitness UX | Y. Fitness | 43f |
+| Fitts's Law ecran rond | Y. Research | 43g |
+| Habit formation BCTs (smoking) | Y. Research | 43h |
+| Notification triage (watch vs phone) | Y. Research | 43i |
+| Cognitive load petit ecran | Y. Research | 43j |
+| Marche global 2026, statistiques | Y. Stats | 43k |
 | Memo rapide (toutes valeurs) | Z. Valeurs Cles | - |
 
 ---

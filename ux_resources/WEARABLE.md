@@ -3187,6 +3187,111 @@ adb shell dumpsys activity service WearableService  # Data Layer usage
 
 **Source:** [Android Developers - Principles](https://developer.android.com/training/wearables/principles)
 
+### 43g. Fitts's Law sur Ecran Rond
+
+**Etude Ashbrook 2008** (round touchscreen wristwatch):
+- Fitts' law model fit: **R^2 = 0.959** (N=90 points) → tres forte validite predictive
+- 3 types de mouvement testes: tap, through, rim
+
+**Implications design:**
+- **Pie/radial menus** sont inherement superieurs sur ecrans ronds (distances egales du centre, targets plus grandes)
+- **Edge targets** toujours plus rapides que targets 1px du bord (bezel = boundary physique)
+- Placer les actions principales au centre ou sur les bords, PAS dans les coins (inaccessibles sur rond)
+- Round screen = **22% moins d'espace UI** qu'ecran carre → chaque pixel compte
+
+**Source:** [Ashbrook - Round Touchscreen Wristwatch Interaction](https://www.researchgate.net/publication/221270967)
+
+### 43h. Habit Formation & BCTs (Behavior Change Techniques)
+
+**BCTs les plus efficaces pour wearables (meta-analyse PMC, 20 systemes):**
+
+| BCT | Prevalence | Efficacite |
+|-----|-----------|-----------|
+| **Feedback sur comportement** | 17/20 systemes | Bonne evidence |
+| **Self-monitoring** | 16/20 systemes | Bonne evidence |
+| **Goal setting** | 13/13 monitors | Mixte (6 positif, 6 null) |
+| **Prompts/cues** | >50% | Bonne evidence |
+| **Social support/comparaison** | >50% | Mixte |
+| **Rewards (badges virtuels)** | >50% | Mixte |
+
+**Regle critique:** Interventions avec **5+ BCTs** sont plus efficaces que celles avec moins (benefice cumulatif).
+
+**Pour notre app smoking cessation:**
+- **Self-monitoring** = compteur cigarettes (OBLIGATOIRE, c'est notre coeur)
+- **Feedback** = stats quotidiennes, tendances, argent economise
+- **Goal setting** = objectif quotidien de reduction
+- **Prompts/cues** = rappels aux heures habituelles (RelevantContext watchOS)
+- **Rewards** = badges pour streaks, milestones
+- **JITAIs (Just-In-Time Adaptive Interventions)** = detecter les moments de craving via capteurs
+
+**Donnees smoking cessation specifiques:**
+- Interventions personnalisees = **significativement meilleures** que soins standard
+- Adherence = facteur d'echec principal → UX simple = critique
+- Combine app + pharmacotherapie > app seule
+- Middle-aged adults beneficient le plus de programmes court/moyen terme
+
+**Source:** [PMC - BCTs in Wearables](https://pmc.ncbi.nlm.nih.gov/articles/PMC11054424/), [PMC - Smoking Cessation Apps](https://pmc.ncbi.nlm.nih.gov/articles/PMC10160935/)
+
+### 43i. Notification Triage (Watch vs Phone)
+
+**Formule NNGroup pour notifications montre efficaces:**
+1. **Personnellement pertinentes** (pas generiques/promo)
+2. **Timing appropriate** (bon moment)
+3. **Non-repetitives** (pas de spam)
+4. **Suffisamment informatives** (comprendre sans sortir le telephone)
+
+**Pourquoi la montre pour les notifications:**
+- Notifications arrivent **silencieusement** (haptique)
+- Plus **socialement acceptable** que sortir le telephone
+- Montre = **sur le corps** → users auraient **rate l'info** avec telephone seul
+- La montre est un **filtre** — les users presument que les notifs seront pertinentes
+
+**Notification fatigue = plainte #1 en usability testing**
+- Haute frequence → messages ignores instantanement
+- 12 motivations uniques d'interaction avec notifications (3 timings: avant/pendant/apres tache)
+- Users voient les notifs comme outils pour **ameliorer la performance** de leur tache, pas juste des distractions
+
+**Pour notre app:**
+- Detection cigarette → notification haptique discrete, pas intrusive
+- Resume quotidien → 1x/jour le soir, pas plus
+- Encouragement → seulement quand milestone atteint (positif, jamais culpabilisant)
+- Craving alert (futur) → JITAI notification quand capteurs detectent un pattern
+
+**Source:** [NNGroup - Smartwatch Notification Formula](https://www.nngroup.com/videos/smartwatch-notification-formula/)
+
+### 43j. Cognitive Load sur Petit Ecran
+
+**Principes:**
+- Ecran montre = **moins de la moitie** d'un smartphone
+- Distiller le contenu au **strict minimum** necessaire
+- Interfaces encombrees → confusion, frustration, charge cognitive accrue
+- **Grid view** (moins d'items visibles) = satisfaction plus elevee
+- **Liste longue** = meilleur temps de completion (speed vs satisfaction trade-off)
+- Categorisation hierarchique = resultats satisfaisants en temps, efficacite, satisfaction
+
+**Regles pratiques:**
+- Eliminer le visual clutter: moins d'icones, boutons, texte
+- Si boutons necessaires: **peu et gros**
+- Information comprehensible **d'un coup d'oeil**
+- 1 seul objectif clair par ecran
+- Tester les designs en **mouvement et distraction** (marche, exercice)
+
+**40% des sessions telephone** durent < 15 secondes → sessions montre sont egalement breves
+
+**Source:** [NNGroup - Glanceable Typography](https://www.nngroup.com/articles/glanceable-fonts/), [Usability Geek](https://usabilitygeek.com/7-user-interface-guidelines-for-designing-watch-apps/)
+
+### 43k. Marche Global & Statistiques (2026)
+
+| Metrique | Valeur |
+|----------|--------|
+| Utilisateurs smartwatch monde | 562.86 millions (+23.7% vs 2024) |
+| Americains avec wearable | ~1 sur 3 |
+| Users tracking sante/fitness | 83% |
+| Activite la plus trackee | Pas quotidiens (59%) |
+| ~90% population | Montre au poignet gauche (non-dominant) |
+
+**Source:** [DemandSage](https://www.demandsage.com/smartwatch-statistics/), [Market.us](https://scoop.market.us/smart-wearables-statistics/)
+
 ---
 
 ## Z. Valeurs Cles (Memo Rapide)
@@ -3474,7 +3579,21 @@ adb shell dumpsys activity service WearableService  # Data Layer usage
 | Tier 3: Adaptive | Breakpoints, features differenciees |
 | Regle absolue | Grand ecran JAMAIS moins d'info que petit |
 
+### UX Research
+
+| Quoi | Valeur |
+|------|--------|
+| Fitts' Law round watch R^2 | 0.959 (Ashbrook 2008) |
+| Round vs square espace | 22% moins sur rond |
+| Pie/radial menus sur rond | Superieurs aux menus lineaires |
+| BCTs minimum efficacite | 5+ techniques |
+| Notification fatigue | Plainte #1 en usability testing |
+| Phone microsessions <15s | 40% de toutes les sessions |
+| Smartwatch users monde | 562.86M (2026) |
+| Users tracking sante | 83% |
+| Poignet gauche | ~90% (non-dominant) |
+
 ---
 
 *Bible UX Wearable - Mise a jour mars 2026*
-*Sources: [Android Developers](https://developer.android.com/wear), [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/designing-for-watchos), [Samsung Developer](https://developer.samsung.com/one-ui-watch), [GSMArena](https://www.gsmarena.com), [Wear OS App Quality](https://developer.android.com/docs/quality-guidelines/wear-app-quality), [Color Roles M3](https://developer.android.com/design/ui/wear/guides/styles/color/roles-tokens), [NNGroup](https://www.nngroup.com/articles/smartwatch-interactions/)*
+*Sources: [Android Developers](https://developer.android.com/wear), [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/designing-for-watchos), [Samsung Developer](https://developer.samsung.com/one-ui-watch), [GSMArena](https://www.gsmarena.com), [Wear OS App Quality](https://developer.android.com/docs/quality-guidelines/wear-app-quality), [Color Roles M3](https://developer.android.com/design/ui/wear/guides/styles/color/roles-tokens), [NNGroup](https://www.nngroup.com/articles/smartwatch-interactions/), [PMC](https://pmc.ncbi.nlm.nih.gov/articles/PMC11054424/)*
