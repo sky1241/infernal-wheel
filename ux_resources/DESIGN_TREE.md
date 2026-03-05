@@ -745,7 +745,7 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | Multi-device continuity (handoff watch↔phone) | U. Standalone | 38c |
 | Testing Compose Wear OS (UI, screenshot, benchmark) | H. Testing | 21d |
 | Dependencies BOM, SDK versions (2025-2026) | H. Testing | 21e |
-| Outils prototypage (Figma, AS preview, workflow) | O. Design | 30c |
+| Outils prototypage (renvoi vers section complete) | AA. Outils Prototypage | 44-47 |
 | Figma kits (M3 Wear OS Apps + Tiles, watchOS 26) | AA. Outils Prototypage | 44 |
 | Ecran rond dans Figma (masque, safe area, workarounds) | AA. Outils Prototypage | 44c |
 | M3 Figma variables (color, typo, shape tokens) | AA. Outils Prototypage | 44d |
