@@ -669,6 +669,7 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | Checklist Play Store | C. Quality | 8g |
 | M3 Expressive (shape morph, ButtonGroup) | C. Composants | 8e-bis |
 | Dialogs, Pickers, Confirmations | C. Composants | 8f |
+| Picker, Stepper, Settings (Toggle/Split) | C. Composants | 8g-bis |
 | Navigation, profondeur | C. Navigation | 9 |
 | Navigation Compose (SwipeDismissableNavHost) | C. Navigation | 9b |
 | HorizontalPager, PageIndicator | C. Navigation | 9c |

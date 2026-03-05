@@ -594,6 +594,69 @@ startActivity(intent)
 
 **Source:** [Android Developers - Dialogs](https://developer.android.com/design/ui/wear/guides/m2-5/components/dialogs)
 
+### 8g-bis. Picker, Stepper & Settings
+
+**Picker (selection de valeur):**
+
+```kotlin
+val pickerState = rememberPickerState(initialNumberOfOptions = 24)
+Picker(
+    state = pickerState,
+    modifier = Modifier.size(100.dp, 100.dp),
+) { index -> Text("$index") }
+```
+
+**PickerGroup (multi-colonnes, ex: heures:minutes):**
+
+```kotlin
+PickerGroup(
+    pickerColumns = arrayOf(hoursPicker, minutesPicker),
+    pickerGroupState = rememberPickerGroupState(),
+    separator = { Text(":") }
+)
+```
+
+**Responsive breakpoints Picker:**
+
+| Layout | < 225dp | >= 225dp |
+|--------|---------|----------|
+| 2 colonnes spacing | 4dp | 6dp |
+| 3 colonnes spacing | 2dp | 6dp |
+| Gradient haut/bas | 33% de la hauteur colonne | 33% |
+
+**Stepper (selection de range, plein ecran):**
+
+```kotlin
+Stepper(
+    value = count.toFloat(),
+    onValueChange = { count = it.toInt() },
+    steps = 19,  // 0 a 20
+    valueRange = 0f..20f,
+    decreaseIcon = { Icon(Icons.Default.Remove, "Moins") },
+    increaseIcon = { Icon(Icons.Default.Add, "Plus") },
+) { Text("$count") }
+// Long-press sur +/- = repetition rapide
+// En M3: Slider disponible comme alternative compacte (peut etre segmente)
+```
+
+**Settings screen patterns (ToggleChip / M3 equivalents):**
+
+| M2.5 | M3 | Usage |
+|------|-----|-------|
+| `ToggleChip` (Switch) | `SwitchButton` | On/off settings |
+| `ToggleChip` (Checkbox) | `CheckboxButton` | Multi-select |
+| `ToggleChip` (Radio) | `RadioButton` | Single-select |
+| `SplitToggleChip` | `SplitSwitchButton` | 2 zones: nav + toggle |
+
+**SplitToggleChip:** 2 zones tappables independantes — une pour naviguer/agir, une pour le toggle. Couleurs differentes pour distinguer les zones.
+
+**Specs:**
+- Icone: 24x24 dp
+- Container hauteur: 52dp (responsive)
+- Long-press sur +/-: repetition rapide pour ajustement
+
+**Source:** [Android Developers - Pickers](https://developer.android.com/training/wearables/compose/pickers), [Steppers](https://developer.android.com/design/ui/wear/guides/m2-5/components/steppers)
+
 ### 8e. Principes Google Officiels pour Wear OS
 
 **5 principes fondamentaux** ([source](https://developer.android.com/training/wearables/principles)):
