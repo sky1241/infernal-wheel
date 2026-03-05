@@ -669,7 +669,9 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | Checklist Play Store | C. Quality | 8g |
 | Navigation, profondeur | C. Navigation | 9 |
 | Tiles, Smart Stack | C. Tiles | 10, 10b |
+| Tile interactions (code, +1 pattern) | C. Tiles | 10 |
 | Complications | C. Complications | 11 |
+| Complication implementation (code) | C. Complications | 11b |
 | Typographie M3, watchOS | D. Typographie | 12-13 |
 | Ambient / AOD | E. Ambient | 14-15 |
 | Tracking addiction, compteur | F. Sante | 16 |
@@ -677,6 +679,9 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | Gamification montre | F. Gamification | 16c |
 | Health Connect | F. Health API | 17 |
 | Battery, sensors, optimisation | G. Performance | 18-19 |
+| Foreground services, Doze, Standby | G. Performance | 19 |
+| Health Services API (3 clients) | G. Performance | 19b |
+| Baseline profiles, R8, cold start | G. Performance | 19c |
 | TensorFlow Lite montre | G. ML | 20 |
 | Wear Data Layer API | H. Sync | 21 |
 | watchOS Watch Connectivity | H. Sync | 21b |

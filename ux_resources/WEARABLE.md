@@ -546,7 +546,35 @@ AppScaffold {
 - Police systeme alignee automatiquement (Wear OS 6+)
 - Dynamic color: theme auto aligne sur le watch face
 
-**Source:** [Android Developers - Tiles](https://developer.android.com/training/wearables/tiles)
+**Tile interactions (implementation):**
+
+| Action | API | Usage |
+|--------|-----|-------|
+| Ouvrir l'app | `launchAction(ComponentName, extras)` | Tap → ouvre une Activity avec Intent extras |
+| Refresh/update tile | `loadAction()` | Trigger `onTileRequest()` pour mettre a jour le contenu |
+| Compteur +1 | `loadAction(dynamicDataMapOf(...))` | Passe des donnees via stateMap, incremente en onTileRequest |
+| Deep link | `loadAction()` + `lastClickableId` | Identifier le bouton tape, ouvrir l'ecran cible |
+
+**Pattern "+1 cigarette" dans tile:**
+```kotlin
+// Dans la tile: bouton qui envoie une action
+textButton(
+    labelContent = { text("+1".layoutString) },
+    onClick = clickable(
+        id = "increment",
+        action = loadAction(
+            dynamicDataMapOf(intAppDataKey("count") mapTo currentCount + 1)
+        )
+    )
+)
+
+// Dans onTileRequest: lire l'etat mis a jour
+val count = requestParams.currentState.stateMap[intAppDataKey("count")] ?: 0
+```
+
+**Eviter le flicker:** mettre a jour seulement le contenu qui change, pas toute la structure du layout.
+
+**Source:** [Tile Interactions](https://developer.android.com/training/wearables/tiles/interactions)
 
 ### 10b. Smart Stack (watchOS 11)
 
@@ -616,6 +644,111 @@ AppScaffold {
 - **watchOS: PAS de watch faces tierces** - seulement des complications via WidgetKit
 
 **Source:** [Android Developers - Complications](https://developer.android.com/training/wearables/complications)
+
+### 11b. Implementation Complications (Wear OS)
+
+**Data source service:**
+
+```kotlin
+class SmokingComplicationService : SuspendingComplicationDataSourceService() {
+
+    override fun getPreviewData(type: ComplicationType): ComplicationData {
+        return when (type) {
+            ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(
+                text = PlainComplicationText.Builder("5").build(),
+                contentDescription = PlainComplicationText.Builder("5 cigarettes today").build()
+            ).setTitle(PlainComplicationText.Builder("cig").build())
+             .build()
+            ComplicationType.RANGED_VALUE -> RangedValueComplicationData.Builder(
+                value = 5f, min = 0f, max = 20f,
+                contentDescription = PlainComplicationText.Builder("5 of 20 goal").build()
+            ).setText(PlainComplicationText.Builder("5/20").build())
+             .build()
+            else -> throw IllegalArgumentException("Unsupported: $type")
+        }
+    }
+
+    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData {
+        val count = repository.getTodayCount() // suspend call
+        return when (request.complicationType) {
+            ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(
+                text = PlainComplicationText.Builder("$count").build(),
+                contentDescription = PlainComplicationText.Builder("$count cigarettes").build()
+            ).setTapAction(openAppPendingIntent(this))
+             .build()
+            // ... autres types
+            else -> throw IllegalArgumentException("Unsupported")
+        }
+    }
+}
+```
+
+**Manifest:**
+
+```xml
+<service
+    android:name=".SmokingComplicationService"
+    android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+    </intent-filter>
+    <meta-data
+        android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+        android:value="SHORT_TEXT,RANGED_VALUE,GOAL_PROGRESS" />
+    <meta-data
+        android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+        android:value="600" />
+</service>
+```
+
+**Push updates (event-driven, meilleur que polling):**
+
+```kotlin
+// Apres chaque cigarette enregistree:
+val requester = ComplicationDataSourceUpdateRequester.create(
+    context, ComponentName(context, SmokingComplicationService::class.java)
+)
+requester.requestUpdateAll()  // Update toutes les complications actives
+// Budget: minimum 300s entre updates (manifest), push illimite mais raisonnable
+```
+
+**TimeDifferenceComplicationText (timer sans updates constantes):**
+
+```kotlin
+// "Derniere cigarette il y a X min" - auto-updates par le systeme
+val timeSinceLast = TimeDifferenceComplicationText.Builder(
+    TimeDifferenceStyle.SHORT_DUAL_UNIT,
+    CountUpTimeReference(lastCigaretteInstant)  // Instant de la derniere cigarette
+).setMinimumTimeUnit(TimeUnit.MINUTES)
+ .build()
+
+ShortTextComplicationData.Builder(
+    text = timeSinceLast,
+    contentDescription = PlainComplicationText.Builder("Time since last cigarette").build()
+).build()
+// Le systeme met a jour l'affichage automatiquement, pas besoin de reveiller le service
+```
+
+**Dynamic values (Wear OS 4+, sans reveiller le provider):**
+
+```kotlin
+// Valeur dynamique mise a jour par le systeme a partir du DataStore
+val dynamicCount = DynamicComplicationText(
+    dynamicValue = PlatformHealthSources.dailySteps(),  // ou custom DynamicDataValue
+    fallbackValue = PlainComplicationText.Builder("--").build()
+)
+```
+
+**Regles implementation:**
+- `UPDATE_PERIOD_SECONDS` minimum 300s (5 min), 0 = desactive le polling (push only)
+- `getPreviewData()` OBLIGATOIRE - affiche dans le picker de complications
+- `onComplicationRequest()` doit etre rapide (< 20s) sinon timeout
+- `setTapAction()` avec PendingIntent pour ouvrir l'app au tap
+- Supporter au minimum 2-3 types differents (SHORT_TEXT + RANGED_VALUE recommande)
+- Pour timer: utiliser `TimeDifferenceComplicationText` au lieu de updates frequentes
+
+**Source:** [Android Developers - Complication Data Sources](https://developer.android.com/training/wearables/complications/data-source)
 
 ---
 
@@ -933,7 +1066,118 @@ Tap 2: Intensite 1-5 (5 gros boutons en arc)
 - Apps en background NE PEUVENT PAS lancer d'alarmes/jobs sauf si sur chargeur
 - Monitoring continu → **foreground service obligatoire** avec `startForegroundService()`
 - Notification ongoing requise pour foreground service
-- Exception: health monitoring = cas d'usage valide
+- Exception: watch faces et complications actives selectionnees par l'utilisateur
+
+**Foreground service types (Android 14+ obligatoire):**
+
+| Type | Usage | Permission |
+|------|-------|-----------|
+| `health` | Monitoring capteurs sante | `FOREGROUND_SERVICE_HEALTH` |
+| `connectedDevice` | Sync Data Layer | `FOREGROUND_SERVICE_CONNECTED_DEVICE` |
+| `location` | GPS tracking | `FOREGROUND_SERVICE_LOCATION` + `ACCESS_FINE_LOCATION` |
+| `dataSync` | Upload/download data | `FOREGROUND_SERVICE_DATA_SYNC` |
+
+**Pour notre app:** `foregroundServiceType="health"` dans le manifest.
+
+**Doze mode et Wear OS:**
+- Montre entre en Doze quand ecran off + immobile + non-chargee
+- Doze bloque: reseau, jobs, syncs, alarmes standard
+- `setAndAllowWhileIdle()` fonctionne mais max **1 alarme / 9 minutes / app**
+- Foreground service avec type `health` = **exempt de Doze** (capteurs restent actifs)
+- WorkManager expedited: `setExpedited()` = moins impacte par Doze
+
+**App Standby Buckets Wear OS:**
+
+| Bucket | Jobs | Alarmes | Reseau |
+|--------|------|---------|--------|
+| Active | Pas de limite | Pas de limite | Pas de limite |
+| Working set | Differe 2h | Differe 6min | Pas de limite |
+| Frequent | Differe 8h | Differe 30min | Pas de limite |
+| Rare | Differe 24h | Differe 2h+ | Restreint |
+| Restricted | 1/jour max | 1/jour max | Restreint |
+
+**Recommendation:** Notre app avec foreground service actif = bucket Active. Si l'utilisateur ne l'utilise pas pendant jours → degrade vers Rare → notifications de rappel limitees.
+
+### 19b. Health Services API (implementation)
+
+**3 clients — quand utiliser quoi:**
+
+| Client | Usage | Duree | Batterie | Notre app |
+|--------|-------|-------|----------|-----------|
+| **PassiveMonitoringClient** | Background long-terme, updates peu frequents | Heures/jours | Faible | Detection de base (steps, HR periodic) |
+| **ExerciseClient** | Workout actif, metriques rapides | Minutes/heures | Moyen-fort | PAS notre use case (pas un workout) |
+| **MeasureClient** | Spot measurement, UI active | Secondes | Fort | HR spot quand l'app est ouverte |
+
+**PassiveMonitoringClient (notre use case principal):**
+```kotlin
+// Enregistrer un listener background
+val config = PassiveListenerConfig.builder()
+    .setDataTypes(setOf(DataType.HEART_RATE_BPM, DataType.STEPS_DAILY))
+    .build()
+
+passiveMonitoringClient.setPassiveListenerServiceAsync(
+    MyPassiveListenerService::class.java,
+    config
+)
+```
+- Donnees livrees en **batch** quand le service se reveille
+- Ou via **callback** a un rythme legerement plus rapide (app en memoire seulement)
+- Passive Goals: notifier quand seuil atteint (ex: 10000 pas)
+
+**MeasureClient (spot measurement):**
+```kotlin
+// Mesure HR ponctuelle quand l'ecran est actif
+measureClient.registerMeasureCallback(DataType.HEART_RATE_BPM, callback)
+// TOUJOURS desenregistrer quand l'ecran s'eteint
+measureClient.unregisterMeasureCallback(DataType.HEART_RATE_BPM, callback)
+```
+
+**ExerciseClient (tracking workout):**
+- Definit les data types disponibles par type d'exercice
+- Donnees 1Hz (1 sample/seconde) pendant exercice actif
+- Modes delivery: streaming (ecran on) ou batch (ecran off)
+- Goals et debounced goals supportes
+
+**Capabilities check (obligatoire avant usage):**
+```kotlin
+val capabilities = healthServicesClient
+    .passiveMonitoringClient
+    .capabilities
+    .await()
+
+val supportsHR = DataType.HEART_RATE_BPM in capabilities.supportedDataTypesPassiveMonitoring
+```
+
+**Permissions Health Services (Wear OS 6+ / API 36):**
+
+| Permission legacy (API 33-35) | Permission nouvelle (API 36+) |
+|-------------------------------|-------------------------------|
+| `BODY_SENSORS` | `android.permission.health.READ_HEART_RATE` |
+| `BODY_SENSORS_BACKGROUND` | `READ_HEALTH_DATA_IN_BACKGROUND` |
+| `ACTIVITY_RECOGNITION` | `android.permission.health.READ_STEPS` |
+
+**Source:** [Health Services API](https://developer.android.com/health-and-fitness/health-services)
+
+### 19c. Performance Compose (optimisation startup)
+
+**Baseline Profiles:**
+- Pre-compilent les classes/methodes critiques au demarrage
+- Gain: **20-40% reduction cold start** (mesure reelle)
+- Compose 1.8+ inclut des profile rules auto-merged
+- Verifier: `adb shell dumpsys package dexopt | grep -A 1 $PACKAGE_NAME` → target `status=speed-profile`
+
+**R8 obligatoire en release:**
+- Shrink + obfuscate + optimize
+- Toujours utiliser `proguard-android-optimize.txt`
+- Startup Profile + R8 = code critique dans le primary DEX file
+
+**Tests performance:**
+- **TOUJOURS en release** (debug = overhead enorme, pas de baseline profiles)
+- **Sur device physique** (emulateur = pas representatif)
+- Macrobenchmark + JankStats + System Trace
+- Valider les animations M3 Expressive (flex fonts, shape morphing) sur device reel
+
+**Source:** [Compose Performance Wear OS](https://developer.android.com/training/wearables/compose/performance)
 
 **Source:** [Android Developers - Power](https://developer.android.com/training/wearables/apps/power)
 
