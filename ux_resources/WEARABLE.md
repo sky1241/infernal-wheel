@@ -873,10 +873,22 @@ val count = requestParams.currentState.stateMap[intAppDataKey("count")] ?: 0
 | Double Tap | `.handGestureShortcut(.primaryAction)` sur bouton/toggle dans widget |
 | Widgets | WidgetKit, memes widgets que complications mais en plus grand |
 
+**Relevant Widgets (watchOS 11+):**
+- Les widgets apparaissent automatiquement dans le Smart Stack quand pertinents
+- API `RelevantContext`: `Date`, `Location`, `Sleep`, `Fitness`
+- Exemple: widget cigarettes apparait aux heures habituelles de tabagisme
+- Widgets interactifs: tap pour action directe (ex: +1 cigarette)
+
+**watchOS 26:**
+- Relevant widgets: plusieurs instances en meme temps
+- Controls disponibles sur watchOS
+- Live Activities etendues
+
 **Pour notre app (watchOS):**
 - Widget Smart Stack: timer "depuis derniere cigarette" + compteur jour
 - Live Activity: pendant une session de monitoring active
 - Double Tap action: "+1 cigarette" (action primaire)
+- RelevantContext: heures habituelles de tabagisme de l'utilisateur
 
 ### 11. Complications
 
@@ -2568,6 +2580,64 @@ MaterialTheme(colorScheme = dynamicColors ?: myBrandColors) { ... }
 - No-cloud option: tout garder 100% local = argument de vente pour donnees addiction
 - Anonymisation: si sync cloud, hasher les identifiants
 - Export: JSON/CSV depuis telephone, avec chiffrement optionnel
+
+### 36b. Authentication sur Montre
+
+**Methode recommandee:** Credential Manager (`credentials:1.5.0`)
+
+**Methodes supportees (priorite):**
+1. **Passkeys** — industrie standard, phishing-resistant, screen lock device
+2. **Sign In with Google** — federated identity
+3. **Data Layer token sharing** — phone envoie token → watch recoit
+4. **OAuth PKCE** — redirection via RemoteAuthClient
+5. **OAuth DAG (Device Authorization Grant)** — code affiche sur montre, confirme sur telephone
+
+**Code Credential Manager:**
+
+```kotlin
+try {
+    val response = credentialManager.getCredential(activity, createGetCredentialRequest())
+    authenticate(response.credential)
+} catch (_: GetCredentialCancellationException) {
+    navigateToSecondaryAuthentication()
+} catch (_: NoCredentialException) {
+    showGuestMode()  // JAMAIS bloquer l'app
+}
+```
+
+**Token sharing (phone → watch via Data Layer):**
+
+```kotlin
+// Mobile envoie le token
+val putDataReq = PutDataMapRequest.create("/auth").run {
+    dataMap.putString("token", authToken)
+    asPutDataRequest()
+}
+Wearable.getDataClient(context).putDataItem(putDataReq)
+
+// Watch ecoute
+class AuthDataListenerService : WearableListenerService() {
+    override fun onDataChanged(dataEvents: DataEventBuffer) {
+        dataEvents.forEach { event ->
+            if (event.dataItem.uri.path?.startsWith("/auth") == true) {
+                val token = DataMapItem.fromDataItem(event.dataItem)
+                    .dataMap.getString("token")
+                handleSignIn(token)
+            }
+        }
+    }
+}
+```
+
+**Regles auth montre:**
+- JAMAIS de username/password sur montre (Google Play quality WO-V4)
+- Passkeys NE PEUVENT PAS etre creees sur Wear OS (seulement utilisees)
+- Fournir le max de fonctionnalites SANS auth (guest mode)
+- Fallback obligatoire: Credential Manager ne marche pas avec iOS-paired watches
+- Implementer `AmbientLifecycleObserver` pendant les flows OAuth (empeche le timeout)
+- Wrist detection: verifier si le verrouillage automatique est actif avant d'afficher des donnees sensibles
+
+**Source:** [Android Developers - Auth Wear](https://developer.android.com/training/wearables/apps/auth-wear)
 
 ---
 

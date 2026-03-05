@@ -709,6 +709,7 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | Contextes (pluie, gants, nuit) | Q. Contextes | 33-34 |
 | Data viz (sparkline, ring) | R. Data Viz | 35 |
 | Securite, GDPR, encryption | S. Securite | 36 |
+| Authentication (Credential Manager, OAuth) | S. Auth | 36b |
 | Samsung One UI, BioActive | T. Samsung | 37 |
 | Motion & animation tokens M3 | I-bis. Motion | 22d |
 | Standalone vs Companion | U. Architecture | 38 |
