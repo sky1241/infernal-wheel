@@ -14289,3 +14289,1382 @@ Use `aria-busy="true"` and `aria-label="Loading"` on skeleton cards for screen r
 - Shadcn/ui — Card component implementation
 
 > **Sources:** web.dev — "Web Vitals" (Philip Walton); web-vitals library documentation (GitHub); Chrome UX Report (CrUX) documentation; web.dev — "Best practices for measuring Web Vitals in the field"; Google Search Central — Core Web Vitals & ranking; Philip Walton — "Fixing INP" (web.dev, 2024).
+
+---
+
+## CU. New CSS Features 2025-2026
+
+> Modern CSS capabilities that shipped in major browsers between 2024-2026, replacing JavaScript workarounds and preprocessor dependencies with native platform features.
+
+### CSS @scope
+
+Native CSS scoping limits style reach to a subtree of the DOM without requiring BEM naming, CSS Modules, or Shadow DOM.
+
+**Basic scoping — styles only apply inside `.card`:**
+
+```css
+@scope (.card) {
+  :scope {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+
+  h2 {
+    font-size: 1.2em;
+    margin-bottom: 0.5rem;
+  }
+
+  p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  a {
+    color: var(--primary);
+    text-decoration: underline;
+  }
+}
+```
+
+**Donut scope — style the outer region but exclude inner content:**
+
+```css
+/* Styles apply inside .card but NOT inside .card__content */
+@scope (.card) to (.card__content) {
+  :scope {
+    background: var(--surface);
+    padding: 1rem;
+  }
+
+  /* This targets .card > header, .card > footer, etc. */
+  /* but NOT anything inside .card__content */
+  span {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+}
+```
+
+**Component library isolation — prevent style leakage between widgets:**
+
+```css
+/* Third-party widget scoping */
+@scope (.widget-datepicker) {
+  :scope {
+    font-family: system-ui, sans-serif;
+    font-size: 14px;
+  }
+
+  button {
+    /* These button styles won't leak outside .widget-datepicker */
+    all: unset;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+
+  button:hover {
+    background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+  }
+}
+
+/* Nested scope — sidebar nav vs. main nav */
+@scope (.sidebar) {
+  nav a {
+    display: block;
+    padding: 0.5rem 1rem;
+  }
+}
+
+@scope (.main-content) {
+  nav a {
+    display: inline-flex;
+    padding: 0.25rem 0.75rem;
+  }
+}
+```
+
+**Proximity wins over specificity** — when two `@scope` rules match, the closer ancestor scope takes precedence, which is a more intuitive cascade behavior than specificity counting.
+
+**Browser support (early 2026):** Chrome 118+, Edge 118+, Safari 17.4+, Firefox behind flag (expected stable mid-2026).
+
+**When to use:** Component libraries, CMS content isolation, third-party embed sandboxing, replacing BEM `.block__element--modifier` naming conventions.
+
+### CSS color-mix()
+
+Native color manipulation directly in CSS, replacing Sass `lighten()`, `darken()`, and `rgba()` workarounds.
+
+**Basic usage — lighten and darken:**
+
+```css
+:root {
+  --primary: #3b82f6;
+  --primary-light: color-mix(in srgb, var(--primary), white 20%);
+  --primary-dark: color-mix(in srgb, var(--primary), black 20%);
+  --primary-subtle: color-mix(in srgb, var(--primary), white 85%);
+}
+```
+
+**Dynamic hover and active states:**
+
+```css
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  /* Lighten by mixing 15% white */
+  background: color-mix(in srgb, var(--primary), white 15%);
+}
+
+.btn-primary:active {
+  /* Darken by mixing 20% black */
+  background: color-mix(in srgb, var(--primary), black 20%);
+}
+```
+
+**Alpha/transparency manipulation:**
+
+```css
+.overlay {
+  /* 50% opacity of primary color */
+  background: color-mix(in srgb, var(--primary) 50%, transparent);
+}
+
+.focus-ring {
+  /* 30% opacity ring */
+  outline: 3px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  outline-offset: 2px;
+}
+
+.border-subtle {
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+```
+
+**oklch vs srgb — perceptual uniformity:**
+
+```css
+:root {
+  --primary: oklch(0.6 0.2 250);
+
+  /* oklch produces more perceptually uniform lightness steps */
+  --primary-100: color-mix(in oklch, var(--primary), white 90%);
+  --primary-200: color-mix(in oklch, var(--primary), white 70%);
+  --primary-300: color-mix(in oklch, var(--primary), white 50%);
+  --primary-400: color-mix(in oklch, var(--primary), white 25%);
+  --primary-500: var(--primary);
+  --primary-600: color-mix(in oklch, var(--primary), black 20%);
+  --primary-700: color-mix(in oklch, var(--primary), black 40%);
+  --primary-800: color-mix(in oklch, var(--primary), black 60%);
+  --primary-900: color-mix(in oklch, var(--primary), black 80%);
+}
+
+/* srgb can produce muddy mid-tones; oklch keeps hue/chroma consistent */
+```
+
+**Theming with a single custom property:**
+
+```css
+[data-theme="blue"]  { --accent: #3b82f6; }
+[data-theme="green"] { --accent: #22c55e; }
+[data-theme="red"]   { --accent: #ef4444; }
+
+/* All derived colors update automatically */
+.card {
+  background: color-mix(in oklch, var(--accent), white 92%);
+  border: 1px solid color-mix(in oklch, var(--accent), white 70%);
+}
+
+.card:hover {
+  border-color: color-mix(in oklch, var(--accent), white 40%);
+}
+```
+
+**Browser support (early 2026):** Baseline 2023 — Chrome 111+, Firefox 113+, Safari 16.2+, Edge 111+. Safe to use in production.
+
+### CSS text-wrap: balance / pretty
+
+Typography refinement that previously required JavaScript or manual `<br>` insertion.
+
+```css
+/* balance: equalizes line lengths — ideal for headings */
+h1, h2, h3, h4, h5, h6,
+.heading,
+blockquote {
+  text-wrap: balance;
+}
+
+/* pretty: prevents orphans on last line — ideal for paragraphs */
+p, li, dd, figcaption {
+  text-wrap: pretty;
+}
+
+/* stable: prevents reflow during editing — ideal for editable content */
+[contenteditable],
+.live-preview,
+textarea {
+  text-wrap: stable;
+}
+```
+
+**Visual difference:**
+
+```
+/* Without text-wrap: balance (default) */
+This is a heading that wraps to
+two lines unevenly
+
+/* With text-wrap: balance */
+This is a heading that
+wraps to two lines evenly
+```
+
+**Performance considerations:**
+
+- `balance` is computationally expensive above 6 lines — the browser may silently ignore it on long blocks. Use only on short text (headings, captions, pull quotes).
+- `pretty` is lightweight and safe on any length — it only adjusts the last line.
+- `stable` prevents layout shift during live editing — small performance cost.
+
+**Browser support (early 2026):** Baseline 2024 — Chrome 114+, Firefox 121+, Safari 17.4+, Edge 114+. Safe to use in production (graceful degradation — browsers that do not support it simply use default wrapping).
+
+### CSS field-sizing
+
+Auto-sizing form controls based on their content, replacing JavaScript resize hacks.
+
+```css
+/* Textarea grows with content */
+textarea {
+  field-sizing: content;
+  min-height: 3lh;   /* at least 3 lines */
+  max-height: 10lh;  /* cap at 10 lines */
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  resize: vertical;  /* still allow manual resize */
+}
+
+/* Input widens to fit value */
+input[type="text"].auto-width {
+  field-sizing: content;
+  min-width: 8ch;    /* at least 8 characters wide */
+  max-width: 40ch;
+  padding: 0.5rem 0.75rem;
+}
+
+/* Select adjusts to longest visible option */
+select.auto-width {
+  field-sizing: content;
+  min-width: 10ch;
+}
+```
+
+**The `lh` unit** — represents the computed line-height of the element, making it natural to set height bounds relative to lines of text:
+
+```css
+.comment-box {
+  field-sizing: content;
+  min-height: 2lh;   /* 2 lines minimum */
+  max-height: 15lh;  /* 15 lines maximum, then scroll */
+  overflow-y: auto;
+}
+```
+
+**Before (JavaScript hack this replaces):**
+
+```javascript
+// No longer needed with field-sizing: content
+textarea.addEventListener('input', () => {
+  textarea.style.height = 'auto';
+  textarea.style.height = textarea.scrollHeight + 'px';
+});
+```
+
+**Browser support (early 2026):** Chrome 123+, Edge 123+, Firefox 132+, Safari experimental (behind flag). Use with progressive enhancement — set a fixed height as fallback.
+
+```css
+textarea {
+  /* Fallback for browsers without field-sizing */
+  height: 120px;
+  resize: vertical;
+}
+
+@supports (field-sizing: content) {
+  textarea {
+    field-sizing: content;
+    height: auto;
+    min-height: 3lh;
+    max-height: 10lh;
+  }
+}
+```
+
+### Exclusive Accordion (details name="")
+
+Native HTML-only accordion groups — no JavaScript, no ARIA manual wiring.
+
+```html
+<!-- Only one <details> open at a time within the same name group -->
+<details name="faq">
+  <summary>What is your return policy?</summary>
+  <p>You can return items within 30 days of purchase.</p>
+</details>
+
+<details name="faq">
+  <summary>How long does shipping take?</summary>
+  <p>Standard shipping takes 3-5 business days.</p>
+</details>
+
+<details name="faq" open>
+  <summary>Do you offer international shipping?</summary>
+  <p>Yes, we ship to over 50 countries worldwide.</p>
+</details>
+```
+
+**Animated open/close with `::details-content`:**
+
+```css
+details {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+}
+
+details summary {
+  padding: 1rem;
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+details summary::marker {
+  display: none;
+}
+
+details summary::after {
+  content: '+';
+  float: right;
+  font-size: 1.25rem;
+  transition: transform 200ms ease;
+}
+
+details[open] summary::after {
+  content: '−';
+}
+
+/* Animate the content panel */
+details::details-content {
+  block-size: 0;
+  overflow: hidden;
+  transition: block-size 300ms ease, content-visibility 300ms ease allow-discrete;
+}
+
+details[open]::details-content {
+  block-size: max-content;
+}
+
+details > :not(summary) {
+  padding: 0 1rem 1rem;
+}
+```
+
+**Browser support (early 2026):** Chrome 120+, Safari 17.2+, Firefox 130+, Edge 120+. The `name` attribute for exclusive behavior and `::details-content` for animation are both well-supported.
+
+### Dialog Element Improvements
+
+Declarative dialog control without JavaScript event listeners.
+
+**The `closedby` attribute — control how the dialog can be dismissed:**
+
+```html
+<!-- Light dismiss: click outside, Escape, or close button all work -->
+<dialog id="settings-panel" closedby="any">
+  <h2>Settings</h2>
+  <form method="dialog">
+    <!-- ... -->
+    <button>Save & Close</button>
+  </form>
+</dialog>
+
+<!-- Only Escape key or explicit close button (no click-outside) -->
+<dialog id="confirm-delete" closedby="closerequest">
+  <h2>Delete this item?</h2>
+  <p>This action cannot be undone.</p>
+  <button commandfor="confirm-delete" command="close">Cancel</button>
+  <button onclick="deleteItem()">Delete</button>
+</dialog>
+
+<!-- Only closeable programmatically (forced flow) -->
+<dialog id="onboarding-wizard" closedby="none">
+  <h2>Welcome! Let's set up your account.</h2>
+  <!-- User must complete all steps -->
+</dialog>
+```
+
+**Declarative open/close with `command` and `commandfor`:**
+
+```html
+<!-- Open a modal — no JavaScript needed -->
+<button commandfor="my-dialog" command="show-modal">Open Settings</button>
+
+<!-- The dialog with a declarative close button -->
+<dialog id="my-dialog" closedby="any">
+  <h2>Settings</h2>
+  <p>Configure your preferences.</p>
+
+  <!-- Closes parent dialog without JS -->
+  <button commandfor="my-dialog" command="close">Done</button>
+</dialog>
+```
+
+**`requestClose()` — allows prevention of closing:**
+
+```javascript
+const dialog = document.getElementById('unsaved-changes');
+
+dialog.addEventListener('cancel', (event) => {
+  if (hasUnsavedChanges()) {
+    event.preventDefault();
+    showConfirmation('Discard unsaved changes?');
+  }
+});
+
+// requestClose() fires the cancel event first (unlike .close() which is immediate)
+document.getElementById('close-btn').addEventListener('click', () => {
+  dialog.requestClose();
+});
+```
+
+**Styling best practices:**
+
+```css
+dialog {
+  border: none;
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: min(90vw, 480px);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+/* Entry animation */
+dialog[open] {
+  animation: dialog-in 200ms ease-out;
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.97);
+  }
+}
+```
+
+**Browser support (early 2026):** `closedby` — Chrome 131+, Edge 131+; `command`/`commandfor` — Chrome 131+; Firefox and Safari are implementing both, expected stable mid-2026. The base `<dialog>` element and `::backdrop` are Baseline 2022 and universally supported.
+
+### Checklist
+
+- [ ] Use `@scope` for component-level style isolation instead of BEM or CSS Modules where appropriate.
+- [ ] Replace Sass `lighten()`/`darken()` with `color-mix()` — prefer `oklch` color space for perceptual uniformity.
+- [ ] Apply `text-wrap: balance` to headings and `text-wrap: pretty` to body text.
+- [ ] Use `field-sizing: content` with `min-height`/`max-height` bounds on textareas — wrap in `@supports` for fallback.
+- [ ] Use `<details name="group">` for simple exclusive accordions before reaching for a JS component.
+- [ ] Use `closedby` and `commandfor` attributes on dialogs to reduce JavaScript for open/close logic.
+- [ ] Verify browser support for each feature and provide graceful fallbacks.
+
+### Sources
+
+- Chrome for Developers — "CSS @scope" (2024)
+- MDN Web Docs — `color-mix()`, `text-wrap`, `field-sizing`, `::details-content`, `closedby`
+- web.dev — "New CSS features in 2024-2025" (Una Kravets, Adam Argyle)
+- Can I Use — browser support tables for each feature
+- W3C CSS Scoping Module Level 2 specification
+- Open UI — Dialog and Invoker commands explainer
+
+---
+
+## CV. Privacy Sandbox & Post-Cookie Web
+
+> The web is transitioning away from third-party cookies. Safari and Firefox already block them by default. Chrome adopted a user-choice model instead of blanket deprecation. This section covers the replacement APIs and practical migration steps.
+
+### Third-Party Cookie Deprecation Timeline
+
+**Current status (early 2026):**
+
+| Browser | Third-party cookie status |
+|---------|--------------------------|
+| Safari  | Blocked by default since 2020 (ITP — Intelligent Tracking Prevention) |
+| Firefox | Blocked by default since 2023 (ETP — Enhanced Tracking Protection, Strict mode) |
+| Chrome  | User-choice model: users can opt to block 3P cookies; not blanket-deprecated |
+| Edge    | Follows Chromium behavior, tracking prevention levels (Basic/Balanced/Strict) |
+
+**What broke when 3P cookies disappeared:**
+
+- Cross-site analytics (e.g., GA tracking across subdomains without config)
+- Ad conversion measurement (click on site A, convert on site B)
+- Remarketing audiences (show ads on site B based on site A visit)
+- Embedded auth widgets (SSO iframes, social login buttons)
+- Embedded comment systems, chat widgets, payment iframes
+- Federated login flows relying on cookie-based session sharing
+
+### Topics API (Replaces FLoC)
+
+Interest-based advertising without tracking individual users.
+
+**How it works:**
+
+1. Browser locally observes sites a user visits.
+2. Each site is mapped to one of ~470 standardized topics (taxonomy v2).
+3. Per epoch (1 week), the browser selects top 5 topics from browsing.
+4. When a site calls the API, it receives up to 3 topics (one per recent epoch).
+5. 5% of the time, a random topic is returned (differential privacy noise).
+
+**Implementation:**
+
+```javascript
+// JavaScript API
+const topics = await document.browsingTopics();
+// Returns array: [{ topic: 57, taxonomyVersion: '2', modelVersion: '4', ... }]
+
+// Send topics to ad server for targeting
+fetch('https://ads.example.com/bid', {
+  method: 'POST',
+  body: JSON.stringify({ topics }),
+});
+```
+
+```
+// HTTP header approach — topic observation happens automatically
+// Response header from ad server:
+Observe-Browsing-Topics: ?1
+
+// Request header sent by browser to ad server:
+Sec-Browsing-Topics: (57);v=chrome.2:4:10, (123);v=chrome.2:4:10
+```
+
+**Privacy guarantees:**
+
+- Topics are coarse-grained (470 categories, not fine-grained interests).
+- Only 3 weeks of history, then topics age out.
+- Users can view and remove topics in `chrome://settings/adPrivacy`.
+- No cross-site identity linking — topics are the same regardless of which site calls the API.
+- 5% noise ensures plausible deniability for any single topic.
+
+### Attribution Reporting API
+
+Measures ad conversions without cross-site user tracking.
+
+**Event-level reports (click/view to conversion):**
+
+```html
+<!-- On the ad-serving page -->
+<a href="https://shop.example.com/product"
+   attributionsrc="https://adtech.example.com/register-source">
+  Buy Now
+</a>
+```
+
+```
+// Ad tech server registers the source via response header:
+Attribution-Reporting-Register-Source: {
+  "destination": "https://shop.example.com",
+  "source_event_id": "843756",
+  "expiry": "604800"
+}
+```
+
+```javascript
+// On the conversion page (shop.example.com/thank-you):
+// Register the trigger (conversion event)
+fetch('https://adtech.example.com/register-trigger', {
+  method: 'POST',
+  headers: {
+    'Attribution-Reporting-Eligible': 'trigger'
+  }
+});
+```
+
+```
+// Ad tech server responds with:
+Attribution-Reporting-Register-Trigger: {
+  "event_trigger_data": [{
+    "trigger_data": "1",
+    "priority": "100"
+  }]
+}
+```
+
+**Event-level vs summary reports:**
+
+| Aspect | Event-level | Summary (aggregated) |
+|--------|------------|---------------------|
+| Data | Limited (3 bits for click, 1 bit for view) | Rich (histograms with noise) |
+| Delay | 2 days to 30 days (randomized) | ~1 hour with aggregation service |
+| Privacy | Low entropy per report | Differential privacy (noise added) |
+| Use case | Basic "did they convert?" | Revenue attribution, demographic breakdowns |
+
+**Summary reports** use an aggregation service (Trusted Execution Environment) that adds calibrated noise before returning results, preventing any single-user extraction.
+
+### Protected Audience API (Formerly FLEDGE)
+
+On-device ad auctions for remarketing/retargeting without server-side tracking.
+
+**Workflow:**
+
+```javascript
+// 1. Advertiser adds user to interest group (on advertiser's site)
+await navigator.joinAdInterestGroup({
+  owner: 'https://dsp.example.com',
+  name: 'running-shoes-viewers',
+  biddingLogicUrl: 'https://dsp.example.com/bid.js',
+  ads: [{
+    renderUrl: 'https://dsp.example.com/ads/shoes-ad.html',
+    metadata: { campaign: 'spring-sale' }
+  }],
+  // Interest group expires after 30 days
+  lifetimeMs: 30 * 24 * 3600 * 1000,
+}, 30 * 24 * 3600 * 1000);
+```
+
+```javascript
+// 2. Publisher runs on-device auction (on publisher's site)
+const auctionConfig = {
+  seller: 'https://ssp.example.com',
+  decisionLogicUrl: 'https://ssp.example.com/score-ad.js',
+  interestGroupBuyers: ['https://dsp.example.com'],
+  auctionSignals: { pageContext: 'sports-news' },
+};
+
+const adFrame = await navigator.runAdAuction(auctionConfig);
+// Returns a Fenced Frame config — ad renders in isolation
+document.getElementById('ad-slot').config = adFrame;
+```
+
+**Key privacy properties:**
+
+- Interest groups stored locally on user's device, not on servers.
+- Bidding and scoring logic runs in isolated worklets (no network during auction).
+- Winning ad renders in a Fenced Frame (cannot communicate with embedding page).
+- Users can view/clear interest groups at `chrome://settings/adPrivacy`.
+
+### Storage Access API
+
+Allows embedded third-party content to request cookie access with user consent.
+
+```javascript
+// Check if storage access is already granted
+const hasAccess = await document.hasStorageAccess();
+
+if (!hasAccess) {
+  try {
+    // Prompts user for permission (must be called from user gesture)
+    await document.requestStorageAccess();
+    // Now this iframe can read/write its first-party cookies
+    console.log('Storage access granted');
+  } catch (err) {
+    console.log('Storage access denied — use alternative auth flow');
+    // Fallback: redirect-based auth, postMessage, etc.
+  }
+}
+
+// After access is granted, cookies work normally in this iframe
+const response = await fetch('https://auth.example.com/session', {
+  credentials: 'include',
+});
+```
+
+**When you need it:**
+
+- Embedded social login widgets (Google, Facebook sign-in buttons in iframes)
+- Embedded comment systems (Disqus, embedded discussion widgets)
+- Embedded payment flows (PayPal, Stripe checkout in iframes)
+- Any third-party iframe that needs its own cookies
+
+**Behavior:**
+
+- Requires a user gesture (click/tap) to call `requestStorageAccess()`.
+- Prompt shown once per embedded-site / top-level-site pair.
+- Permission persists for 30 days (browser-dependent).
+- Safari pioneered this API; now Baseline 2023 in all major browsers.
+
+### Related Website Sets (Formerly First-Party Sets)
+
+Declare that multiple domains belong to the same organization for limited cookie sharing.
+
+**Declaration file (hosted at each domain):**
+
+```json
+// https://primary.example.com/.well-known/related-website-set.json
+{
+  "primary": "https://primary.example.com",
+  "associatedSites": [
+    "https://shop.example.com",
+    "https://blog.example.com",
+    "https://support.example.com"
+  ],
+  "serviceSites": [
+    "https://cdn.example-assets.com"
+  ]
+}
+```
+
+**Constraints:**
+
+- Maximum 5 associated sites (plus unlimited service sites and ccTLD variants).
+- Must be submitted to the Related Website Sets list (public GitHub repo, reviewed by browser vendors).
+- Each domain can only appear in one set.
+- Use with `requestStorageAccessFor()` to access cookies across set members:
+
+```javascript
+// On primary.example.com, request access to shop.example.com cookies
+await document.requestStorageAccessFor('https://shop.example.com');
+```
+
+### CHIPS (Cookies Having Independent Partitioned State)
+
+For cookies that need to exist cross-site but should be partitioned (isolated per top-level site).
+
+```
+// Server sets a partitioned cookie:
+Set-Cookie: __Host-session=abc123;
+  Secure;
+  Path=/;
+  SameSite=None;
+  Partitioned;
+```
+
+**Use case:** An embedded widget (chat, analytics) needs to remember state per embedding site, but that state should not be shared across different embedding sites. The cookie is keyed to (top-level site, embedded site) pair.
+
+### Practical Migration Checklist
+
+**Testing your site without 3P cookies:**
+
+1. Chrome: Settings > Privacy > Third-party cookies > Block third-party cookies.
+2. Or launch Chrome with `--test-third-party-cookie-phaseout` flag.
+3. DevTools > Application > Cookies — look for blocked cookies (yellow warning icon).
+4. DevTools > Issues tab — shows specific cookie issues with remediation advice.
+
+**Migration steps by use case:**
+
+| Current approach | Replacement | API |
+|-----------------|-------------|-----|
+| Cross-site tracking cookies | Interest-based targeting | Topics API |
+| Conversion pixels (3P cookies) | Privacy-preserving attribution | Attribution Reporting API |
+| Remarketing cookies | On-device ad auctions | Protected Audience API |
+| Embedded widget cookies | User-granted access | Storage Access API |
+| Cross-domain login cookies | Organizational cookie sharing | Related Website Sets |
+| Embedded state cookies | Partitioned cookies | CHIPS (`Partitioned` attribute) |
+
+**Server-side changes:**
+
+```
+# Add Partitioned to cross-site cookies that need to work
+Set-Cookie: widget_session=xyz; SameSite=None; Secure; Partitioned
+
+# Migrate to first-party data collection
+# Use server-side tagging (GTM server container) instead of client-side 3P scripts
+
+# Set proper cookie attributes
+Set-Cookie: session=abc; SameSite=Lax; Secure; HttpOnly; Path=/
+```
+
+**Analytics migration:**
+
+```javascript
+// Before: relied on 3P cookies for cross-site tracking
+// After: use first-party data + server-side measurement
+
+// First-party cookie for analytics (unaffected by 3P cookie changes)
+document.cookie = '_analytics_id=uuid; max-age=63072000; SameSite=Lax; Secure; path=/';
+
+// Server-side event forwarding (replaces client-side 3P pixels)
+fetch('/api/analytics/event', {
+  method: 'POST',
+  body: JSON.stringify({
+    event: 'purchase',
+    value: 49.99,
+    // Server forwards to GA4, Meta CAPI, etc.
+  }),
+});
+```
+
+### Checklist
+
+- [ ] Test site with third-party cookies blocked in Chrome, Safari, and Firefox.
+- [ ] Audit all `Set-Cookie` headers — add `Partitioned` to legitimate cross-site cookies.
+- [ ] Replace cross-site conversion tracking with Attribution Reporting API or server-side CAPI.
+- [ ] Implement Storage Access API for embedded widgets that need their own cookies.
+- [ ] Register Related Website Sets if you operate multiple domains sharing auth state.
+- [ ] Move analytics to first-party data collection + server-side forwarding.
+- [ ] Add `SameSite=Lax` (or `Strict`) to all first-party cookies that do not need cross-site access.
+- [ ] Review DevTools Issues tab for cookie-related deprecation warnings.
+
+### Sources
+
+- Chrome Privacy Sandbox documentation (privacysandbox.com)
+- W3C Privacy Community Group — Storage Access API specification
+- MDN Web Docs — Related Website Sets, CHIPS, Storage Access API
+- WebKit blog — "Intelligent Tracking Prevention" (John Wilander)
+- Mozilla wiki — Enhanced Tracking Protection documentation
+- Google Developers — Attribution Reporting API, Topics API, Protected Audience API
+
+---
+
+## CW. WebNN & Browser AI/ML
+
+> On-device machine learning is becoming a browser-native capability. WebNN provides hardware-accelerated inference, Chrome ships a built-in small language model (Gemini Nano), and specialized AI APIs (Writer, Rewriter, Translator) are emerging. This section covers practical implementation patterns for AI-powered web experiences.
+
+### WebNN API (Web Neural Network)
+
+Hardware-accelerated ML inference in the browser using GPU, NPU, or CPU backends.
+
+**Core architecture — graph-based computation:**
+
+```javascript
+// 1. Create ML context targeting specific hardware
+const context = await navigator.ml.createContext({ deviceType: 'gpu' });
+// deviceType options: 'cpu', 'gpu', 'npu' (Neural Processing Unit)
+
+const builder = new MLGraphBuilder(context);
+
+// 2. Define computation graph (simple example: linear regression y = mx + b)
+const x = builder.input('x', { dataType: 'float32', shape: [1, 4] });
+const m = builder.constant(
+  { dataType: 'float32', shape: [4, 1] },
+  new Float32Array([0.5, -0.3, 0.8, 0.1])
+);
+const b = builder.constant(
+  { dataType: 'float32', shape: [1] },
+  new Float32Array([0.2])
+);
+
+const product = builder.matmul(x, m);
+const y = builder.add(product, b);
+
+// 3. Compile the graph (optimized for target hardware)
+const graph = await builder.build({ y });
+
+// 4. Run inference
+const inputBuffer = new Float32Array([1.0, 2.0, 3.0, 4.0]);
+const outputBuffer = new Float32Array(1);
+
+const inputs = { x: inputBuffer };
+const outputs = { y: outputBuffer };
+
+await context.compute(graph, inputs, outputs);
+console.log('Prediction:', outputs.y[0]);
+```
+
+**Image classification example:**
+
+```javascript
+async function classifyImage(imageElement) {
+  const context = await navigator.ml.createContext({ deviceType: 'gpu' });
+  const builder = new MLGraphBuilder(context);
+
+  // Load pre-trained model (e.g., MobileNet)
+  // Typically loaded from an ONNX or TFLite model converted for WebNN
+  const modelUrl = '/models/mobilenet-v2.onnx';
+  const modelBuffer = await (await fetch(modelUrl)).arrayBuffer();
+
+  // Use a helper library to load ONNX into WebNN graph
+  // (ONNX Runtime Web with WebNN backend)
+  const session = await ort.InferenceSession.create(modelBuffer, {
+    executionProviders: ['webnn'],
+    webnn: { deviceType: 'gpu' },
+  });
+
+  // Preprocess image to tensor
+  const canvas = document.createElement('canvas');
+  canvas.width = 224;
+  canvas.height = 224;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(imageElement, 0, 0, 224, 224);
+
+  const imageData = ctx.getImageData(0, 0, 224, 224);
+  const float32Data = new Float32Array(3 * 224 * 224);
+
+  // Normalize pixel values to [0, 1] and convert HWC to CHW
+  for (let i = 0; i < 224 * 224; i++) {
+    float32Data[i]                 = imageData.data[i * 4]     / 255.0; // R
+    float32Data[i + 224 * 224]     = imageData.data[i * 4 + 1] / 255.0; // G
+    float32Data[i + 2 * 224 * 224] = imageData.data[i * 4 + 2] / 255.0; // B
+  }
+
+  const inputTensor = new ort.Tensor('float32', float32Data, [1, 3, 224, 224]);
+  const results = await session.run({ input: inputTensor });
+
+  return results.output.data; // Class probabilities
+}
+```
+
+**Supported backends (early 2026):**
+
+| Platform | Backend | Hardware |
+|----------|---------|----------|
+| Windows  | DirectML | GPU (any), NPU (Intel, Qualcomm) |
+| macOS    | CoreML   | GPU (Metal), Apple Neural Engine |
+| Linux    | XNNPACK  | CPU (optimized SIMD) |
+| Android  | NNAPI    | GPU, DSP, NPU |
+
+**Browser support:** Chrome 124+ (Origin Trial graduated), Edge 124+. Firefox and Safari in active development.
+
+**WebNN vs TensorFlow.js:**
+
+| Aspect | WebNN | TensorFlow.js |
+|--------|-------|---------------|
+| Backend | OS-native (DirectML, CoreML) | WebGL, WebGPU, WASM |
+| Performance | Faster for supported ops (hardware-optimized) | Wider op coverage, more models |
+| Model format | ONNX (via ONNX Runtime Web) | TF SavedModel, TFLite, TFJS |
+| NPU support | Yes (where available) | No |
+| Bundle size | Minimal (browser-native API) | 100KB-1MB+ library |
+
+### On-Device LLM (Gemini Nano in Chrome)
+
+Chrome ships a built-in small language model accessible via the Prompt API.
+
+**Basic usage:**
+
+```javascript
+// Check availability
+const capabilities = await ai.languageModel.capabilities();
+
+if (capabilities.available === 'readily') {
+  // Model is downloaded and ready
+  const session = await ai.languageModel.create();
+
+  const result = await session.prompt('Summarize in one sentence: ' + articleText);
+  console.log(result);
+
+  // Session tracks conversation history
+  const followUp = await session.prompt('Make it shorter.');
+  console.log(followUp);
+
+  // Clean up when done
+  session.destroy();
+
+} else if (capabilities.available === 'after-download') {
+  // Model needs to be downloaded (~1.5GB)
+  const session = await ai.languageModel.create({
+    monitor: (monitor) => {
+      monitor.addEventListener('downloadprogress', (e) => {
+        console.log(`Download: ${Math.round(e.loaded / e.total * 100)}%`);
+      });
+    },
+  });
+} else {
+  // 'no' — device doesn't meet requirements (needs 8GB+ RAM)
+  console.log('On-device AI not available, falling back to server API');
+}
+```
+
+**Streaming responses:**
+
+```javascript
+const session = await ai.languageModel.create();
+
+const stream = await session.promptStreaming('Write a haiku about the web.');
+
+const outputEl = document.getElementById('ai-output');
+outputEl.textContent = '';
+
+for await (const chunk of stream) {
+  outputEl.textContent = chunk; // Each chunk is the full response so far
+}
+```
+
+**System prompt and configuration:**
+
+```javascript
+const session = await ai.languageModel.create({
+  systemPrompt: `You are a helpful assistant for an e-commerce site.
+    You help users find products and answer questions about orders.
+    Keep responses concise (under 100 words).
+    Never discuss competitors.`,
+  temperature: 0.7,    // 0.0 = deterministic, 1.0 = creative
+  topK: 40,            // Top-K sampling
+});
+```
+
+**Token counting:**
+
+```javascript
+const session = await ai.languageModel.create();
+
+// Check remaining context window
+console.log('Max tokens:', session.maxTokens);
+console.log('Tokens used:', session.tokensSoFar);
+console.log('Tokens remaining:', session.tokensLeft);
+
+// Count tokens before sending
+const tokenCount = await session.countPromptTokens('Your long prompt here...');
+if (tokenCount > session.tokensLeft) {
+  // Truncate or summarize input before sending
+}
+```
+
+### Specialized AI APIs (Writer, Rewriter, Translator)
+
+Chrome also exposes purpose-built AI APIs for common tasks.
+
+**Writer API — generate text from instructions:**
+
+```javascript
+const writer = await ai.writer.create({
+  tone: 'formal',            // 'formal', 'neutral', 'casual'
+  format: 'plain-text',      // 'plain-text', 'markdown'
+  length: 'medium',          // 'short', 'medium', 'long'
+  sharedContext: 'Product reviews for an electronics store.',
+});
+
+const review = await writer.write(
+  'Write a review for wireless noise-canceling headphones, mentioning comfort and battery life.'
+);
+
+// Streaming
+const stream = await writer.writeStreaming('Write a product description for...');
+for await (const chunk of stream) {
+  outputEl.textContent = chunk;
+}
+```
+
+**Rewriter API — transform existing text:**
+
+```javascript
+const rewriter = await ai.rewriter.create({
+  tone: 'more-casual',       // 'as-is', 'more-formal', 'more-casual'
+  format: 'as-is',
+  length: 'shorter',         // 'as-is', 'shorter', 'longer'
+  sharedContext: 'Customer support chat messages.',
+});
+
+const simplified = await rewriter.rewrite(
+  'We regret to inform you that your request cannot be processed at this time due to insufficient documentation.'
+);
+// -> "Sorry, we can't process your request yet — we need a few more documents."
+```
+
+**Translator API — on-device translation:**
+
+```javascript
+// Check language pair availability
+const capabilities = await ai.translator.capabilities();
+const pairStatus = capabilities.languagePairAvailable('en', 'fr');
+// 'readily', 'after-download', or 'no'
+
+if (pairStatus !== 'no') {
+  const translator = await ai.translator.create({
+    sourceLanguage: 'en',
+    targetLanguage: 'fr',
+  });
+
+  const translated = await translator.translate('Hello, how can I help you today?');
+  // -> "Bonjour, comment puis-je vous aider aujourd'hui ?"
+}
+```
+
+### AI-Powered Web UX Patterns
+
+Design guidelines for integrating AI features into web applications.
+
+**Progressive enhancement — always provide a non-AI fallback:**
+
+```javascript
+async function enhanceSearchWithAI(query) {
+  // Try on-device AI first
+  if ('ai' in globalThis) {
+    const caps = await ai.languageModel.capabilities();
+    if (caps.available === 'readily') {
+      const session = await ai.languageModel.create();
+      const enhanced = await session.prompt(
+        `Expand this search query with synonyms: "${query}"`
+      );
+      session.destroy();
+      return enhanced;
+    }
+  }
+
+  // Fallback: server-side AI
+  try {
+    const res = await fetch('/api/ai/expand-query', {
+      method: 'POST',
+      body: JSON.stringify({ query }),
+    });
+    return (await res.json()).expanded;
+  } catch {
+    // Final fallback: use original query as-is
+    return query;
+  }
+}
+```
+
+**Disclosure — label AI-generated content (EU AI Act requirement):**
+
+```html
+<div class="ai-response" role="region" aria-label="AI-generated response">
+  <p>{{ aiGeneratedText }}</p>
+  <footer class="ai-disclosure">
+    <svg aria-hidden="true"><!-- sparkle icon --></svg>
+    <span>Generated by AI — may contain inaccuracies</span>
+  </footer>
+</div>
+```
+
+```css
+.ai-disclosure {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.75rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  background: var(--surface-secondary);
+  border-radius: 6px;
+}
+```
+
+**Streaming UX — show incremental results:**
+
+```javascript
+async function streamAIResponse(prompt, outputElement) {
+  outputElement.textContent = '';
+  outputElement.setAttribute('aria-busy', 'true');
+  outputElement.classList.add('ai-typing');
+
+  try {
+    const session = await ai.languageModel.create();
+    const stream = await session.promptStreaming(prompt);
+
+    for await (const chunk of stream) {
+      outputElement.textContent = chunk;
+    }
+
+    session.destroy();
+  } catch (err) {
+    outputElement.textContent = 'AI features temporarily unavailable. Please try again.';
+  } finally {
+    outputElement.setAttribute('aria-busy', 'false');
+    outputElement.classList.remove('ai-typing');
+  }
+}
+```
+
+```css
+.ai-typing::after {
+  content: '▊';
+  animation: blink 0.7s step-end infinite;
+  margin-left: 1px;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+```
+
+**Opt-in pattern — let users trigger AI features explicitly:**
+
+```html
+<div class="compose-toolbar">
+  <textarea id="message" placeholder="Type your message..."></textarea>
+  <div class="ai-actions">
+    <!-- AI features are opt-in, not automatic -->
+    <button onclick="improveWriting()" class="btn-secondary btn-sm">
+      <svg aria-hidden="true"><!-- wand icon --></svg>
+      Improve writing
+    </button>
+    <button onclick="makeShorter()" class="btn-secondary btn-sm">
+      Shorten
+    </button>
+    <button onclick="translateMessage()" class="btn-secondary btn-sm">
+      Translate
+    </button>
+  </div>
+</div>
+```
+
+**Caching inference results:**
+
+```javascript
+const aiCache = new Map();
+
+async function cachedPrompt(session, prompt) {
+  const cacheKey = prompt.trim().toLowerCase();
+
+  if (aiCache.has(cacheKey)) {
+    return aiCache.get(cacheKey);
+  }
+
+  const result = await session.prompt(prompt);
+  aiCache.set(cacheKey, result);
+
+  // Evict oldest entries if cache grows too large
+  if (aiCache.size > 100) {
+    const firstKey = aiCache.keys().next().value;
+    aiCache.delete(firstKey);
+  }
+
+  return result;
+}
+```
+
+### Practical Implementation Pattern
+
+**Full feature-detection and fallback chain:**
+
+```javascript
+class AIService {
+  #session = null;
+  #available = false;
+
+  async init() {
+    // Feature detection
+    if (!('ai' in globalThis) || !ai.languageModel) {
+      console.log('Prompt API not available');
+      return false;
+    }
+
+    const caps = await ai.languageModel.capabilities();
+
+    if (caps.available === 'readily') {
+      this.#available = true;
+      return true;
+    }
+
+    if (caps.available === 'after-download') {
+      // Optionally trigger download with progress UI
+      try {
+        this.#session = await ai.languageModel.create({
+          monitor: (m) => m.addEventListener('downloadprogress', this.#onProgress),
+        });
+        this.#available = true;
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    return false;
+  }
+
+  async prompt(text) {
+    if (!this.#available) {
+      return this.#serverFallback(text);
+    }
+
+    try {
+      if (!this.#session) {
+        this.#session = await ai.languageModel.create();
+      }
+      return await this.#session.prompt(text);
+    } catch (err) {
+      // Model error — fall back to server
+      return this.#serverFallback(text);
+    }
+  }
+
+  async #serverFallback(text) {
+    try {
+      const res = await fetch('/api/ai/prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: text }),
+      });
+      if (!res.ok) throw new Error('Server AI failed');
+      return (await res.json()).result;
+    } catch {
+      return null; // Caller handles null as "AI unavailable"
+    }
+  }
+
+  #onProgress(e) {
+    console.log(`Model download: ${Math.round(e.loaded / e.total * 100)}%`);
+  }
+
+  destroy() {
+    this.#session?.destroy();
+    this.#session = null;
+  }
+}
+```
+
+**Web Worker offloading for heavy inference:**
+
+```javascript
+// main.js
+const aiWorker = new Worker('/workers/ai-inference.js', { type: 'module' });
+
+aiWorker.postMessage({
+  type: 'classify',
+  imageData: canvasCtx.getImageData(0, 0, 224, 224),
+});
+
+aiWorker.addEventListener('message', (e) => {
+  if (e.data.type === 'result') {
+    displayClassification(e.data.predictions);
+  }
+});
+```
+
+```javascript
+// workers/ai-inference.js
+import * as ort from 'onnxruntime-web';
+
+let session = null;
+
+async function loadModel() {
+  session = await ort.InferenceSession.create('/models/mobilenet.onnx', {
+    executionProviders: ['webnn', 'wasm'], // fallback chain
+  });
+}
+
+self.addEventListener('message', async (e) => {
+  if (!session) await loadModel();
+
+  if (e.data.type === 'classify') {
+    const input = preprocessImage(e.data.imageData);
+    const results = await session.run({ input });
+    self.postMessage({ type: 'result', predictions: Array.from(results.output.data) });
+  }
+});
+```
+
+**Performance expectations (early 2026):**
+
+| Task | On-device latency | Notes |
+|------|-------------------|-------|
+| Image classification (MobileNet) | 10-50ms (GPU) | Real-time capable |
+| Object detection (YOLO) | 30-100ms (GPU) | Viable for camera feed |
+| Text generation (Gemini Nano) | 2-10s for ~100 tokens | Depends on device capability |
+| Translation (on-device) | 200-800ms per sentence | After model download |
+| Text embedding | 5-20ms per passage | Good for local search |
+
+### Checklist
+
+- [ ] Feature-detect AI APIs before using: `if ('ai' in globalThis && ai.languageModel)`.
+- [ ] Always provide a non-AI fallback path (server-side API or manual input).
+- [ ] Label AI-generated content with a visible disclosure per EU AI Act guidelines.
+- [ ] Use streaming for text generation to avoid blocking the UI with long waits.
+- [ ] Make AI features opt-in — do not auto-generate content unless the user explicitly enables it.
+- [ ] Run heavy inference (WebNN, ONNX) in a Web Worker to keep the main thread responsive.
+- [ ] Cache repeated inference results to avoid redundant computation.
+- [ ] Handle model download gracefully — show progress and allow cancellation.
+- [ ] Set `aria-busy="true"` on output regions during AI processing.
+- [ ] Test on low-end devices — provide graceful degradation when hardware is insufficient.
+- [ ] Do not ship model weights in your JavaScript bundle — use browser-provided models or lazy-load from CDN.
+
+### Sources
+
+- W3C WebNN specification (webmachinelearning.github.io/webnn)
+- Chrome for Developers — "Built-in AI" documentation (Prompt API, Writer, Rewriter, Translator)
+- ONNX Runtime Web — WebNN execution provider documentation
+- Google AI for Web — Gemini Nano integration guides
+- EU AI Act — Article 52: transparency obligations for AI-generated content
+- web.dev — "AI on the web" (Thomas Steiner, 2024-2025)

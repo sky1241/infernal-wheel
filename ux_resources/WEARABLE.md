@@ -12692,5 +12692,442 @@ Complication icons appear on the watch face itself, alongside time and other dat
 
 ---
 
-*Bible UX Wearable - Sections BC-BV added March 2026*
-*Sources include: Apple Developer Documentation, Android Developer Documentation, Garmin Connect IQ SDK, FDA regulatory guidance, NEJM, Nature Medicine, AHA standards, FiRa Consortium, NNGroup, WHO guidance*
+## BW. watchOS 12 & Apple Intelligence on Watch
+
+> Dernieres evolutions watchOS de WWDC 2025, Apple Intelligence sur poignet, Sleep Apnea, et fonctionnalites Ultra.
+> Sources: [Apple WWDC 2025](https://developer.apple.com/wwdc25/), [watchOS 12 Release Notes](https://developer.apple.com/documentation/watchos-release-notes/watchos-12-release-notes), [Apple Watch Ultra 2 User Guide](https://support.apple.com/guide/apple-watch-ultra-2/), [Apple Health Technologies](https://developer.apple.com/health-fitness/)
+
+---
+
+### 1. watchOS 12 Visual Changes
+
+Le design **Liquid Glass** introduit a WWDC 2025 s'applique a la montre:
+
+- **Navigation bar** : materiau translucide avec flou gaussien, s'adapte au contenu derriere
+- **Boutons systeme** : rendu verre avec reflets dynamiques selon l'angle du poignet
+- **Animations spring-based** : transitions utilisant des ressorts physiques (stiffness ~300, damping ~20), remplacant les eases cubiques
+- **Coins arrondis uniformes** : `continuous` corner style applique globalement, rayon proportionnel a la taille de l'element
+- **Elevation et profondeur** : ombres subtiles sous les cartes et boutons, renforce la hierarchie visuelle
+
+**Smart Stack revamped:**
+- Cartes en verre translucide avec bordure lumineuse subtile
+- Transitions plus fluides entre widgets (cross-dissolve avec spring animation)
+- Regroupement intelligent : widgets lies affiches en cluster (ex: Meteo + UV + Vent)
+- Long-press sur un widget → menu contextuel inline (plus besoin d'ouvrir l'app)
+
+**Cadrans et complications interactives:**
+- Nouveaux cadrans exploitant Liquid Glass (reflets reagissent au mouvement du poignet)
+- Tap direct sur une complication → action instantanee sans ouvrir l'app
+  - Exemple : tap sur complication "Eau" → ajoute 250ml, haptic confirmation
+- Complications animees : mini-graphiques en temps reel (sparkline, gauge circulaire)
+- Live Activities etendues : apps tierces peuvent afficher des donnees live sur le cadran
+  - Transport en commun, minuteurs cuisine, score sportif, suivi livraison
+  - Limite : 1 Live Activity visible a la fois sur le cadran, rotation automatique si multiples
+
+**Impact developpeur:**
+- Tester les vues custom avec le nouveau materiau : `Material.ultraThinMaterial` sur watchOS 12
+- Les anciens `NavigationStack` / `List` adoptent automatiquement le style Liquid Glass
+- Attention: texte sur fond verre necessite contraste eleve → utiliser `.foregroundStyle(.primary)` ou blanc pur
+
+---
+
+### 2. watchOS 12 Developer APIs
+
+**NavigationSplitView ameliore:**
+- Support elargi pour les plus grands ecrans Apple Watch (Ultra 49mm, Series 10 46mm)
+- Sidebar + Detail view sur grands ecrans, collapse automatique sur petits ecrans
+- `NavigationSplitView { sidebar } detail: { detail }` fonctionne nativement sur watchOS 12
+
+**WidgetKit etendu:**
+- Nouvelles familles de complications : `accessoryRectangularLarge` (2x la hauteur du rectangular standard)
+- Contenu plus riche : images, graphiques, texte multi-ligne dans les complications
+- Rechargement intelligent : le systeme apprend quand l'utilisateur consulte chaque widget
+- `AppIntentTimelineProvider` : les widgets peuvent declencher des App Intents directement
+
+**Gestes et raccourcis:**
+- `.handGestureShortcut(.primaryAction)` etendu : nouveaux types de gestes
+  - Double-pinch : action secondaire configurable
+  - Clench (poing ferme) : action tertiaire
+  - Chaque app peut enregistrer jusqu'a 3 gestes distincts
+- `DigitalCrownRotation` ameliore : retour haptique granulaire par cran
+
+**Background App Refresh:**
+- Planification intelligente basee sur les habitudes utilisateur
+- Si l'utilisateur consulte l'app chaque jour a 8h, le refresh se declenche a 7h55
+- Budget plus genereux pour les apps health/fitness : jusqu'a 4 refreshs/heure (vs 1 standard)
+- Nouveau `BGHealthMonitoringTaskRequest` pour monitoring continu en arriere-plan
+
+**Nouvelles donnees sante:**
+- Body temperature trends : acces aux tendances (pas seulement valeur brute)
+- Hydration estimation : basee sur activite + transpiration + conditions meteo
+- `HKQuantityType(.dietaryWater)` ameliore avec estimation passive
+- Readiness score : score composite basé sur HRV + sommeil + charge entrainement
+
+**CustomWorkoutComposition API:**
+- Construire des segments d'entrainement programmatiquement
+- `WorkoutComposition { WarmupStep(duration: .minutes(5)); IntervalStep(work: .minutes(4), rest: .minutes(1), repeats: 6); CooldownStep(duration: .minutes(5)) }`
+- Synchronisation avec Apple Fitness+ pour entrainements guides
+- Export vers le format `.workout` partageable entre utilisateurs
+
+---
+
+### 3. Apple Intelligence on Watch
+
+**Resumes de notifications:**
+- Meme moteur que sur iPhone, adapte au poignet
+- Groupement intelligent : toutes les notifications d'une conversation → 1 resume
+- Format : 2 lignes max, style telegraphique ("Jean: diner 20h ce soir? Marie: OK pour moi")
+- Le resume preserve le sentiment (urgence, ton positif/negatif)
+- Tap sur le resume → deploie toutes les notifications individuelles
+
+**Smart Replies:**
+- Suggestions de reponse contextuelles alimentees par ML on-device
+- 3 suggestions max, adaptees au contexte de la conversation
+- Support du ton : detecte si la conversation est formelle/informelle
+- Fonctionne sans iPhone a proximite (modele on-device sur S9+)
+- Personnalisation : apprend le style de reponse de l'utilisateur au fil du temps
+
+**Siri ameliore:**
+- Temps de reponse reduit : ~1s pour requetes on-device (vs ~2s watchOS 11)
+- Conscience du contenu a l'ecran : "Que dit cette notification?" → Siri lit le contenu
+- Enchainement de requetes sans re-invoquer : conversation multi-tour
+- Limites persistantes : pas d'Image Playground, pas de Writing Tools (ecran trop petit)
+- Pas de generation d'image ou d'edition de texte longue sur la montre
+
+**Health Insights IA:**
+- Resumes de tendances sante generes par IA dans l'app Vitals
+- Format narratif : "Votre frequence cardiaque au repos a baisse de 5% cette semaine, coherent avec votre augmentation d'activite"
+- Alertes proactives : detection d'anomalies dans les patterns (ex: HRV inhabituellement basse)
+- Donnees restent 100% on-device, aucun envoi cloud pour les insights sante
+
+**Impact developpeur:**
+- App Intents fonctionnent avec Siri sur la montre → exposer les actions de l'app
+- `@AssistantIntent` pour rendre les actions discoverables par Siri
+- Les actions IA lourdes sont offloadees sur l'iPhone appaire → la montre doit etre a proximite
+- Prevoir un fallback si l'iPhone n'est pas disponible (mode avion, batterie morte)
+
+---
+
+### 4. Sleep Apnea Detection (watchOS 11+)
+
+**Contexte reglementaire:**
+- FDA-authorized De Novo (septembre 2024), premier dispositif grand public pour le depistage
+- Disponible sur Apple Watch Series 9+, Ultra 2+ (accelerometre haute precision requis)
+- Classification : outil de depistage, pas de diagnostic (oriente vers consultation medicale)
+
+**Fonctionnement technique:**
+- Accelerometre detecte les perturbations respiratoires pendant le sommeil
+- Mesure les mouvements subtils du poignet lies aux micro-eveils respiratoires
+- Metrique : "Breathing Disturbances" affichee comme Elevated / Not Elevated
+- Necessite 10 nuits de donnees sur une periode de 30 jours pour l'evaluation initiale
+- Algorithme ML entraine sur des donnees polysomnographiques cliniques
+
+**Flow UX:**
+1. Activation : Reglages > Sommeil > "Perturbations respiratoires" → Activer
+2. Collecte silencieuse pendant 10 nuits (pas de feedback intermediaire)
+3. Notification Health : "Vos resultats de perturbations respiratoires sont prets"
+4. Tap → Health app → graphique de tendance sur 30 jours
+5. Statut binaire avec code couleur : vert (Not Elevated), jaune (Elevated)
+6. Si Elevated : bouton "Partager avec votre medecin" → genere un PDF medical
+7. Le PDF inclut : graphique 30 jours, nombre de nuits analysees, methodologie
+
+**Acces developpeur:**
+- HealthKit : `HKQuantityType.quantityType(forIdentifier: .appleBreathingDisturbances)`
+- Donnee hautement sensible → autorisation HealthKit explicite requise
+- Pas d'acces aux donnees brutes d'accelerometre nocturne (uniquement le resultat agrege)
+- Affichage recommande : statut binaire (pas un chiffre), couleur codee, tendance temporelle
+
+---
+
+### 5. Apple Watch Ultra Features UX
+
+**Jauge de profondeur:**
+- Activation automatique quand submerge >1m, desactivation en surface
+- Affichage : profondeur actuelle (centre, grande police), max profondeur (haut-gauche), temperature eau (haut-droite), duree (bas)
+- Arriere-plan : degrade bleu qui s'intensifie avec la profondeur
+- Limite : plongee recreative uniquement (max 40m, certifie EN 13319)
+- API : `CMWaterSubmersionManager` pour evenements d'immersion
+- Pas d'API de profondeur directe pour apps tierces (donnees proprietary)
+
+**Precision Finding (Ultra 2):**
+- UWB + guidance visuelle/haptique pour localiser iPhone ou AirTag
+- UI : fleche plein ecran pointant vers l'appareil, distance en metres
+- Animation pulsante, intensite haptique augmente a l'approche
+- Fonctionne a l'interieur grace au UWB (pas seulement GPS)
+
+**Action Button:**
+- Pression simple : configurable (Workout, Chronometre, Waypoint, Retour, Plongee, Lampe, Raccourci)
+- Pression longue (3s) : Sirene (86dB, son d'urgence)
+- Developpeur : mapper l'Action Button vers un App Intent → action custom dans l'app
+- Design UX : action immediate, aucun ecran de confirmation (vitesse > securite pour sports/outdoor)
+- Feedback : haptique fort + retour visuel instantane pour confirmer l'action
+
+**Mode Nuit:**
+- Teinte rouge sur toute l'UI, preserve l'adaptation a l'obscurite
+- Activation automatique en faible luminosite, ou toggle via Centre de Controle
+- Developpeur : surveiller `.preferredColorScheme` et adapter les vues custom
+- Tester les vues avec teinte rouge : verifier que le contraste reste lisible
+
+---
+
+### Checklist watchOS 12
+
+- ✅ Tester toutes les vues avec le materiau Liquid Glass (contraste texte)
+- ✅ Adopter les animations spring-based pour les transitions custom
+- ✅ Mettre a jour les complications pour les nouvelles familles WidgetKit
+- ✅ Exposer les actions cles via App Intents pour Siri
+- ✅ Prevoir un fallback si l'iPhone n'est pas a proximite pour les fonctions IA
+- ✅ Tester les gestes etendus (double-pinch, clench) si pertinent
+- ✅ Valider le flow Sleep Apnea si l'app touche au sommeil/sante
+- ✅ Adapter les vues pour le mode Nuit si l'app cible les utilisateurs Ultra
+- ❌ Ne pas afficher les donnees de perturbations respiratoires comme un nombre brut
+- ❌ Ne pas supposer que Apple Intelligence est disponible (Series 8 et avant : non)
+- ❌ Ne pas bloquer l'UX si le reseau est indisponible pour les fonctions IA
+
+**Sources:** [Apple WWDC 2025](https://developer.apple.com/wwdc25/), [watchOS 12 Release Notes](https://developer.apple.com/documentation/watchos-release-notes/watchos-12-release-notes), [Apple Watch Ultra 2 User Guide](https://support.apple.com/guide/apple-watch-ultra-2/), [Sleep Apnea Detection](https://support.apple.com/en-us/108091), [HealthKit Breathing Disturbances](https://developer.apple.com/documentation/healthkit), [Apple Intelligence](https://developer.apple.com/apple-intelligence/)
+
+---
+
+## BX. Wearable AI Assistants & Voice 2025
+
+> Capacites des assistants IA sur montres connectees en 2025 : Gemini sur Wear OS, Siri ameliore, bonnes pratiques voix.
+> Sources: [Google I/O 2025](https://io.google/2025/), [Apple WWDC 2025](https://developer.apple.com/wwdc25/), [Samsung Galaxy Watch Documentation](https://developer.samsung.com/one-ui-watch)
+
+---
+
+### 1. Gemini on Wear OS (2025)
+
+**Deploiement:**
+- Samsung Galaxy Watch 7+ (One UI Watch 6+) : Google Gemini comme assistant par defaut
+- Pixel Watch 3+ : Gemini Nano on-device pour taches legeres
+- Remplacement progressif de Google Assistant classique sur les montres compatibles
+
+**Activation:**
+- Pression longue du bouton home → overlay Gemini
+- "Hey Google" wake word (toujours actif, faible consommation via DSP dedie)
+- Geste raise-to-speak : lever le poignet + parler sans wake word
+
+**Capacites cloud (via phone relay):**
+- Requetes conversationnelles : meteo, directions, rappels, minuteurs
+- Actions contextuelles : "Commence un entrainement" → ouvre l'app Workout avec activite detectee
+- Controle maison connectee : "Eteins la lumiere du salon" → integration Google Home native
+- Interaction notifications : "Reponds a Jean" → dictee vocale ou smart reply
+- Multi-modal : peut lire et resumer le contenu des notifications groupees
+- Recherche web : resultats resumes affiches sur la montre (pas de page web complete)
+
+**UI pattern vocal:**
+- Overlay plein ecran avec fond sombre semi-transparent
+- Resultats partiels affiches en temps reel (streaming text)
+- Indicateur d'ecoute : icone micro animee (ondes pulsantes)
+- Si la reponse est longue : carte scrollable avec resume en haut
+- Boutons d'action rapide sous la reponse ("Ouvrir sur le telephone", "En savoir plus")
+- Timeout : 3s de silence → arret de l'ecoute, affichage de ce qui a ete compris
+
+**Gemini Nano on-device (Pixel Watch 3+):**
+- Modele 2B parametres, execute localement sur le NPU de la montre
+- Smart reply generation : suggestions de reponse sans cloud
+- Summarisation de notifications : resume en 1 phrase
+- Enhancement de la reconnaissance d'activite : inference locale plus rapide
+- Limitation : pas de capacite conversationnelle complete, pas de recherche web
+- Avantage : fonctionne sans telephone, sans WiFi, sans LTE
+- Latence : ~200ms pour smart reply, ~500ms pour summarisation
+
+**Integration developpeur:**
+- Pas d'API Gemini directe sur la montre (utiliser l'API cloud via phone relay)
+- App Actions : exposer les fonctionnalites de l'app via `<capability>` dans AndroidManifest
+  ```xml
+  <capability android:name="actions.intent.START_EXERCISE">
+    <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.app">
+      <parameter android:name="exercise.name" android:key="exerciseType"/>
+    </intent>
+  </capability>
+  ```
+- Voice shortcuts : enregistrer des patterns vocaux pour acces rapide a l'app
+- `RemoteActionCompat` → declencher Gemini cote telephone pour requetes complexes
+- BII (Built-in Intents) : catalogue d'intents standardises pour actions courantes
+
+---
+
+### 2. Siri on watchOS (2025 Improvements)
+
+**Traitement on-device:**
+- La plupart des requetes gerees sans iPhone pour Series 9+ (Neural Engine)
+- Requetes on-device : minuteurs, alarmes, rappels, controle musique, HomeKit basique
+- Requetes necessitant cloud : recherche web, requetes complexes, traduction
+- Temps de reponse on-device : ~1s (vs ~2-3s avec relay iPhone)
+
+**Integration Apple Intelligence:**
+- Siri peut lire et agir sur le contenu affiche a l'ecran
+- "Qu'est-ce que dit cette notification?" → Siri extrait et resume le contenu
+- Contexte personnel : Siri accede aux informations des apps compatibles via App Intents
+- Conversation multi-tour : enchainer des requetes sans re-invoquer "Hey Siri"
+- Suggestion proactive : Siri propose des actions basees sur l'heure, le lieu, la routine
+
+**App Intents pour developpeurs:**
+```swift
+struct LogCigaretteIntent: AppIntent {
+    static var title: LocalizedStringResource = "Log a Cigarette"
+    static var description = IntentDescription("Records a cigarette event")
+
+    func perform() async throws -> some IntentResult {
+        CigaretteTracker.shared.log()
+        return .result(dialog: "Logged. Stay strong!")
+    }
+}
+```
+- `@AssistantIntent` : rend l'intent discoverable par Siri sans configuration manuelle
+- `SiriTipView` sur la montre : enseigner les commandes vocales avec des tips in-app
+  - Placement recommande : en bas de l'ecran principal, disparait apres 3 utilisations
+- Parametres dynamiques : Siri peut demander des precisions ("Combien de cigarettes?")
+- Resultat enrichi : retourner un `IntentResult` avec dialogue + snippet visuel
+
+**Smart Stack & suggestions:**
+- Siri suggere les widgets pertinents selon le contexte temporel/spatial
+- Matin : widget sommeil + meteo + calendrier
+- Arrivee au bureau : widget transport + reunions
+- Fin de journee : widget activite + rappels
+- L'ordre du Smart Stack s'adapte automatiquement, l'utilisateur peut epingler des widgets
+
+**Type to Siri (watchOS 11+):**
+- Disponible via clavier scribble ou mini-clavier QWERTY
+- Utile dans les environnements bruyants ou les situations ou parler est inapproprie
+- Activer : Reglages > Siri > "Ecrire a Siri"
+- Le champ texte apparait a la place de l'interface vocale
+
+---
+
+### 3. Voice Input Best Practices 2025
+
+**Sensibilite au wake word:**
+- Ajuster pour les environnements bruyants (salle de sport, exterieur, transports)
+- Les deux plateformes utilisent le beamforming + reduction de bruit ML
+- Faux positifs plus rares avec les modeles 2025 (taux < 0.5% en environnement normal)
+- Conseil : proposer un mode "bouton uniquement" pour desactiver le wake word
+
+**Confirmation des actions vocales:**
+- Toujours confirmer avec haptique + feedback visuel bref (1.5s max)
+- Pattern : ecran de succes avec icone checkmark + texte court → auto-dismiss
+- Pour actions destructives : ajouter une etape de confirmation vocale ("Etes-vous sur?")
+- Pour actions reversibles : confirmer + montrer "Annuler" pendant 3s
+
+**Gestion des erreurs:**
+- Si mal compris : afficher ce qui a ete entendu + bouton "Reessayer"
+- Ne jamais executer une action ambigue sans confirmation
+- Proposer des alternatives : "Vouliez-vous dire X ou Y?"
+- Apres 2 echecs consecutifs : suggerer la saisie manuelle ("Essayez d'ecrire")
+
+**Fallback hors-ligne:**
+- Mettre en file les commandes vocales quand offline
+- Executer a la reconnexion avec notification de confirmation
+- Actions locales (minuteur, alarme) : executer immediatement sans reseau
+- Actions cloud (envoi message, recherche) : informer "Sera envoye des que connecte"
+
+**Multi-langue:**
+- Support du code-switching (l'utilisateur change de langue en pleine phrase)
+- Detecter automatiquement la langue sans forcer une selection manuelle
+- Les modeles 2025 gerent le melange francais-anglais courant ("Set un timer de 5 minutes")
+- Limites : les langues avec peu de donnees d'entrainement ont un taux d'erreur plus eleve
+
+**Indicateurs de confidentialite:**
+- watchOS : point vert dans la barre de statut quand le micro est actif
+- Wear OS : icone micro dans le panneau de notifications rapides
+- Obligation legale : informer visuellement l'utilisateur que l'ecoute est active
+- Les donnees vocales sur-device ne sont jamais transmises au cloud (on-device models)
+
+**Timeout et duree d'ecoute:**
+- 3 secondes de silence → arreter l'ecoute (ne pas attendre plus longtemps)
+- Feedback visuel du countdown : onde sonore qui diminue progressivement
+- Si l'utilisateur parle tres lentement : etendre a 5s avec indicateur "J'ecoute encore..."
+- Maximum absolu : 30s d'ecoute continue, puis couper avec "Message trop long pour la montre"
+
+**Annulation de bruit:**
+- Beamforming + ML noise reduction sur les deux plateformes
+- Wear OS (Pixel Watch 3) : 3 microphones, suppression active du bruit ambiant
+- watchOS (Series 9+) : dual microphones avec algorithme de separation de sources
+- En environnement tres bruyant (>85dB) : afficher "Environnement bruyant, rapprochez-vous"
+
+---
+
+### 4. Comparison Table: Gemini vs Siri on Watch
+
+| Feature | Gemini (Wear OS) | Siri (watchOS) |
+|---------|-----------------|-----------------|
+| On-device model | Nano 2B (Pixel Watch 3+) | Neural Engine (S9+ chip) |
+| Cloud fallback | Oui (phone relay) | Oui (iPhone relay) |
+| Smart home | Google Home natif | HomeKit natif |
+| App actions | App Actions / `<capability>` | App Intents / `@AssistantIntent` |
+| Langues supportees | 40+ | 21 |
+| Wake word | "Hey Google" | "Hey Siri" / Raise to speak |
+| Response speed (on-device) | ~1.2s | ~1.0s |
+| Response speed (cloud) | ~2.5s | ~2.0s |
+| Smart reply | Gemini Nano | Apple Intelligence |
+| Notification summary | Gemini Nano | Apple Intelligence |
+| Multi-turn conversation | Oui (cloud) | Oui (watchOS 12) |
+| Screen context awareness | Non | Oui (Apple Intelligence) |
+| Type-to-assistant | Oui (clavier Wear OS) | Oui (watchOS 11+) |
+| Offline capability | Partielle (Nano) | Partielle (Neural Engine) |
+
+---
+
+### 5. Integration Patterns for Smoking Cessation App
+
+**Gemini / Wear OS:**
+```xml
+<capability android:name="actions.intent.CREATE_THING">
+  <intent android:action="android.intent.action.VIEW"
+          android:targetPackage="com.infernalwheel.app">
+    <parameter android:name="thing.name" android:key="eventType"/>
+  </intent>
+</capability>
+```
+- "Hey Google, log a cigarette on Infernal Wheel" → declenche l'intent
+- Smart reply contextuelle quand la notification de rappel arrive
+
+**Siri / watchOS:**
+```swift
+struct QuickLogIntent: AppIntent {
+    static var title: LocalizedStringResource = "Quick Log"
+    @Parameter(title: "Count") var count: Int?
+
+    func perform() async throws -> some IntentResult {
+        let qty = count ?? 1
+        CigaretteTracker.shared.log(count: qty)
+        return .result(dialog: "Logged \(qty). You've had \(CigaretteTracker.shared.todayCount) today.")
+    }
+}
+```
+- "Hey Siri, quick log 2" → enregistre 2 cigarettes, feedback avec total du jour
+- SiriTipView sur l'ecran principal : "Dites 'Quick Log' pour enregistrer"
+
+**Bonnes pratiques communes:**
+- Le feedback vocal doit etre encourageant, jamais culpabilisant
+- Inclure le total du jour dans la reponse pour conscience situationnelle
+- Proposer un raccourci vocal pour la fonction la plus frequente (log)
+- Ne pas exposer les statistiques detaillees par voix (trop long → orienter vers l'ecran)
+
+---
+
+### Checklist AI Assistants & Voice
+
+- ✅ App Actions / App Intents declares pour les fonctions principales
+- ✅ Feedback vocal bref et encourageant (<2s de dialogue)
+- ✅ Confirmation haptique apres chaque action vocale
+- ✅ Fallback offline : actions locales executees, actions cloud en file d'attente
+- ✅ Gestion d'erreur : afficher ce qui a ete compris + option reessayer
+- ✅ SiriTipView / voice shortcut tips integres dans l'app
+- ✅ Indicateur de confidentialite visible quand le micro est actif
+- ✅ Timeout de 3s de silence, feedback visuel du countdown
+- ✅ Teste en environnement bruyant (>70dB) avec des commandes courantes
+- ✅ Multi-langue : au minimum la langue du systeme + anglais
+- ❌ Ne pas executer d'action destructive sans confirmation vocale explicite
+- ❌ Ne pas envoyer de donnees vocales au cloud si un modele on-device suffit
+- ❌ Ne pas forcer l'assistant vocal : toujours offrir une alternative tactile
+- ❌ Ne pas depasser 30s d'ecoute continue sur la montre
+
+**Sources:** [Google I/O 2025](https://io.google/2025/), [Apple WWDC 2025](https://developer.apple.com/wwdc25/), [Samsung Galaxy Watch AI Features](https://developer.samsung.com/one-ui-watch), [Gemini Nano on-device](https://ai.google.dev/edge), [Apple App Intents](https://developer.apple.com/documentation/appintents), [App Actions](https://developer.android.com/guide/app-actions), [NNGroup Voice UX](https://www.nngroup.com/articles/voice-first/)
+
+---
+
+*Bible UX Wearable - Sections BC-BX added March 2026*
+*Sources include: Apple Developer Documentation, Android Developer Documentation, Garmin Connect IQ SDK, FDA regulatory guidance, NEJM, Nature Medicine, AHA standards, FiRa Consortium, NNGroup, WHO guidance, Google AI, Apple Intelligence*

@@ -14721,3 +14721,789 @@ When you're unsure which value to use, ask:
 - **Over-spacing on mobile**: desktop-like 48dp margins waste precious vertical space on mobile
 
 **Sources:** Material Design 3 Layout documentation (m3.material.io/foundations/layout), Apple Human Interface Guidelines — Layout (developer.apple.com/design/human-interface-guidelines/layout), Material Design 3 spacing and component specs, Flutter SafeArea documentation, Android WindowInsets documentation.
+
+---
+
+## CX. iOS 19 & Liquid Glass Design Language
+
+Apple's major visual overhaul announced at WWDC 2025 introduces Liquid Glass — a new glassmorphism-inspired design language that replaces the previous flat/material aesthetic across all Apple platforms. This is the most significant visual change since iOS 7's shift from skeuomorphism to flat design.
+
+### Liquid Glass Visual System
+
+**Core concept:** glass material is translucent, depth-aware, and adapts to the content behind it. Unlike a simple blur overlay, Liquid Glass dynamically responds to what's beneath, creating a sense of physical layering.
+
+**Key properties of the glass material:**
+- Translucency varies based on the element's role and depth in the view hierarchy
+- Colors from content behind the glass surface bleed through, affecting the tint
+- Blur radius is variable: ~8pt for foreground glass, ~24pt for background glass
+- Specular highlights at glass edges create a subtle 3D "lens" effect
+- Glass elements cast soft shadows to reinforce depth perception
+- The material responds to device tilt via accelerometer for a parallax-like effect on supported devices
+
+**Where glass appears by default:**
+- Tab bars: fully glass material, content scrolls behind them
+- Navigation bars: glass material, with title text adapting contrast
+- Sidebars (iPad): glass with grouped list style, rounded section backgrounds
+- Toolbars: glass material replaces previous blurred backgrounds
+- Alerts and sheets: glass background with increased blur
+- Popovers: glass material with rounded corners and shadow
+
+**SwiftUI glass modifier:**
+```swift
+// Apply glass material to any view
+myView
+    .glassEffect()
+
+// Glass with custom configuration
+myView
+    .glassEffect(.regular)     // Standard glass
+    .glassEffect(.thin)        // More transparent, less blur
+    .glassEffect(.thick)       // More opaque, more blur
+    .glassEffect(.ultraThin)   // Maximum transparency
+
+// Glass with tint color
+myView
+    .glassEffect(.regular.tint(.blue))
+```
+
+**UIKit glass material:**
+```swift
+// UIKit equivalent using visual effect views
+let glassEffect = UIVisualEffectView(effect: UIBlurEffect(style: .systemGlass))
+glassEffect.frame = containerView.bounds
+containerView.addSubview(glassEffect)
+```
+
+**High contrast mode:** glass becomes fully opaque to ensure readability. Always test your glass surfaces with Settings → Accessibility → Increase Contrast enabled. System colors automatically adapt: label colors darken, backgrounds become solid.
+
+**Dark mode interaction:** glass material in dark mode uses a darker base with lighter blur. The bleed-through effect is subtler to avoid distracting color shifts. Test both light and dark mode over varied backgrounds.
+
+### Navigation Changes in iOS 19
+
+**Fluid navigation transitions:**
+- Default transition duration: 400ms with spring-based curve (damping ratio 0.85)
+- Push/pop transitions: views slide with parallax depth — pushed view enters faster than popped view exits
+- Shared element transitions integrated with NavigationLink
+- Interactive swipe-back gesture has improved velocity tracking
+
+**Tab bar redesign:**
+- Tab bar items use glass pill backgrounds on the selected item
+- SF Symbols animate on selection (bounce, variable color, or replace effect)
+- Badge positioning adjusted for the pill shape
+- Tab bar height increased to 52pt (was 49pt) to accommodate glass material
+- More than 5 tabs: "More" tab still exists, but overflow tabs can be reordered with drag
+
+```swift
+TabView {
+    Tab("Home", systemImage: "house.fill") {
+        HomeView()
+    }
+    Tab("Search", systemImage: "magnifyingglass") {
+        SearchView()
+    }
+    // Symbol animation on tab selection is automatic in iOS 19
+}
+.tabViewStyle(.tabBarOnly)    // Glass tab bar (default)
+.tabViewStyle(.sidebarAdaptable) // Glass sidebar on iPad
+```
+
+**Navigation bar glass behavior:**
+- Large title: title is opaque, navigation bar background is clear
+- On scroll: title shrinks to inline, glass material fades in behind the bar
+- Transition is continuous — no sudden opacity jump
+- `.toolbarBackgroundVisibility(.visible)` forces glass to always show
+
+### SwiftUI iOS 19 New & Expanded APIs
+
+**MeshGradient (introduced iOS 18, expanded iOS 19):**
+```swift
+// Create organic, flowing gradients with control points
+MeshGradient(
+    width: 3, height: 3,
+    points: [
+        .init(0, 0), .init(0.5, 0),   .init(1, 0),
+        .init(0, 0.5), .init(0.5, 0.5), .init(1, 0.5),
+        .init(0, 1), .init(0.5, 1),   .init(1, 1)
+    ],
+    colors: [
+        .red, .orange, .yellow,
+        .green, .mint, .cyan,
+        .blue, .indigo, .purple
+    ]
+)
+// iOS 19: animated MeshGradient with keyframes
+// iOS 19: MeshGradient as background material for glass
+```
+
+**Visual effects based on scroll position:**
+```swift
+ScrollView {
+    ForEach(items) { item in
+        ItemCard(item: item)
+            .visualEffect { content, proxy in
+                content
+                    .opacity(proxy.isVisible ? 1 : 0.3)
+                    .scaleEffect(proxy.isVisible ? 1 : 0.8)
+                    .blur(radius: proxy.isVisible ? 0 : 5)
+            }
+    }
+}
+```
+
+**Scroll transitions for enter/leave animations:**
+```swift
+ScrollView {
+    ForEach(items) { item in
+        ItemRow(item: item)
+            .scrollTransition { content, phase in
+                content
+                    .opacity(phase.isIdentity ? 1 : 0)
+                    .offset(y: phase.isIdentity ? 0 : 30)
+                    .scaleEffect(phase.isIdentity ? 1 : 0.9)
+            }
+    }
+}
+```
+
+**ContainerRelativeFrame (replaces many GeometryReader hacks):**
+```swift
+ScrollView(.horizontal) {
+    HStack {
+        ForEach(cards) { card in
+            CardView(card: card)
+                .containerRelativeFrame(.horizontal, count: 3, spacing: 16)
+                // Card takes 1/3 of scroll view width minus spacing
+        }
+    }
+}
+```
+
+**Declarative haptics:**
+```swift
+Button("Add to Cart") { addItem() }
+    .sensoryFeedback(.impact(weight: .medium), trigger: cartCount)
+
+Toggle("Notifications", isOn: $enabled)
+    .sensoryFeedback(.selection, trigger: enabled)
+
+// Available feedback types: .impact, .selection, .success, .warning, .error,
+// .increase, .decrease, .start, .stop, .alignment, .levelChange
+```
+
+**@Observable macro improvements:**
+```swift
+// iOS 17+: simpler than ObservableObject + @Published
+@Observable
+class AppState {
+    var username = ""           // Automatically observed
+    var isLoggedIn = false      // No @Published needed
+    var items: [Item] = []     // Changes trigger view updates
+}
+
+// In views — no @ObservedObject wrapper needed
+struct ContentView: View {
+    var state: AppState    // Just a regular property
+    var body: some View {
+        Text(state.username)   // Automatically subscribes
+    }
+}
+```
+
+### Migration Notes for Liquid Glass
+
+**Automatic adoption:**
+- Apps using system UINavigationBar, UITabBar, UIToolbar get glass automatically
+- No code changes needed if using standard SwiftUI NavigationStack and TabView
+- System colors (`.label`, `.systemBackground`, `.secondarySystemBackground`) adapt to glass
+
+**Custom tab bars — adopting glass:**
+```swift
+// If you use a custom tab bar, adopt system glass:
+.toolbar {
+    ToolbarItem(placement: .bottomBar) {
+        CustomTabContent()
+    }
+}
+.toolbarBackgroundVisibility(.visible)
+.toolbarBackground(.glass)
+```
+
+**Testing checklist for glass migration:**
+- [ ] Test glass over photo/image backgrounds — text must remain readable
+- [ ] Test over solid color backgrounds (white, black, bright colors)
+- [ ] Test with Dynamic Type at all sizes — large text over glass needs contrast
+- [ ] Test with Increase Contrast accessibility setting
+- [ ] Test with Reduce Transparency setting (glass should degrade to solid)
+- [ ] Test in both light and dark mode
+- [ ] Test on older devices (iPhone XR, SE 3rd gen) — glass uses GPU compositing
+
+**Performance considerations:**
+- Glass material uses real-time GPU compositing with multi-pass rendering
+- On older devices (A12–A14), heavy glass stacking can cause frame drops
+- Avoid stacking more than 2–3 glass layers simultaneously
+- If animating content behind glass, ensure 60fps by profiling with Instruments → GPU
+- Consider `.drawingGroup()` modifier to flatten complex view hierarchies before glass
+
+**Text contrast over glass:**
+- Always use system label colors — they automatically increase contrast over glass
+- Never use custom colors with opacity < 1.0 for text over glass
+- For custom overlays, add `.background(.ultraThinMaterial)` before glass for a "double layer" effect that improves readability
+- Minimum contrast ratio over glass: 4.5:1 (WCAG AA) — test with Accessibility Inspector
+
+**Sources:** Apple WWDC 2025 sessions (What's New in SwiftUI, Design with Liquid Glass, Migrate to Liquid Glass), Apple Human Interface Guidelines iOS 19 updates, Apple Developer Documentation — SwiftUI glass modifiers, UIKit UIBlurEffect.Style.systemGlass.
+
+---
+
+## CY. Apple Intelligence & AI UX Patterns
+
+On-device AI capabilities introduced across Apple platforms starting with iOS 18.1 (December 2024), expanding through iOS 18.4 and iOS 19. All Apple Intelligence features run on the Apple Neural Engine (ANE), keeping user data on-device. For tasks exceeding on-device capacity, Private Cloud Compute extends processing to Apple Silicon servers with cryptographic privacy guarantees.
+
+### Writing Tools — System-Wide Text AI
+
+**What it is:** AI-powered text editing available in any app that uses standard text views (UITextView, UITextField, SwiftUI TextEditor, TextInput).
+
+**Available actions:**
+- **Proofread**: grammar, spelling, punctuation fixes with tracked-changes UI
+- **Rewrite**: three tones — Friendly, Professional, Concise
+- **Summary**: condense text to a short paragraph
+- **Key Points**: extract main points as bullet list
+- **List**: restructure as bulleted/numbered list
+- **Table**: restructure as table (if data is suitable)
+- **Compose**: generate text from a prompt (iOS 18.4+)
+
+**How it appears to users:**
+- Select text → context menu → "Writing Tools" submenu
+- Or: select text → toolbar shows Writing Tools icon (wand)
+- Full-screen Writing Tools panel on iPad/Mac, sheet on iPhone
+- Changes shown as inline diff: red strikethrough for removed, blue for added
+
+**Implementation for developers:**
+```swift
+// Standard text views: Writing Tools enabled by default
+TextEditor(text: $content)
+    // Writing Tools available automatically
+
+// Opt out if inappropriate (e.g., code editors, password fields)
+TextEditor(text: $content)
+    .writingToolsBehavior(.disabled)
+
+// Limit to specific behaviors
+TextEditor(text: $content)
+    .writingToolsBehavior(.limited) // Only proofread, no rewrite/summary
+```
+
+**UIKit opt-out:**
+```swift
+textView.writingToolsBehavior = .none       // Fully disabled
+textView.writingToolsBehavior = .limited    // Proofread only
+textView.writingToolsBehavior = .complete   // All features (default)
+```
+
+**UX rules for Writing Tools:**
+- Never auto-apply AI changes — always show the diff/preview first
+- The user explicitly accepts or rejects each change
+- For custom text editors (Canvas-based, WebView-based): implement `WritingToolsCoordinator` to integrate properly
+- If your app has its own AI text features, they coexist with Writing Tools — no conflict
+- Test that your text view's undo/redo works correctly after Writing Tools edits
+
+### Image Generation — Image Playground
+
+**What it is:** On-device image generation from text descriptions, available as a system framework.
+
+**Styles available:**
+- **Animation**: 3D-rendered character style (Pixar-like)
+- **Illustration**: flat illustration with bold colors
+- **Sketch**: pencil/charcoal sketch style
+- No photorealistic generation — Apple intentionally limits to artistic styles
+
+**Implementation:**
+```swift
+import ImagePlayground
+
+// Present Image Playground as a sheet
+struct CreateImageView: View {
+    @State private var showPlayground = false
+    @State private var generatedImage: URL?
+
+    var body: some View {
+        Button("Create Image") {
+            showPlayground = true
+        }
+        .imagePlaygroundSheet(
+            isPresented: $showPlayground,
+            concepts: [
+                .text("A golden retriever wearing a party hat"),
+                .extracted(from: sourceImage, title: "Style reference")
+            ]
+        ) { url in
+            generatedImage = url
+        }
+    }
+}
+```
+
+**UIKit presentation:**
+```swift
+let controller = ImagePlaygroundViewController()
+controller.concepts = [
+    ImagePlaygroundConcept.text("Mountain landscape at sunset")
+]
+controller.delegate = self
+present(controller, animated: true)
+
+// Delegate callback
+func imagePlaygroundViewController(
+    _ controller: ImagePlaygroundViewController,
+    didCreateImageAt url: URL
+) {
+    // Use the generated image
+    let image = UIImage(contentsOfFile: url.path)
+}
+```
+
+**UX guidelines for image generation:**
+- Generation takes 5–30 seconds — show a progress indicator with animation
+- Allow regeneration (user can tap "New Image" to get variations)
+- Show the text prompt alongside the generated image for context
+- Apple's safety filters block inappropriate content on-device — no developer action needed
+- Generated images include EXIF metadata indicating AI generation
+- Use cases: custom stickers, message illustrations, profile pictures, creative tools
+
+### Genmoji — Custom Emoji Generation
+
+**What it is:** AI-generated custom emoji from text descriptions, available through the standard emoji keyboard.
+
+**Developer implications:**
+- No API needed — Genmoji works in any standard text input
+- Rendered as inline images, not Unicode emoji characters
+- In text storage: represented as `NSAdaptiveImageGlyph` (attributed string attachment)
+- Ensure your text rendering pipeline handles image attachments gracefully
+- Fallback on older devices/platforms: displayed as image attachment or placeholder
+- If your app sends text to a server: handle image attachments in your text serialization
+- Rich text views (UITextView, TextEditor): Genmoji supported automatically
+- Plain text fields (UITextField): Genmoji appears as image attachment in attributed text
+
+**Testing considerations:**
+- Test text input fields with Genmoji inserted at beginning, middle, end of text
+- Test text truncation behavior with inline Genmoji
+- Test copy/paste of text containing Genmoji between your app and others
+- Test that your backend/API handles Genmoji data correctly (don't strip or corrupt it)
+
+### Smart Notifications — Notification Summaries
+
+**What it is:** iOS groups and summarizes multiple notifications from the same app into a concise summary using on-device language models.
+
+**How it works:**
+- When multiple notifications arrive from the same app, iOS may collapse them into a summary
+- Summary uses notification titles, subtitles, and body text to generate a natural-language overview
+- User can expand the summary to see individual notifications
+
+**Developer best practices:**
+```swift
+// Prevent summarization for critical/time-sensitive notifications
+let content = UNMutableNotificationContent()
+content.title = "Your ride is arriving"
+content.body = "Driver is 2 minutes away"
+content.interruptionLevel = .timeSensitive  // Never summarized, always shown
+
+// For messages: set thread identifier for proper grouping
+content.threadIdentifier = "chat-\(conversationId)"
+
+// Make titles self-contained — summaries rely heavily on title text
+// BAD:  title: "New message"  body: "John said hello"
+// GOOD: title: "John: Hello!" body: "John sent you a message in Team Chat"
+```
+
+**Summarization interaction levels:**
+- `.passive` — may be summarized, delivered silently
+- `.active` — may be summarized, delivered normally (default)
+- `.timeSensitive` — never summarized, breaks through Focus modes
+- `.critical` — never summarized, plays sound even when silenced (requires entitlement)
+
+**Testing summaries:**
+- Send 3+ notifications rapidly from your app to trigger summarization
+- Long-press the summary → verify individual notifications are accessible
+- Verify that the auto-generated summary is coherent and accurate for your notification content
+- If summaries are poor quality, improve your notification title/body text
+
+### Siri + App Intents — Voice-Driven Actions
+
+**What it is:** Siri can now perform in-app actions through the App Intents framework, enabling voice commands that directly interact with your app.
+
+**Implementation:**
+```swift
+import AppIntents
+
+// Define an action Siri can perform
+struct LogCigaretteIntent: AppIntent {
+    static var title: LocalizedStringResource = "Log a Cigarette"
+    static var description: IntentDescription = "Records a cigarette in your tracking history"
+
+    // Parameters Siri will ask about if not provided
+    @Parameter(title: "Number of cigarettes")
+    var count: Int
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Log \(\.$count) cigarettes")
+    }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        // Perform the action
+        await CigaretteTracker.shared.log(count: count)
+        return .result(dialog: "Logged \(count) cigarette\(count > 1 ? "s" : "")")
+    }
+}
+
+// Register with App Shortcuts for zero-setup voice commands
+struct AppShortcuts: AppShortcutsProvider {
+    static var appShortcuts: [AppShortcut] {
+        AppShortcut(
+            intent: LogCigaretteIntent(),
+            phrases: [
+                "Log a cigarette in \(.applicationName)",
+                "Track smoking in \(.applicationName)"
+            ],
+            shortTitle: "Log Cigarette",
+            systemImageName: "plus.circle"
+        )
+    }
+}
+```
+
+**SiriTipView — teach users about voice commands:**
+```swift
+// Show a tip in your UI to educate users about available Siri commands
+SiriTipView(intent: LogCigaretteIntent())
+    .siriTipViewStyle(.automatic) // Adapts to light/dark mode
+```
+
+**Personal context (iOS 18.4+):**
+- Siri can read on-screen content to answer contextual questions
+- Users can ask "What's on my screen?" and Siri analyzes visible content
+- No developer opt-in needed — works with standard UIKit/SwiftUI views
+- Opt out for sensitive screens: `.sensitiveContentAnalysis(.disabled)`
+
+### On-Device ML — General Guidelines
+
+**Device requirements:**
+- Apple Intelligence requires iPhone 15 Pro or later (A17 Pro+)
+- iPad with M1 chip or later
+- Mac with M1 chip or later
+- All processing on Apple Neural Engine (ANE) — no data sent to Apple servers
+
+**UX patterns for AI features:**
+- Show the Apple Intelligence glyph/badge where AI features are active
+- If device doesn't support Apple Intelligence, hide AI features entirely — don't show disabled/greyed-out buttons
+- Provide clear loading states: text operations complete in <2 seconds, image generation takes 5–30 seconds
+- Always show progress indicators for operations >1 second
+- Let users undo/revert any AI-generated changes
+- Make AI features discoverable but not intrusive — contextual placement, not splash screens
+
+**Privacy communication:**
+- Reassure users that processing is on-device
+- If using Private Cloud Compute (for larger models), explain that data is processed on Apple Silicon servers with no persistent storage
+- Never log or transmit AI inputs/outputs to your own servers without explicit user consent
+- Include AI processing in your privacy policy/nutrition label
+
+**Graceful degradation pattern:**
+```swift
+// Check availability before showing AI features
+if #available(iOS 18.1, *) {
+    // Check if device supports Apple Intelligence
+    // (A17 Pro+ for iPhone, M1+ for iPad/Mac)
+    if ProcessInfo.processInfo.isiOSAppOnMac ||
+       deviceSupportsAppleIntelligence {
+        showAIFeatures()
+    }
+} else {
+    // Pre-iOS 18.1: AI features not available
+    // Don't show disabled buttons — just omit the feature
+}
+```
+
+**Sources:** Apple Intelligence documentation (developer.apple.com/apple-intelligence), WWDC 2024 sessions (Bring Apple Intelligence to Your App, Get Started with Writing Tools, Image Playground API), WWDC 2025 sessions (What's New in Apple Intelligence), Apple App Intents documentation, UNNotificationInterruptionLevel documentation.
+
+---
+
+## CZ. Android 16 & Store Requirements 2025–2026
+
+Major Android platform changes and store policy updates that affect app development, submission, and compliance for 2025–2026.
+
+### Android 16 (API 36) — Key Platform Changes
+
+**Release timeline:**
+- Developer Preview: November 2024
+- Beta releases: January–May 2025
+- Stable release: Q2 2025 (June expected)
+- Platform stability (APIs finalized): April 2025
+
+**Adaptive Layouts — Now Mandatory:**
+
+Apps targeting API 36+ must properly support all screen sizes. Google Play will flag and potentially restrict apps that don't adapt to tablets, foldables, and desktop-mode displays.
+
+**WindowSizeClass breakpoints:**
+| Class | Width | Typical Devices |
+|---|---|---|
+| Compact | <600dp | Phone portrait |
+| Medium | 600–840dp | Phone landscape, small tablet, foldable inner |
+| Expanded | >840dp | Tablet, desktop, large foldable |
+
+**Canonical layouts (Google-recommended patterns):**
+```kotlin
+// Jetpack Compose: adaptive layout with WindowSizeClass
+@Composable
+fun AdaptiveScreen(windowSizeClass: WindowSizeClass) {
+    when (windowSizeClass.widthSizeClass) {
+        WindowWidthSizeClass.Compact -> {
+            // Single-column layout (phone)
+            SinglePaneContent()
+        }
+        WindowWidthSizeClass.Medium -> {
+            // List-detail or supporting pane
+            ListDetailLayout()
+        }
+        WindowWidthSizeClass.Expanded -> {
+            // Two-pane layout with navigation rail
+            TwoPaneLayout()
+        }
+    }
+}
+```
+
+**Three canonical layout patterns:**
+1. **List-Detail**: master list on left, detail on right (email, messaging)
+2. **Feed**: single content stream that widens and adds columns on larger screens
+3. **Supporting Pane**: main content with supplementary panel (map + list, video + comments)
+
+**Testing adaptive layouts:**
+- Use Android Studio resizable emulator (drag window edges to test breakpoints)
+- Desktop Device Streaming: test on real Pixel tablets remotely
+- Foldable emulators: test folded/unfolded transitions
+- Test with split-screen / multi-window mode active
+- Verify no content is clipped or overlapping at each breakpoint
+
+**Live Updates API — Richer Real-Time Notifications:**
+
+Replaces certain notification patterns with persistent, auto-updating status displays.
+
+```kotlin
+// Create a Live Update for delivery tracking
+val liveUpdate = Notification.Builder(context, CHANNEL_ID)
+    .setSmallIcon(R.drawable.ic_delivery)
+    .setContentTitle("Your order is on the way")
+    .setLiveUpdateInfo(
+        LiveUpdateInfo.Builder()
+            .setProgress(0.65f)                    // 65% progress
+            .setEta(System.currentTimeMillis() + 600_000) // ETA: 10 min
+            .setCustomLayout(remoteViews)          // Custom layout with map
+            .build()
+    )
+    .setOngoing(true)                              // Persistent
+    .build()
+
+notificationManager.notify(LIVE_UPDATE_ID, liveUpdate)
+```
+
+**Live Updates use cases:**
+- Delivery tracking with progress bar and ETA
+- Ride-sharing: driver location, arrival time
+- Sports scores: live game updates
+- Navigation: turn-by-turn directions
+- Timers/stopwatches: countdown display
+- Music/media: playback controls (already existed, now unified API)
+
+**Live Updates UX rules:**
+- Must be user-initiated (don't start Live Updates without user action)
+- Provide a clear dismiss/end mechanism
+- Update frequency: max once per second for progress, once per 5 seconds for content
+- Don't use Live Updates for advertising or promotional content
+- Automatically end when the tracked activity completes
+
+**Richer Widgets with Glance 2.0:**
+
+```kotlin
+// Jetpack Glance: compound buttons in widgets
+@Composable
+fun TaskWidget() {
+    LazyColumn {
+        items(tasks) { task ->
+            Row(
+                modifier = GlanceModifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+            ) {
+                // Checkbox in widget (new in Glance 2.0)
+                CheckBox(
+                    checked = task.isComplete,
+                    onCheckedChange = actionRunCallback<ToggleTaskAction>(
+                        actionParametersOf(taskIdKey to task.id)
+                    )
+                )
+                Text(task.title)
+            }
+        }
+    }
+}
+```
+
+**Glance 2.0 new capabilities:**
+- Compound buttons: CheckBox, RadioButton, Switch within widgets
+- Lazy lists: scrollable content in widgets (LazyColumn)
+- `GlanceModifier.clickable()` for interactive elements beyond simple tap-to-open
+- Background updates via WorkManager integration (periodic + event-driven)
+- Improved error handling: `GlanceStateDefinition` for widget state persistence
+- Sizing: `SizeMode.Responsive` with breakpoint-based layouts for different widget sizes
+
+### Target SDK Requirements — Timeline
+
+**Google Play Store deadlines:**
+
+| Date | Requirement |
+|---|---|
+| August 2025 | New apps must target API 35 (Android 15) |
+| November 2025 | App updates must target API 35 (Android 15) |
+| Mid-2026 (est.) | New apps must target API 36 (Android 16) |
+| Late 2026 (est.) | App updates must target API 36 (Android 16) |
+
+**What targeting API 35+ requires:**
+- **Edge-to-edge by default**: status bar and navigation bar are transparent, app draws behind them. Must handle `WindowInsets` properly
+- **Predictive back gesture**: system back animation shows previous destination. Must implement `OnBackPressedCallback` correctly (no more `onBackPressed()` override)
+- **Photo Picker**: must use system Photo Picker for media selection instead of requesting broad storage access (`READ_MEDIA_IMAGES`)
+- **Foreground service types**: must declare specific type (location, mediaPlayback, health, etc.) — no more generic foreground services
+- **Notification permission**: must request `POST_NOTIFICATIONS` runtime permission (Android 13+), but targeting 35 enforces stricter UX around the ask
+
+**What targeting API 36+ will additionally require:**
+- Adaptive layouts as described above
+- Live Updates API adoption where applicable
+- Enhanced privacy controls for health/fitness data
+- Stricter background execution limits
+
+### Privacy Manifest (iOS) & Data Safety (Android)
+
+**iOS Privacy Manifest — Required since March 2024:**
+
+Every app and third-party SDK must include a `PrivacyInfo.xcprivacy` file declaring:
+
+1. **Required Reason APIs** — system APIs that Apple considers privacy-sensitive:
+   - `NSUserDefaults` — must declare why you access user defaults
+   - File timestamp APIs (`NSFileModificationDate`) — must declare reason
+   - Disk space APIs (`NSFileSystemFreeSize`) — must declare reason
+   - System boot time (`systemUptime`, `mach_absolute_time`) — must declare reason
+   - Active keyboards list — must declare reason
+
+2. **Tracking domains** — domains used for cross-app tracking:
+   ```xml
+   <!-- PrivacyInfo.xcprivacy -->
+   <key>NSPrivacyTrackingDomains</key>
+   <array>
+       <string>analytics.example.com</string>
+   </array>
+   ```
+   - Listed domains are blocked by default unless user opts in via App Tracking Transparency
+   - Not listing a tracking domain that you use → App Store rejection
+
+3. **Third-party SDK signatures:**
+   - All SDKs must be signed with the developer's identity
+   - Unsigned SDKs → App Store rejection (enforced since May 2024)
+   - Use `codesign --verify` to check SDK signatures before submission
+
+4. **App Store Connect validation:**
+   - Privacy nutrition labels in App Store Connect must match the manifest
+   - Apple automated scans compare declared APIs vs. actual binary usage
+   - Discrepancy → rejection with specific guidance on what to fix
+
+**Android Data Safety Section:**
+
+Google Play requires an accurate Data Safety section declaring:
+
+**Data categories you must declare:**
+| Category | Examples |
+|---|---|
+| Location | Precise GPS, approximate/coarse location |
+| Personal info | Name, email, address, phone, date of birth |
+| Financial | Payment info, purchase history, credit score |
+| Health & fitness | Health data, exercise data, sleep, nutrition |
+| Messages | Emails, SMS, in-app messages |
+| Photos & videos | Photos, videos, screenshots |
+| Audio | Voice recordings, music files |
+| Contacts | Contact list, social connections |
+| App activity | App interactions, search history, installed apps |
+| Device/IDs | Device ID, advertising ID, crash logs |
+
+**Declaration requirements:**
+- **Collection**: data your app gathers from the user
+- **Sharing**: data sent to third parties (analytics SDKs count)
+- **Security**: encryption in transit (required), encryption at rest
+- **Data deletion**: must offer account/data deletion if you collect personal data
+  - Deletion request handling within 60 days
+  - Provide a web-accessible deletion mechanism (not just in-app)
+  - Respond to deletion requests even for inactive/deleted accounts
+
+**Compliance verification:**
+- Google performs automated analysis of your APK/AAB (network calls, SDK fingerprints)
+- Manual review for flagged apps
+- Inaccurate declarations → policy strike, potential app removal
+- Appeal process: 7 days to respond with corrected declaration
+
+### Store Review Guidelines 2025 — Key Rules
+
+**Apple App Store (2025 guidelines):**
+- Non-public API usage → automatic rejection (runtime checks detect private method calls)
+- All permission requests must include purpose strings (`NSCameraUsageDescription`, etc.)
+- Apps with account creation must offer account deletion
+- Subscription apps: must provide clear cancel flow accessible from subscription management
+- Dark patterns: rejecting apps that use UI tricks to prevent cancellation, add hidden charges, or obscure opt-outs
+- EU Digital Markets Act (DMA) compliance:
+  - Alternative app marketplaces allowed in EU (iOS 17.4+)
+  - Apps distributed outside App Store must be notarized by Apple
+  - Core Technology Fee: €0.50 per annual install above 1M (for apps using alternative distribution)
+  - Alternative payment processors allowed (Apple still collects reduced commission)
+- AI-generated content: must disclose in app metadata if the app primarily generates AI content
+- Health/medical claims: require supporting evidence and appropriate disclaimers
+
+**Google Play Store (2025 policies):**
+- Privacy policy required for all apps (not just those collecting personal data)
+- Data deletion mechanism mandatory if collecting personal data
+- Play Integrity API replaces SafetyNet Attestation:
+  ```kotlin
+  // Verify device and app integrity
+  val integrityManager = IntegrityManagerFactory.create(context)
+  val integrityTokenRequest = IntegrityTokenRequest.builder()
+      .setNonce(generateNonce())
+      .build()
+
+  integrityManager.requestIntegrityToken(integrityTokenRequest)
+      .addOnSuccessListener { response ->
+          val token = response.token()
+          // Send token to your server for verification
+          verifyOnServer(token)
+      }
+  ```
+- Device integrity verdicts: `MEETS_DEVICE_INTEGRITY`, `MEETS_BASIC_INTEGRITY`, `MEETS_STRONG_INTEGRITY`
+- Subscription transparency: price must be visible before purchase, trial terms explicit
+- AI-generated content labeling: apps generating synthetic media must label outputs
+- Kids/families: COPPA compliance, no behavioral advertising, limited data collection
+
+**Both platforms — universal requirements:**
+- All subscription apps must allow easy cancellation (max 2 taps from settings)
+- AI-generated content must be disclosed to users
+- Biometric data: explicit consent required, must explain purpose and retention
+- Third-party SDKs: developer is responsible for all SDK behavior (data collection, network calls)
+- Accessibility: while not formally required for approval, both platforms increasingly flag apps with major accessibility issues during review
+
+**Practical submission checklist 2025–2026:**
+- [ ] iOS: `PrivacyInfo.xcprivacy` present and accurate
+- [ ] iOS: all SDKs signed and include their own privacy manifests
+- [ ] iOS: purpose strings for every permission requested
+- [ ] iOS: account deletion flow tested end-to-end
+- [ ] Android: Data Safety section matches actual app behavior
+- [ ] Android: targeting API 35+ (August 2025 deadline)
+- [ ] Android: `POST_NOTIFICATIONS` permission requested properly
+- [ ] Android: edge-to-edge rendering with proper insets
+- [ ] Android: predictive back gesture supported
+- [ ] Both: privacy policy URL accessible and up-to-date
+- [ ] Both: subscription cancel flow clear and functional
+- [ ] Both: AI features disclosed in app metadata if applicable
+- [ ] Both: test on latest OS version before submission
+
+**Sources:** Android 16 Developer Preview documentation (developer.android.com/about/versions/16), Google Play Developer Policy Center (2025 updates), Apple App Review Guidelines v2025, Apple Privacy Manifest documentation, Google Play Integrity API documentation, EU Digital Markets Act compliance guidelines for app developers, WWDC 2024–2025 sessions on App Store guidelines.
