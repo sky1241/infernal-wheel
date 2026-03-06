@@ -8498,3 +8498,3680 @@ After a voice command is processed:
 2. **Emoji picker:** Grid of 12–16 most-used emoji, one tap to send.
 3. **Tiny keyboard:** T9-style or QWERTY (Wear OS Gboard, watchOS Scribble/QuickPath). Last resort — slow and error-prone on small screens.
 4. **Defer to phone:** "Open on phone" button hands the interaction to the companion app where full text input is available.
+
+---
+
+## BC. Ultra-Wideband (UWB) Features
+
+> Precision spatial awareness on wearables: directional finding, car/home unlock, and ranging sessions.
+> Sources: [Apple Nearby Interaction](https://developer.apple.com/documentation/nearbyinteraction), [Android UWB](https://developer.android.com/develop/connectivity/uwb), [FiRa Consortium](https://www.firaconsortium.org/), [IEEE 802.15.4z](https://standards.ieee.org/standard/802_15_4z-2020.html)
+
+### Overview
+
+Ultra-Wideband (UWB) uses time-of-flight radio pulses (6.5 GHz / 8 GHz bands) to measure distance with ~10 cm accuracy and angular direction within ~3 degrees azimuth. On wearables, UWB enables precision finding (locating items), car key / home unlock, and peer-to-peer spatial awareness — all without GPS power costs.
+
+**Hardware support (as of 2025):**
+
+| Device | UWB Chip | Range | Angular Accuracy |
+|--------|----------|-------|------------------|
+| Apple Watch Ultra 2 | Apple U2 | up to 50 m (line-of-sight) | +/- 3 deg azimuth |
+| Apple Watch Series 9/10 | Apple U2 | up to 50 m | +/- 3 deg azimuth |
+| Samsung Galaxy Watch Ultra | Samsung UWB | up to 30 m | +/- 5 deg azimuth |
+| Pixel Watch 3 | No UWB | N/A | N/A |
+
+### Ranging Sessions
+
+**watchOS — Nearby Interaction:**
+```swift
+import NearbyInteraction
+
+class RangingManager: NSObject, NISessionDelegate {
+    private var session: NISession?
+
+    func startRanging(with token: NIDiscoveryToken) {
+        session = NISession()
+        session?.delegate = self
+
+        let config = NINearbyPeerConfiguration(peerToken: token)
+        session?.run(config)
+    }
+
+    func session(_ session: NISession, didUpdate nearbyObjects: [NINearbyObject]) {
+        guard let object = nearbyObjects.first else { return }
+        // distance in meters (Float?), direction as simd_float3
+        let distance = object.distance  // e.g., 2.34 m
+        let direction = object.direction // unit vector (x, y, z)
+        updateUI(distance: distance, direction: direction)
+    }
+
+    func session(_ session: NISession, didInvalidateWith error: Error) {
+        // Session ended — re-run if needed
+    }
+}
+```
+
+**Android — UWB Ranging:**
+```kotlin
+import androidx.core.uwb.RangingParameters
+import androidx.core.uwb.UwbManager
+
+// AndroidX UWB API (requires UWB-capable device)
+val uwbManager = UwbManager.createInstance(context)
+val controllerSession = uwbManager.controllerSessionScope()
+
+val rangingParameters = RangingParameters(
+    uwbConfigType = RangingParameters.CONFIG_UNICAST_DS_TWR,  // Double-sided two-way ranging
+    sessionId = sessionId,
+    subSessionId = 0,
+    sessionKeyInfo = sessionKey,
+    complexChannel = controllerSession.uwbComplexChannel,
+    peerDevices = listOf(peerDevice),
+    updateRateType = RangingParameters.RANGING_UPDATE_RATE_AUTOMATIC
+)
+
+controllerSession.prepareSession(rangingParameters)
+    .collect { rangingResult ->
+        when (rangingResult) {
+            is RangingResult.RangingResultPosition -> {
+                val distance = rangingResult.position.distance?.value  // meters
+                val azimuth = rangingResult.position.azimuth?.value    // degrees
+                val elevation = rangingResult.position.elevation?.value
+            }
+            is RangingResult.RangingResultPeerDisconnected -> { /* handle */ }
+        }
+    }
+```
+
+### Directional Guidance UI
+
+When guiding the user toward a UWB target (finding a lost item, walking to a car), the watch UI must be optimized for glanceability:
+
+| Element | Specification |
+|---------|---------------|
+| Direction arrow | Minimum 48x48 dp, rotates smoothly (60 fps), points toward target relative to wrist orientation |
+| Distance readout | Large numerals (24 sp+), update rate 4 Hz, round to 0.1 m when < 5 m, round to 1 m when > 5 m |
+| Proximity zones | Far (> 10 m): blue, Medium (2-10 m): yellow, Close (< 2 m): green with haptic pulse |
+| Haptic feedback | Pulse frequency increases as distance decreases: > 5 m = 1 Hz, 2-5 m = 2 Hz, < 2 m = 4 Hz, < 0.5 m = continuous |
+| Out-of-range indicator | Show "Searching..." with subtle animation when no UWB signal detected for > 2 s |
+
+**Critical UX rule:** Always combine UWB with Bluetooth RSSI as fallback. UWB requires line-of-sight; BLE works through walls. Show "approximate" label when falling back to BLE ranging.
+
+### Car Key / Home Unlock
+
+**Apple Car Key (watchOS):**
+- Uses NFC tap for legacy + UWB for passive unlock (approach and open)
+- UWB enables hands-free: unlock when watch is within 1.5 m, lock when > 4 m
+- Wallet integration: car key appears as a pass in Apple Wallet on watch
+- Express Mode: no authentication required for unlock (configurable)
+
+**Samsung SmartThings + UWB:**
+- Digital home key via SmartThings on Galaxy Watch
+- UWB ranging triggers unlock when < 1 m from compatible door lock
+- Requires Samsung UWB-enabled watch + SmartThings-compatible lock
+
+### Privacy Considerations
+
+1. **Location inference:** UWB ranging data can triangulate a user's position within a building. Never store raw ranging data beyond the active session.
+2. **Accessory tracking protection:** Apple's Find My network and Google's Find My Device network both implement anti-stalking measures (unknown tracker alerts after 8-24 hours of co-travel).
+3. **Session tokens:** UWB discovery tokens are ephemeral. Rotate session keys every ranging session. Never persist `NIDiscoveryToken` or UWB session keys to disk.
+4. **User consent:** Always request explicit permission before initiating ranging. On watchOS, `NISession` requires the app to be in the foreground. On Android, UWB requires `UWB_RANGING` permission (normal permission, auto-granted).
+5. **FiRa MAC address randomization:** FiRa 2.0 mandates MAC address randomization per session to prevent tracking.
+
+### Checklist
+
+- ✅ Verify `NISession.deviceCapabilities.supportsDirectionMeasurement` before showing directional UI
+- ✅ Check `packageManager.hasSystemFeature("android.hardware.uwb")` on Android
+- ✅ Combine UWB + BLE for continuous ranging (UWB for precision, BLE for fallback)
+- ✅ Haptic pulse rate scales inversely with distance
+- ✅ Direction arrow accounts for wrist rotation via device motion sensors
+- ✅ Rotate UWB session keys per session
+- ✅ Gracefully degrade when UWB is unavailable (show BLE-only approximate distance)
+- ❌ Do not persist raw ranging data beyond active session
+- ❌ Do not initiate ranging without user action or clear automated trigger (e.g., approaching car)
+- ❌ Do not show precise direction if angular accuracy > 15 degrees (show distance only)
+
+### Anti-patterns
+
+1. **UWB-only design** — Many devices lack UWB. Always provide BLE fallback or the feature is unusable on Pixel Watch, older Galaxy Watch models, and Apple Watch SE.
+2. **Continuous background ranging** — UWB ranging consumes 50-80 mW. Running it continuously drains ~15% battery/hour. Use geofence or BLE proximity to trigger UWB sessions only when needed.
+3. **Arrow jitter** — Raw UWB direction updates can jitter +/- 10 degrees. Apply a low-pass filter (exponential moving average, alpha = 0.3) to smooth the arrow rotation.
+4. **No out-of-range state** — When the target moves behind a wall, UWB signal drops instantly. Without a clear "signal lost" state, users stare at a frozen arrow.
+
+**Sources:** [Apple Nearby Interaction](https://developer.apple.com/documentation/nearbyinteraction), [AndroidX UWB](https://developer.android.com/develop/connectivity/uwb), [FiRa Consortium Technical Specs](https://www.firaconsortium.org/), [Apple Car Key](https://developer.apple.com/car-keys/)
+
+---
+
+## BD. watchOS Background Execution
+
+> Budget-limited background execution on watchOS: app refresh, transfers, workout sessions, and complication updates.
+> Sources: [Apple Background Execution](https://developer.apple.com/documentation/watchkit/background_execution), [WWDC 2022 - Efficiency Awaits](https://developer.apple.com/videos/play/wwdc2022/10003/), [WWDC 2023 - Background Tasks](https://developer.apple.com/videos/play/wwdc2023/10101/)
+
+### Overview
+
+watchOS aggressively suspends apps to preserve battery. Unlike iOS, watchOS apps get minimal background time. Apple allocates a strict CPU time budget (~4 minutes total per day for background refresh, variable by usage patterns). Understanding each background mode and its limits is essential.
+
+### Background Modes
+
+| Mode | Budget | Duration per Wake | Use Case |
+|------|--------|-------------------|----------|
+| Background App Refresh | ~4 min CPU/day, ~4 wakes/hour max | ~15 s wall-clock per wake | Fetching new data, updating state |
+| URLSession Background Transfer | No CPU budget (system-managed) | Runs while app is suspended | Large downloads/uploads (sync data) |
+| Workout Session | Unlimited while active | Continuous | Active exercise tracking |
+| Bluetooth Background | Limited to active BLE connections | Connection events only | Peripheral communication |
+| Complication Timeline Update | ~50 updates/day (getTimeline) | ~15 s per update | Complication data refresh |
+| Background Audio | Continuous while playing | Until playback stops | Music / podcast playback |
+| Smart Alarm / Sleep Tracking | System-managed | Until alarm fires | Sleep monitoring |
+
+### Background App Refresh
+
+```swift
+import WatchKit
+
+// Schedule background refresh (watchOS 9+)
+func scheduleRefresh() {
+    let preferredDate = Date().addingTimeInterval(15 * 60) // 15 min from now
+    WKApplication.shared().scheduleBackgroundRefresh(
+        withPreferredDate: preferredDate,
+        userInfo: nil
+    ) { error in
+        if let error {
+            print("Schedule failed: \(error.localizedDescription)")
+        }
+    }
+}
+
+// Handle in ExtensionDelegate or @main App
+func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
+    for task in backgroundTasks {
+        switch task {
+        case let refreshTask as WKApplicationRefreshBackgroundTask:
+            // You have ~15 seconds wall-clock time
+            fetchLatestData { newData in
+                self.updateComplicationTimeline()
+                self.scheduleRefresh() // Re-schedule next refresh
+                refreshTask.setTaskCompletedWithSnapshot(true)
+            }
+        case let urlTask as WKURLSessionRefreshBackgroundTask:
+            // Background URLSession completed
+            let session = URLSession(
+                configuration: .background(withIdentifier: urlTask.sessionIdentifier),
+                delegate: self, delegateQueue: nil
+            )
+            // session delegate receives data
+            urlTask.setTaskCompletedWithSnapshot(false)
+        case let snapshotTask as WKSnapshotRefreshBackgroundTask:
+            snapshotTask.setTaskCompleted(
+                restoredDefaultState: true,
+                estimatedSnapshotExpiration: Date.distantFuture,
+                userInfo: nil
+            )
+        default:
+            task.setTaskCompletedWithSnapshot(false)
+        }
+    }
+}
+```
+
+### URLSession Background Transfers
+
+```swift
+// For syncing health data to server while app is suspended
+func startBackgroundUpload(data: Data) {
+    let config = URLSessionConfiguration.background(
+        withIdentifier: "com.app.healthSync"
+    )
+    config.isDiscretionary = false          // Send ASAP, not at system's discretion
+    config.sessionSendsLaunchEvents = true  // Wake app on completion
+
+    let session = URLSession(configuration: config, delegate: self, delegateQueue: nil)
+
+    // Write data to temp file (required for background uploads)
+    let tempURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("sync_\(UUID().uuidString).json")
+    try? data.write(to: tempURL)
+
+    var request = URLRequest(url: serverURL)
+    request.httpMethod = "POST"
+
+    let uploadTask = session.uploadTask(with: request, fromFile: tempURL)
+    uploadTask.resume()
+}
+```
+
+**Key constraint:** Background transfers on watchOS require the data to be written to a file first. In-memory `Data` uploads are not supported in background sessions.
+
+### Workout Session Background Mode
+
+```swift
+import HealthKit
+
+// Workout sessions keep the app alive in background
+let workoutConfig = HKWorkoutConfiguration()
+workoutConfig.activityType = .running
+workoutConfig.locationType = .outdoor
+
+let session = try HKWorkoutSession(healthStore: healthStore, configuration: workoutConfig)
+let builder = session.associatedWorkoutBuilder()
+
+session.startActivity(with: Date())
+builder.beginCollection(withStart: Date()) { success, error in
+    // Collecting data — app stays alive in background
+    // Heart rate, distance, calories update via builder
+}
+
+// IMPORTANT: Start a Live Activity or Ongoing Activity
+// to signal to the system this is a long-running session
+```
+
+**Budget:** Unlimited CPU while the workout session is active. The app remains in memory and receives sensor updates. This is the only mode that gives true continuous background execution on watchOS.
+
+### Complication Timeline Budget
+
+- **~50 timeline reloads per day** via `CLKComplicationServer.sharedInstance().reloadTimeline(for:)`
+- Each reload triggers `getTimeline(for:)` which should complete in < 15 s
+- Push complication updates via APNs: use `complication` push type, limited to ~50/day
+- WidgetKit complications (watchOS 9+): system controls refresh, typically 4-8 times/hour based on relevance
+
+```swift
+// Push complication update via APNs payload
+{
+    "aps": {
+        "content-available": 1
+    },
+    // No alert — silent push triggers background refresh
+}
+```
+
+### Budget Optimization Strategies
+
+1. **Batch network calls.** Combine multiple API requests into one background refresh wake. Each wake costs the same budget whether you make 1 or 5 requests.
+2. **Use URLSession background transfers for large payloads.** They do not count against CPU budget.
+3. **Prioritize complications.** If the user has your complication on their watch face, the system allocates more background refresh budget to your app.
+4. **Avoid scheduling too frequently.** Requesting refresh every 5 minutes will exhaust your ~4 daily wakes/hour quickly. 15-minute intervals are a practical minimum.
+5. **Leverage workout sessions for health apps.** If your app tracks activity, a workout session gives unlimited background time.
+
+### Checklist
+
+- ✅ Always re-schedule the next background refresh inside the current refresh handler
+- ✅ Call `setTaskCompletedWithSnapshot()` within 15 s or the system terminates the task
+- ✅ Use `isDiscretionary = false` for time-sensitive background transfers
+- ✅ Write upload data to a file (not in-memory Data) for background URLSession
+- ✅ Test background behavior on a real device — Simulator does not accurately simulate budgets
+- ✅ Use `ProcessInfo.processInfo.performExpiringActivity` for short critical tasks
+- ❌ Do not assume background refresh will fire at the exact scheduled time (system delays up to 15 min)
+- ❌ Do not rely on background refresh for time-critical alerts — use push notifications instead
+- ❌ Do not start a workout session solely to get background time (App Store Review rejection risk)
+
+### Anti-patterns
+
+1. **Polling in background** — Scheduling refresh every 2 minutes exhausts daily budget in < 2 hours. The system will throttle or stop waking your app entirely.
+2. **Ignoring budget signals** — If `scheduleBackgroundRefresh` returns an error, the system has denied the request. Back off exponentially.
+3. **Heavy computation in refresh** — Running ML inference or complex calculations during the 15 s background window risks termination and wastes budget. Pre-compute on phone, sync results.
+4. **Not testing on device** — Background execution timing on Simulator is unreliable. Always validate on hardware with Instruments > Energy Log.
+
+**Sources:** [Apple Background Execution](https://developer.apple.com/documentation/watchkit/background_execution), [WWDC 2022 Session 10003](https://developer.apple.com/videos/play/wwdc2022/10003/), [Apple URLSession Background](https://developer.apple.com/documentation/foundation/urlsessionconfiguration/1407496-background)
+
+---
+
+## BE. watchOS WidgetKit Complications
+
+> Migrating from ClockKit to WidgetKit complications: timeline entries, widget families, and refresh strategies.
+> Sources: [Apple WidgetKit for watchOS](https://developer.apple.com/documentation/widgetkit/making-a-configurable-widget), [WWDC 2022 - Complications and Widgets](https://developer.apple.com/videos/play/wwdc2022/10050/), [WWDC 2023 - Widgets on watchOS](https://developer.apple.com/videos/play/wwdc2023/10029/)
+
+### Overview
+
+Starting with watchOS 9, Apple introduced WidgetKit as the replacement for ClockKit complications. ClockKit was deprecated in watchOS 9 and removed in watchOS 11. WidgetKit complications use SwiftUI views, share the same architecture as iOS/iPadOS widgets, and support timeline-based updates with relevance scoring.
+
+### Migration from ClockKit
+
+| ClockKit Concept | WidgetKit Equivalent |
+|------------------|---------------------|
+| `CLKComplicationDataSource` | `TimelineProvider` (or `AppIntentTimelineProvider`) |
+| `CLKComplicationTemplate` | SwiftUI `View` in widget body |
+| `CLKComplicationFamily` | `WidgetFamily` (.accessoryCircular, .accessoryRectangular, etc.) |
+| `CLKComplicationTimelineEntry` | `TimelineEntry` |
+| `getTimeline(for:)` | `timeline(for:in:)` |
+| `reloadTimeline(for:)` | `WidgetCenter.shared.reloadTimelines(ofKind:)` |
+| `CLKComplicationServer.sharedInstance()` | `WidgetCenter.shared` |
+
+### Widget Families for watchOS
+
+| Family | Size | Use Case | Example |
+|--------|------|----------|---------|
+| `.accessoryCircular` | ~50x50 pt (fits circular slot) | Single metric, icon + number | Step count ring, heart rate |
+| `.accessoryRectangular` | ~160x70 pt (wide slot) | Multi-line text, small chart | Next event + time, health summary |
+| `.accessoryInline` | Single line of text (above watch face) | Short label + value | "Steps: 8,234" or "72 bpm" |
+| `.accessoryCorner` | Corner curved text + gauge | Gauge with label | Battery %, UV index gauge |
+
+### Implementation
+
+```swift
+import WidgetKit
+import SwiftUI
+
+// 1. Define the Timeline Entry
+struct CigaretteEntry: TimelineEntry {
+    let date: Date
+    let count: Int
+    let dailyLimit: Int
+    let relevance: TimelineEntryRelevance?
+}
+
+// 2. Create the Timeline Provider
+struct CigaretteProvider: TimelineProvider {
+    func placeholder(in context: Context) -> CigaretteEntry {
+        CigaretteEntry(date: .now, count: 0, dailyLimit: 10, relevance: nil)
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (CigaretteEntry) -> Void) {
+        let entry = CigaretteEntry(date: .now, count: currentCount(), dailyLimit: 10, relevance: nil)
+        completion(entry)
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<CigaretteEntry>) -> Void) {
+        let currentDate = Date()
+        let count = currentCount()
+
+        // Create entries for the next 4 hours (one per hour)
+        var entries: [CigaretteEntry] = []
+        for hourOffset in 0..<4 {
+            let entryDate = Calendar.current.date(byAdding: .hour, value: hourOffset, to: currentDate)!
+            let entry = CigaretteEntry(
+                date: entryDate,
+                count: count,
+                dailyLimit: 10,
+                relevance: TimelineEntryRelevance(score: Float(count) / 10.0) // Higher relevance when more cigarettes
+            )
+            entries.append(entry)
+        }
+
+        // Reload after 1 hour or when app signals a change
+        let timeline = Timeline(entries: entries, policy: .after(
+            Calendar.current.date(byAdding: .hour, value: 1, to: currentDate)!
+        ))
+        completion(timeline)
+    }
+}
+
+// 3. Define the Widget Views
+struct CircularComplicationView: View {
+    let entry: CigaretteEntry
+
+    var body: some View {
+        Gauge(value: Double(entry.count), in: 0...Double(entry.dailyLimit)) {
+            Text("CIG")
+        } currentValueLabel: {
+            Text("\(entry.count)")
+                .font(.system(.title3, design: .rounded, weight: .bold))
+        }
+        .gaugeStyle(.accessoryCircularCapacity)
+        .tint(entry.count > entry.dailyLimit ? .red : .green)
+    }
+}
+
+struct RectangularComplicationView: View {
+    let entry: CigaretteEntry
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            Text("Cigarettes Today")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text("\(entry.count) / \(entry.dailyLimit)")
+                .font(.system(.headline, design: .rounded))
+                .foregroundStyle(entry.count > entry.dailyLimit ? .red : .primary)
+            ProgressView(value: Double(entry.count), total: Double(entry.dailyLimit))
+                .tint(entry.count > entry.dailyLimit ? .red : .green)
+        }
+    }
+}
+
+// 4. Register the Widget
+@main
+struct CigaretteWidget: Widget {
+    let kind = "CigaretteTracker"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: CigaretteProvider()) { entry in
+            switch entry.widgetFamily {
+            case .accessoryCircular:
+                CircularComplicationView(entry: entry)
+            case .accessoryRectangular:
+                RectangularComplicationView(entry: entry)
+            case .accessoryInline:
+                Text("Cigs: \(entry.count)/\(entry.dailyLimit)")
+            default:
+                CircularComplicationView(entry: entry)
+            }
+        }
+        .configurationDisplayName("Cigarette Tracker")
+        .description("Track daily cigarette count")
+        .supportedFamilies([
+            .accessoryCircular,
+            .accessoryRectangular,
+            .accessoryInline,
+            .accessoryCorner
+        ])
+    }
+}
+```
+
+### Relevance Scoring
+
+Relevance determines which complication the Smart Stack surfaces on top:
+
+```swift
+// Score from 0.0 (low) to 1.0 (high)
+TimelineEntryRelevance(score: 0.8, duration: 3600) // High relevance for 1 hour
+
+// Examples of good relevance strategies:
+// - Workout app: score = 1.0 during active workout, 0.2 otherwise
+// - Cigarette tracker: score increases with count (0.1 at 0 cigs, 0.9 at limit)
+// - Calendar: score = 1.0 when next event is within 15 minutes
+// - Weather: score = 0.8 during active precipitation
+```
+
+**System behavior:** The Smart Stack (watchOS 10+) uses relevance scores to auto-surface the most relevant widget when the user raises their wrist. A well-tuned relevance score significantly increases complication visibility.
+
+### Refresh Strategies
+
+| Strategy | Method | Budget Impact |
+|----------|--------|---------------|
+| Timeline-based | Return future entries in `getTimeline` | Zero — pre-computed |
+| Push-triggered | APNs `complication` push -> `WidgetCenter.shared.reloadTimelines(ofKind:)` | ~50 pushes/day |
+| App-triggered | Call `reloadTimelines(ofKind:)` from foreground app | Unlimited from foreground |
+| Background refresh | `WKApplication.scheduleBackgroundRefresh` -> reload in handler | Counts against background budget |
+
+**Best practice:** Return 4-8 hours of future timeline entries in `getTimeline`. This minimizes the number of reload calls needed. Use push notifications only for unpredictable events (e.g., user logged a cigarette from the phone app).
+
+### Checklist
+
+- ✅ Support all four accessory families (circular, rectangular, inline, corner) for maximum watch face compatibility
+- ✅ Provide meaningful placeholder and snapshot (shown during widget gallery browsing)
+- ✅ Set `TimelineEntryRelevance` score appropriately for Smart Stack ranking
+- ✅ Return multiple future timeline entries to reduce reload frequency
+- ✅ Use `WidgetCenter.shared.reloadTimelines(ofKind:)` when app state changes in foreground
+- ✅ Test with `#Preview` macro and on-device for accurate rendering
+- ❌ Do not call `reloadTimelines` more than 50 times/day from background
+- ❌ Do not use images larger than 1024x1024 px in complication views
+- ❌ Do not include interactive controls in watchOS complications (not supported until watchOS 10 Smart Stack widgets)
+
+### Anti-patterns
+
+1. **Stale data** — Returning a single timeline entry with `.never` reload policy. The complication shows outdated data for hours. Always provide future entries or use `.after(date)`.
+2. **Over-reloading** — Calling `reloadTimelines` on every minor state change. Batch updates; reload at most once per significant user action.
+3. **Ignoring circular constraints** — Designing for `.accessoryRectangular` only. Circular is the most common complication slot on most watch faces. Always support it.
+4. **Text overflow in inline** — `.accessoryInline` has ~20-25 characters max. Longer text is silently truncated. Keep labels under 20 characters.
+
+**Sources:** [Apple WidgetKit](https://developer.apple.com/documentation/widgetkit), [WWDC 2022 Session 10050](https://developer.apple.com/videos/play/wwdc2022/10050/), [WWDC 2023 Session 10029](https://developer.apple.com/videos/play/wwdc2023/10029/), [Apple Widget Design Guidelines](https://developer.apple.com/design/human-interface-guidelines/widgets)
+
+---
+
+## BF. watchOS 11 HealthKit APIs
+
+> HealthKit on watchOS: workout builder, cycling/swimming sensors, custom workout types, authorization flow, and background delivery.
+> Sources: [Apple HealthKit](https://developer.apple.com/documentation/healthkit), [WWDC 2024 - What's New in HealthKit](https://developer.apple.com/videos/play/wwdc2024/10109/), [Apple Workout API](https://developer.apple.com/documentation/healthkit/workouts_and_activity_rings)
+
+### Overview
+
+HealthKit on watchOS provides direct access to health and fitness sensors. watchOS 11 (2024) expanded the API with new workout types, improved cycling metrics, swimming stroke classification, and refined authorization flows. The watch is the primary HealthKit data source for real-time biometrics; the phone acts as the long-term data store and sync hub.
+
+### Workout Builder API
+
+```swift
+import HealthKit
+
+class WorkoutManager: NSObject, HKWorkoutSessionDelegate, HKLiveWorkoutBuilderDelegate {
+    let healthStore = HKHealthStore()
+    var session: HKWorkoutSession?
+    var builder: HKLiveWorkoutBuilder?
+
+    func startWorkout(type: HKWorkoutActivityType) async throws {
+        let config = HKWorkoutConfiguration()
+        config.activityType = type
+        config.locationType = .outdoor
+
+        // For swimming
+        if type == .swimming {
+            config.swimmingLocationType = .openWater // or .pool
+            config.lapLength = HKQuantity(unit: .meter(), doubleValue: 50) // Pool length
+        }
+
+        session = try HKWorkoutSession(healthStore: healthStore, configuration: config)
+        builder = session?.associatedWorkoutBuilder()
+
+        session?.delegate = self
+        builder?.delegate = self
+
+        builder?.dataSource = HKLiveWorkoutDataSource(
+            healthStore: healthStore,
+            workoutConfiguration: config
+        )
+
+        let start = Date()
+        session?.startActivity(with: start)
+        try await builder?.beginCollection(at: start)
+    }
+
+    // Real-time data updates
+    func workoutBuilder(_ workoutBuilder: HKLiveWorkoutBuilder,
+                        didCollectDataOf collectedTypes: Set<HKSampleType>) {
+        for type in collectedTypes {
+            guard let quantityType = type as? HKQuantityType else { continue }
+            let statistics = workoutBuilder.statistics(for: quantityType)
+
+            switch quantityType {
+            case HKQuantityType(.heartRate):
+                let bpm = statistics?.mostRecentQuantity()?.doubleValue(for: .count().unitDivided(by: .minute()))
+                // Update UI: bpm
+            case HKQuantityType(.activeEnergyBurned):
+                let kcal = statistics?.sumQuantity()?.doubleValue(for: .kilocalorie())
+                // Update UI: kcal
+            case HKQuantityType(.distanceWalkingRunning):
+                let km = statistics?.sumQuantity()?.doubleValue(for: .meterUnit(with: .kilo))
+                // Update UI: km
+            case HKQuantityType(.cyclingPower):
+                let watts = statistics?.mostRecentQuantity()?.doubleValue(for: .watt())
+                // watchOS 10+ cycling power from paired sensor
+            case HKQuantityType(.cyclingSpeed):
+                let mps = statistics?.mostRecentQuantity()?.doubleValue(for: .meter().unitDivided(by: .second()))
+                // watchOS 10+ cycling speed
+            default: break
+            }
+        }
+    }
+
+    func endWorkout() async throws {
+        session?.end()
+        try await builder?.endCollection(at: Date())
+        let workout = try await builder?.finishWorkout()
+        // workout is saved to HealthKit
+    }
+}
+```
+
+### Cycling Power & Speed (watchOS 10+)
+
+New in watchOS 10 / 11:
+- **`HKQuantityType(.cyclingPower)`** — watts, from Bluetooth cycling power meter
+- **`HKQuantityType(.cyclingSpeed)`** — m/s, from speed sensor or GPS-derived
+- **`HKQuantityType(.cyclingCadence)`** — rpm, from cadence sensor
+- **Functional Threshold Power (FTP):** stored as `HKQuantityType(.cyclingFunctionalThresholdPower)`, user can set manually or Apple Watch estimates after outdoor rides
+- **Power zones:** Derived from FTP (zone 1: < 55% FTP, zone 2: 56-75%, zone 3: 76-90%, zone 4: 91-105%, zone 5: 106-120%, zone 6: > 120%)
+
+### Swimming Stroke Detection
+
+```swift
+// Swimming stroke types detected automatically
+// HKSwimmingStrokeStyle: .freestyle, .backstroke, .breaststroke, .butterfly, .mixed
+
+// Access stroke data from workout events
+func workoutSession(_ workoutSession: HKWorkoutSession,
+                    didGenerate event: HKWorkoutEvent) {
+    if event.type == .lap {
+        // Auto-detected lap (pool mode) or manual lap (open water)
+    }
+    if let metadata = event.metadata,
+       let strokeStyle = metadata[HKMetadataKeySwimmingStrokeStyle] as? Int {
+        let stroke = HKSwimmingStrokeStyle(rawValue: strokeStyle)
+        // Update UI with detected stroke type
+    }
+}
+
+// SWOLF score = strokes per lap + lap time in seconds
+// Automatically calculated by Apple Watch for pool swimming
+// Access via HKQuantityType(.swimmingStrokeCount) per lap
+```
+
+### Custom Workout Types
+
+watchOS 11 expanded `HKWorkoutActivityType` to include:
+- `.underwaterDiving` (watchOS 9+ on Ultra)
+- `.swimBikeRun` (triathlon, watchOS 9+ multi-sport)
+- `.cardioDance`
+- `.socialDance`
+- `.pickleball`
+- `.cooldown`
+
+For unsupported activities, use `.other` with custom metadata:
+
+```swift
+let config = HKWorkoutConfiguration()
+config.activityType = .other
+
+// Add custom activity name via metadata when saving
+builder?.addMetadata(
+    [HKMetadataKeyWorkoutBrandName: "Cigarette Craving Walk"],
+    completion: { _, _ in }
+)
+```
+
+### Health Data Authorization Flow
+
+```swift
+// Request authorization — must happen BEFORE any read/write
+func requestAuthorization() async throws {
+    let typesToShare: Set<HKSampleType> = [
+        HKQuantityType.workoutType(),
+        HKQuantityType(.heartRate),
+        HKQuantityType(.activeEnergyBurned)
+    ]
+
+    let typesToRead: Set<HKObjectType> = [
+        HKQuantityType(.heartRate),
+        HKQuantityType(.stepCount),
+        HKQuantityType(.oxygenSaturation),
+        HKObjectType.activitySummaryType()
+    ]
+
+    try await healthStore.requestAuthorization(toShare: typesToShare, read: typesToRead)
+    // System shows permission sheet — user grants/denies per type
+}
+```
+
+**Authorization UX rules:**
+- Request permission only when the user first attempts a feature that needs it (not at app launch)
+- The system shows authorization status as `.notDetermined`, `.sharingDenied`, or `.sharingAuthorized`. For **read** access, the status is always `.notDetermined` for privacy (you cannot tell if the user denied read access)
+- If denied, guide the user to Settings > Health > [Your App] with a deep link, do not repeatedly prompt
+
+### Background Delivery
+
+```swift
+// Receive HealthKit updates while app is in background
+func enableBackgroundDelivery() {
+    let heartRateType = HKQuantityType(.heartRate)
+
+    healthStore.enableBackgroundDelivery(
+        for: heartRateType,
+        frequency: .immediate  // .immediate, .hourly, .daily
+    ) { success, error in
+        // When new heart rate samples arrive, system wakes app briefly
+    }
+}
+
+// Set up an HKObserverQuery to handle background wakes
+let query = HKObserverQuery(sampleType: heartRateType, predicate: nil) { query, completionHandler, error in
+    // Fetch new samples here
+    // MUST call completionHandler when done
+    self.fetchNewHeartRateSamples()
+    completionHandler()
+}
+healthStore.execute(query)
+```
+
+**Budget:** `.immediate` background delivery wakes the app for each new sample but is throttled by the system. Realistically expect wakes every 5-15 minutes for heart rate. For less critical data, use `.hourly` or `.daily`.
+
+### Checklist
+
+- ✅ Request only the HealthKit data types your app actually uses (data minimization)
+- ✅ Handle `.sharingDenied` gracefully — show clear messaging about why the feature needs access
+- ✅ Use `HKLiveWorkoutBuilder` for real-time workout data (not manual `HKQuantitySample` saves)
+- ✅ Set `config.lapLength` for pool swimming to enable accurate lap counting
+- ✅ Enable background delivery only for data types that drive core app functionality
+- ✅ Call the background delivery completion handler promptly (system terminates after ~15 s)
+- ❌ Do not request authorization for all HealthKit types "just in case" — App Store Review rejects this
+- ❌ Do not check `authorizationStatus(for:)` for read types — it always returns `.notDetermined` for privacy
+- ❌ Do not save workout data without a corresponding `HKWorkoutSession` — data will lack proper attribution
+
+### Anti-patterns
+
+1. **Authorization at launch** — Prompting for HealthKit access on first launch before the user understands why. Authorization request should be triggered by a user action (e.g., tapping "Start Workout").
+2. **Ignoring multi-sport** — For apps supporting triathlons, not using `HKWorkoutSession.beginNewActivity()` for transitions. Each sport segment should be its own activity within the session.
+3. **Manual sample creation during workouts** — Creating `HKQuantitySample` objects manually instead of using the `HKLiveWorkoutBuilder` data source. The builder handles timestamps, session association, and de-duplication automatically.
+4. **Excessive background delivery** — Enabling `.immediate` delivery for 10+ data types. Each type consumes background budget. Limit to 1-2 critical types.
+
+**Sources:** [Apple HealthKit](https://developer.apple.com/documentation/healthkit), [WWDC 2024 Session 10109](https://developer.apple.com/videos/play/wwdc2024/10109/), [Apple Workout Sessions](https://developer.apple.com/documentation/healthkit/workouts_and_activity_rings)
+
+---
+
+## BG. Wear OS 5 Power Efficiency
+
+> Power budgets, passive monitoring costs, WorkManager constraints, and optimization techniques for Wear OS 5.
+> Sources: [Wear OS Power](https://developer.android.com/training/wearables/performance), [Google I/O 2024 Wear OS](https://io.google/2024/), [Watch Face Format](https://developer.android.com/training/wearables/wff), [Baseline Profiles](https://developer.android.com/topic/performance/baselineprofiles)
+
+### Overview
+
+Wear OS 5 (based on Android 14) introduced stricter power management: tighter Doze restrictions, per-app battery budgets enforced by the system, and the declarative Watch Face Format (WFF) which replaces custom `CanvasWatchFaceService` implementations with power-efficient XML/JSON definitions. The overarching goal is 24-hour battery life on a single charge for typical use.
+
+### Watch Face Format Power Budget
+
+WFF watch faces are rendered by the system compositor rather than app code, dramatically reducing power:
+
+| Approach | Avg Power Draw | CPU Wake Frequency |
+|----------|---------------|-------------------|
+| Custom `CanvasWatchFaceService` (Wear OS 3/4) | 15-40 mW active, 5-15 mW ambient | Every frame (1-10 Hz) |
+| Watch Face Format (WFF) declarative | 5-12 mW active, 1-3 mW ambient | System-managed, ~1 Hz ambient |
+| WFF with complications | 8-18 mW active | System-managed + complication refresh |
+
+```xml
+<!-- Watch Face Format example (XML declarative) -->
+<WatchFace width="450" height="450">
+    <Scene>
+        <!-- Analog hands rendered by system — no app code -->
+        <AnalogClock centerX="225" centerY="225">
+            <HourHand resource="@drawable/hour_hand" width="20" height="120" />
+            <MinuteHand resource="@drawable/minute_hand" width="14" height="160" />
+            <SecondHand resource="@drawable/second_hand" width="4" height="170" />
+        </AnalogClock>
+
+        <!-- Complication slot -->
+        <ComplicationSlot
+            slotId="top"
+            supportedTypes="SHORT_TEXT,RANGED_VALUE,ICON"
+            x="225" y="100" width="80" height="40" />
+    </Scene>
+
+    <!-- Ambient mode: hide second hand, reduce update rate -->
+    <AmbientScene>
+        <AnalogClock centerX="225" centerY="225">
+            <HourHand resource="@drawable/hour_hand_ambient" width="20" height="120" />
+            <MinuteHand resource="@drawable/minute_hand_ambient" width="14" height="160" />
+            <!-- No SecondHand in ambient — saves ~3 mW -->
+        </AnalogClock>
+    </AmbientScene>
+</WatchFace>
+```
+
+**Key rules:**
+- No second hand in ambient mode (saves 2-5 mW by reducing update rate to 1/minute)
+- Maximum 8 complication slots per watch face
+- Animations limited to 15 fps in active mode, 0 fps in ambient
+- Use vector drawables over bitmaps (50-80% smaller, scale without aliasing)
+
+### Health Services Passive Monitoring Costs
+
+| Data Type | Passive Monitoring Cost | Update Interval | Notes |
+|-----------|------------------------|-----------------|-------|
+| Heart rate (continuous) | ~8-12 mW | Every 1-5 s | Green LED PPG sensor |
+| Heart rate (periodic) | ~2-4 mW | Every 10-15 min | Default passive mode |
+| Steps | ~0.5-1 mW | Batched per minute | Accelerometer always-on |
+| Daily distance | ~0.5-1 mW | Derived from steps | No additional sensor cost |
+| SpO2 (on-demand) | ~15-20 mW | Per measurement (~30 s) | Red + IR LEDs |
+| Skin temperature | ~0.5 mW | Every 1-5 min | Passive thermistor |
+| Elevation / floors | ~1-2 mW | Per floor change | Barometer |
+| GPS (continuous) | ~80-120 mW | 1 Hz | Major battery drain |
+| GPS (batched) | ~30-50 mW | Every 5-10 s | Reduced fix rate |
+
+```kotlin
+// Passive monitoring registration (Wear OS Health Services)
+val passiveMonitoringClient = PassiveMonitoringClient(context)
+
+val passiveConfig = PassiveListenerConfig.builder()
+    .setDataTypes(setOf(
+        DataType.HEART_RATE_BPM,  // ~2-4 mW periodic
+        DataType.STEPS_DAILY,     // ~0.5 mW
+        DataType.CALORIES_DAILY   // Derived, negligible
+    ))
+    .setHealthEventTypes(setOf(
+        HealthEvent.Type.FALL_DETECTED
+    ))
+    .build()
+
+passiveMonitoringClient.setPassiveListenerServiceAsync(
+    MyPassiveListenerService::class.java,
+    passiveConfig
+)
+```
+
+### WorkManager on Wear OS
+
+WorkManager is the recommended API for deferrable background work on Wear OS. However, Wear OS imposes stricter constraints than phone Android:
+
+```kotlin
+// Wear OS WorkManager — constraints matter more on watch
+val syncWorkRequest = OneTimeWorkRequestBuilder<SyncWorker>()
+    .setConstraints(
+        Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)  // WiFi or BT-tethered
+            .setRequiresBatteryNotLow(true)  // Skip if < 15% battery
+            .setRequiresCharging(false)      // Don't require charging (watch charges rarely)
+            .build()
+    )
+    .setBackoffCriteria(
+        BackoffPolicy.EXPONENTIAL,
+        Duration.ofMinutes(10)  // Minimum 10 min on Wear OS (vs 30 s on phone)
+    )
+    .addTag("health_sync")
+    .build()
+
+WorkManager.getInstance(context).enqueueUniqueWork(
+    "health_sync",
+    ExistingWorkPolicy.REPLACE,
+    syncWorkRequest
+)
+```
+
+**Wear OS WorkManager constraints:**
+- Minimum backoff interval: 10 minutes (phone: 30 seconds)
+- Expedited work: available but system may defer during Doze
+- Periodic work minimum interval: 15 minutes (same as phone)
+- System kills workers exceeding 10 minutes execution time
+- Network constraint: prefer `CONNECTED` over `UNMETERED` (watch rarely has unmetered WiFi)
+
+### Battery Historian Analysis
+
+```bash
+# Capture bug report from watch via ADB
+adb -s <watch-serial> bugreport > watch_bugreport.zip
+
+# Upload to Battery Historian (https://bathist.ef.lc/ or run locally)
+# Key metrics to analyze:
+# - Wakelock duration per app (target: < 60 s cumulative per hour)
+# - JobScheduler/WorkManager execution count (target: < 10 per hour)
+# - Sensor usage duration (target: GPS < 5 min/hour for non-workout)
+# - Network transfer volume (target: < 500 KB per sync)
+# - CPU running time (target: < 2 min per hour in background)
+```
+
+**Power budget rule of thumb:** An app should consume < 5% battery per hour in the background. At 300 mAh battery capacity, that is 15 mAh/hour or ~45 mW average draw. Subtract system baseline (~20-25 mW) and you have ~20 mW budget for your app's background activity.
+
+### Baseline Profiles for Wear OS
+
+Baseline Profiles pre-compile critical code paths using AOT compilation, reducing cold-start jank and CPU usage (which saves power):
+
+```kotlin
+// benchmark/src/main/java/BaselineProfileGenerator.kt
+@RunWith(AndroidJUnit4::class)
+class BaselineProfileGenerator {
+    @get:Rule
+    val rule = BaselineProfileRule()
+
+    @Test
+    fun generateBaselineProfile() = rule.collect(
+        packageName = "com.example.wearapp"
+    ) {
+        // Navigate through critical user journeys
+        pressHome()
+        startActivityAndWait()
+
+        // Tile rendering path
+        device.findObject(By.text("Start")).click()
+        device.waitForIdle()
+
+        // Complication rendering path
+        // ... navigate key screens
+    }
+}
+```
+
+**Impact on Wear OS:**
+- Cold start: 20-40% faster (from ~1.5 s to ~0.9 s on Pixel Watch 3)
+- Scroll jank: 30-50% fewer dropped frames
+- Power: ~10-15% less CPU time for common operations (fewer JIT compilations at runtime)
+
+### Tile Refresh Limits
+
+| Tile State | Max Refresh Rate | Recommended |
+|------------|-----------------|-------------|
+| On-screen (user viewing) | Platform-limited ~1/min | Update only on data change |
+| Off-screen (in tile carousel) | ~4 per hour | Every 15-30 min |
+| Fresh install / first add | Immediate | Provide instant snapshot |
+
+```kotlin
+// Tile refresh request (from app)
+TileService.getUpdater(context)
+    .requestUpdate(MyTileService::class.java)
+// System may defer this request. Do not call more than once per data change event.
+```
+
+### Checklist
+
+- ✅ Migrate custom watch faces to Watch Face Format (WFF) for 50-70% power reduction
+- ✅ Remove second hand from ambient mode watch faces
+- ✅ Use passive monitoring (not active/continuous) for background health tracking
+- ✅ Set `setRequiresBatteryNotLow(true)` on non-critical WorkManager tasks
+- ✅ Generate and ship Baseline Profiles with your Wear OS app
+- ✅ Profile with Battery Historian before each release
+- ✅ Limit tile refresh to data-change events, not periodic polling
+- ❌ Do not use continuous GPS outside of active workout sessions
+- ❌ Do not hold wakelocks longer than 5 seconds for any single operation
+- ❌ Do not schedule WorkManager periodic tasks more frequently than every 15 minutes
+- ❌ Do not use `AlarmManager.setExactAndAllowWhileIdle()` for recurring work — use WorkManager
+
+### Anti-patterns
+
+1. **Continuous heart rate for non-workout apps** — Drawing 8-12 mW permanently for a cigarette tracker that only needs periodic data. Use 10-minute passive intervals instead.
+2. **GPS polling for step counting** — GPS is unnecessary for step tracking. The accelerometer provides step data at 1% of the power cost.
+3. **Custom watch face with Canvas** — Still using `CanvasWatchFaceService` on Wear OS 5. WFF is mandatory for new submissions on Google Play as of 2024.
+4. **Ignoring Doze** — Assuming your app can always access network. After 30 minutes of inactivity, Doze blocks network access. Use WorkManager with network constraints.
+
+**Sources:** [Wear OS Performance](https://developer.android.com/training/wearables/performance), [Watch Face Format](https://developer.android.com/training/wearables/wff), [Health Services API](https://developer.android.com/health-and-fitness/guides), [Baseline Profiles](https://developer.android.com/topic/performance/baselineprofiles/overview)
+
+---
+
+## BH. App Store Privacy Labels for Health Data
+
+> Required privacy disclosures for health/fitness wearable apps on Apple App Store and Google Play.
+> Sources: [Apple App Store Review Guidelines 5.1.3](https://developer.apple.com/app-store/review/guidelines/#data-collection-and-storage), [Google Play Health Policy](https://support.google.com/googleplay/android-developer/answer/10787469), [HHS HIPAA Guidance](https://www.hhs.gov/hipaa/for-professionals/index.html)
+
+### Overview
+
+Wearable health apps collect uniquely sensitive data: heart rate, workout patterns, menstrual cycles, blood oxygen, sleep, medication schedules, and smoking habits. Both Apple and Google require explicit privacy disclosures at submission. Misrepresenting data collection leads to rejection or removal. Health data is also subject to additional regulatory requirements (HIPAA in the US, GDPR in the EU) depending on context.
+
+### Apple Privacy Nutrition Labels
+
+When submitting a watchOS/iOS app that uses HealthKit, you must declare each data type in App Store Connect under "App Privacy":
+
+| Privacy Category | HealthKit Examples | Disclosure Required |
+|-----------------|-------------------|-------------------|
+| **Health & Fitness** | Heart rate, workouts, step count, sleep, menstrual cycle, blood glucose, ECG | Always if reading or writing |
+| **Body** | Height, weight, body fat %, BMI | If accessed via HealthKit |
+| **Identifiers** | HealthKit user ID (implied via device) | If linking to account |
+| **Usage Data** | App interaction (workout start/stop times) | If collected |
+| **Diagnostics** | Crash logs containing health context | If sent to server |
+
+**Mandatory disclosures for HealthKit apps:**
+1. **Data Used to Track You:** Declare if health data is linked to advertising identifiers (generally prohibited — HealthKit data cannot be used for advertising per Apple guidelines).
+2. **Data Linked to You:** Declare if health data is associated with user identity (account, email). Most health apps must declare this.
+3. **Data Not Linked to You:** Declare if health data is collected but not associated with identity (rare for health apps).
+4. **Data Not Collected:** Only if you truly never read/write HealthKit data.
+
+**Apple App Store Review Guidelines 5.1.3 (Health & HealthKit):**
+- HealthKit data may not be stored in iCloud (must use direct server-to-device sync)
+- HealthKit data may not be sold to advertising platforms, data brokers, or information resellers
+- HealthKit data may not be used for purposes other than health/fitness functionality
+- Apps must have a privacy policy accessible from within the app
+- Must clearly disclose all health data shared with third parties
+
+### Google Play Health Data Policy
+
+Google Play requires a **Permissions Declaration Form** for apps accessing health-related permissions:
+
+| Permission / API | Declaration Requirement |
+|-----------------|----------------------|
+| `BODY_SENSORS` (heart rate) | Must justify in declaration form |
+| `ACTIVITY_RECOGNITION` (steps, activity type) | Must justify in declaration form |
+| Health Connect API access | Must complete Health Connect permissions declaration |
+| `ACCESS_FINE_LOCATION` (GPS for workouts) | Must justify if used during exercise |
+| Background sensor access | Additional justification required |
+
+**Google Play Data Safety section requirements:**
+- Declare all health data types collected (activity, heart rate, sleep, etc.)
+- Declare whether data is encrypted in transit (required: yes)
+- Declare whether data can be deleted by user (required for health: yes)
+- Declare third-party sharing (analytics, cloud storage)
+- Declare data retention period
+
+**Health Connect (Android 14+):**
+- Apps must declare `READ_HEALTH_DATA_IN_BACKGROUND` for background access
+- Rate limits: 1000 read requests per 15 minutes per app
+- Data retention: Health Connect retains data for 30 days by default; longer storage requires user consent
+- Apps must implement data deletion when user requests it via Health Connect settings
+
+### HIPAA Considerations for Consumer Apps
+
+**Key distinction:** Most consumer wearable apps are NOT covered by HIPAA. HIPAA applies only to:
+1. **Covered Entities:** Hospitals, clinics, health plans, healthcare clearinghouses
+2. **Business Associates:** Companies that handle PHI on behalf of covered entities
+
+A standalone smoking cessation app that collects heart rate data is typically NOT a HIPAA-covered entity. However:
+
+| Scenario | HIPAA Applicable? |
+|----------|------------------|
+| Standalone consumer app (user tracks own health) | No |
+| App prescribed by doctor as part of treatment | Possibly (if data flows to covered entity) |
+| App that shares data with insurance company | Yes (business associate) |
+| App integrated with EHR (Epic, Cerner) | Yes (business associate) |
+| App storing data on behalf of a hospital | Yes (business associate) |
+
+**Even if not HIPAA-covered, best practices apply:**
+- Encrypt health data at rest (AES-256) and in transit (TLS 1.3)
+- Implement user data deletion (both platforms require this)
+- Minimize data collection to what the app actually needs
+- Document data retention periods
+- Conduct annual security assessment
+
+### Data Minimization Principles
+
+1. **Collect only what you use.** If your cigarette tracker needs heart rate to detect smoking patterns, do not also request blood glucose, menstrual cycle, or sleep data.
+2. **Process locally when possible.** Run ML inference on-device rather than sending raw sensor data to a server.
+3. **Aggregate before syncing.** Send daily summaries (e.g., "12 cigarettes today, avg HR 78 bpm during smoking") rather than raw per-second heart rate streams.
+4. **Delete raw data after processing.** If you collect 24 hours of accelerometer data to detect smoking gestures, delete the raw data after extracting events.
+5. **Respect opt-out.** If a user revokes HealthKit or Health Connect access, delete previously collected health data within 30 days.
+
+### Checklist
+
+- ✅ Complete Apple App Privacy nutrition labels for every HealthKit data type accessed
+- ✅ Complete Google Play Data Safety section and Permissions Declaration Form
+- ✅ Include a privacy policy accessible from within the app (required by both platforms)
+- ✅ Encrypt health data at rest (AES-256) and in transit (TLS 1.2+)
+- ✅ Implement user data deletion endpoint and in-app "Delete My Data" button
+- ✅ Request only HealthKit/Health Connect types your app actively uses
+- ✅ Never use health data for advertising or sell it to third parties
+- ✅ Store HealthKit data on-device or on your own server — not in iCloud
+- ❌ Do not access HealthKit data types you did not declare in App Store Connect
+- ❌ Do not share health data with analytics SDKs (Firebase, Mixpanel) without explicit disclosure
+- ❌ Do not retain raw health data indefinitely — define and enforce a retention period
+
+### Anti-patterns
+
+1. **Blanket HealthKit authorization** — Requesting 30+ HealthKit types when the app only uses 3. Apple reviewers check your authorization request against declared privacy labels. Mismatch = rejection.
+2. **Silent third-party sharing** — Sending heart rate data to an analytics backend without declaring it in privacy labels. Both Apple and Google enforce this; violations lead to app removal.
+3. **No deletion mechanism** — Collecting years of health data with no way for users to delete it. GDPR Article 17 (right to erasure) and both platform policies require deletion capability.
+4. **iCloud for HealthKit** — Storing HealthKit-sourced data in CloudKit or iCloud Drive. Apple explicitly prohibits this (App Store Review Guideline 5.1.3).
+
+**Sources:** [Apple App Store Review Guidelines 5.1.3](https://developer.apple.com/app-store/review/guidelines/#data-collection-and-storage), [Apple App Privacy](https://developer.apple.com/app-store/app-privacy-details/), [Google Play Health Policy](https://support.google.com/googleplay/android-developer/answer/10787469), [HHS HIPAA](https://www.hhs.gov/hipaa/for-professionals/index.html), [Health Connect](https://developer.android.com/health-and-fitness/guides/health-connect)
+
+---
+
+## BI. CoreML / TFLite on Wearable
+
+> On-device ML inference on watches: model constraints, health pattern detection, battery impact, and implementation.
+> Sources: [Apple CoreML](https://developer.apple.com/documentation/coreml), [TensorFlow Lite Micro](https://www.tensorflow.org/lite/microcontrollers), [Google On-Device ML](https://developers.google.com/ml-kit)
+
+### Overview
+
+Running ML models on-watch enables real-time health insights (anomaly detection, activity classification, sleep staging) without network latency or privacy concerns of server-side processing. However, watch hardware imposes severe constraints: limited RAM (1-2 GB shared with OS), no GPU on most watches (Apple Neural Engine is the exception), and every milliwatt of inference cost comes from a ~300 mAh battery.
+
+### Hardware Constraints
+
+| Device | ML Accelerator | Available RAM for App | CPU | Max Recommended Model Size |
+|--------|---------------|----------------------|-----|---------------------------|
+| Apple Watch S9/10/Ultra 2 | Neural Engine (4-core) | ~200-300 MB | S9/S10 SiP (2-core) | < 50 MB |
+| Apple Watch SE (2nd) | None (CPU only) | ~150 MB | S8 SiP (2-core) | < 20 MB |
+| Pixel Watch 3 | None (CPU only) | ~400 MB | Snapdragon W5 (4-core) | < 30 MB |
+| Galaxy Watch 7 | None (CPU only) | ~500 MB | Exynos W1000 (5-core) | < 30 MB |
+| Garmin Venu 3 | None | Very limited | Custom RISC | Not practical (< 1 MB) |
+
+### Model Size and Performance Guidelines
+
+| Metric | Target | Critical Limit |
+|--------|--------|----------------|
+| Model file size | < 25 MB (ideal), < 50 MB (max) | > 50 MB causes OOM on older watches |
+| Inference latency | < 50 ms per prediction | > 200 ms creates noticeable UI lag |
+| RAM during inference | < 100 MB peak | > 200 MB triggers system kill |
+| Battery per inference | < 0.5 mJ | Continuous inference at > 2 mJ/call drains 5%+ per hour |
+| Inference frequency | 1-4 Hz for real-time, batch for non-critical | > 10 Hz unnecessary for most health signals |
+
+### CoreML on watchOS
+
+```swift
+import CoreML
+
+// Load model (compiled .mlmodelc in app bundle)
+class SmokingDetector {
+    private let model: SmokingGestureClassifier  // Generated from .mlmodel
+
+    init() throws {
+        let config = MLModelConfiguration()
+        config.computeUnits = .all  // Use Neural Engine if available
+        // .cpuOnly for consistent but slower inference
+        // .cpuAndNeuralEngine for best performance on S9+
+
+        model = try SmokingGestureClassifier(configuration: config)
+    }
+
+    func classify(accelerometerWindow: MLMultiArray) -> (label: String, confidence: Double)? {
+        // Input: 3-axis accelerometer data, 50 samples at 25 Hz (2-second window)
+        // MLMultiArray shape: [1, 50, 3] (batch, time, axes)
+        guard let prediction = try? model.prediction(input:
+            SmokingGestureClassifierInput(sensorData: accelerometerWindow)
+        ) else { return nil }
+
+        return (prediction.label, prediction.labelProbability[prediction.label] ?? 0)
+    }
+
+    // Batch inference for power efficiency
+    func classifyBatch(windows: [MLMultiArray]) -> [String] {
+        // Process multiple windows at once — amortizes model load cost
+        // CoreML batch prediction (watchOS 9+)
+        let inputs = windows.map {
+            SmokingGestureClassifierInput(sensorData: $0)
+        }
+        guard let predictions = try? model.predictions(inputs: inputs) else { return [] }
+        return predictions.map { $0.label }
+    }
+}
+```
+
+**CoreML model optimization for watch:**
+- Use `coremltools` to quantize: `ct.models.neural_network.quantization_utils.quantize_weights(model, nbits=16)` reduces size ~50%
+- INT8 quantization: further 50% reduction with < 2% accuracy loss for activity classification
+- Use `MLModelConfiguration.computeUnits = .all` to leverage Neural Engine on S9/S10 (8-15x faster than CPU)
+- Compile models with `coremlc` for target deployment (watchOS specific optimizations)
+
+### TFLite on Wear OS
+
+```kotlin
+import org.tensorflow.lite.Interpreter
+import org.tensorflow.lite.support.common.FileUtil
+
+class SmokingDetector(context: Context) {
+    private val interpreter: Interpreter
+
+    init {
+        // Load .tflite model from assets
+        val modelBuffer = FileUtil.loadMappedFile(context, "smoking_classifier.tflite")
+
+        val options = Interpreter.Options().apply {
+            setNumThreads(2)          // Use 2 of 4 CPU cores
+            setUseNNAPI(false)        // NNAPI not reliable on Wear OS — use CPU
+            // setUseXNNPack(true)    // XNNPACK delegate for optimized CPU inference
+        }
+
+        interpreter = Interpreter(modelBuffer, options)
+    }
+
+    fun classify(sensorWindow: FloatArray): Pair<String, Float> {
+        // Input: [1, 50, 3] — 2-second window of 3-axis accel at 25 Hz
+        val input = arrayOf(sensorWindow.toTypedArray()
+            .toList().chunked(3).map { it.toFloatArray() }.toTypedArray())
+        val output = Array(1) { FloatArray(3) }  // 3 classes: idle, smoking, other_gesture
+
+        interpreter.run(input, output)
+
+        val labels = listOf("idle", "smoking", "other_gesture")
+        val maxIdx = output[0].indices.maxByOrNull { output[0][it] } ?: 0
+        return Pair(labels[maxIdx], output[0][maxIdx])
+    }
+
+    fun close() {
+        interpreter.close()  // Release native memory
+    }
+}
+```
+
+**TFLite optimization for Wear OS:**
+- Use `TFLiteConverter` with `optimizations=[tf.lite.Optimize.DEFAULT]` for dynamic range quantization
+- Full INT8 quantization with representative dataset reduces model to ~25% original size
+- XNNPACK delegate improves CPU inference 2-4x on ARM cores
+- Avoid NNAPI delegate on Wear OS — inconsistent hardware support across watch chipsets
+
+### Health-Specific ML Use Cases
+
+| Use Case | Input | Model Type | Size (quantized) | Inference Rate | Accuracy Target |
+|----------|-------|-----------|-------------------|----------------|-----------------|
+| Activity classification | Accelerometer 25 Hz | CNN or LSTM | 2-5 MB | 1 Hz (1-s window) | > 90% |
+| Smoking gesture detection | Accel + gyro 50 Hz | 1D-CNN | 3-8 MB | 0.5 Hz (2-s window) | > 85% |
+| Heart rate anomaly (tachycardia) | HR time series | Threshold + LSTM | 1-3 MB | 0.1 Hz (10-s window) | > 95% sensitivity |
+| Sleep staging (wake/light/deep/REM) | Accel + HR | Random Forest or CNN | 5-15 MB | 1/30 Hz (30-s epochs) | > 80% (Cohen's kappa > 0.6) |
+| Fall detection | Accel + gyro 100 Hz | 1D-CNN | 2-4 MB | 10 Hz (continuous) | > 95% sensitivity, < 1% false positive |
+
+### Battery Impact of Inference
+
+| Inference Pattern | Estimated Battery Cost | Notes |
+|-------------------|----------------------|-------|
+| Continuous 1 Hz inference (2 MB model, CPU) | ~3-5% per hour | Acceptable for active workout tracking |
+| Periodic inference every 30 s | ~0.5-1% per hour | Good for background smoking detection |
+| On-demand inference (user-triggered) | Negligible | Best for non-continuous features |
+| Continuous + sensor collection | ~5-8% per hour | Accel + gyro + inference combined |
+
+**Power optimization strategy for smoking detection:**
+1. **Stage 1 — Accelerometer gate:** Collect accel at 25 Hz (always-on, ~1 mW). Run lightweight threshold check: if wrist is raised to mouth height, proceed to stage 2.
+2. **Stage 2 — Feature extraction:** Collect 2-second window of accel + gyro. Extract features (mean, std, FFT peaks). Cost: ~2 mW for 2 seconds.
+3. **Stage 3 — ML inference:** Run classifier on extracted features. Cost: ~5 mW for ~30 ms.
+4. **Result:** Instead of continuous ML inference (~30 mW), the staged approach averages ~2-4 mW.
+
+### Checklist
+
+- ✅ Quantize models to INT8 or FP16 before deploying to watch (50-75% size reduction)
+- ✅ Target < 25 MB model size for broad device compatibility
+- ✅ Use staged inference (cheap gate -> expensive model) to reduce average power
+- ✅ Set `computeUnits = .all` on CoreML to leverage Neural Engine when available
+- ✅ Use `setNumThreads(2)` on TFLite to avoid starving the UI thread
+- ✅ Release model resources (`interpreter.close()`) when not in use
+- ✅ Test inference latency on lowest-spec target device (Apple Watch SE, older Galaxy Watch)
+- ❌ Do not load models larger than 50 MB — OOM risk on 1 GB RAM devices
+- ❌ Do not use NNAPI delegate on Wear OS — inconsistent and often slower than CPU
+- ❌ Do not run inference at > 4 Hz for health signals (diminishing returns, excessive power)
+- ❌ Do not keep the model loaded in memory when the app is in background (system may kill)
+
+### Anti-patterns
+
+1. **Server-side inference for real-time features** — Sending raw accelerometer data to a cloud API for smoking detection. Network latency (200-2000 ms) makes it useless for real-time, and it drains battery via radio usage. On-device inference at 30 ms is superior.
+2. **Unquantized FP32 models** — Deploying the training-time model directly. FP32 models are 2-4x larger and 2x slower than quantized equivalents with negligible accuracy difference for health classification tasks.
+3. **Continuous inference without gating** — Running the full ML pipeline 24/7 regardless of context. If the user is sleeping, the smoking detector should be paused. Use activity state or time-of-day to gate inference.
+4. **Single monolithic model** — One large model for all tasks (activity + smoking + sleep). Separate specialized models are smaller, faster, and can be loaded/unloaded independently.
+
+**Sources:** [Apple CoreML](https://developer.apple.com/documentation/coreml), [CoreML Tools Quantization](https://coremltools.readme.io/docs/quantization), [TensorFlow Lite](https://www.tensorflow.org/lite), [TFLite Optimization](https://www.tensorflow.org/lite/performance/model_optimization)
+
+---
+
+## BJ. Garmin Connect IQ Development
+
+> Building apps for Garmin watches: Monkey C language, app types, memory limits, display constraints, and sensor access.
+> Sources: [Garmin Connect IQ Developer Guide](https://developer.garmin.com/connect-iq/overview/), [Garmin API Docs](https://developer.garmin.com/connect-iq/api-docs/), [Connect IQ Store](https://apps.garmin.com/)
+
+### Overview
+
+Garmin watches run Connect IQ, a proprietary platform using the Monkey C programming language. Unlike Wear OS or watchOS, Garmin devices are optimized for extreme battery life (5-14 days smartwatch mode, weeks in GPS mode) at the cost of limited processing power, RAM, and display capabilities. Connect IQ apps must operate within a strict 64 KB memory budget (128 KB on newer devices like Venu 3).
+
+### App Types
+
+| Type | Purpose | Memory Limit | Lifecycle | Example |
+|------|---------|-------------|-----------|---------|
+| **Watch Face** | Custom time display | 64-128 KB | Always running (1 Hz update) | Analog face with health stats |
+| **Widget** | Glanceable info card | 64-128 KB | Runs when user scrolls to it | Daily step summary |
+| **Data Field** | Custom metric in activity screen | 32-64 KB | Active during workout recording | Smoking counter as activity field |
+| **Device App** | Full interactive application | 64-128 KB | Launched from app menu | Cigarette logger with history |
+
+### Monkey C Language Basics
+
+```javascript
+// Monkey C — syntax similar to Java/JavaScript
+using Toybox.Application;
+using Toybox.WatchUi;
+using Toybox.System;
+using Toybox.Lang;
+
+class CigaretteApp extends Application.AppBase {
+    var cigaretteCount = 0;
+
+    function initialize() {
+        AppBase.initialize();
+    }
+
+    function onStart(state) {
+        // Load saved count from storage
+        var stored = Application.Storage.getValue("count");
+        if (stored != null) {
+            cigaretteCount = stored;
+        }
+    }
+
+    function onStop(state) {
+        // Persist count
+        Application.Storage.setValue("count", cigaretteCount);
+    }
+
+    function getInitialView() {
+        return [new CigaretteView(), new CigaretteDelegate()];
+    }
+}
+
+class CigaretteView extends WatchUi.View {
+    function initialize() {
+        View.initialize();
+    }
+
+    function onUpdate(dc) {
+        // dc = DeviceContext (drawing canvas)
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_BLACK);
+        dc.clear();
+
+        var app = Application.getApp();
+        var count = app.cigaretteCount;
+
+        // Center text on circular display
+        var cx = dc.getWidth() / 2;
+        var cy = dc.getHeight() / 2;
+
+        dc.drawText(cx, cy - 30, Graphics.FONT_LARGE, count.toString(),
+            Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, cy + 20, Graphics.FONT_SMALL, "cigarettes",
+            Graphics.TEXT_JUSTIFY_CENTER);
+    }
+}
+
+class CigaretteDelegate extends WatchUi.BehaviorDelegate {
+    function initialize() {
+        BehaviorDelegate.initialize();
+    }
+
+    function onSelect() {
+        // Physical button press or tap — increment counter
+        var app = Application.getApp();
+        app.cigaretteCount++;
+        Application.Storage.setValue("count", app.cigaretteCount);
+
+        // Haptic feedback
+        if (Attention has :vibrate) {
+            Attention.vibrate([new Attention.VibeProfile(50, 100)]);
+        }
+
+        WatchUi.requestUpdate();  // Trigger onUpdate redraw
+        return true;
+    }
+}
+```
+
+### Memory Management (64 KB Limit)
+
+The 64 KB limit applies to **runtime heap** — all objects, arrays, strings, and bitmaps your code allocates. This is extremely tight.
+
+**Memory budget breakdown for a typical app:**
+| Component | Estimated Cost | Notes |
+|-----------|---------------|-------|
+| Monkey C runtime overhead | ~8-12 KB | VM, stack, system objects |
+| App class + delegates | ~2-4 KB | Per-class overhead |
+| Bitmap (full screen 218x218) | ~20-48 KB | 1 bitmap can exhaust memory |
+| String array (20 items) | ~1-2 KB | Each string ~50-100 bytes |
+| Sensor data buffer (100 samples) | ~2-4 KB | Float arrays |
+| Remaining for logic | ~10-30 KB | Very constrained |
+
+**Strategies:**
+- Never load full-screen bitmaps. Use vector drawing (`dc.drawLine`, `dc.drawCircle`, `dc.fillRectangle`) instead.
+- Release resources in `onHide()`, reallocate in `onShow()`.
+- Use `System.getSystemStats().freeMemory` to monitor available memory at runtime.
+- Limit history arrays to 20-50 entries. Offload to `Application.Storage` (persisted, not counted in heap).
+- Avoid string concatenation in loops (creates garbage, fragments heap).
+
+### Display Constraints
+
+| Device Series | Resolution | Shape | Color Depth | Touchscreen |
+|---------------|-----------|-------|-------------|-------------|
+| Venu 3 / 3S | 454x454 / 390x390 | Round | 16-bit (65K colors) | Yes |
+| Venu 2 / Sq 2 | 416x416 / 320x360 | Round / Square | 16-bit | Yes |
+| Forerunner 965 | 454x454 | Round | 16-bit | Yes |
+| Forerunner 265 | 416x416 | Round | 16-bit | Yes |
+| Forerunner 55 | 208x208 | Round | MIP (64 colors) | No |
+| Fenix 7 / Epix 2 | 260x260 / 416x416 | Round | MIP / AMOLED | Varies |
+| Instinct 2 | 176x176 | Round (notched) | Monochrome | No |
+
+**MIP (Memory-in-Pixel) displays:**
+- Only 64 colors (8 per channel, 2-bit per RGB)
+- Always-on, near-zero power (no backlight needed in daylight)
+- Design for high contrast (black + 1-2 accent colors)
+- No anti-aliasing — use 1 px lines, avoid gradients
+
+**AMOLED displays (Venu, Epix):**
+- Full 16-bit color (65,536 colors)
+- OLED burn-in risk: shift pixels 1-2 px periodically on watch faces
+- Dark backgrounds save power (OLED pixels off = zero power)
+
+### Sensor Access
+
+```javascript
+using Toybox.Sensor;
+using Toybox.SensorHistory;
+
+// Real-time sensor access
+class SensorManager {
+    function enableSensors() {
+        // Register for sensor events
+        Sensor.setEnabledSensors([Sensor.SENSOR_HEARTRATE, Sensor.SENSOR_ONBOARD_ACCELEROMETER]);
+        Sensor.enableSensorEvents(method(:onSensor));
+    }
+
+    function onSensor(info) {
+        if (info.heartRate != null) {
+            var hr = info.heartRate;  // BPM (integer)
+        }
+        if (info has :accel && info.accel != null) {
+            // 3-axis accelerometer: [x, y, z] in milli-g
+            var x = info.accel[0];
+            var y = info.accel[1];
+            var z = info.accel[2];
+        }
+    }
+
+    // Historical sensor data (SensorHistory)
+    function getLast24HoursHeartRate() {
+        var iter = SensorHistory.getHeartRateHistory({
+            :period => 86400  // 24 hours in seconds
+        });
+        var sample = iter.next();
+        while (sample != null) {
+            var hr = sample.data;      // BPM or null
+            var time = sample.when;    // Moment timestamp
+            sample = iter.next();
+        }
+    }
+}
+```
+
+**Available sensors by device tier:**
+
+| Sensor | Venu 3 | Forerunner 265 | Forerunner 55 | Instinct 2 |
+|--------|--------|---------------|--------------|------------|
+| Heart rate (PPG) | Yes | Yes | Yes | Yes |
+| SpO2 | Yes | Yes | No | Yes |
+| Accelerometer | Yes | Yes | Yes | Yes |
+| Gyroscope | Yes | Yes | No | No |
+| Barometer | Yes | Yes | No | Yes |
+| Compass | Yes | Yes | No | Yes |
+| GPS | Yes | Yes | Yes | Yes |
+| Temperature | Yes | Yes | No | No |
+| ECG | No | No | No | No |
+
+### Connect IQ Store Submission
+
+- **Review time:** 5-10 business days (longer than Apple/Google)
+- **Size limit:** 512 KB for app bundle (code + resources)
+- **Device compatibility:** Must declare supported devices in `manifest.xml`
+- **Permissions:** Declare in manifest: `<iq:permissions><uses-permission id="Sensor" /><uses-permission id="Storage" /></iq:permissions>`
+- **Minimum SDK version:** Connect IQ 4.0+ recommended for modern devices
+
+### Checklist
+
+- ✅ Monitor `System.getSystemStats().freeMemory` during development — crash if < 2 KB free
+- ✅ Use vector drawing instead of bitmap images wherever possible
+- ✅ Support both MIP (64-color) and AMOLED (65K-color) displays via resource overrides
+- ✅ Test on real hardware — Garmin Simulator does not accurately reflect memory pressure
+- ✅ Release sensor listeners in `onHide()` to avoid background power drain
+- ✅ Use `Application.Storage` for data persistence (survives app restart, not counted in heap)
+- ✅ Keep app bundle under 256 KB for fast install over Bluetooth
+- ❌ Do not allocate full-screen bitmaps (20-48 KB each — nearly the entire heap)
+- ❌ Do not use string concatenation in loops (use `StringUtil.format()` or pre-allocated buffers)
+- ❌ Do not assume touchscreen — many Garmin devices are button-only (5-button layout)
+- ❌ Do not target fewer than 10 device models (limits discoverability in Connect IQ Store)
+
+### Anti-patterns
+
+1. **Port from Wear OS without redesign** — A Wear OS app uses 200 MB RAM and touch gestures. Direct port to Connect IQ is impossible. Redesign for 64 KB and physical buttons.
+2. **Full-screen background images** — A 218x218 16-bit bitmap uses ~93 KB uncompressed. Exceeds entire memory budget. Use solid colors and drawn shapes.
+3. **Continuous sensor polling** — Enabling accelerometer at 25 Hz permanently halves battery life on Garmin. Use it only during active tracking, disable in `onHide()`.
+4. **Ignoring MIP displays** — Designing only for AMOLED (gradients, rich colors). On a Fenix 7 with MIP display, the UI is unreadable. Always provide a high-contrast MIP resource set.
+
+**Sources:** [Garmin Connect IQ Developer Guide](https://developer.garmin.com/connect-iq/overview/), [Garmin API Reference](https://developer.garmin.com/connect-iq/api-docs/), [Monkey C Language Reference](https://developer.garmin.com/connect-iq/reference-guides/monkey-c-reference/), [Connect IQ Store](https://apps.garmin.com/)
+
+---
+
+## BK. Fitbit OS / Fitbit SDK (Legacy + Transition)
+
+> Legacy Fitbit SDK architecture, the transition to Wear OS via Pixel Watch, and migration guidance.
+> Sources: [Fitbit Developer Docs (archived)](https://dev.fitbit.com/), [Google Fitbit Transition](https://blog.google/products/fitbit/), [Pixel Watch Developer Guide](https://developer.android.com/training/wearables)
+
+### Overview
+
+Fitbit OS was a proprietary platform running on Fitbit Sense, Versa, and Ionic series watches. Following Google's acquisition of Fitbit (January 2021), the platform has been sunsetted in favor of Wear OS. The Pixel Watch (2022+) runs Wear OS with Fitbit health integration. Fitbit SDK ceased accepting new app submissions in 2024, though existing apps continue to function on legacy hardware.
+
+### Fitbit SDK Architecture (Legacy)
+
+**Three-tier architecture:**
+
+| Component | Language | Runtime | Role |
+|-----------|---------|---------|------|
+| **Device App** | JavaScript (ES6) | JerryScript VM on watch | UI rendering, sensor access, local logic |
+| **Companion App** | JavaScript (ES6) | Runs on paired phone | Internet access, heavy computation, phone APIs |
+| **Settings** | JSX (React-like) | Runs in Fitbit mobile app | Configuration UI for the watch app |
+
+```javascript
+// Device app (runs on watch) — clock face example
+import clock from "clock";
+import { HeartRateSensor } from "heart-rate";
+import document from "document";
+
+// Update every second
+clock.granularity = "seconds";
+
+const hrm = new HeartRateSensor({ frequency: 1 }); // 1 Hz
+hrm.addEventListener("reading", () => {
+    const hrLabel = document.getElementById("hr-value");
+    hrLabel.text = `${hrm.heartRate} bpm`;
+});
+hrm.start();
+
+clock.addEventListener("tick", (evt) => {
+    const now = evt.date;
+    const hours = now.getHours();
+    const mins = ("0" + now.getMinutes()).slice(-2);
+    document.getElementById("time").text = `${hours}:${mins}`;
+});
+```
+
+```javascript
+// Companion app (runs on phone) — fetch data from server
+import { settingsStorage } from "settings";
+import { peerSocket } from "messaging";
+
+// Receive message from watch
+peerSocket.addEventListener("message", (evt) => {
+    if (evt.data.type === "cigarette_logged") {
+        // Send to server
+        fetch("https://api.example.com/log", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                count: evt.data.count,
+                timestamp: evt.data.timestamp
+            })
+        });
+    }
+});
+```
+
+```jsx
+// Settings page (JSX, rendered in Fitbit mobile app)
+function settingsComponent(props) {
+    return (
+        <Page>
+            <Section title="Daily Limit">
+                <Slider
+                    label="Max cigarettes per day"
+                    settingsKey="dailyLimit"
+                    min="1"
+                    max="40"
+                />
+            </Section>
+            <Section title="Notifications">
+                <Toggle
+                    settingsKey="enableReminders"
+                    label="Hourly reminders"
+                />
+            </Section>
+        </Page>
+    );
+}
+registerSettingsPage(settingsComponent);
+```
+
+### Fitbit SDK Constraints
+
+| Constraint | Value | Notes |
+|-----------|-------|-------|
+| Device app memory | ~64 KB JS heap | Similar to Garmin |
+| Display resolution | 336x336 (Sense 2, Versa 4) | Square with rounded corners |
+| Touch support | Yes (swipe + tap) | No physical buttons except side button |
+| Sensor access | HR, accelerometer, gyro, SpO2, skin temp | Via Sensor API |
+| Communication | Peer messaging (watch <-> phone) | No direct internet from watch |
+| File transfer | Via File Transfer API | Max 5 MB per transfer |
+| App size limit | 10 MB (resources + code) | Clock faces: 2 MB |
+| Battery impact | Apps budgeted ~5% per day background | System enforces limits |
+
+### Migration: Fitbit OS to Wear OS (Pixel Watch)
+
+**Key differences for migrating developers:**
+
+| Aspect | Fitbit OS | Wear OS (Pixel Watch) |
+|--------|-----------|----------------------|
+| Language | JavaScript | Kotlin/Java (or Compose) |
+| UI Framework | SVG-based (document model) | Jetpack Compose for Wear OS |
+| Health Data | Fitbit Web API / device sensors | Health Services API + Health Connect |
+| Complications | Clock face only | WidgetKit-style Tiles + Complications |
+| Background | Companion app on phone | WorkManager, Health Services passive |
+| Distribution | Fitbit App Gallery | Google Play Store |
+| Settings | JSX settings page | Phone companion app or on-watch Preferences |
+
+**Migration checklist:**
+1. **Rewrite UI in Compose for Wear OS.** No automated migration exists from SVG/JS to Compose.
+2. **Replace Fitbit Web API with Health Connect.** Fitbit Web API remains available for historical data, but new data on Pixel Watch flows through Health Connect.
+3. **Replace peer messaging with Data Layer API.** The `peerSocket` pattern maps to `MessageClient` / `DataClient` on Wear OS.
+4. **Replace clock face with Watch Face Format (WFF).** Custom watch faces must use WFF on Wear OS 5+.
+5. **Port settings to companion phone app or on-watch PreferenceScreen.**
+
+### Fitbit Web API (Still Active)
+
+The Fitbit Web API remains operational for accessing user health data from server-side applications:
+
+```bash
+# OAuth 2.0 flow to access Fitbit data
+# Scopes: activity, heartrate, sleep, weight, nutrition, oxygen_saturation
+
+# Get daily activity summary
+GET https://api.fitbit.com/1/user/-/activities/date/2026-03-06.json
+Authorization: Bearer <access_token>
+
+# Get heart rate time series (1-day, 1-min intervals)
+GET https://api.fitbit.com/1/user/-/activities/heart/date/2026-03-06/1d/1min.json
+Authorization: Bearer <access_token>
+
+# Get sleep log
+GET https://api.fitbit.com/1.2/user/-/sleep/date/2026-03-06.json
+Authorization: Bearer <access_token>
+```
+
+**Rate limits:** 150 API requests per hour per user. Use webhooks (Subscription API) instead of polling for real-time updates.
+
+### Checklist
+
+- ✅ For new projects, target Wear OS (not Fitbit OS) — Fitbit SDK is sunset
+- ✅ Use Fitbit Web API for server-side access to legacy Fitbit user data
+- ✅ If migrating from Fitbit OS, plan a full rewrite (no automated migration tools)
+- ✅ Register for Fitbit Web API Subscription webhooks instead of polling
+- ✅ Support Health Connect on Pixel Watch for accessing Fitbit health data natively
+- ❌ Do not submit new apps to Fitbit App Gallery (no longer accepting submissions as of 2024)
+- ❌ Do not assume Fitbit Web API data and Health Connect data are identical (different processing pipelines, slight metric differences)
+- ❌ Do not rely on Fitbit companion app architecture on Wear OS (Wear OS apps can access internet directly)
+
+### Anti-patterns
+
+1. **Building new features on Fitbit SDK** — The platform is frozen. Invest in Wear OS for future-proof development.
+2. **Direct API migration without UX redesign** — Fitbit's SVG-based UI and Wear OS Compose have fundamentally different interaction patterns. A 1:1 port produces a poor experience.
+3. **Ignoring Health Connect** — On Pixel Watch, health data flows through Health Connect. Accessing only the Fitbit Web API misses real-time data available on-device.
+4. **Polling Fitbit Web API** — Making 150 requests/hour to check for new data. Use the Subscription API for push-based updates.
+
+**Sources:** [Fitbit Developer Docs](https://dev.fitbit.com/), [Fitbit Web API Reference](https://dev.fitbit.com/build/reference/web-api/), [Google Fitbit Acquisition Blog](https://blog.google/products/fitbit/), [Health Connect](https://developer.android.com/health-and-fitness/guides/health-connect)
+
+---
+
+## BL. ECG Waveform Rendering
+
+> Displaying real-time ECG data on a watch screen: paper speed standards, gain, grid overlay, regulatory considerations.
+> Sources: [Apple ECG](https://developer.apple.com/documentation/healthkit/hkelectrocardiogram), [AHA ECG Standards](https://www.ahajournals.org/doi/10.1161/CIRCULATIONAHA.106.180200), [FDA De Novo DEN180044](https://www.accessdata.fda.gov/cdrh_docs/reviews/DEN180044.pdf)
+
+### Overview
+
+ECG (electrocardiogram) recording is available on Apple Watch Series 4+ and Samsung Galaxy Watch 4+. Rendering a medical-grade ECG waveform on a 1.5-2 inch screen requires careful adherence to AHA/ACC display standards while adapting for the tiny viewport. The Apple ECG app received FDA De Novo clearance (Class II) for single-lead ECG with atrial fibrillation detection.
+
+### ECG Display Standards
+
+Medical ECG paper uses a standardized grid:
+
+| Parameter | Standard Value | Watch Adaptation |
+|-----------|---------------|-----------------|
+| Paper speed | 25 mm/s (standard), 50 mm/s (detail) | 25 mm/s mapped to screen pixels |
+| Gain | 10 mm/mV (standard) | 10 mm/mV or auto-scale to fit screen height |
+| Grid major divisions | 5 mm (= 0.2 s horizontally, 0.5 mV vertically) | Render as subtle lines or dots |
+| Grid minor divisions | 1 mm (= 0.04 s horizontally, 0.1 mV vertically) | Omit on watch (too dense for small screen) |
+| Waveform line width | 0.5-1 mm on paper | 2-3 px on watch (retina equivalent) |
+| Background color | White (paper) or black (monitor) | Black preferred on OLED (saves power, reduces burn-in) |
+| Waveform color | Black (paper) or green (monitor) | Green (#00FF00) on black — high contrast, medical convention |
+
+**Mapping to watch pixels (Apple Watch 45mm, 396x484 px, ~326 PPI):**
+- 1 mm on paper = ~12.8 px at 326 PPI
+- 25 mm/s paper speed = 320 px/s on screen
+- At 320 px/s, a 396 px-wide screen shows ~1.24 seconds of ECG
+- 10 mm/mV gain = 128 px/mV
+- Typical QRS complex height (1-2 mV) = 128-256 px (fits comfortably in screen height)
+
+### Real-Time ECG Rendering
+
+**watchOS — Reading ECG from HealthKit (post-recording):**
+```swift
+import HealthKit
+
+func readECG() async throws {
+    let ecgType = HKObjectType.electrocardiogramType()
+    let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+    let query = HKSampleQuery(sampleType: ecgType, predicate: nil,
+                               limit: 1, sortDescriptors: [sortDescriptor]) { _, samples, _ in
+        guard let ecg = samples?.first as? HKElectrocardiogram else { return }
+
+        // ECG metadata
+        let classification = ecg.classification  // .sinusRhythm, .atrialFibrillation, .inconclusive
+        let averageHR = ecg.averageHeartRate     // HKQuantity (bpm)
+        let samplingFrequency = ecg.samplingFrequency  // HKQuantity (Hz), typically 512 Hz
+        let numberOfVoltageMeasurements = ecg.numberOfVoltageMeasurements  // ~15,360 for 30s
+
+        // Read voltage measurements
+        var voltages: [Double] = []
+        let voltageQuery = HKElectrocardiogramQuery(ecg) { query, result in
+            switch result {
+            case .measurement(let measurement):
+                if let voltage = measurement.quantity(for: .appleWatchSimilarToLeadI) {
+                    voltages.append(voltage.doubleValue(for: .voltUnit(with: .micro)))
+                    // Voltage in microvolts (typically -500 to +1500 uV)
+                }
+            case .done:
+                // All measurements received — render waveform
+                DispatchQueue.main.async {
+                    self.renderECGWaveform(voltages: voltages, sampleRate: 512)
+                }
+            case .error(let error):
+                print("ECG query error: \(error)")
+            @unknown default: break
+            }
+        }
+        self.healthStore.execute(voltageQuery)
+    }
+    healthStore.execute(query)
+}
+```
+
+**SwiftUI ECG Waveform View:**
+```swift
+struct ECGWaveformView: View {
+    let voltages: [Double]  // in microvolts
+    let sampleRate: Double  // 512 Hz
+    let paperSpeed: Double = 25.0  // mm/s
+    let gain: Double = 10.0  // mm/mV
+
+    var body: some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let height = geometry.size.height
+            let ppi: Double = 326  // Apple Watch PPI
+            let mmPerPx = 25.4 / ppi  // ~0.078 mm/px
+
+            // Pixels per second = paperSpeed / mmPerPx
+            let pxPerSecond = paperSpeed / mmPerPx  // ~320 px/s
+            // Pixels per mV = gain / mmPerPx
+            let pxPerMV = gain / mmPerPx  // ~128 px/mV
+
+            // How many samples fit on screen
+            let visibleDuration = Double(width) / pxPerSecond  // ~1.24 s
+            let visibleSamples = Int(visibleDuration * sampleRate)  // ~635 samples
+
+            ZStack {
+                // Grid (major divisions only)
+                ECGGridView(width: width, height: height, mmPerPx: mmPerPx)
+
+                // Waveform
+                Path { path in
+                    let startIdx = max(0, voltages.count - visibleSamples)
+                    let centerY = height / 2
+
+                    for i in startIdx..<voltages.count {
+                        let x = Double(i - startIdx) / Double(visibleSamples) * Double(width)
+                        let voltageMV = voltages[i] / 1000.0  // uV to mV
+                        let y = centerY - (voltageMV * pxPerMV)
+
+                        if i == startIdx {
+                            path.move(to: CGPoint(x: x, y: y))
+                        } else {
+                            path.addLine(to: CGPoint(x: x, y: y))
+                        }
+                    }
+                }
+                .stroke(Color.green, lineWidth: 2)
+            }
+        }
+    }
+}
+
+struct ECGGridView: View {
+    let width: Double
+    let height: Double
+    let mmPerPx: Double
+
+    var body: some View {
+        Canvas { context, size in
+            let majorSpacing = 5.0 / mmPerPx  // 5mm grid = ~64 px
+
+            // Vertical lines (time markers, 0.2s each)
+            var x: Double = 0
+            while x < width {
+                context.stroke(
+                    Path { p in p.move(to: CGPoint(x: x, y: 0)); p.addLine(to: CGPoint(x: x, y: height)) },
+                    with: .color(.gray.opacity(0.3)),
+                    lineWidth: 0.5
+                )
+                x += majorSpacing
+            }
+
+            // Horizontal lines (voltage markers, 0.5mV each)
+            var y: Double = 0
+            while y < height {
+                context.stroke(
+                    Path { p in p.move(to: CGPoint(x: 0, y: y)); p.addLine(to: CGPoint(x: width, y: y)) },
+                    with: .color(.gray.opacity(0.3)),
+                    lineWidth: 0.5
+                )
+                y += majorSpacing
+            }
+        }
+    }
+}
+```
+
+### P-QRS-T Labeling
+
+On a watch-sized screen, full waveform annotation is impractical. Best practices:
+
+- **Do not label individual P, QRS, T waves on the live waveform** — too small, too dense
+- **Show classification result as text above waveform:** "Sinus Rhythm" or "Atrial Fibrillation"
+- **Show average heart rate** prominently (large font, top of screen)
+- **Use color coding for classification:** Green = sinus rhythm, Red = AFib detected, Yellow = inconclusive
+- **Detailed annotation (P-QRS-T markers) should be on the phone app** where the screen is large enough
+
+### Data Export
+
+```swift
+// Export ECG as PDF (medical standard format)
+func exportECGAsPDF(voltages: [Double], metadata: ECGMetadata) -> Data {
+    let pageSize = CGRect(x: 0, y: 0, width: 612, height: 792) // Letter size
+    let renderer = UIGraphicsPDFRenderer(bounds: pageSize)
+
+    return renderer.pdfData { context in
+        context.beginPage()
+        // Draw standard ECG grid (25mm/s, 10mm/mV)
+        // Draw waveform
+        // Add metadata: date, time, HR, classification, device info
+        // Add calibration pulse (1mV, 200ms) at start
+    }
+}
+
+// Export as CSV for research use
+func exportAsCSV(voltages: [Double], sampleRate: Double) -> String {
+    var csv = "timestamp_ms,voltage_uv\n"
+    for (i, v) in voltages.enumerated() {
+        let timeMs = Double(i) / sampleRate * 1000.0
+        csv += "\(String(format: "%.1f", timeMs)),\(String(format: "%.1f", v))\n"
+    }
+    return csv
+}
+```
+
+### Regulatory Framework
+
+| Aspect | Apple Watch ECG | Samsung Galaxy Watch ECG |
+|--------|----------------|------------------------|
+| Regulatory clearance | FDA De Novo (Class II) DEN180044 | FDA 510(k) K222575 |
+| Intended use | Rhythm classification (AFib vs Sinus) | Rhythm classification (AFib vs Sinus) |
+| Not intended for | Diagnosis of heart attacks, other arrhythmias | Same |
+| Lead type | Single-lead (similar to Lead I) | Single-lead (Lead I equivalent) |
+| Recording duration | 30 seconds | 30 seconds |
+| Sample rate | 512 Hz | 500 Hz |
+| Age restriction | 22+ years (Apple), no restriction on Samsung | 22+ years |
+| Contraindications | Pacemakers, implanted defibrillators | Same |
+
+**Key regulatory UX requirements:**
+- Must display disclaimer: "This is not a medical diagnosis"
+- Must indicate when results are inconclusive (poor signal, too much motion)
+- Must recommend contacting a healthcare provider for abnormal results
+- Must not use alarming language (avoid "heart attack" or "danger")
+- PDF export must include calibration pulse and standard formatting for physician review
+
+### Checklist
+
+- ✅ Use 25 mm/s paper speed and 10 mm/mV gain as defaults (AHA standard)
+- ✅ Green waveform on black background for OLED watch displays
+- ✅ Show classification result prominently (Sinus Rhythm / AFib / Inconclusive)
+- ✅ Display average heart rate during recording
+- ✅ Include calibration pulse (1 mV, 200 ms) in exported PDF
+- ✅ Provide PDF and/or CSV export for sharing with healthcare provider
+- ✅ Show disclaimer text per regulatory requirements
+- ✅ Waveform line width: 2-3 px (visible on small screen without obscuring detail)
+- ❌ Do not label individual P-QRS-T waves on the watch screen (too small)
+- ❌ Do not render minor grid divisions on watch (1 mm grid is < 13 px — visual noise)
+- ❌ Do not use red for the waveform color (red is reserved for alarm states in medical displays)
+- ❌ Do not allow ECG recording during physical activity (motion artifacts invalidate results)
+
+### Anti-patterns
+
+1. **Rendering without calibration reference** — Without the 1 mV / 200 ms calibration pulse, a physician cannot assess gain accuracy. Always include it in exports.
+2. **Auto-scaling gain** — Dynamically adjusting the Y-axis to fit the waveform makes it impossible to visually compare recordings. Use fixed 10 mm/mV gain; offer 5 mm/mV and 20 mm/mV as options.
+3. **Continuous ECG streaming** — Apple Watch records 30-second ECG snapshots, not continuous ECG. Designing UI for "live ECG monitoring" sets incorrect user expectations and may violate regulatory clearance scope.
+4. **Diagnostic language** — Using words like "diagnosis," "heart attack detected," or "seek emergency care immediately" in the app. The device is cleared for rhythm classification only, not diagnosis.
+
+**Sources:** [Apple HKElectrocardiogram](https://developer.apple.com/documentation/healthkit/hkelectrocardiogram), [AHA ECG Standards (Circulation 2007)](https://www.ahajournals.org/doi/10.1161/CIRCULATIONAHA.106.180200), [FDA De Novo DEN180044](https://www.accessdata.fda.gov/cdrh_docs/reviews/DEN180044.pdf), [Samsung ECG FDA 510(k)](https://www.accessdata.fda.gov/cdrh_docs/pdf22/K222575.pdf)
+
+---
+
+## BM. Continuous Glucose Monitor (CGM) Integration
+
+> Displaying CGM data on wearables: glucose values, trend arrows, time-in-range, urgent alerts, and platform integration.
+> Sources: [Apple HealthKit Glucose](https://developer.apple.com/documentation/healthkit/hkquantitytypeidentifier/bloodglucose), [Dexcom Developer API](https://developer.dexcom.com/), [FDA CGM Guidance](https://www.fda.gov/medical-devices/in-vitro-diagnostics/glucose-monitoring-devices)
+
+### Overview
+
+Continuous Glucose Monitors (CGMs) like Dexcom G7 and Abbott FreeStyle Libre 3 provide real-time glucose readings every 1-5 minutes. Wearable integration allows users (primarily Type 1/Type 2 diabetes patients) to glance at glucose levels, trends, and alerts without pulling out a phone. This is a safety-critical feature — missed hypoglycemia alerts can be life-threatening.
+
+### Glucose Display Standards
+
+| Element | Value | Unit Options |
+|---------|-------|-------------|
+| Glucose range (normal) | 70-180 mg/dL (3.9-10.0 mmol/L) | mg/dL (US), mmol/L (international) |
+| Hypoglycemia (low) | < 70 mg/dL (< 3.9 mmol/L) | Yellow alert |
+| Urgent low | < 55 mg/dL (< 3.1 mmol/L) | Red alert + haptic + sound |
+| Hyperglycemia (high) | > 250 mg/dL (> 13.9 mmol/L) | Orange alert |
+| Target range | 70-180 mg/dL (customizable) | Green zone |
+
+### Watch UI Layout for CGM
+
+```
+┌─────────────────────┐
+│     12:45 PM        │
+│                     │
+│    ↗ 142           │   ← Trend arrow + current value (largest element)
+│     mg/dL           │
+│                     │
+│  ▁▂▃▅▆▇▆▅▃▂▃▅▆    │   ← Mini sparkline (last 3 hours)
+│  ─ ─ ─ ─ ─ ─ ─ ─  │   ← Target range line (180 mg/dL)
+│                     │
+│  Time in range: 78% │   ← Daily TIR percentage
+│  Last reading: 2m   │   ← Data freshness indicator
+└─────────────────────┘
+```
+
+**Design specifications:**
+
+| Element | Size | Priority |
+|---------|------|----------|
+| Current glucose value | 40-48 sp (largest text on screen) | 1 (must be readable at arm's length) |
+| Trend arrow | 24x24 dp minimum, adjacent to value | 1 (equal to value) |
+| Unit label (mg/dL or mmol/L) | 14 sp | 2 |
+| Sparkline graph | Full width, 40-60 dp height | 2 |
+| Time-in-range % | 16 sp | 3 |
+| Data freshness ("2 min ago") | 12 sp | 3 (critical for safety — stale data warning) |
+
+### Trend Arrows
+
+CGM trend arrows indicate the rate of glucose change:
+
+| Arrow | Symbol | Rate of Change | Meaning |
+|-------|--------|---------------|---------|
+| Rising rapidly | ↑↑ | > +3 mg/dL/min | Glucose increasing fast |
+| Rising | ↑ | +2 to +3 mg/dL/min | Glucose increasing |
+| Rising slightly | ↗ | +1 to +2 mg/dL/min | Glucose increasing slowly |
+| Steady | → | -1 to +1 mg/dL/min | Glucose stable |
+| Falling slightly | ↘ | -1 to -2 mg/dL/min | Glucose decreasing slowly |
+| Falling | ↓ | -2 to -3 mg/dL/min | Glucose decreasing |
+| Falling rapidly | ↓↓ | < -3 mg/dL/min | Glucose decreasing fast |
+
+**Arrow rendering rules:**
+- Arrow size: 24x24 dp minimum, 32x32 dp preferred
+- Color matches glucose zone (green in range, yellow low, red urgent low, orange high)
+- Double arrows (↑↑, ↓↓) should be visually distinct — use bolder stroke or larger size
+- Animate arrow briefly (0.3 s pulse) when value changes to draw attention
+
+### Time-in-Range Visualization
+
+Time-in-Range (TIR) is the percentage of the day spent within the target glucose range (70-180 mg/dL). It is the primary metric endorsed by the International Consensus on TIR (2019).
+
+**Targets (per International Consensus):**
+
+| Metric | Target (Type 1/2) | Good | Needs Improvement |
+|--------|-------------------|------|-------------------|
+| Time in Range (70-180) | > 70% | 50-70% | < 50% |
+| Time Below Range (< 70) | < 4% | 4-10% | > 10% |
+| Time Below Range (< 54) | < 1% | 1-3% | > 3% |
+| Time Above Range (> 180) | < 25% | 25-40% | > 40% |
+| Time Above Range (> 250) | < 5% | 5-10% | > 10% |
+
+**Watch complication for TIR:**
+```swift
+// Circular complication showing TIR as a ring gauge
+struct TIRComplicationView: View {
+    let timeInRange: Double  // 0.0 to 1.0
+
+    var body: some View {
+        Gauge(value: timeInRange) {
+            Text("TIR")
+                .font(.system(.caption2, design: .rounded))
+        } currentValueLabel: {
+            Text("\(Int(timeInRange * 100))%")
+                .font(.system(.body, design: .rounded, weight: .bold))
+        }
+        .gaugeStyle(.accessoryCircularCapacity)
+        .tint(tirColor)
+    }
+
+    var tirColor: Color {
+        switch timeInRange {
+        case 0.7...: return .green
+        case 0.5..<0.7: return .yellow
+        default: return .red
+        }
+    }
+}
+```
+
+### Urgent Low Alert UX
+
+Urgent low glucose (< 55 mg/dL / < 3.1 mmol/L) is a medical emergency. The watch alert must be impossible to miss:
+
+1. **Haptic:** Continuous strong vibration pattern — repeated long buzzes (500 ms on, 200 ms off) until acknowledged
+2. **Visual:** Full-screen red overlay with large white text: "URGENT LOW" + value. Override always-on display dimming.
+3. **Audio:** Alarm sound at maximum volume (bypass Do Not Disturb and silent mode if platform allows)
+4. **Persistence:** Alert must remain on screen until user explicitly acknowledges (tap "Dismiss" or "I'm OK")
+5. **Repeat:** If not acknowledged within 5 minutes, re-alert. If not acknowledged within 15 minutes, escalate (notify emergency contacts if configured)
+6. **Data freshness:** If CGM data is > 10 minutes old, show "NO DATA" warning instead of stale value (stale low reading may no longer be accurate)
+
+### HealthKit Glucose Integration (watchOS)
+
+```swift
+// Read glucose samples from HealthKit
+let glucoseType = HKQuantityType(.bloodGlucose)
+
+let query = HKSampleQuery(
+    sampleType: glucoseType,
+    predicate: HKQuery.predicateForSamples(
+        withStart: Date().addingTimeInterval(-3 * 3600), // Last 3 hours
+        end: Date()
+    ),
+    limit: HKObjectQueryNoLimit,
+    sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)]
+) { _, samples, _ in
+    guard let glucoseSamples = samples as? [HKQuantitySample] else { return }
+
+    for sample in glucoseSamples {
+        let mgdl = sample.quantity.doubleValue(for: HKUnit.gramUnit(with: .milli).unitDivided(by: .liter()))
+        // Convert: mg/dL to mmol/L = mgdl / 18.0
+        let timestamp = sample.startDate
+        let source = sample.sourceRevision.source.name // "Dexcom G7", "LibreLink", etc.
+    }
+}
+healthStore.execute(query)
+
+// Background delivery for new glucose readings
+healthStore.enableBackgroundDelivery(for: glucoseType, frequency: .immediate) { success, error in
+    // App wakes when new glucose sample arrives
+}
+```
+
+### Dexcom API Integration (Server-Side)
+
+```bash
+# Dexcom Share API (for companion phone app)
+# OAuth 2.0 + API calls
+
+# Get estimated glucose values (EGVs) for last 3 hours
+GET https://api.dexcom.com/v3/users/self/egvs
+    ?startDate=2026-03-06T09:00:00&endDate=2026-03-06T12:00:00
+Authorization: Bearer <access_token>
+
+# Response:
+{
+    "egvs": [
+        {
+            "systemTime": "2026-03-06T11:45:00",
+            "displayTime": "2026-03-06T11:45:00",
+            "value": 142,          // mg/dL
+            "unit": "mg/dL",
+            "trendRate": 1.5,      // mg/dL/min
+            "trend": "slightlyRising"  // Trend arrow name
+        }
+    ]
+}
+```
+
+### Checklist
+
+- ✅ Display current glucose value as the largest element (40-48 sp)
+- ✅ Always show trend arrow adjacent to value (never hidden or secondary)
+- ✅ Show data freshness ("2 min ago") — critical for safety
+- ✅ Support both mg/dL and mmol/L with user preference toggle
+- ✅ Urgent low alerts must bypass Do Not Disturb / silent mode
+- ✅ Alert persistence: require explicit user acknowledgment for urgent lows
+- ✅ Show "NO DATA" or "SIGNAL LOST" when CGM data is > 10 minutes old
+- ✅ Use color coding: green (in range), yellow (low), red (urgent low), orange (high)
+- ✅ Include sparkline showing 3-hour trend at a glance
+- ❌ Do not show glucose value without the trend arrow (value alone is insufficient for decision-making)
+- ❌ Do not use small text (< 32 sp) for the glucose value — must be readable with a quick glance
+- ❌ Do not suppress urgent low alerts in any watch mode (theater, sleep, workout)
+- ❌ Do not display interpolated/predicted values as actual readings without clear labeling
+
+### Anti-patterns
+
+1. **Delayed alerts** — Batching glucose notifications to reduce frequency. A 15-minute delay on an urgent low alert can cause loss of consciousness. Deliver immediately.
+2. **Value without context** — Showing "142" without unit, trend arrow, or time-in-range. The number alone is meaningless without rate-of-change context.
+3. **Fixed mg/dL only** — Not supporting mmol/L. Most countries outside the US use mmol/L. Always provide a unit preference.
+4. **Alarm fatigue** — Alerting at every glucose value outside range. Reserve strong alerts for urgent thresholds only. Use subtle notifications for mild highs/lows.
+
+**Sources:** [Apple HealthKit Blood Glucose](https://developer.apple.com/documentation/healthkit/hkquantitytypeidentifier/bloodglucose), [Dexcom Developer API](https://developer.dexcom.com/), [International Consensus on TIR (Diabetes Care, 2019)](https://diabetesjournals.org/care/article/42/8/1593/36367/), [FDA CGM Guidance](https://www.fda.gov/medical-devices/in-vitro-diagnostics/glucose-monitoring-devices)
+
+---
+
+## BN. AFib / Irregular Rhythm Notification
+
+> PPG-based atrial fibrillation detection on consumer watches: algorithm overview, notification UX, regulatory framework, and clinical validation.
+> Sources: [Apple Irregular Rhythm Notification](https://developer.apple.com/documentation/healthkit/hkcategoryvalueafibrillationburden), [FDA De Novo DEN180042](https://www.accessdata.fda.gov/cdrh_docs/reviews/DEN180042.pdf), [Stanford Apple Heart Study (NEJM 2019)](https://www.nejm.org/doi/full/10.1056/NEJMoa1901183), [Samsung BioActive Sensor](https://semiconductor.samsung.com/us/processor/bio-sensor/)
+
+### Overview
+
+Consumer smartwatches can detect irregular heart rhythms suggestive of atrial fibrillation (AFib) using photoplethysmography (PPG) — the same green LED sensor used for heart rate monitoring. This is a passive background feature that periodically checks rhythm regularity and alerts the user if an irregular pattern is detected. It is NOT a diagnosis — it is a notification that prompts the user to consult a healthcare provider.
+
+### Detection Algorithm Overview
+
+**Apple Irregular Rhythm Notification:**
+1. PPG sensor activates intermittently in background (every ~1-2 hours when the user is still)
+2. Collects ~15 seconds of pulse waveform data
+3. Tachogram analysis: measures pulse-to-pulse intervals (R-R interval equivalent)
+4. Applies a neural network classifier trained on ECG-labeled data
+5. If 5 of 6 consecutive tachogram checks over ~48 hours show irregularity, notification fires
+6. Single isolated irregular reading does NOT trigger notification (reduces false positives)
+
+**Samsung Galaxy Watch (BioActive Sensor):**
+1. Uses PPG + electrical heart rate sensor (ECG electrodes)
+2. Background irregular rhythm monitoring via PPG
+3. On-demand ECG recording (user touches side button) for confirmation
+4. Samsung Health app processes and classifies rhythm
+
+**Key performance metrics (from clinical studies):**
+
+| Metric | Apple Watch (Stanford Study) | Samsung (published data) |
+|--------|------------------------------|-------------------------|
+| Positive predictive value (PPV) | 84% (ECG-confirmed AFib after notification) | ~87% |
+| Sensitivity | Not reported (passive monitoring, no ground truth for non-notified) | ~95% (controlled study) |
+| Notification rate | 0.52% of participants received notification | N/A |
+| False positive triggers | ~16% of notifications (not AFib on follow-up) | ~13% |
+
+### Notification UX
+
+**What the notification MUST communicate:**
+
+1. **What was detected:** "Irregular rhythm detected" (never "Atrial Fibrillation detected" — the watch cannot diagnose)
+2. **What it means:** "Your heart rhythm showed signs of irregularity that may be consistent with atrial fibrillation"
+3. **What to do:** "Please consult your healthcare provider. This is not a diagnosis."
+4. **Supporting data:** Date/time of detection, number of irregular checks, option to record an ECG (if device supports it)
+5. **What NOT to do:** "Do not call emergency services based solely on this notification" (unless symptoms like chest pain, dizziness are present)
+
+**Apple's notification flow:**
+```
+[Background Detection]
+        ↓
+[5 of 6 checks irregular over ~48h]
+        ↓
+[Notification on Watch]
+"Irregular Rhythm — Your heart rhythm appears irregular.
+ This may indicate atrial fibrillation."
+        ↓
+[Tap to view details]
+        ↓
+[Detail Screen]
+- History of irregular readings (dates/times)
+- "Record an ECG" button (Series 4+)
+- "Learn More" link
+- "Talk to Your Doctor" guidance
+        ↓
+[Optional: Record 30-second ECG]
+        ↓
+[ECG Result: Sinus Rhythm / AFib / Inconclusive]
+        ↓
+[PDF export for doctor visit]
+```
+
+**Watch notification design:**
+
+| Element | Specification |
+|---------|---------------|
+| Notification icon | Heart with irregular rhythm symbol |
+| Title | "Irregular Rhythm" (16 sp, bold) |
+| Body | 2-3 lines of plain language explanation (14 sp) |
+| Actions | "View Details" (primary), "Dismiss" (secondary) |
+| Haptic | Gentle double-tap (NOT alarm pattern — avoid panic) |
+| Sound | Default notification sound (NOT siren or alarm) |
+| Persistence | Remains in notification center until read |
+| Repeat | Does not re-notify for 48 hours after acknowledgment |
+
+### Clinical Validation: Sensitivity and Specificity
+
+**Critical distinction — what the watch CAN and CANNOT detect:**
+
+| Condition | Watch Detection | Notes |
+|-----------|----------------|-------|
+| Atrial Fibrillation (AFib) | Yes (with limitations) | PPG detects irregular R-R intervals |
+| Atrial Flutter | Partial (sometimes classified as irregular) | Less reliably detected than AFib |
+| Premature Ventricular Contractions (PVCs) | May trigger false positive | PVCs can appear as irregularity |
+| Heart Attack (MI) | No | Requires 12-lead ECG with ST segment analysis |
+| Heart Block | No | Requires ECG, not detectable via PPG |
+| Supraventricular Tachycardia (SVT) | Sometimes (as fast HR) | Detected as tachycardia, not specifically SVT |
+| Ventricular Fibrillation | No (medical emergency) | Patient likely unconscious — watch detection irrelevant |
+
+### Regulatory Framework
+
+| Regulatory Path | Apple Watch | Samsung Galaxy Watch |
+|----------------|-------------|---------------------|
+| Irregular Rhythm Notification | FDA De Novo DEN180042 (Class II) | FDA 510(k) |
+| ECG App | FDA De Novo DEN180044 (Class II) | FDA 510(k) K222575 |
+| Classification | OTC (over-the-counter), no prescription | OTC |
+| Intended population | Adults 22+ (Apple), Adults (Samsung) | Adults |
+| Excluded populations | Known AFib, pacemaker users, < 22 years | Known AFib, pacemaker users |
+| Labeling requirement | "Not intended to replace traditional diagnosis" | Same |
+
+**Regulatory UX requirements:**
+- The app must NOT use the word "diagnose" or "diagnosis"
+- Must include "This feature does not detect heart attacks" in onboarding
+- Must state excluded populations (pacemakers, known AFib, under 22)
+- Must recommend physician follow-up, never self-treatment
+- Must allow user to disable notifications (opt-out)
+- Must store notification history for physician review (exportable)
+
+### Implementation Considerations for Third-Party Apps
+
+Third-party apps cannot directly access the raw irregular rhythm notification algorithm on either platform. However, they can:
+
+**watchOS:**
+```swift
+// Read AFib history from HealthKit (watchOS 9+ / iOS 16+)
+let afiburdenType = HKCategoryType(.atrialFibrillationBurden)
+
+let query = HKSampleQuery(sampleType: afiburdenType, predicate: nil,
+                           limit: 10, sortDescriptors: nil) { _, samples, _ in
+    for sample in (samples as? [HKCategorySample]) ?? [] {
+        // .atrialFibrillationBurden: percentage of time in AFib over a period
+        // Values: HKCategoryValueAppleWalkingSteadinessEvent or custom
+        let startDate = sample.startDate
+        let endDate = sample.endDate
+    }
+}
+
+// Read ECG recordings
+let ecgType = HKObjectType.electrocardiogramType()
+// Query and check ecg.classification == .atrialFibrillation
+```
+
+**Wear OS:**
+- Health Connect does not expose raw AFib notification data
+- Apps can read heart rate variability (HRV) data: `HEART_RATE_VARIABILITY_RMSSD`
+- Custom PPG-based rhythm analysis requires IRB approval and regulatory clearance for medical claims
+
+### Checklist
+
+- ✅ Use plain language: "irregular rhythm" not "atrial fibrillation detected"
+- ✅ Always include "This is not a diagnosis" disclaimer
+- ✅ Recommend physician consultation — never suggest self-treatment
+- ✅ Allow users to disable irregular rhythm notifications (opt-out required)
+- ✅ Store notification history with timestamps for physician review
+- ✅ Provide ECG recording option after notification (if hardware supports)
+- ✅ Export results as PDF for clinical use
+- ✅ Use gentle notification pattern (double-tap haptic), NOT alarm
+- ✅ Exclude known AFib patients and pacemaker users in onboarding
+- ❌ Do not say "You have atrial fibrillation" — say "irregular rhythm that may be consistent with AFib"
+- ❌ Do not trigger emergency calls automatically based on irregular rhythm detection
+- ❌ Do not re-notify within 48 hours of a previous notification (alarm fatigue)
+- ❌ Do not claim detection of heart attacks, heart blocks, or other non-AFib conditions
+
+### Anti-patterns
+
+1. **Alarm-style notification** — Using siren sound and red flashing screen for irregular rhythm notification. This causes panic. The detection is probabilistic (~84% PPV), and many users will be false positives. Use calm, informative notification design.
+2. **No physician guidance** — Showing "Irregular Rhythm" without clear next steps. Users need actionable guidance: "Schedule an appointment with your doctor and show them this report."
+3. **Claiming diagnostic capability** — Marketing or UI copy that says "detects atrial fibrillation." The device detects irregular rhythm *suggestive* of AFib. The distinction matters legally and medically.
+4. **Continuous monitoring hype** — Implying the watch monitors every heartbeat. In reality, PPG checks occur intermittently (~every 1-2 hours). AFib episodes between checks can be missed entirely.
+
+**Sources:** [Stanford Apple Heart Study (NEJM 2019)](https://www.nejm.org/doi/full/10.1056/NEJMoa1901183), [FDA De Novo DEN180042](https://www.accessdata.fda.gov/cdrh_docs/reviews/DEN180042.pdf), [Apple Irregular Rhythm](https://www.apple.com/healthcare/docs/site/Apple_Watch_Irregular_Rhythm_Notification_Feature.pdf), [Samsung BioActive Sensor](https://semiconductor.samsung.com/us/processor/bio-sensor/)
+
+---
+
+## BO. Academic Validation Studies
+
+> Published clinical research validating wearable health sensors: heart rate, rhythm, SpO2, blood pressure, COVID detection, and the consumer vs clinical-grade distinction.
+> Sources: [Stanford Apple Heart Study (NEJM 2019)](https://www.nejm.org/doi/full/10.1056/NEJMoa1901183), [DETECT Study (Nature Medicine 2022)](https://www.nature.com/articles/s41591-022-01988-1), [Fitbit COVID Study (Nature Medicine 2021)](https://www.nature.com/articles/s41591-020-1123-x), [Samsung BP Validation (Hypertension 2021)]
+
+### Overview
+
+Consumer wearable health data is increasingly used in research and clinical decision-making, but accuracy varies significantly by sensor type, device model, and measurement conditions. Understanding published validation studies helps developers set appropriate expectations in UI copy, choose reliable data sources, and avoid overpromising sensor accuracy.
+
+### Stanford Apple Heart Study (2019)
+
+**Publication:** Perez et al., "Large-Scale Assessment of a Smartwatch to Identify Atrial Fibrillation," NEJM 2019; 381:1909-1917.
+
+| Metric | Value |
+|--------|-------|
+| Participants enrolled | 419,297 |
+| Notification rate (irregular rhythm) | 0.52% (2,161 participants) |
+| Positive predictive value (PPV) | 84% (of notified participants who received ECG patch) |
+| Simultaneous AFib on ECG patch + Apple Watch | 71% concordance |
+| Study duration | 8 months |
+| Device | Apple Watch Series 1-3 |
+| Age of notified participants (median) | 57 years |
+
+**Key findings for developers:**
+- 0.52% notification rate means the vast majority of users will never see an irregular rhythm notification. Design for this — do not make AFib detection a prominent marketing feature for general populations.
+- 84% PPV means ~16% of notifications are false positives. UI must manage user anxiety appropriately.
+- Young users (< 40) had higher false positive rates due to ectopic beats (PVCs) being misclassified.
+
+### DETECT Study — Scripps Research (2022)
+
+**Publication:** Quer et al., "Wearable Sensor Data and Self-Reported Symptoms for COVID-19 Detection," Nature Medicine 2022; 28:1745-1752.
+
+| Metric | Value |
+|--------|-------|
+| Participants | 39,701 |
+| Devices used | Fitbit, Apple Watch, Garmin |
+| Key biomarkers | Elevated resting heart rate, reduced HRV, sleep disruption |
+| Detection accuracy (AUC) | 0.80 for COVID-19 vs other respiratory infections |
+| Earliest detection | Up to 2 days before symptom onset |
+| Sensor data used | Heart rate, HRV, sleep, steps, SpO2 |
+
+**Key findings for developers:**
+- Resting heart rate elevation of 1-3 bpm and HRV depression are subtle but detectable signals.
+- Individual baseline comparison (personal normal vs current) is more informative than population norms.
+- SpO2 dips during sleep correlated with respiratory illness severity.
+
+### Fitbit Influenza/COVID Prediction (2020)
+
+**Publication:** Radin et al., "Harnessing Wearable Device Data to Improve State-Level Real-Time Estimation of Influenza-Like Illness in the USA: a Population-Based Study," Lancet Digital Health 2020; 2:e85-e93.
+
+And: Mishra et al., "Pre-symptomatic Detection of COVID-19 from Smartwatch Data," Nature Biomedical Engineering 2020.
+
+| Metric | Value |
+|--------|-------|
+| Participants (Fitbit study) | 47,249 |
+| Resting HR elevation during illness | +1.5 to +3 bpm above personal baseline |
+| Sleep increase during illness | +0.5 to +1.5 hours/night |
+| Step decrease during illness | -20% to -40% below baseline |
+| Prediction accuracy | AUC 0.78-0.82 for illness detection |
+
+### Samsung Galaxy Watch Blood Pressure Validation
+
+**Publication:** Shin et al., "Validation of Samsung Galaxy Watch Active2 Blood Pressure Monitoring," Hypertension 2021.
+
+| Metric | Value |
+|--------|-------|
+| Method | Pulse Transit Time (PTT) via PPG + ECG |
+| Calibration required | Yes — against cuff measurement every 28 days |
+| Mean difference (systolic) | +/- 3.3 mmHg (vs cuff reference) |
+| Mean difference (diastolic) | +/- 3.1 mmHg (vs cuff reference) |
+| Standard deviation | 8.4 mmHg systolic, 6.8 mmHg diastolic |
+| ISO 81060-2 compliance | Met (within +/- 5 mmHg mean, +/- 8 mmHg SD) |
+| Regulatory status | Cleared in South Korea (MFDS), not FDA-cleared for US market |
+| Limitation | Accuracy degrades without regular recalibration; not validated for hypertensive crisis (> 180/120) |
+
+### Wrist-Based SpO2 Accuracy
+
+| Device | Accuracy vs Pulse Oximeter (finger) | Conditions | Source |
+|--------|-------------------------------------|------------|--------|
+| Apple Watch Series 6-10 | +/- 2% (90-100% range) | Stationary, good skin contact | Apple specs + Hafen et al. |
+| Fitbit Sense 2 / Charge 5 | +/- 3% (90-100% range) | Stationary, overnight | Fitbit validation data |
+| Garmin Venu 2/3 | +/- 3-4% (estimated) | Stationary | Garmin specs (no published validation) |
+| Samsung Galaxy Watch 5/6/7 | +/- 2-3% | Stationary, post-calibration | Samsung Health specs |
+
+**Critical UX caveat:** Wrist SpO2 is NOT clinically validated for:
+- Detecting hypoxemia (SpO2 < 90%) — sensor accuracy degrades below 90%
+- Dark skin tones (melanin absorbs green/red light, increasing error by 2-4%)
+- During motion (artifact makes readings unreliable)
+- Cold environments (vasoconstriction reduces perfusion at wrist)
+
+### Clinical-Grade vs Consumer-Grade Distinction
+
+| Feature | Clinical-Grade | Consumer-Grade (Watch) |
+|---------|---------------|----------------------|
+| ECG leads | 12-lead standard | Single-lead (Lead I equivalent) |
+| ECG diagnosis capability | Full arrhythmia + ST analysis | AFib/Sinus only |
+| SpO2 accuracy | +/- 1% (FDA-cleared finger probe) | +/- 2-4% (wrist PPG) |
+| Blood pressure | Cuff-based (gold standard) | PTT-based (requires calibration, Samsung only) |
+| Heart rate accuracy | Chest strap ECG-derived | PPG-derived (+/- 2-5 bpm at rest, +/- 10 bpm during exercise) |
+| Regulatory standard | FDA Class II (510(k) or De Novo) | FDA De Novo or no clearance |
+| Intended use | Clinical diagnosis | Wellness / screening |
+
+**UX implication:** Always include language like "For informational purposes only. Not a medical device." unless the feature has specific FDA clearance (Apple ECG and Irregular Rhythm Notification do have clearance).
+
+### Checklist
+
+- ✅ Reference published validation data in user-facing accuracy disclaimers
+- ✅ Distinguish between "screening" (watches) and "diagnosis" (clinical)
+- ✅ Show accuracy ranges in settings/about: "Heart rate: +/- 2-5 bpm at rest"
+- ✅ Use personal baseline comparison (more reliable than absolute thresholds)
+- ✅ Account for skin tone and motion in accuracy disclaimers
+- ✅ Recommend clinical follow-up for any abnormal findings
+- ❌ Do not claim "medical grade" accuracy for consumer wearable data
+- ❌ Do not use SpO2 readings below 90% for clinical decision-making
+- ❌ Do not present blood pressure measurements without recent calibration status
+- ❌ Do not hide accuracy limitations in fine print — surface them contextually
+
+### Anti-patterns
+
+1. **Precision theater** — Displaying heart rate as "78.3 bpm" implies false precision. The sensor is accurate to +/- 2-5 bpm. Display as "78 bpm" (integer).
+2. **Ignoring population bias** — Studies like Stanford Apple Heart Study were conducted predominantly on lighter-skinned participants. PPG accuracy on darker skin tones is 2-4% lower. Acknowledge this limitation.
+3. **Extrapolating beyond studied conditions** — Citing the Stanford study (resting adults) to justify heart rate accuracy during intense exercise. Most validation studies were conducted at rest.
+4. **Omitting calibration state** — Samsung BP readings without recent calibration (< 28 days) are unreliable. The UI must show calibration date and warn when recalibration is due.
+
+**Sources:** [Stanford Apple Heart Study (NEJM 2019)](https://www.nejm.org/doi/full/10.1056/NEJMoa1901183), [DETECT Study (Nature Medicine 2022)](https://www.nature.com/articles/s41591-022-01988-1), [Fitbit COVID (Lancet Digital Health 2020)](https://www.thelancet.com/journals/landig/article/PIIS2589-7500(19)30222-5/fulltext), [Samsung BP Validation (Hypertension 2021)](https://www.ahajournals.org/doi/10.1161/HYPERTENSIONAHA.121.17554)
+
+---
+
+## BP. watchOS SwiftUI App Architecture
+
+> Modern watchOS app structure: @main lifecycle, NavigationStack, TabView, sheets, always-on display, and environment values.
+> Sources: [Apple watchOS SwiftUI](https://developer.apple.com/documentation/watchos-apps/building-a-watchos-app), [WWDC 2022 - SwiftUI on watchOS](https://developer.apple.com/videos/play/wwdc2022/10133/), [WWDC 2023 - watchOS 10 Design](https://developer.apple.com/videos/play/wwdc2023/10138/)
+
+### Overview
+
+watchOS apps use the SwiftUI App lifecycle (@main) introduced in watchOS 7. As of watchOS 10, the recommended architecture uses NavigationStack for drill-down, vertical TabView for top-level paging, sheet presentations for modal flows, and environment-driven always-on display adaptations. WKInterfaceController (WatchKit storyboard-based) is fully deprecated.
+
+### App Lifecycle
+
+```swift
+import SwiftUI
+
+@main
+struct CigaretteTrackerApp: App {
+    @WKApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}
+
+class AppDelegate: NSObject, WKApplicationDelegate {
+    func applicationDidFinishLaunching() {
+        // Setup: HealthKit authorization, notification registration
+    }
+
+    func applicationDidBecomeActive() {
+        // Refresh data when app comes to foreground
+    }
+
+    func applicationWillResignActive() {
+        // Save state before going to background
+    }
+
+    // Handle background tasks
+    func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
+        for task in backgroundTasks {
+            // See section BD for detailed background task handling
+            task.setTaskCompletedWithSnapshot(false)
+        }
+    }
+}
+```
+
+### NavigationStack (watchOS 10+)
+
+```swift
+struct ContentView: View {
+    @State private var path = NavigationPath()
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            List {
+                Section("Today") {
+                    NavigationLink(value: Route.counter) {
+                        CounterRow(count: todayCount)
+                    }
+                    NavigationLink(value: Route.history) {
+                        Label("History", systemImage: "calendar")
+                    }
+                }
+                Section("Health") {
+                    NavigationLink(value: Route.heartRate) {
+                        Label("Heart Rate", systemImage: "heart.fill")
+                    }
+                }
+            }
+            .navigationTitle("Tracker")
+            .navigationDestination(for: Route.self) { route in
+                switch route {
+                case .counter: CounterView()
+                case .history: HistoryView()
+                case .heartRate: HeartRateView()
+                }
+            }
+        }
+    }
+}
+
+enum Route: Hashable {
+    case counter
+    case history
+    case heartRate
+}
+```
+
+**Key NavigationStack rules on watchOS:**
+- Back navigation: system swipe-from-left-edge gesture (automatic, do not override)
+- Maximum recommended depth: 3 levels (more causes user disorientation on tiny screen)
+- Use `navigationTitle` for each view — it appears in the top bar and aids orientation
+- Deep linking: populate `NavigationPath` programmatically for push notification deep links
+
+### TabView with Vertical Pagination (watchOS 10+)
+
+```swift
+struct MainTabView: View {
+    @State private var selectedTab = 0
+
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            // Page 1: Summary
+            SummaryView()
+                .tag(0)
+                .containerBackground(.blue.gradient, for: .tabView)
+
+            // Page 2: Counter (primary interaction)
+            CounterView()
+                .tag(1)
+                .containerBackground(.orange.gradient, for: .tabView)
+
+            // Page 3: Trends
+            TrendsView()
+                .tag(2)
+                .containerBackground(.green.gradient, for: .tabView)
+        }
+        .tabViewStyle(.verticalPage)  // Digital Crown scrolls between pages
+        .onAppear {
+            selectedTab = 1  // Start on counter page
+        }
+    }
+}
+```
+
+**Vertical paging rules:**
+- Digital Crown scrolls between pages (not swipe — swipe is for back navigation)
+- Maximum 5-7 pages (more causes "where am I?" confusion)
+- Each page should be a complete, self-contained screen (no scrolling within a page if possible)
+- Use `.containerBackground` for visual page differentiation
+- Page indicators appear on the right edge (system-managed)
+
+### Sheet Presentations
+
+```swift
+struct CounterView: View {
+    @State private var showingLog = false
+    @State private var showingSettings = false
+
+    var body: some View {
+        VStack {
+            Text("\(count)")
+                .font(.system(size: 64, weight: .bold, design: .rounded))
+
+            Button("Log Cigarette") {
+                logCigarette()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.orange)
+
+            Button("Details") {
+                showingLog = true
+            }
+        }
+        .sheet(isPresented: $showingLog) {
+            // Modal sheet slides up from bottom
+            TodayLogView()
+                .presentationDetents([.medium, .large]) // watchOS 10+
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: { showingSettings = true }) {
+                    Image(systemName: "gear")
+                }
+            }
+        }
+    }
+}
+```
+
+**Sheet rules on watchOS:**
+- Sheets cover the full screen (no half-sheet on watches < watchOS 10)
+- watchOS 10+ supports `.presentationDetents` but screen size limits usefulness
+- Dismiss via swipe-down gesture or explicit "Done" button
+- Use sheets for: settings, detail views, confirmation flows
+- Do not nest sheets (sheet within a sheet — confusing navigation)
+
+### Always-On Display State
+
+```swift
+struct CounterView: View {
+    @Environment(\.isLuminanceReduced) var isLuminanceReduced
+
+    var body: some View {
+        VStack {
+            if isLuminanceReduced {
+                // Always-On Display (AOD) mode: simplified, power-efficient
+                Text("\(count)")
+                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.6))  // Dimmed
+                // No buttons, no animations, no bright colors
+                // Update at most 1/minute
+            } else {
+                // Active mode: full UI
+                Text("\(count)")
+                    .font(.system(size: 64, weight: .bold, design: .rounded))
+                    .foregroundStyle(.orange)
+
+                Button("Log Cigarette") {
+                    logCigarette()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: isLuminanceReduced)
+    }
+}
+```
+
+**Always-On Display rules:**
+- `isLuminanceReduced == true` when wrist is lowered (AOD mode)
+- Reduce brightness: use 60% opacity for white text, remove bright accent colors
+- Remove interactive elements (buttons, sliders) — user cannot interact in AOD
+- Remove animations — no timers, no spinning indicators
+- Update content at most once per minute (system enforces this)
+- Remove sensitive information (health data, personal details) in AOD for privacy
+- Use `TimelineView(.everyMinute)` for time-based updates in AOD
+
+### Environment Values for watchOS
+
+```swift
+struct AdaptiveView: View {
+    @Environment(\.isLuminanceReduced) var isAOD          // Always-on display
+    @Environment(\.scenePhase) var scenePhase              // .active, .inactive, .background
+    @Environment(\.horizontalSizeClass) var sizeClass      // .compact on all watches
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) var reduceTransparency
+    @Environment(\.colorScheme) var colorScheme             // Always .dark on watchOS
+
+    var body: some View {
+        // Adapt based on environment
+        VStack {
+            // ...
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .active:
+                startSensorUpdates()
+            case .inactive, .background:
+                pauseSensorUpdates()
+            @unknown default: break
+            }
+        }
+    }
+}
+```
+
+### Recommended App Structure
+
+```
+CigaretteTrackerWatch/
+├── CigaretteTrackerApp.swift          // @main entry point
+├── AppDelegate.swift                   // WKApplicationDelegate
+├── Models/
+│   ├── CigaretteLog.swift             // Data model
+│   └── HealthDataManager.swift        // HealthKit interface
+├── Views/
+│   ├── MainTabView.swift              // TabView (vertical pages)
+│   ├── SummaryView.swift              // Page 1: daily summary
+│   ├── CounterView.swift              // Page 2: log button
+│   ├── TrendsView.swift               // Page 3: weekly chart
+│   ├── HistoryView.swift              // Navigation destination
+│   └── SettingsView.swift             // Sheet presentation
+├── Complications/
+│   └── CigaretteWidget.swift          // WidgetKit complication
+├── Notifications/
+│   └── NotificationController.swift   // Custom notification UI
+└── Resources/
+    └── Assets.xcassets
+```
+
+### Checklist
+
+- ✅ Use `@main` App lifecycle (not WKInterfaceController)
+- ✅ Use NavigationStack for drill-down navigation (watchOS 10+)
+- ✅ Use TabView with `.verticalPage` for top-level content switching
+- ✅ Handle `isLuminanceReduced` for always-on display state
+- ✅ Limit navigation depth to 3 levels maximum
+- ✅ Limit TabView to 5-7 pages maximum
+- ✅ Use `.containerBackground` for per-page background colors
+- ✅ Handle `scenePhase` for resource management (start/stop sensors)
+- ✅ Remove interactive elements and sensitive data in AOD mode
+- ❌ Do not use storyboards or WKInterfaceController (deprecated since watchOS 7)
+- ❌ Do not nest sheets (sheet presenting another sheet)
+- ❌ Do not use horizontal swipe for navigation (reserved for back gesture)
+- ❌ Do not animate in AOD mode (system will terminate power-hungry AOD renders)
+
+### Anti-patterns
+
+1. **UIKit on watchOS** — Attempting to use UIKit components or UIViewRepresentable on watchOS. watchOS is SwiftUI-only (no UIKit equivalent). All UI must be SwiftUI native.
+2. **Deep navigation hierarchies** — 5+ levels deep NavigationStack. On a watch, users lose context after 3 levels. Flatten the hierarchy; use sheets for side-quests.
+3. **Ignoring always-on display** — Not implementing `isLuminanceReduced` handling. The app shows bright, interactive UI when the wrist is down, draining battery and revealing private health data.
+4. **Tab overflow** — 10+ pages in a TabView. Without visible tab labels (watches have no tab bar), users cannot navigate or remember page positions. Keep it under 7.
+
+**Sources:** [Apple watchOS App Lifecycle](https://developer.apple.com/documentation/watchos-apps/building-a-watchos-app), [WWDC 2022 Session 10133](https://developer.apple.com/videos/play/wwdc2022/10133/), [WWDC 2023 Session 10138](https://developer.apple.com/videos/play/wwdc2023/10138/), [Apple SwiftUI Environment](https://developer.apple.com/documentation/swiftui/environmentvalues)
+
+---
+
+## BQ. Health Data Confidence & Quality Indicators
+
+> Sensor confidence levels, motion artifact rejection, skin contact detection, and communicating data uncertainty to users.
+> Sources: [Apple HealthKit Metadata](https://developer.apple.com/documentation/healthkit/hkmetadatakey), [Wear OS Health Services Data Accuracy](https://developer.android.com/health-and-fitness/guides/health-services/active-data#accuracy), [ISO 80601-2-61 (Pulse Oximetry)](https://www.iso.org/standard/73339.html)
+
+### Overview
+
+Wearable sensors produce data of variable quality. A heart rate reading taken while the user is running has more motion artifact than one taken at rest. A SpO2 reading with poor skin contact is unreliable. Users and developers must understand data confidence to make appropriate decisions. Showing a "98% SpO2" reading with no quality indicator when the actual confidence is low can lead to dangerous complacency.
+
+### Sensor Confidence Levels
+
+**Wear OS Health Services — Data Accuracy Enum:**
+
+```kotlin
+import androidx.health.services.client.data.DataPointAccuracy
+import androidx.health.services.client.data.HeartRateAccuracy
+
+// Heart rate data point includes accuracy
+fun onHeartRateData(dataPoint: DataPoint<Double>) {
+    val bpm = dataPoint.value
+    val accuracy = dataPoint.accuracy as? HeartRateAccuracy
+
+    when (accuracy?.sensorStatus) {
+        HeartRateAccuracy.SensorStatus.ACCURACY_HIGH -> {
+            // Good skin contact, low motion, reliable reading
+            showHeartRate(bpm, confident = true)
+        }
+        HeartRateAccuracy.SensorStatus.ACCURACY_MEDIUM -> {
+            // Moderate confidence — motion or intermittent contact
+            showHeartRate(bpm, confident = true)  // Still usable
+        }
+        HeartRateAccuracy.SensorStatus.ACCURACY_LOW -> {
+            // Poor contact or high motion — show with warning
+            showHeartRate(bpm, confident = false)
+        }
+        HeartRateAccuracy.SensorStatus.NO_CONTACT -> {
+            // Watch not on wrist or no skin contact
+            showNoContact()
+        }
+        HeartRateAccuracy.SensorStatus.UNRELIABLE -> {
+            // Data should not be used
+            hideHeartRate()
+        }
+        else -> {}
+    }
+}
+```
+
+**Apple HealthKit — Metadata Keys for Quality:**
+
+```swift
+// HealthKit samples include metadata about quality
+func processHeartRateSample(_ sample: HKQuantitySample) {
+    let bpm = sample.quantity.doubleValue(for: .count().unitDivided(by: .minute()))
+
+    // Motion context
+    if let motionContext = sample.metadata?[HKMetadataKeyHeartRateMotionContext] as? Int {
+        switch HKHeartRateMotionContext(rawValue: motionContext) {
+        case .sedentary:
+            // High confidence — user stationary
+            break
+        case .active:
+            // Moderate confidence — motion artifact possible
+            break
+        default: break
+        }
+    }
+
+    // Device placement
+    if let sensorLocation = sample.metadata?[HKMetadataKeyHeartRateSensorLocation] as? Int {
+        // .wrist = 2 (typical for watch)
+        // .chest = 1 (more accurate, from chest strap)
+    }
+
+    // SpO2 specific metadata
+    // Apple does not expose raw confidence, but provides:
+    // - HKMetadataKeyAppleDeviceCalibrated (Bool)
+    // - Sample is only saved if Apple deems quality sufficient
+}
+```
+
+### Motion Artifact Rejection
+
+Motion is the primary source of PPG sensor error:
+
+| Motion State | Heart Rate Error | SpO2 Error | Recommended Action |
+|-------------|-----------------|------------|-------------------|
+| Stationary (sitting/standing) | +/- 2 bpm | +/- 2% | Show value confidently |
+| Walking | +/- 5 bpm | +/- 3-4% | Show value, no warning |
+| Running | +/- 5-10 bpm | +/- 5-8% | Show value with "during exercise" label |
+| Vigorous arm movement | +/- 10-20 bpm | Unreliable | Show "---" or "Move less for reading" |
+| Wrist flexion (typing) | +/- 3-5 bpm | +/- 3% | Show value, no warning |
+
+**Accelerometer-based motion rejection:**
+```kotlin
+// Check accelerometer magnitude to assess motion level
+fun assessMotionLevel(accelMagnitude: Float): MotionLevel {
+    // accelMagnitude = sqrt(x^2 + y^2 + z^2) in m/s^2
+    // 9.8 = gravity (stationary), higher = movement
+    val deviation = abs(accelMagnitude - 9.81f)
+
+    return when {
+        deviation < 0.5f -> MotionLevel.STATIONARY    // High confidence
+        deviation < 2.0f -> MotionLevel.LIGHT_MOTION   // Medium confidence
+        deviation < 5.0f -> MotionLevel.MODERATE_MOTION // Low confidence
+        else -> MotionLevel.HIGH_MOTION                 // Unreliable — suppress reading
+    }
+}
+```
+
+### Skin Contact Detection
+
+Both platforms detect whether the watch is being worn:
+
+**Wear OS:**
+```kotlin
+// Wrist detection via Health Services
+val passiveConfig = PassiveListenerConfig.builder()
+    .setShouldUserActivityInfoBeRequested(true)
+    .build()
+
+// UserActivityInfo includes:
+// - userActivityState: USER_ACTIVITY_EXERCISE, USER_ACTIVITY_PASSIVE, USER_ACTIVITY_UNKNOWN
+// Wear OS does not expose raw "on-wrist" boolean to third-party apps directly
+// Heart rate readings stop when watch detects no wrist contact
+```
+
+**watchOS:**
+```swift
+// watchOS detects wrist state via:
+// 1. WKApplication.shared().isWristDetectionEnabled (Bool, read-only)
+// 2. Heart rate samples stop when watch is off-wrist
+// 3. No direct "isOnWrist" API for third-party apps
+
+// Indirect detection: check if heart rate data is flowing
+// If no HR sample for > 5 minutes, assume off-wrist
+```
+
+### Data Quality Tiers
+
+Define a quality framework for your app:
+
+| Tier | Conditions | UI Treatment | Data Storage |
+|------|-----------|-------------|-------------|
+| **Gold** | Stationary, good skin contact, sensor reports HIGH accuracy | Show value normally, full-size font | Store with full confidence |
+| **Silver** | Light motion, sensor reports MEDIUM accuracy | Show value normally | Store with confidence flag |
+| **Bronze** | Moderate motion, sensor reports LOW accuracy | Show value with "~" prefix or lighter opacity | Store with low-confidence flag |
+| **Rejected** | High motion, NO_CONTACT, or UNRELIABLE | Show "---" or "Hold still" | Do not store |
+
+### Showing Uncertainty to Users
+
+**DO:**
+- Use visual dimming (70% opacity) for low-confidence values
+- Prefix with "~" for approximate: "~82 bpm"
+- Show "measuring..." animation when waiting for stable reading
+- Display data age: "2 min ago" helps users assess relevance
+- Show quality explanation on tap: "This reading was taken during movement and may be less accurate"
+
+**DO NOT:**
+- Show error bars or +/- ranges (confusing for non-technical users)
+- Use red/yellow/green traffic light for data quality (users confuse with health status)
+- Hide low-confidence data entirely (users lose trust if values disappear unpredictably)
+- Show precise decimal values for low-confidence data (false precision)
+
+### "Measurement May Be Inaccurate" Patterns
+
+```swift
+struct HeartRateView: View {
+    let bpm: Int
+    let confidence: DataConfidence
+
+    var body: some View {
+        VStack {
+            HStack(alignment: .firstTextBaseline) {
+                if confidence == .low {
+                    Text("~")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                }
+                Text("\(bpm)")
+                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .foregroundStyle(confidence == .low ? .secondary : .primary)
+                Text("bpm")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if confidence == .low {
+                Text("Hold still for accurate reading")
+                    .font(.caption2)
+                    .foregroundStyle(.yellow)
+            }
+
+            if confidence == .noContact {
+                VStack {
+                    Image(systemName: "applewatch.side.right")
+                        .font(.title)
+                        .foregroundStyle(.secondary)
+                    Text("Wear watch snugly for heart rate")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+}
+
+enum DataConfidence {
+    case high, medium, low, noContact
+}
+```
+
+### Checklist
+
+- ✅ Check `HeartRateAccuracy.sensorStatus` on every Wear OS heart rate data point
+- ✅ Check `HKMetadataKeyHeartRateMotionContext` on watchOS heart rate samples
+- ✅ Suppress or dim values when sensor reports LOW or UNRELIABLE
+- ✅ Show "Hold still" message when motion artifact is detected
+- ✅ Show data freshness ("2 min ago") for all health values
+- ✅ Use visual dimming (opacity) for uncertain values — not color coding
+- ✅ Store confidence metadata alongside health values for later analysis
+- ✅ Show "Wear watch snugly" when no skin contact detected
+- ❌ Do not display health values with no quality assessment
+- ❌ Do not use decimal precision for uncertain readings ("82.3 bpm" at low confidence)
+- ❌ Do not hide readings silently — always show why data is missing
+- ❌ Do not use green/yellow/red for data quality (conflicts with health status colors)
+
+### Anti-patterns
+
+1. **Always showing a number** — Displaying "72 bpm" even when the sensor reports NO_CONTACT. The number is noise, not signal. Show "---" or "Wear watch" instead.
+2. **False precision** — Showing "SpO2: 97.4%" when sensor accuracy is +/- 2-3%. Round to integers and add "~" for low confidence.
+3. **Quality indicator overload** — Showing confidence bars, signal strength icons, and accuracy percentages simultaneously. Users want a simple answer: "Is this number trustworthy?" One visual cue (dimming or "~") suffices.
+4. **Treating all readings equally in analytics** — Computing daily average heart rate from all samples regardless of confidence. Exclude UNRELIABLE and NO_CONTACT readings; weight by confidence tier.
+
+**Sources:** [Apple HealthKit Metadata Keys](https://developer.apple.com/documentation/healthkit/hkmetadatakey), [Wear OS Health Services Accuracy](https://developer.android.com/health-and-fitness/guides/health-services/active-data#accuracy), [Apple Heart Rate Monitoring](https://support.apple.com/en-us/102341), [ISO 80601-2-61](https://www.iso.org/standard/73339.html)
+
+---
+
+## BR. Menstrual Cycle Tracking UX
+
+> Cycle tracking on wearables: symptom logging, prediction visualization, privacy sensitivity, and inclusive design.
+> Sources: [Apple Cycle Tracking](https://developer.apple.com/documentation/healthkit/hkcategorytype/init(categorytypeidentifier:)/menstrualflow), [Samsung Health Cycle Tracking](https://www.samsung.com/us/support/answer/ANS00084043/), [WHO Menstrual Health](https://www.who.int/news-room/fact-sheets/detail/menstruation), [Inclusive Design Research (Microsoft)](https://inclusive.microsoft.design/)
+
+### Overview
+
+Menstrual cycle tracking is a core health feature on Apple Watch and Samsung Galaxy Watch. On a wearable, the UX must balance comprehensive logging with minimal interaction time. The data is deeply personal — cycle tracking apps face heightened privacy scrutiny, especially post-Dobbs (US), where menstrual data could theoretically be subpoenaed. Inclusive language matters: not all people who menstruate identify as women.
+
+### Platform Features
+
+| Feature | Apple (Cycle Tracking) | Samsung Health |
+|---------|----------------------|----------------|
+| Period logging | Start/end dates, flow level (light/medium/heavy) | Start/end dates, flow level |
+| Symptom logging | 15+ symptoms (cramps, headache, mood, etc.) | 10+ symptoms |
+| Prediction | Period and fertile window prediction | Period prediction |
+| Wrist temperature | Retrospective ovulation estimation (Series 8+) | Skin temperature (Galaxy Watch 5+) |
+| Notifications | Period due, fertile window | Period due |
+| On-device processing | All data processed on-device (Apple) | Server-processed (Samsung) |
+| Data storage | On-device + encrypted iCloud (opt-in) | Samsung Health cloud |
+| FDA/regulatory | No clinical claims (wellness only) | No clinical claims |
+
+### Watch UI for Cycle Logging
+
+The watch UI must enable quick logging (< 10 seconds) for the most common actions:
+
+```
+┌──────────────────────┐
+│    Cycle Tracking     │
+│                       │
+│  Today: Day 14        │
+│  ● ● ● ● ○ ○ ○      │   ← Cycle phase dots (past = filled, future = empty)
+│                       │
+│  ┌─────────────────┐  │
+│  │  Log Period      │  │   ← Primary action button
+│  └─────────────────┘  │
+│  ┌─────────────────┐  │
+│  │  Log Symptoms    │  │   ← Secondary action
+│  └─────────────────┘  │
+│                       │
+│  Next period: ~5 days │
+└──────────────────────┘
+```
+
+**Period flow logging (quick select):**
+```swift
+struct FlowLogView: View {
+    @State private var selectedFlow: FlowLevel?
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Text("Period Flow")
+                .font(.headline)
+
+            ForEach(FlowLevel.allCases, id: \.self) { level in
+                Button(action: { logFlow(level) }) {
+                    HStack {
+                        Circle()
+                            .fill(level.color)
+                            .frame(width: 12, height: 12)
+                        Text(level.label)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+        }
+    }
+}
+
+enum FlowLevel: String, CaseIterable {
+    case spotting, light, medium, heavy
+
+    var label: String {
+        switch self {
+        case .spotting: return "Spotting"
+        case .light: return "Light"
+        case .medium: return "Medium"
+        case .heavy: return "Heavy"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .spotting: return .pink.opacity(0.4)
+        case .light: return .pink.opacity(0.6)
+        case .medium: return .pink.opacity(0.8)
+        case .heavy: return .pink
+        }
+    }
+}
+```
+
+### Symptom Logging UI
+
+On a watch, logging 15+ symptoms one by one is too slow. Group them:
+
+| Category | Symptoms | Watch Interaction |
+|----------|----------|-------------------|
+| **Physical** | Cramps, headache, bloating, breast tenderness, fatigue | Scrollable list with toggle |
+| **Mood** | Happy, sad, anxious, irritable, sensitive | Emoji-style quick select (5 faces) |
+| **Energy** | High, normal, low, exhausted | 4-point scale |
+| **Other** | Acne, cravings, insomnia, nausea | Secondary list (optional) |
+
+**Design rule:** Show top 5-6 most recently used symptoms first. The user's personal pattern matters more than a comprehensive list. Offer "More symptoms..." at the bottom for the full list.
+
+```swift
+struct SymptomLogView: View {
+    @State private var selectedSymptoms: Set<Symptom> = []
+    let recentSymptoms: [Symptom]  // Ordered by frequency of past logging
+
+    var body: some View {
+        List {
+            Section("Recent") {
+                ForEach(recentSymptoms.prefix(6)) { symptom in
+                    Button(action: { toggleSymptom(symptom) }) {
+                        HStack {
+                            Text(symptom.emoji)
+                            Text(symptom.name)
+                            Spacer()
+                            if selectedSymptoms.contains(symptom) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.blue)
+                            }
+                        }
+                    }
+                }
+            }
+            Section {
+                NavigationLink("More Symptoms...") {
+                    AllSymptomsView(selected: $selectedSymptoms)
+                }
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Save") { saveSymptoms() }
+            }
+        }
+    }
+}
+```
+
+### Prediction Visualization
+
+| Element | Specification |
+|---------|---------------|
+| Predicted period start | Date range (e.g., "Mar 12-15") — never a single exact date |
+| Predicted fertile window | Date range, shown only if user opts in |
+| Cycle day counter | "Day 14 of ~28" — use "~" to indicate prediction uncertainty |
+| Calendar view | Color-coded: red/pink = period, blue = predicted period, green = fertile (if opted in) |
+| Accuracy disclaimer | "Predictions are estimates based on past cycles" — always visible |
+
+**Complication:**
+```swift
+// Circular complication showing cycle day
+struct CycleComplication: View {
+    let cycleDay: Int
+    let cycleLength: Int
+
+    var body: some View {
+        Gauge(value: Double(cycleDay), in: 1...Double(cycleLength)) {
+            Text("Day")
+        } currentValueLabel: {
+            Text("\(cycleDay)")
+                .font(.system(.title3, design: .rounded, weight: .bold))
+        }
+        .gaugeStyle(.accessoryCircularCapacity)
+        .tint(.pink)
+    }
+}
+```
+
+### Fertility Window (Optional)
+
+Fertility window display is a sensitive feature:
+
+1. **Opt-in only.** Never show fertility data by default. Require explicit user choice.
+2. **Not a contraceptive.** Display disclaimer: "This is not a method of birth control and should not be used to prevent pregnancy."
+3. **Not a fertility treatment.** Display disclaimer: "This feature does not diagnose fertility conditions."
+4. **Wrist temperature correlation (Apple Watch Series 8+):** Retrospective ovulation estimation based on biphasic temperature shift (~0.2-0.5 degrees C rise after ovulation). Shown as "Estimated ovulation occurred around [date]" — always retrospective, never predictive in real-time.
+
+### Privacy Sensitivity
+
+**Threat model for cycle data:**
+- Law enforcement subpoena of menstrual data (post-Dobbs US context)
+- Employer access via corporate wellness programs
+- Insurance company data access
+- Domestic partner surveillance
+
+**Privacy design rules:**
+
+| Rule | Implementation |
+|------|---------------|
+| On-device processing | All prediction algorithms run locally, never server-side |
+| End-to-end encryption | If syncing to cloud, use E2E encryption (Apple does this for Health data with Advanced Data Protection) |
+| No third-party sharing | Never send cycle data to analytics SDKs or advertising partners |
+| Quick-hide gesture | Allow user to dismiss cycle tracking screen with a single gesture if someone is looking over their shoulder |
+| Biometric lock | Require Face ID / passcode to view cycle data (Apple: protected behind Health app lock) |
+| Data deletion | One-tap "Delete All Cycle Data" option |
+| Minimal notification content | Notification says "Health reminder" not "Period due tomorrow" (visible on lock screen) |
+| No export without auth | Require authentication before exporting cycle data as PDF/CSV |
+
+```swift
+// Notification with privacy-preserving content
+let content = UNMutableNotificationContent()
+content.title = "Health Reminder"  // NOT "Period due tomorrow"
+content.body = "Check your cycle tracking for today's update"
+content.sound = .default
+// The specific health detail is only visible inside the app
+```
+
+### Inclusive Language
+
+| Instead of | Use |
+|-----------|-----|
+| "Women's health" | "Cycle health" or "Menstrual health" |
+| "She/her" in UI copy | "You/your" (second person) |
+| "Female cycle" | "Menstrual cycle" |
+| "Mother/maternal" | "Parent/parental" (where applicable) |
+| Pink-only color scheme | Offer color theme options (not everyone associates pink with menstruation) |
+| Gendered icons (dress, female symbol) | Neutral icons (calendar, drop, thermometer) |
+
+**Note:** Apple Cycle Tracking and Samsung Health both use gender-neutral UI in recent versions. Follow this pattern.
+
+### HealthKit Integration
+
+```swift
+// Write menstrual flow sample
+func logPeriod(flow: HKCategoryValueMenstrualFlow, date: Date) {
+    let type = HKCategoryType(.menstrualFlow)
+    let sample = HKCategorySample(
+        type: type,
+        value: flow.rawValue,  // .unspecified, .light, .medium, .heavy, .none
+        start: date,
+        end: date,
+        metadata: [HKMetadataKeyMenstrualCycleStart: true]  // Mark as cycle start
+    )
+    healthStore.save(sample) { success, error in }
+}
+
+// Write symptom
+func logSymptom(_ symptom: HKCategoryTypeIdentifier, date: Date) {
+    // Available symptom types:
+    // .abdominalCramps, .acne, .bloating, .breastTenderness,
+    // .fatigue, .headache, .moodChanges, .nausea, etc.
+    let type = HKCategoryType(symptom)
+    let sample = HKCategorySample(
+        type: type,
+        value: HKCategoryValue.notApplicable.rawValue,
+        start: date,
+        end: date
+    )
+    healthStore.save(sample) { success, error in }
+}
+
+// Read cycle data for prediction
+func getCycleHistory(months: Int) async throws -> [HKCategorySample] {
+    let type = HKCategoryType(.menstrualFlow)
+    let startDate = Calendar.current.date(byAdding: .month, value: -months, to: Date())!
+    let predicate = HKQuery.predicateForSamples(withStart: startDate, end: Date())
+
+    return try await withCheckedThrowingContinuation { continuation in
+        let query = HKSampleQuery(sampleType: type, predicate: predicate,
+                                   limit: HKObjectQueryNoLimit,
+                                   sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)])
+        { _, samples, error in
+            if let error { continuation.resume(throwing: error); return }
+            continuation.resume(returning: (samples as? [HKCategorySample]) ?? [])
+        }
+        healthStore.execute(query)
+    }
+}
+```
+
+### Checklist
+
+- ✅ Logging flow level in < 10 seconds (3 taps: open -> select flow -> confirm)
+- ✅ Show most recently logged symptoms first (personalized order)
+- ✅ Display predictions as date ranges, never exact dates
+- ✅ Fertility window is opt-in only with clear disclaimers
+- ✅ Notifications use generic titles ("Health Reminder") not explicit content
+- ✅ All cycle data processed on-device
+- ✅ Provide one-tap "Delete All Cycle Data" option
+- ✅ Use inclusive, gender-neutral language throughout
+- ✅ Offer color theme options (not pink-only)
+- ✅ Require authentication to view or export cycle data
+- ❌ Do not show fertility window by default
+- ❌ Do not use gendered icons or pronouns
+- ❌ Do not sync cycle data to third-party servers
+- ❌ Do not display specific cycle information in notifications or complications visible on lock screen
+
+### Anti-patterns
+
+1. **Prediction overconfidence** — Showing "Your period starts March 12" as a definitive date. Cycles vary by 1-7 days naturally. Always show a range and use "estimated" or "~".
+2. **Pink-everything design** — Using exclusively pink color scheme for cycle tracking. This is exclusionary and gender-normative. Offer neutral color options.
+3. **Public complications** — Showing "Period Day 3" on the always-visible watch face complication. This reveals deeply personal health information to anyone who glances at the watch. Use abstract visualizations (progress ring, day number without label).
+4. **No opt-out for fertility** — Showing fertility window predictions to all users by default. Many users track periods for health monitoring, not fertility planning. This feature must be explicitly enabled.
+
+**Sources:** [Apple Cycle Tracking](https://support.apple.com/en-us/108918), [Apple HealthKit Menstrual](https://developer.apple.com/documentation/healthkit/hkcategorytypeidentifier), [Samsung Cycle Tracking](https://www.samsung.com/us/support/answer/ANS00084043/), [WHO Menstrual Health](https://www.who.int/news-room/fact-sheets/detail/menstruation), [Microsoft Inclusive Design](https://inclusive.microsoft.design/)
+
+---
+
+## BS. Productivity App Patterns on Watch
+
+> Timers, reminders, lists, voice memos, calendar glance, and minimal interaction principles for productivity apps on wearables.
+> Sources: [Apple HIG - Productivity on watchOS](https://developer.apple.com/design/human-interface-guidelines/designing-for-watchos), [Wear OS Tiles Best Practices](https://developer.android.com/training/wearables/tiles), [NNGroup Smartwatch Interactions](https://www.nngroup.com/articles/smartwatch-interactions/)
+
+### Overview
+
+Productivity apps on watches must respect the "3-second rule": any interaction should complete within 3 seconds, or it belongs on the phone. The watch excels at: glancing at information (calendar, task count), capturing input quickly (voice memos, single-tap completion), and providing timed nudges (reminders, timers). It fails at: composing long text, managing complex lists, or multi-step workflows.
+
+### Timer Patterns
+
+Timers are the most natural watch productivity feature — the watch is literally strapped to the wrist, always visible for countdown checking.
+
+```swift
+// watchOS Timer with haptic alerts
+struct PomodoroTimerView: View {
+    @State private var timeRemaining: TimeInterval = 25 * 60  // 25 minutes
+    @State private var isRunning = false
+    @State private var timerPhase: TimerPhase = .work
+
+    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        VStack {
+            // Phase label
+            Text(timerPhase.label)
+                .font(.caption)
+                .foregroundStyle(timerPhase.color)
+
+            // Countdown display
+            Text(timeString)
+                .font(.system(size: 48, weight: .bold, design: .rounded))
+                .monospacedDigit()  // Prevents layout shift as digits change
+
+            // Progress ring
+            CircularProgressView(progress: progress)
+                .frame(width: 120, height: 120)
+
+            // Controls
+            HStack(spacing: 20) {
+                Button(action: reset) {
+                    Image(systemName: "arrow.counterclockwise")
+                }
+                .buttonStyle(.bordered)
+
+                Button(action: toggleTimer) {
+                    Image(systemName: isRunning ? "pause.fill" : "play.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(timerPhase.color)
+            }
+        }
+        .onReceive(timer) { _ in
+            guard isRunning else { return }
+            if timeRemaining > 0 {
+                timeRemaining -= 1
+                // Haptic at milestones
+                if timeRemaining == 60 { WKInterfaceDevice.current().play(.notification) }
+                if timeRemaining == 10 { WKInterfaceDevice.current().play(.start) }
+            } else {
+                timerComplete()
+            }
+        }
+    }
+
+    func timerComplete() {
+        isRunning = false
+        WKInterfaceDevice.current().play(.success) // Strong haptic
+
+        // Switch phase
+        timerPhase = timerPhase == .work ? .break_ : .work
+        timeRemaining = timerPhase == .work ? 25 * 60 : 5 * 60
+    }
+}
+
+enum TimerPhase {
+    case work, break_
+    var label: String { self == .work ? "Focus" : "Break" }
+    var color: Color { self == .work ? .orange : .green }
+}
+```
+
+**Timer UX rules:**
+
+| Rule | Value | Rationale |
+|------|-------|-----------|
+| Minimum font size for countdown | 40 sp | Must be readable at arm's length mid-activity |
+| Use `.monospacedDigit()` | Always | Prevents layout shift when "1:09" becomes "1:10" |
+| Haptic at completion | Strong/success pattern | User may not be looking at watch |
+| Haptic at milestones | 1 minute remaining, 10 seconds remaining | Builds anticipation without constant checking |
+| Always-on display | Show countdown (update 1/min in AOD) | Timer is useless if it disappears when wrist drops |
+| Complication | Show remaining time as countdown text | Glanceable from watch face without opening app |
+
+### Reminders & Task Completion
+
+The watch is ideal for completing tasks (single-tap checkoff), not creating them:
+
+```swift
+// Minimal task list — optimized for one-tap completion
+struct TaskListView: View {
+    @State var tasks: [TaskItem]
+
+    var body: some View {
+        List {
+            ForEach($tasks) { $task in
+                Button(action: {
+                    withAnimation {
+                        task.isCompleted.toggle()
+                        if task.isCompleted {
+                            WKInterfaceDevice.current().play(.click)
+                        }
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(task.isCompleted ? .green : .secondary)
+                            .font(.title3)
+                        Text(task.title)
+                            .strikethrough(task.isCompleted)
+                            .foregroundStyle(task.isCompleted ? .secondary : .primary)
+                            .lineLimit(2)
+                    }
+                }
+            }
+        }
+        .navigationTitle("Tasks")
+    }
+}
+```
+
+**Task list UX rules:**
+- Maximum 10-15 items visible in list (scroll beyond this loses context)
+- Single-tap to complete (no swipe-to-complete — too error-prone on small screen)
+- Completed tasks: strikethrough + dim, move to bottom after 2 seconds
+- Do not allow task creation on watch (use voice only if absolutely necessary; prefer phone companion)
+- Sync completion state to phone immediately via Data Layer API / WatchConnectivity
+- Show overdue tasks with red accent
+
+### Grocery / Shopping Lists
+
+```swift
+struct GroceryListView: View {
+    @State var items: [GroceryItem]
+
+    var body: some View {
+        List {
+            // Unchecked items first, grouped by aisle/category
+            Section("To Get") {
+                ForEach(items.filter { !$0.checked }) { item in
+                    GroceryRow(item: item) {
+                        checkItem(item)
+                    }
+                }
+            }
+
+            // Checked items collapsed
+            if items.contains(where: { $0.checked }) {
+                Section("Got It (\(items.filter(\.checked).count))") {
+                    ForEach(items.filter { $0.checked }) { item in
+                        GroceryRow(item: item, checked: true) {
+                            uncheckItem(item)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct GroceryRow: View {
+    let item: GroceryItem
+    var checked: Bool = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Image(systemName: checked ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(checked ? .green : .primary)
+                VStack(alignment: .leading) {
+                    Text(item.name)
+                        .strikethrough(checked)
+                    if let quantity = item.quantity {
+                        Text(quantity)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+**Grocery list rules:**
+- Sort unchecked items by store aisle/category for shopping flow
+- Show quantity next to item name ("Milk x2", "Eggs (dozen)")
+- Single-tap to check off
+- Haptic confirmation on check
+- Allow adding items via voice only ("Hey Siri, add bananas to my grocery list")
+- Sync instantly to phone / shared list
+
+### Voice Memos
+
+```swift
+import AVFoundation
+
+struct VoiceMemoView: View {
+    @StateObject private var recorder = WatchRecorder()
+
+    var body: some View {
+        VStack {
+            // Recording indicator
+            if recorder.isRecording {
+                Circle()
+                    .fill(.red)
+                    .frame(width: 12, height: 12)
+                    .opacity(recorder.isRecording ? 1 : 0)  // Pulse animation
+
+                Text(recorder.durationString)
+                    .font(.system(.title2, design: .rounded))
+                    .monospacedDigit()
+            }
+
+            // Record / Stop button
+            Button(action: {
+                if recorder.isRecording {
+                    recorder.stop()
+                } else {
+                    recorder.start()
+                }
+            }) {
+                Image(systemName: recorder.isRecording ? "stop.fill" : "mic.fill")
+                    .font(.title)
+                    .frame(width: 64, height: 64)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(recorder.isRecording ? .red : .blue)
+        }
+    }
+}
+
+class WatchRecorder: ObservableObject {
+    @Published var isRecording = false
+    @Published var duration: TimeInterval = 0
+    private var audioRecorder: AVAudioRecorder?
+
+    var durationString: String {
+        let mins = Int(duration) / 60
+        let secs = Int(duration) % 60
+        return String(format: "%d:%02d", mins, secs)
+    }
+
+    func start() {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("memo_\(Date().timeIntervalSince1970).m4a")
+
+        let settings: [String: Any] = [
+            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+            AVSampleRateKey: 44100,
+            AVNumberOfChannelsKey: 1,       // Mono (watch has one mic)
+            AVEncoderAudioQualityKey: AVAudioQuality.medium.rawValue,
+            AVEncoderBitRateKey: 64000       // 64 kbps — good quality, small file
+        ]
+
+        audioRecorder = try? AVAudioRecorder(url: url, settings: settings)
+        audioRecorder?.record()
+        isRecording = true
+        WKInterfaceDevice.current().play(.start)
+    }
+
+    func stop() {
+        audioRecorder?.stop()
+        isRecording = false
+        WKInterfaceDevice.current().play(.success)
+        // Transfer recording to phone via WCSession or save locally
+    }
+}
+```
+
+**Voice memo rules:**
+- One-tap to start recording (no settings, no file naming)
+- Haptic at start and stop
+- Show recording duration prominently (monospaced digits)
+- Maximum recording length: 5-10 minutes (watch storage is limited, ~32 GB shared with OS)
+- Auto-transfer to phone via WatchConnectivity when connected
+- Auto-name with timestamp ("Memo Mar 6, 11:45 AM")
+
+### Calendar Glance
+
+The calendar on a watch should answer one question: "What's next?"
+
+```swift
+struct CalendarGlanceView: View {
+    let nextEvent: CalendarEvent?
+    let upcomingEvents: [CalendarEvent]  // Next 3-5 events
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let event = nextEvent {
+                // Next event — hero treatment
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("NEXT")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text(event.title)
+                        .font(.headline)
+                        .lineLimit(2)
+                    HStack {
+                        Text(event.timeString)
+                            .font(.subheadline)
+                        if let location = event.location {
+                            Text("- \(location)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    Text(event.relativeTime)  // "in 23 min"
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+                .padding(.bottom, 4)
+
+                Divider()
+
+                // Upcoming events — compact list
+                ForEach(upcomingEvents.prefix(3)) { event in
+                    HStack {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(event.calendarColor)
+                            .frame(width: 4, height: 24)
+                        VStack(alignment: .leading) {
+                            Text(event.title)
+                                .font(.caption)
+                                .lineLimit(1)
+                            Text(event.timeString)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            } else {
+                // No upcoming events
+                VStack {
+                    Image(systemName: "calendar")
+                        .font(.title)
+                        .foregroundStyle(.secondary)
+                    Text("No upcoming events")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+}
+```
+
+**Calendar glance rules:**
+- Show next event as the hero element (largest text, most prominent)
+- Show relative time ("in 23 min") not absolute ("11:45 AM") for the next event — relative is faster to process mentally
+- Show absolute time for later events
+- Maximum 3-4 upcoming events (more requires scrolling, defeats "glance" purpose)
+- Color-code by calendar source (work = blue, personal = green, etc.)
+- Complication: show next event title + "in X min" — nothing else needed
+
+### Pomodoro Timer Specifics
+
+| Parameter | Recommended Value | Source |
+|-----------|------------------|--------|
+| Work interval | 25 min (default), configurable 15-50 min | Cirillo Pomodoro Technique |
+| Short break | 5 min | Standard |
+| Long break | 15-30 min (after 4 work intervals) | Standard |
+| Auto-start next phase | Optional (off by default — user should consciously start) | UX best practice |
+| Haptic pattern (work complete) | Success + notification (strong double pulse) | Distinguishable from casual notifications |
+| Haptic pattern (break complete) | Start pattern (gentle rising pulse) | Distinct from work-complete |
+
+### Complications for Quick Actions
+
+```swift
+// Wear OS Tile for quick task actions
+@OptIn(ProtoLayoutExperimental::class)
+class ProductivityTile : TileService() {
+    override fun onTileRequest(requestParams: RequestBuilders.TileRequest) =
+        Futures.immediateFuture(
+            Tile.Builder()
+                .setResourcesVersion("1")
+                .setTileTimeline(Timeline.fromLayoutElement(
+                    Column.Builder()
+                        .addContent(
+                            Text.Builder()
+                                .setText("3 tasks remaining")
+                                .setTypography(Typography.TYPOGRAPHY_CAPTION1)
+                                .build()
+                        )
+                        .addContent(
+                            // Quick-complete button for top task
+                            Chip.Builder()
+                                .setPrimaryLabelContent("Buy groceries")
+                                .setIconContent("check_icon")
+                                .setOnClick(
+                                    ActionBuilders.LoadAction.Builder()
+                                        .setRequestState(/* complete task ID */)
+                                        .build()
+                                )
+                                .build()
+                        )
+                        .build()
+                ))
+                .build()
+        )
+}
+```
+
+### Minimal Interaction Principle
+
+The guiding principle for all watch productivity apps:
+
+| Interaction Type | Maximum Taps | Maximum Duration | Example |
+|-----------------|-------------|-----------------|---------|
+| Check off a task | 1 tap | < 1 s | Tap checkbox |
+| Start/stop timer | 1 tap | < 1 s | Tap play/pause |
+| Log a voice memo | 2 taps | < 2 s (+ recording time) | Tap record, tap stop |
+| Glance at calendar | 0 taps (raise wrist) | < 3 s | Complication or tile |
+| Add item via voice | 2 taps + voice | < 5 s | Tap add, speak, tap confirm |
+| Create a new task (text) | N/A | N/A | Do this on the phone, not the watch |
+
+### Checklist
+
+- ✅ Timer countdown visible in always-on display mode
+- ✅ Use `.monospacedDigit()` for all countdown displays
+- ✅ Haptic feedback at timer milestones (1 min remaining, 10 s, completion)
+- ✅ Single-tap task completion with immediate haptic confirmation
+- ✅ Calendar glance shows relative time for next event ("in 23 min")
+- ✅ Voice memo starts recording with one tap (no configuration)
+- ✅ Maximum 10-15 items in any scrollable list
+- ✅ Sync all changes to phone immediately
+- ✅ Provide complication showing task count or next event
+- ✅ Voice input for adding items (never tiny keyboard)
+- ❌ Do not build text composition on watch (task creation, note editing)
+- ❌ Do not require multi-step workflows for common actions
+- ❌ Do not show more than 4 upcoming calendar events
+- ❌ Do not auto-start Pomodoro phases without user confirmation
+- ❌ Do not omit haptics on timer completion (user may not be looking)
+
+### Anti-patterns
+
+1. **Full task manager on watch** — Replicating Todoist's full interface on a 1.5" screen: projects, labels, priorities, due dates, subtasks. The watch should show a flat list of today's tasks with one-tap completion. Everything else stays on the phone.
+2. **Keyboard-based input** — Requiring users to type task names on the watch keyboard. This takes 30-60 seconds for a simple item. Use voice input or sync from phone exclusively.
+3. **Timer without haptics** — A Pomodoro timer that only shows a visual countdown. If the user is working (not looking at their wrist), they miss the completion entirely. Haptics are mandatory for timer apps.
+4. **Calendar detail view** — Showing full event details (attendees, notes, location map, video call link) on the watch. Show title, time, and location only. Everything else is "Open on iPhone."
+5. **No complication** — A productivity app without a complication is invisible. Users check their watch face 80+ times per day — the complication is the primary entry point.
+
+**Sources:** [Apple HIG watchOS](https://developer.apple.com/design/human-interface-guidelines/designing-for-watchos), [Wear OS Tiles](https://developer.android.com/training/wearables/tiles), [NNGroup Smartwatch](https://www.nngroup.com/articles/smartwatch-interactions/), [Cirillo Pomodoro Technique](https://francescocirillo.com/products/the-pomodoro-technique)
+
+---
+
+*Bible UX Wearable - Sections BC-BS added March 2026*
+*Sources include: Apple Developer Documentation, Android Developer Documentation, Garmin Connect IQ SDK, FDA regulatory guidance, NEJM, Nature Medicine, AHA standards, FiRa Consortium, NNGroup, WHO guidance*

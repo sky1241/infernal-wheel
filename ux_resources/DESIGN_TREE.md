@@ -648,9 +648,9 @@ start  guide   seulement
 PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MOBILE/WEARABLE
      |
      v
-  Mobile?    → MOBILE.md sections A-BY (10447 lignes, 78 sections majeures)
-  Web?       → WEB.md sections A-BW (9547 lignes, 81 sections majeures)
-  Wearable?  → WEARABLE.md sections A-BB (8499 lignes, 54 sections majeures)
+  Mobile?    → MOBILE.md sections A-CQ (13597 lignes, 96 sections majeures)
+  Web?       → WEB.md sections A-CL (12320 lignes, 96 sections majeures)
+  Wearable?  → WEARABLE.md sections A-BS (12176 lignes, 71 sections majeures)
   Les deux+  → Croiser les fichiers concernes
 ```
 
@@ -819,6 +819,21 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | **Multi-device continuity, QR handoff, PWA** | **BU. Multi-Device** | **224** |
 | **Micro-frontends UX, module federation** | **BV. Micro-Frontends** | **225** |
 | **Drag & drop advanced: kanban, file tree, multi-select** | **BW. DnD Advanced** | **226** |
+| **View Transitions API, startViewTransition, MPA** | **BX. View Transitions** | **227** |
+| **Popover API, light-dismiss, invoker buttons** | **BY. Popover API** | **228** |
+| **CSS Anchor Positioning, @position-try** | **BZ. Anchor Positioning** | **229** |
+| **Speculation Rules API, prefetch/prerender** | **CA. Speculation Rules** | **230** |
+| **CSS @starting-style, entry animations** | **CB. @starting-style** | **231** |
+| **CSS Cascade Layers, @layer, specificity** | **CC. Cascade Layers** | **232** |
+| **CSS :has() selector, parent selection** | **CD. :has() Selector** | **233** |
+| **CSS Nesting, native & selector** | **CE. CSS Nesting** | **234** |
+| **List virtualization, windowing, content-visibility** | **CF. Virtualization** | **235** |
+| **SSR/SSG/ISR/RSC, rendering patterns** | **CG. Rendering Patterns** | **236** |
+| **CRDT, collaborative editing, presence** | **CH. CRDT & Collab** | **237** |
+| **Navigation API, SPA navigation** | **CI. Navigation API** | **238** |
+| **Third-party script performance, Partytown** | **CJ. 3P Scripts** | **239** |
+| **Permissions Policy headers, feature control** | **CK. Permissions Policy** | **240** |
+| **Web Vitals RUM, CrUX, performance monitoring** | **CL. Web Vitals RUM** | **241** |
 
 ---
 
@@ -961,6 +976,24 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | **App rating prompt strategy** | **BW. App Rating** | **161** |
 | **Error handling UX (comprehensive)** | **BX. Error Handling** | **162** |
 | **Accessibility automation testing (CI)** | **BY. A11y Automation** | **163** |
+| **AI/ML UX patterns, Core ML, ML Kit** | **BZ. AI/ML UX** | **164** |
+| **Privacy regulation UX, GDPR, ATT, CCPA** | **CA. Privacy Regulation** | **165** |
+| **Android 15 edge-to-edge mandatory** | **CB. Edge-to-Edge** | **166** |
+| **Material You Expressive 2025** | **CC. Material Expressive** | **167** |
+| **Passkeys, Credential Manager, FIDO2** | **CD. Passkeys** | **168** |
+| **Thumb zone reachability, one-handed** | **CE. Thumb Zone** | **169** |
+| **Scroll performance, list virtualization** | **CF. Scroll Perf** | **170** |
+| **App launch, cold start performance** | **CG. App Launch** | **171** |
+| **Image loading pipeline, caching** | **CH. Image Loading** | **172** |
+| **Cross-platform pitfalls (Flutter/RN/KMP)** | **CI. Cross-Platform** | **173** |
+| **visionOS spatial computing UX** | **CJ. visionOS** | **174** |
+| **Samsung One UI guidelines** | **CK. Samsung One UI** | **175** |
+| **Data visualization on mobile** | **CL. Data Viz Mobile** | **176** |
+| **App size budget, thinning, bundles** | **CM. App Size** | **177** |
+| **Predictive back gesture (Android 13+)** | **CN. Predictive Back** | **178** |
+| **Per-app language (Android 13+ / iOS)** | **CO. Per-App Language** | **179** |
+| **iOS 18 Control Center widgets** | **CP. Control Center** | **180** |
+| **Baymard mobile checkout research data** | **CQ. Checkout Research** | **181** |
 
 ---
 
@@ -1135,6 +1168,23 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | **Watch-to-watch communication, limitations** | **AZ. Watch-to-Watch** | **88** |
 | **Multi-window/PiP: N/A on wearable (explicit)** | **BA. N/A Multi-Window** | **89** |
 | **Voice interaction extended, dictation, assistant** | **BB. Voice Extended** | **90** |
+| **Ultra-Wideband (UWB), precision finding** | **BC. UWB** | **91** |
+| **watchOS background execution, refresh budgets** | **BD. Background Exec** | **92** |
+| **watchOS WidgetKit complications** | **BE. WidgetKit Complic** | **93** |
+| **watchOS 11 HealthKit APIs** | **BF. HealthKit 11** | **94** |
+| **Wear OS 5 power efficiency** | **BG. Wear OS Power** | **95** |
+| **App Store privacy labels for health data** | **BH. Privacy Labels** | **96** |
+| **CoreML / TFLite on wearable** | **BI. On-Device ML** | **97** |
+| **Garmin Connect IQ development** | **BJ. Garmin IQ** | **98** |
+| **Fitbit OS / SDK (legacy + transition)** | **BK. Fitbit Legacy** | **99** |
+| **ECG waveform rendering** | **BL. ECG Rendering** | **100** |
+| **CGM integration (continuous glucose)** | **BM. CGM** | **101** |
+| **AFib / irregular rhythm notification** | **BN. AFib Detection** | **102** |
+| **Academic validation studies** | **BO. Academic Studies** | **103** |
+| **watchOS SwiftUI app architecture** | **BP. watchOS SwiftUI** | **104** |
+| **Health data confidence & quality indicators** | **BQ. Data Quality** | **105** |
+| **Menstrual cycle tracking UX** | **BR. Cycle Tracking** | **106** |
+| **Productivity app patterns on watch** | **BS. Productivity** | **107** |
 
 ---
 

@@ -9546,3 +9546,2776 @@ Toast with **"Undo"** action, visible for **8 seconds**. Also support `Ctrl+Z` t
 - No undo mechanism (especially dangerous for cross-container moves).
 
 > **Sources:** WAI-ARIA Authoring Practices — Drag & Drop; Atlassian — `@atlaskit/pragmatic-drag-and-drop` docs; React DnD documentation; Shopify Polaris — Drag & Drop guidelines; Apple HIG — Drag and Drop (adapted for web touch).
+
+---
+
+## BX. View Transitions API
+
+### Overview
+
+The View Transitions API provides a native mechanism for animated transitions between DOM states — both within a single page (SPA) and across full page navigations (MPA). Instead of manually orchestrating fade-outs, position interpolations, and fade-ins, the browser captures before/after snapshots and animates between them using CSS pseudo-elements. This dramatically reduces JavaScript complexity for page-to-page animations that previously required libraries like Barba.js or FLIP techniques.
+
+### Same-Document Transitions (SPA)
+
+```js
+// Basic usage — wraps any DOM mutation in a transition
+document.startViewTransition(() => {
+  // Synchronous DOM update
+  updateDOM();
+});
+
+// Async variant — wait for data before updating
+document.startViewTransition(async () => {
+  const data = await fetchNewContent();
+  renderContent(data);
+});
+```
+
+The browser:
+1. Captures a screenshot of the current state (the "old" snapshot).
+2. Runs your callback to mutate the DOM.
+3. Captures the new state.
+4. Animates from old to new using `::view-transition` pseudo-elements.
+
+Default animation: **cross-fade** lasting **250 ms** (`ease` timing).
+
+### Pseudo-Element Tree
+
+```
+::view-transition
+  ::view-transition-group(root)
+    ::view-transition-image-pair(root)
+      ::view-transition-old(root)     /* screenshot of old state */
+      ::view-transition-new(root)     /* live rendering of new state */
+```
+
+You can target these pseudo-elements in CSS to customize the animation:
+
+```css
+/* Fade + slide for the entire page */
+::view-transition-old(root) {
+  animation: 300ms ease-out both fade-out, 300ms ease-out both slide-to-left;
+}
+::view-transition-new(root) {
+  animation: 300ms ease-out both fade-in, 300ms ease-out both slide-from-right;
+}
+
+@keyframes fade-out  { to { opacity: 0; } }
+@keyframes fade-in   { from { opacity: 0; } }
+@keyframes slide-to-left   { to { transform: translateX(-30px); } }
+@keyframes slide-from-right { from { transform: translateX(30px); } }
+```
+
+### Named Transition Groups
+
+Assign `view-transition-name` to elements that should animate independently (e.g., a hero image that "flies" from a list to a detail page):
+
+```css
+/* List page */
+.card-thumbnail {
+  view-transition-name: hero-image;
+}
+
+/* Detail page */
+.detail-hero {
+  view-transition-name: hero-image;
+}
+```
+
+The browser matches elements with the same `view-transition-name` across states and interpolates their position, size, and transform. Each name must be **unique per page** — duplicates cause the transition to fail.
+
+### Cross-Document Transitions (MPA)
+
+Available in Chrome 126+. Opt in via a CSS declaration on **both** pages:
+
+```css
+@view-transition {
+  navigation: auto;    /* enable for same-origin navigations */
+}
+```
+
+No JavaScript required for basic cross-fades. For named groups, apply `view-transition-name` on both source and destination pages. The browser handles snapshot capture across the navigation boundary.
+
+**Restrictions:**
+- Same-origin only.
+- Navigations triggered by user action (link clicks, form submissions). Not `window.location` assignments by default.
+- The destination page must render within **4 seconds**, or the transition is aborted.
+
+### Transition Lifecycle & Promises
+
+```js
+const transition = document.startViewTransition(updateDOM);
+
+// Wait for the old snapshot to be captured
+await transition.ready;
+// At this point, pseudo-elements exist — you can run Web Animations API on them
+
+// Wait for the transition animation to complete
+await transition.finished;
+
+// Skip the transition if needed (e.g., user navigated away)
+transition.skipTransition();
+```
+
+### Performance Considerations
+
+| Factor | Guideline |
+|--------|-----------|
+| Transition duration | Keep under **400 ms** (ideally 250–300 ms). Longer durations feel sluggish. |
+| Named groups | Limit to **5–8** per transition. Each group creates additional composited layers. |
+| GPU memory | Large screenshots (full-page on 4K displays) consume ~32 MB per snapshot. Two snapshots = ~64 MB. |
+| `contain: paint` | Apply to transition targets to limit the capture region. |
+| `will-change: view-transition-name` | Not needed — the browser handles compositing automatically. |
+| Reduced motion | Respect `prefers-reduced-motion` — shorten or disable transitions. |
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.01ms !important;
+  }
+}
+```
+
+### Checklist
+
+- [ ] `document.startViewTransition()` wraps all DOM mutations that need animated transitions.
+- [ ] Named `view-transition-name` values are unique per page — no duplicates.
+- [ ] Transition duration stays under 400 ms (target 250–300 ms).
+- [ ] `prefers-reduced-motion` disables or shortens all view transitions.
+- [ ] MPA transitions use `@view-transition { navigation: auto; }` on both pages.
+- [ ] Feature detection: `if (!document.startViewTransition) { updateDOM(); return; }`.
+- [ ] Named groups limited to 5–8 to avoid GPU memory pressure.
+- [ ] Fallback for unsupported browsers performs the DOM update without animation.
+
+### Anti-Patterns
+
+- Applying `view-transition-name` to hundreds of list items — each creates a separate composited layer, causing jank.
+- Transitions longer than 500 ms that block user interaction (the page is non-interactive during the transition).
+- No feature detection — calling `startViewTransition()` in Safari (unsupported as of early 2025) without a fallback crashes the update.
+- Using view transitions for every minor DOM change (toggling a class, updating a counter) — reserve them for meaningful navigation-level state changes.
+- Forgetting `view-transition-name` uniqueness — duplicates silently abort the transition.
+
+> **Sources:** MDN — View Transitions API; Chrome Developers — "Smooth transitions with the View Transition API" (Jake Archibald, 2023); web.dev — "View Transitions"; W3C CSS View Transitions Module Level 1 spec; Chrome 126 release notes (cross-document transitions).
+
+---
+
+## BY. Popover API
+
+### Overview
+
+The HTML Popover API (`popover` attribute) provides a native mechanism for tooltips, menus, pickers, and non-modal dialogs — without JavaScript for show/hide logic. The browser handles light-dismiss (clicking outside), focus management, the top layer (no `z-index` wars), and accessibility semantics. Available in all major browsers since 2024 (Chrome 114+, Firefox 125+, Safari 17+).
+
+### Basic Usage
+
+```html
+<!-- Invoker button (no JS required) -->
+<button popovertarget="my-popover">Open Menu</button>
+
+<!-- Popover element -->
+<div id="my-popover" popover>
+  <p>This is popover content.</p>
+</div>
+```
+
+The `popover` attribute (equivalent to `popover="auto"`) gives the element:
+- **Top layer rendering** — always above other content, no `z-index` needed.
+- **Light dismiss** — clicking outside or pressing `Escape` closes it.
+- **One-at-a-time** — opening a new `auto` popover closes any other open `auto` popover.
+
+### Popover Types
+
+| Type | Attribute | Light Dismiss | Stacking | Use Case |
+|------|-----------|--------------|----------|----------|
+| Auto | `popover` or `popover="auto"` | Yes | One-at-a-time (closes siblings) | Menus, date pickers, dropdowns |
+| Manual | `popover="manual"` | No | Multiple can coexist | Toasts, persistent notifications |
+
+### Invoker Buttons
+
+```html
+<!-- Toggle (default) -->
+<button popovertarget="p1">Toggle</button>
+
+<!-- Show only -->
+<button popovertarget="p1" popovertargetaction="show">Open</button>
+
+<!-- Hide only -->
+<button popovertarget="p1" popovertargetaction="hide">Close</button>
+```
+
+No `addEventListener` needed for basic show/hide. The `popovertargetaction` attribute controls the behavior: `toggle` (default), `show`, or `hide`.
+
+### JavaScript API
+
+```js
+const popover = document.querySelector('#my-popover');
+
+popover.showPopover();    // Show
+popover.hidePopover();    // Hide
+popover.togglePopover();  // Toggle
+
+// Events
+popover.addEventListener('toggle', (e) => {
+  console.log(e.newState); // 'open' or 'closed'
+  console.log(e.oldState); // 'closed' or 'open'
+});
+
+// Check state
+if (popover.matches(':popover-open')) {
+  // currently visible
+}
+```
+
+### Styling
+
+```css
+/* Default: popovers are hidden */
+[popover] {
+  /* browser default: display: none until opened */
+  margin: auto;               /* centered in viewport by default */
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  max-width: 320px;
+}
+
+/* Style when open */
+[popover]:popover-open {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Backdrop (top-layer backdrop) */
+[popover]::backdrop {
+  background: rgba(0, 0, 0, 0.15);
+}
+```
+
+### Animation with @starting-style
+
+```css
+[popover] {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.96);
+  transition: opacity 200ms ease, transform 200ms ease,
+              display 200ms allow-discrete;
+}
+
+[popover]:popover-open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Entry animation starting state */
+@starting-style {
+  [popover]:popover-open {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+}
+```
+
+### Accessibility Built-In
+
+The Popover API provides several accessibility features automatically:
+- Focus moves into the popover on open (first focusable element, or the popover itself).
+- `Escape` closes `auto` popovers.
+- The invoker button gets an implicit `aria-expanded` state.
+- The popover is removed from the accessibility tree when hidden.
+
+**Manual enhancements still needed:**
+
+| Element | Required ARIA |
+|---------|---------------|
+| Menu popover | `role="menu"` on popover, `role="menuitem"` on items |
+| Listbox popover | `role="listbox"`, `aria-activedescendant` for keyboard navigation |
+| Tooltip popover | `role="tooltip"`, `aria-describedby` on the trigger |
+
+### Nested Popovers
+
+Auto popovers support nesting — a popover opened from within another popover becomes its child. Closing the parent closes all descendants. The ancestry is determined by the DOM invoker chain:
+
+```html
+<button popovertarget="menu">Menu</button>
+<div id="menu" popover>
+  <button popovertarget="submenu">Submenu</button>
+  <div id="submenu" popover>Nested content</div>
+</div>
+```
+
+### Checklist
+
+- [ ] Use `popover="auto"` for most overlays (menus, pickers) — get free light-dismiss and stacking.
+- [ ] Use `popover="manual"` only for persistent UI (toasts, teaching tips) that should not auto-close.
+- [ ] Connect invoker buttons via `popovertarget` — avoid manual JS for simple show/hide.
+- [ ] Add appropriate ARIA roles (`menu`, `listbox`, `tooltip`) since `popover` is a behavior, not a role.
+- [ ] Animate entry/exit with `@starting-style` and `transition: display allow-discrete`.
+- [ ] Test keyboard: `Escape` closes, `Tab` stays trapped within popover content.
+- [ ] Popover width: `max-width: 320px` for menus, `max-width: 240px` for tooltips.
+- [ ] Provide a visible close mechanism for `manual` popovers (close button or timed auto-dismiss).
+
+### Anti-Patterns
+
+- Using `popover` for modal dialogs — use `<dialog>` with `.showModal()` instead (popovers lack inert background and focus trapping).
+- Creating custom popover logic with `z-index` stacking when the native Popover API is available.
+- Forgetting ARIA roles — `popover` provides the mechanics, not semantic meaning.
+- Using `popover="manual"` for everything to avoid light-dismiss — defeats the purpose and creates dismiss-ability issues.
+- Popover content wider than `90vw` on mobile — should stay within the viewport with at least `16px` margin.
+
+> **Sources:** MDN — Popover API; Open UI — Popover proposal; Chrome Developers — "Introducing the Popover API" (Una Kravets, 2023); HTML spec — The `popover` attribute; Can I Use — Popover API.
+
+---
+
+## BZ. CSS Anchor Positioning
+
+### Overview
+
+CSS Anchor Positioning allows an element to position itself relative to one or more "anchor" elements anywhere in the DOM, without JavaScript. This replaces the need for Popper.js / Floating UI for tooltips, dropdown menus, combobox listboxes, and annotation pointers. Available in Chrome 125+ and Edge 125+; polyfills exist for other browsers.
+
+### Establishing an Anchor
+
+```css
+/* The element that serves as the anchor */
+.trigger {
+  anchor-name: --my-anchor;
+}
+
+/* The positioned element that references the anchor */
+.tooltip {
+  position: fixed;              /* or absolute */
+  position-anchor: --my-anchor; /* link to the anchor */
+
+  /* Position the tooltip's top-left corner at the anchor's bottom-center */
+  top: anchor(bottom);
+  left: anchor(center);
+  translate: -50% 8px;         /* center horizontally + 8px gap */
+}
+```
+
+### The `anchor()` Function
+
+`anchor()` takes a side keyword and returns the corresponding coordinate of the anchor element:
+
+| Function | Returns |
+|----------|---------|
+| `anchor(top)` | Top edge Y coordinate |
+| `anchor(bottom)` | Bottom edge Y coordinate |
+| `anchor(left)` | Left edge X coordinate |
+| `anchor(right)` | Right edge X coordinate |
+| `anchor(center)` | Center of the anchor (horizontal or vertical depending on property) |
+| `anchor(start)` / `anchor(end)` | Logical equivalents (respect writing mode) |
+
+```css
+/* Dropdown below the trigger, aligned to left edge */
+.dropdown {
+  position: fixed;
+  position-anchor: --trigger;
+  top: anchor(bottom);
+  left: anchor(left);
+  margin-top: 4px;
+}
+
+/* Tooltip to the right of the anchor */
+.tooltip-right {
+  position: fixed;
+  position-anchor: --anchor;
+  left: anchor(right);
+  top: anchor(center);
+  translate: 8px -50%;
+}
+```
+
+### `anchor-size()` for Matching Dimensions
+
+```css
+.dropdown {
+  /* Match the width of the trigger */
+  width: anchor-size(width);
+
+  /* Or set a minimum */
+  min-width: anchor-size(width);
+  max-width: 400px;
+}
+```
+
+### Fallback Positioning with `@position-try`
+
+When the preferred position would overflow the viewport, define fallback positions:
+
+```css
+.tooltip {
+  position: fixed;
+  position-anchor: --target;
+
+  /* Preferred: below the anchor */
+  top: anchor(bottom);
+  left: anchor(center);
+  translate: -50% 8px;
+
+  /* Try these alternatives if preferred overflows */
+  position-try-fallbacks: --above, --left, --right;
+}
+
+@position-try --above {
+  bottom: anchor(top);
+  left: anchor(center);
+  translate: -50% -8px;
+  top: auto;
+}
+
+@position-try --left {
+  right: anchor(left);
+  top: anchor(center);
+  translate: -8px -50%;
+  left: auto;
+}
+
+@position-try --right {
+  left: anchor(right);
+  top: anchor(center);
+  translate: 8px -50%;
+}
+```
+
+Built-in flip keywords as shorthand:
+
+```css
+.tooltip {
+  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+}
+```
+
+- `flip-block` — flips top/bottom.
+- `flip-inline` — flips left/right.
+
+### `inset-area` Shorthand
+
+A grid-based shorthand for common placements:
+
+```css
+.tooltip {
+  position: fixed;
+  position-anchor: --target;
+  inset-area: bottom center;  /* below, centered */
+}
+/* Other values: top center, left center, right center,
+   bottom left, top right, etc. */
+```
+
+### Practical Tooltip Pattern
+
+```css
+.anchor-button {
+  anchor-name: --btn;
+}
+
+.tooltip {
+  position: fixed;
+  position-anchor: --btn;
+  inset-area: top center;
+  margin-bottom: 8px;
+  max-width: 240px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #1a1a2e;
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.4;
+  position-try-fallbacks: flip-block;
+  pointer-events: none;
+
+  /* Arrow using ::after */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    translate: -50% 0;
+    border: 6px solid transparent;
+    border-top-color: #1a1a2e;
+  }
+}
+```
+
+### Progressive Enhancement
+
+```css
+/* Feature detection */
+@supports (anchor-name: --a) {
+  .tooltip {
+    position: fixed;
+    position-anchor: --trigger;
+    top: anchor(bottom);
+    left: anchor(center);
+  }
+}
+
+/* Fallback for unsupported browsers */
+@supports not (anchor-name: --a) {
+  .tooltip {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 8px;
+  }
+}
+```
+
+### Checklist
+
+- [ ] Use `anchor-name` on the trigger and `position-anchor` on the positioned element.
+- [ ] Always provide `position-try-fallbacks` (at minimum `flip-block`) to handle viewport edges.
+- [ ] Maintain an `8px` gap between anchor and positioned element for readability.
+- [ ] Tooltip `max-width: 240px`; dropdown `max-width: 400px`.
+- [ ] Use `@supports (anchor-name: --a)` for progressive enhancement.
+- [ ] Polyfill: include `@nichanank/css-anchor-positioning` polyfill (~6 KB) for Firefox/Safari.
+- [ ] Each `anchor-name` must be unique on the page — duplicates cause undefined behavior.
+- [ ] Test with zoom levels up to 400% — anchored elements must remain positioned correctly.
+
+### Anti-Patterns
+
+- Using JavaScript positioning libraries (Popper.js) when anchor positioning is sufficient and supported.
+- Forgetting fallback positions — tooltip clipped by viewport edge on small screens.
+- Applying `anchor-name` to elements inside `overflow: hidden` containers — the positioned element may be clipped by the ancestor's overflow.
+- Not providing a CSS fallback — the positioned element renders at its static position in unsupported browsers, usually wrong.
+- Using anchor positioning for layout (grid-like arrangements) — it is designed for overlay positioning, not document flow.
+
+> **Sources:** MDN — CSS Anchor Positioning; Chrome Developers — "CSS anchor positioning" (Una Kravets, 2024); W3C CSS Anchor Positioning Module Level 1 spec; Chrome 125 release notes.
+
+---
+
+## CA. Speculation Rules API
+
+### Overview
+
+The Speculation Rules API allows developers to declaratively instruct the browser to **prefetch** or **prerender** future navigations before the user clicks. Unlike `<link rel="prefetch">`, speculation rules support document-level prerendering (loading and executing the entire page in a hidden tab), resulting in near-instant navigations. Available in Chrome 109+ (prefetch) and Chrome 121+ (document rules).
+
+### JSON Syntax
+
+Speculation rules are declared via a `<script type="speculationrules">` tag:
+
+```html
+<script type="speculationrules">
+{
+  "prefetch": [
+    {
+      "urls": ["/products", "/about", "/contact"]
+    }
+  ],
+  "prerender": [
+    {
+      "urls": ["/dashboard"]
+    }
+  ]
+}
+</script>
+```
+
+### Document Rules (Automatic)
+
+Instead of listing URLs manually, let the browser pick candidates from links in the page:
+
+```html
+<script type="speculationrules">
+{
+  "prerender": [
+    {
+      "where": {
+        "and": [
+          { "href_matches": "/*" },
+          { "not": { "href_matches": "/logout" } },
+          { "not": { "href_matches": "/api/*" } },
+          { "not": { "selector_matches": ".no-prerender" } }
+        ]
+      },
+      "eagerness": "moderate"
+    }
+  ]
+}
+</script>
+```
+
+### Eagerness Levels
+
+| Level | Trigger | Use Case | Resource Impact |
+|-------|---------|----------|-----------------|
+| `immediate` | As soon as the rule is observed | High-confidence next page (e.g., search result #1) | High — loads immediately |
+| `eager` | As soon as possible, slight delay | Likely navigations | High |
+| `moderate` | On hover (desktop) or pointerdown (mobile) for **200 ms** | General links | Medium |
+| `conservative` | On pointerdown / touchstart only | Low-confidence links | Low |
+
+**Recommendation:** Use `moderate` for most links, `immediate` only for near-certain navigations (e.g., "Next" in a wizard).
+
+### Prefetch vs Prerender
+
+| Action | What Happens | Savings | Cost |
+|--------|-------------|---------|------|
+| `prefetch` | Fetches the HTML document (and optionally subresources) | Eliminates network latency (~200–800 ms) | ~50–200 KB per page |
+| `prerender` | Fully loads and renders the page in a hidden tab | Near-instant navigation (0 ms perceived) | Full page cost: CPU, memory (~50–150 MB), bandwidth |
+
+### Chrome DevTools Debugging
+
+1. **Application panel > Speculative loads** — shows all speculation rules, their status, and which URLs are prefetched/prerendered.
+2. **Network panel** — prefetched/prerendered requests show a "Speculative" badge.
+3. **Performance panel** — prerendered navigations appear as separate traces.
+4. **Console warnings** — Chrome logs reasons for speculation failures (e.g., cross-origin, unsupported features).
+
+### Limits and Restrictions
+
+| Limit | Value |
+|-------|-------|
+| Max concurrent prerenders (Chrome) | **2** for `moderate`/`conservative`, **10** total for `immediate`/`eager` |
+| Max concurrent prefetches | **50** |
+| Prerender page lifetime | **5 minutes** (evicted if unused) |
+| Memory limit | Browser may evict prerenders under memory pressure |
+| Cross-origin prerender | Not supported (prefetch only, with opt-in headers) |
+| Pages with non-idempotent effects | Must not be prerendered (e.g., POST endpoints, analytics-heavy pages) |
+
+### Activation and Analytics
+
+Prerendered pages must handle activation carefully:
+
+```js
+// Defer analytics until the page is actually shown
+document.addEventListener('prerenderingchange', () => {
+  // Page was prerendered and is now being activated
+  initializeAnalytics();
+});
+
+// Check if currently prerendering
+if (document.prerendering) {
+  document.addEventListener('prerenderingchange', initializeAnalytics, { once: true });
+} else {
+  initializeAnalytics();
+}
+```
+
+### Performance Gains
+
+| Metric | Without Speculation | With Prefetch | With Prerender |
+|--------|-------------------|---------------|----------------|
+| LCP | ~2,400 ms | ~1,600 ms (−33%) | ~200 ms (−92%) |
+| TTFB | ~800 ms | ~100 ms (cached) | 0 ms (instant) |
+| CLS | Unchanged | Unchanged | 0 (fully rendered) |
+
+Data from Chrome team case studies on e-commerce sites.
+
+### Checklist
+
+- [ ] Use `moderate` eagerness for general links; `immediate` only for high-confidence targets.
+- [ ] Exclude logout, API, and side-effect URLs via `"not": { "href_matches": "..." }`.
+- [ ] Defer analytics initialization until `prerenderingchange` event fires.
+- [ ] Monitor resource usage — prerender costs ~50–150 MB per page.
+- [ ] Limit `immediate` prerender rules to 2–3 URLs maximum.
+- [ ] Use prefetch (not prerender) for cross-origin links.
+- [ ] Test in Chrome DevTools > Application > Speculative loads.
+- [ ] Feature detection: `if (HTMLScriptElement.supports?.('speculationrules'))`.
+
+### Anti-Patterns
+
+- Prerendering every link on the page — wastes bandwidth and memory, may trigger server-side rate limits.
+- Prerendering pages with side effects (e.g., "Mark as read", purchase confirmations).
+- Firing analytics events during prerender — inflates pageview counts.
+- Using `immediate` eagerness on low-confidence links — wastes resources on pages users never visit.
+- No exclusion rules — accidentally prerendering logout pages or API endpoints.
+
+> **Sources:** web.dev — "Speculation Rules API" (Barry Pollard, 2024); Chrome Developers — "Prerender pages in Chrome for instant navigations"; Chrome DevTools — Speculative loads documentation; WICG Speculation Rules spec.
+
+---
+
+## CB. CSS @starting-style
+
+### Overview
+
+`@starting-style` defines the initial style of an element when it first appears in the DOM — enabling CSS-only entry animations from `display: none`, for popovers, dialogs, and dynamically inserted elements. Before `@starting-style`, animating from `display: none` required JavaScript because the browser had no "before" state to transition from. Available in Chrome 117+, Safari 17.4+, Firefox 129+.
+
+### Basic Entry Animation
+
+```css
+.alert {
+  /* Final state (visible) */
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+
+/* Starting state (before the element is first rendered) */
+@starting-style {
+  .alert {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+```
+
+When the `.alert` element is inserted into the DOM, it starts at `opacity: 0; translateY(-20px)` and transitions to its final state.
+
+### Animating from `display: none`
+
+The key use case: elements toggled with `display: none` / `display: block` (or popovers, dialogs):
+
+```css
+.modal {
+  display: none;
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 250ms ease, transform 250ms ease,
+              display 250ms allow-discrete;
+}
+
+.modal.open {
+  display: block;
+}
+
+/* Entry state */
+@starting-style {
+  .modal.open {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+```
+
+**Critical:** `transition: display 250ms allow-discrete` is required. The `allow-discrete` keyword tells the browser to keep `display: block` during the transition rather than snapping to `display: none` immediately.
+
+### Exit Animations
+
+`@starting-style` handles entry only. For exit animations, set the hidden state values directly:
+
+```css
+.modal {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 200ms ease, transform 200ms ease,
+              display 200ms allow-discrete;
+}
+
+/* Exit: removing .open class transitions TO these values */
+.modal:not(.open) {
+  opacity: 0;
+  transform: scale(0.95);
+  display: none;
+}
+
+/* Entry: @starting-style defines the FROM state when .open is added */
+@starting-style {
+  .modal.open {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+```
+
+### Popover Animation
+
+```css
+[popover] {
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 200ms ease, transform 200ms ease,
+              overlay 200ms allow-discrete,
+              display 200ms allow-discrete;
+}
+
+[popover]:popover-open {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@starting-style {
+  [popover]:popover-open {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+```
+
+The `overlay` property transition ensures the element stays in the top layer during the exit animation.
+
+### Dialog Animation
+
+```css
+dialog {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 300ms ease, transform 300ms ease,
+              overlay 300ms allow-discrete,
+              display 300ms allow-discrete;
+}
+
+dialog[open] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@starting-style {
+  dialog[open] {
+    opacity: 1; /* Actually starts invisible, see below */
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+/* Backdrop animation */
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0);
+  transition: background 300ms ease, overlay 300ms allow-discrete;
+}
+
+dialog[open]::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+@starting-style {
+  dialog[open]::backdrop {
+    background: rgba(0, 0, 0, 0);
+  }
+}
+```
+
+### Timing Guidelines
+
+| Element Type | Entry Duration | Exit Duration | Easing |
+|-------------|----------------|---------------|--------|
+| Tooltip | 150 ms | 100 ms | `ease-out` |
+| Popover / dropdown | 200 ms | 150 ms | `ease` |
+| Modal dialog | 250–300 ms | 200 ms | `ease` |
+| Toast / snackbar | 200 ms | 150 ms | `ease-out` |
+| Full-page overlay | 300–400 ms | 250 ms | `ease-in-out` |
+
+### Checklist
+
+- [ ] Use `@starting-style` for all entry animations from `display: none` or top-layer elements.
+- [ ] Include `display <duration> allow-discrete` in the transition shorthand.
+- [ ] Include `overlay <duration> allow-discrete` for top-layer elements (popovers, dialogs).
+- [ ] Define exit animations explicitly — `@starting-style` only handles entry.
+- [ ] Keep entry animations under 300 ms, exit under 200 ms.
+- [ ] Respect `prefers-reduced-motion`: `@media (prefers-reduced-motion: reduce) { * { transition-duration: 0.01ms !important; } }`
+- [ ] Feature detection: `@supports (transition-behavior: allow-discrete)`.
+- [ ] Test with slow motion in DevTools (Animations panel > 25% speed).
+
+### Anti-Patterns
+
+- Using `@keyframes` for simple entry effects that `@starting-style` + `transition` handle more simply.
+- Forgetting `allow-discrete` — the display snaps immediately, making the transition invisible.
+- Using `@starting-style` without providing exit animations — the element disappears abruptly.
+- Overly long entry durations (>400 ms) that delay perceived interactivity.
+- Not including `overlay` in the transition for top-layer elements — the element drops out of the top layer immediately on close, appearing behind other content.
+
+> **Sources:** MDN — @starting-style; Chrome Developers — "Four new CSS features for entry and exit animations" (Una Kravets, 2023); W3C CSS Transitions Level 2 spec; Chrome 117 release notes.
+
+---
+
+## CC. CSS Cascade Layers (@layer)
+
+### Overview
+
+CSS Cascade Layers (`@layer`) give authors explicit control over the cascade order of their stylesheets, independent of specificity or source order. This solves the long-standing problem of specificity wars — especially with third-party CSS, utility frameworks, and component libraries. Instead of escalating specificity with ever-more-specific selectors or `!important`, layers establish a clear precedence hierarchy. Available in all modern browsers since March 2022 (Chrome 99+, Firefox 97+, Safari 15.4+).
+
+### Layer Declaration and Order
+
+```css
+/* Declare layer order upfront — earliest = lowest priority */
+@layer reset, base, components, utilities;
+
+/* Later, populate each layer */
+@layer reset {
+  *, *::before, *::after {
+    margin: 0; padding: 0; box-sizing: border-box;
+  }
+}
+
+@layer base {
+  body { font-family: system-ui; line-height: 1.5; color: #1a1a2e; }
+  a { color: #0066cc; }
+}
+
+@layer components {
+  .btn { padding: 8px 16px; border-radius: 4px; background: #0066cc; color: #fff; }
+  .btn-danger { background: #dc2626; }
+}
+
+@layer utilities {
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+  .hidden { display: none !important; }
+}
+```
+
+**Key rule:** The order in the `@layer` declaration determines priority. Later layers win over earlier layers, **regardless of specificity**. A `.btn` in `components` beats a `body > main > section > div > a.link` in `base`.
+
+### Specificity vs Layers
+
+| Scenario | Traditional CSS | With Layers |
+|----------|----------------|-------------|
+| Utility `.hidden` vs component `.modal { display: flex }` | Whoever has higher specificity or comes later wins | Utilities layer declared last → always wins |
+| Third-party `.btn` vs your `.btn` | Source order / specificity battle | Your layer declared after third-party → your styles win |
+| Reset vs component styles | Resets must use low specificity | Reset layer declared first → always lowest priority |
+
+### Importing Third-Party CSS into Layers
+
+```css
+/* Isolate third-party CSS into its own layer */
+@import url('bootstrap.min.css') layer(vendor);
+@import url('leaflet.css') layer(vendor);
+
+/* Your styles in a higher-priority layer */
+@layer vendor, app;
+
+@layer app {
+  .btn { /* Override Bootstrap .btn without specificity hacks */ }
+}
+```
+
+```html
+<!-- HTML alternative using the media trick -->
+<link rel="stylesheet" href="bootstrap.min.css"
+      onload="this.media='all'" media="not all"
+      data-layer="vendor">
+```
+
+### Nested Layers
+
+```css
+@layer components {
+  @layer forms {
+    .input { border: 1px solid #ccc; padding: 8px; }
+  }
+  @layer buttons {
+    .btn { padding: 8px 16px; }
+  }
+}
+
+/* Reference nested layers with dot notation */
+@layer components.buttons {
+  .btn-lg { padding: 12px 24px; }
+}
+```
+
+### Interaction with `!important`
+
+`!important` reverses the layer order:
+
+| Declaration | Layer Priority |
+|------------|----------------|
+| Normal (no `!important`) | Last declared layer wins |
+| `!important` | First declared layer wins |
+
+This means `!important` in a reset layer beats `!important` in a utility layer — the inverse of normal order. This is intentional: it ensures resets and base defaults can set unbreakable foundations.
+
+```css
+@layer reset, components, utilities;
+
+@layer reset {
+  *, *::before, *::after {
+    box-sizing: border-box !important; /* This !important beats all other layers' !important */
+  }
+}
+```
+
+### Unlayered Styles
+
+Styles not assigned to any layer have the **highest** priority among normal declarations. This provides an escape hatch but should be used sparingly:
+
+```css
+@layer base, components;
+
+@layer components { .alert { color: red; } }
+
+/* Unlayered — highest priority */
+.alert { color: blue; } /* This wins */
+```
+
+### Migration Strategy
+
+1. **Audit existing CSS** — identify categories: resets, vendor, base, components, utilities, overrides.
+2. **Declare layer order** at the top of your main stylesheet.
+3. **Wrap existing files** in `@layer` blocks or use `@import ... layer()`.
+4. **Remove specificity hacks** (`.parent .parent .target`, `#id` overrides, unnecessary `!important`).
+5. **Test incrementally** — start with third-party isolation, then refactor internal styles.
+
+### Checklist
+
+- [ ] Declare all layers in a single `@layer` statement at the top of the stylesheet.
+- [ ] Recommended order: `reset, vendor, base, components, utilities` (low to high priority).
+- [ ] Import third-party CSS into a dedicated `vendor` layer using `@import url() layer(vendor)`.
+- [ ] Avoid unlayered styles except for critical overrides — they beat all layers.
+- [ ] Understand the `!important` reversal: lowest layer's `!important` wins.
+- [ ] Use nested layers (`@layer components.forms`) for large component libraries.
+- [ ] Remove specificity hacks (`!important`, deeply nested selectors) after migrating to layers.
+- [ ] Browser support: all modern browsers since early 2022 (~96% global support).
+
+### Anti-Patterns
+
+- Using layers without declaring order — implicit ordering is based on first appearance, which is fragile and hard to reason about.
+- Putting everything in one layer — defeats the purpose; you still have specificity battles within a single layer.
+- Excessive use of unlayered styles — bypasses the layer system entirely, recreating specificity chaos.
+- Not isolating third-party CSS — vendor styles compete with your own components.
+- Mixing `!important` across layers without understanding the reversal — leads to confusing debugging.
+
+> **Sources:** MDN — @layer; W3C CSS Cascading and Inheritance Level 5 spec; Miriam Suzanne — "A Complete Guide to CSS Cascade Layers" (CSS-Tricks, 2022); Bramus Van Damme — "CSS Cascade Layers" (web.dev, 2022); Can I Use — CSS Cascade Layers.
+
+---
+
+## CD. CSS :has() Selector
+
+### Overview
+
+The CSS `:has()` selector allows styling a parent element based on its descendants, or an element based on its siblings. Often called the "parent selector," it is the most powerful addition to CSS selectors in years. It eliminates entire categories of JavaScript-driven class toggling. Available in Chrome 105+, Safari 15.4+, Firefox 121+.
+
+### Parent Selection
+
+```css
+/* Style a card differently if it contains an image */
+.card:has(img) {
+  grid-template-rows: 200px 1fr;
+}
+
+.card:not(:has(img)) {
+  grid-template-rows: 1fr;
+}
+
+/* Form group with an invalid input gets a red border */
+.form-group:has(:invalid) {
+  border-left: 3px solid #dc2626;
+}
+
+/* Navigation item with an active link */
+.nav-item:has(> a[aria-current="page"]) {
+  background: var(--nav-active-bg, #e8f0fe);
+  border-radius: 6px;
+}
+```
+
+### Sibling Selection
+
+`:has()` combined with sibling combinators lets you style elements based on what follows them:
+
+```css
+/* Style a heading if it's immediately followed by a subtitle */
+h2:has(+ .subtitle) {
+  margin-bottom: 4px; /* reduce gap when subtitle present */
+}
+
+/* Image followed by a caption gets rounded top corners only */
+img:has(+ figcaption) {
+  border-radius: 8px 8px 0 0;
+}
+```
+
+### Form Validation Without JavaScript
+
+```css
+/* Change label color when its associated input is focused */
+label:has(+ input:focus) {
+  color: #0066cc;
+  font-weight: 600;
+}
+
+/* Show helper text only when input is focused and empty */
+.helper-text {
+  display: none;
+}
+label:has(+ input:focus:placeholder-shown) ~ .helper-text {
+  display: block;
+}
+
+/* Error state — label turns red when input is invalid and touched */
+label:has(+ input:not(:placeholder-shown):invalid) {
+  color: #dc2626;
+}
+```
+
+### Responsive Components Without Media Queries
+
+```css
+/* A grid that adjusts based on content count */
+.grid:has(> :nth-child(4)) {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.grid:not(:has(> :nth-child(4))):has(> :nth-child(2)) {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.grid:not(:has(> :nth-child(2))) {
+  grid-template-columns: 1fr;
+}
+```
+
+### Quantity Queries
+
+```css
+/* Style list items when there are more than 5 */
+li:has(~ li:nth-of-type(5)) {
+  font-size: 14px; /* smaller text for long lists */
+}
+
+/* Show "View all" link only when list has many items */
+.list-container:has(> ul > li:nth-child(6)) .view-all {
+  display: inline-flex;
+}
+```
+
+### Dark Mode and Theme-Based Styling
+
+```css
+/* Apply dark mode based on a toggle within the page */
+html:has(#dark-mode-toggle:checked) {
+  --bg: #1a1a2e;
+  --text: #e8e8e8;
+  --surface: #2a2a3e;
+  color-scheme: dark;
+}
+```
+
+### Empty State Detection
+
+```css
+/* Show empty state message when container has no visible children */
+.results:not(:has(> .result-item)) .empty-state {
+  display: flex;
+}
+
+.results:has(> .result-item) .empty-state {
+  display: none;
+}
+```
+
+### Performance Considerations
+
+`:has()` is computationally more expensive than standard selectors because it requires the browser to look "upward" and "forward" in the DOM:
+
+| Pattern | Performance | Notes |
+|---------|-------------|-------|
+| `.parent:has(> .child)` | Good | Direct child — limited scope |
+| `.parent:has(.descendant)` | Moderate | Must scan subtree |
+| `:has(.foo) .bar` | Expensive | Potentially matches many elements |
+| `*:has(.x)` | Very expensive | Checks every element on the page |
+
+**Rule:** Scope `:has()` selectors as tightly as possible. Prefer `.specific-class:has(> .direct-child)` over broad matches.
+
+### Progressive Enhancement
+
+```css
+/* Fallback for browsers without :has() — JavaScript adds a class */
+.form-group.has-error { border-left: 3px solid #dc2626; }
+
+/* Enhancement for browsers with :has() */
+@supports selector(:has(*)) {
+  .form-group:has(:invalid) { border-left: 3px solid #dc2626; }
+  .form-group.has-error { border-left: none; } /* JS class no longer needed */
+}
+```
+
+### Checklist
+
+- [ ] Use `:has()` to eliminate JavaScript class-toggling for parent/sibling state styling.
+- [ ] Prefer direct-child combinators (`:has(> .child)`) for performance.
+- [ ] Avoid universal selectors with `:has()` — never write `*:has(...)`.
+- [ ] Use `@supports selector(:has(*))` for progressive enhancement.
+- [ ] Combine with `:not()` for inverse states: `.card:not(:has(img))`.
+- [ ] Test performance in DevTools > Performance panel — watch for "Recalculate Style" spikes.
+- [ ] Browser support: ~93% global (all modern browsers since late 2023).
+
+### Anti-Patterns
+
+- Using `:has()` where a simpler selector works — `:has()` for `.parent .child` styling is overkill if you can style `.child` directly.
+- Deeply nested `:has()` selectors (`:has(:has(:has(...)))`) — extremely expensive and hard to debug.
+- Relying on `:has()` for critical functionality without a JavaScript fallback for older browsers.
+- Using `:has()` to replicate media queries — use `@container` queries for component-level responsive design instead.
+
+> **Sources:** MDN — :has(); Jen Simmons (Apple) — ":has() is more than a parent selector" (WWDC, 2023); Ahmad Shadeed — "CSS :has() Interactive Guide" (ishadeed.com, 2023); Can I Use — :has() selector; W3C Selectors Level 4 spec.
+
+---
+
+## CE. CSS Nesting
+
+### Overview
+
+Native CSS nesting allows writing descendant, child, and pseudo-class selectors inside a parent rule block — the same pattern that made Sass/Less popular, now built into CSS. This reduces repetition, improves readability, and can simplify stylesheet organization. Available in Chrome 112+, Safari 17.2+, Firefox 117+.
+
+### Basic Syntax
+
+```css
+/* Traditional CSS */
+.card { padding: 16px; }
+.card .title { font-size: 18px; font-weight: 600; }
+.card .title:hover { color: #0066cc; }
+.card .body { font-size: 14px; line-height: 1.5; }
+
+/* Native CSS nesting */
+.card {
+  padding: 16px;
+
+  .title {
+    font-size: 18px;
+    font-weight: 600;
+
+    &:hover {
+      color: #0066cc;
+    }
+  }
+
+  .body {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+}
+```
+
+### The `&` Selector
+
+`&` represents the parent selector. It is **optional** for descendant selectors (`.parent { .child {} }`) but **required** for pseudo-classes, pseudo-elements, and compound selectors:
+
+```css
+.btn {
+  background: #0066cc;
+  color: #fff;
+
+  /* & is optional here (descendant) */
+  .icon { margin-right: 8px; }
+
+  /* & required for pseudo-classes */
+  &:hover { background: #0052a3; }
+  &:focus-visible { outline: 2px solid #0066cc; outline-offset: 2px; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* & required for pseudo-elements */
+  &::after { content: ''; display: block; }
+
+  /* & required for compound selectors */
+  &.primary { background: #0066cc; }
+  &.danger { background: #dc2626; }
+}
+```
+
+### Nesting with Combinators
+
+```css
+.list {
+  display: flex;
+  flex-direction: column;
+
+  /* Child combinator */
+  > li {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e5e5e5;
+  }
+
+  /* Adjacent sibling */
+  > li + li {
+    margin-top: 0; /* border-bottom handles separation */
+  }
+
+  /* General sibling */
+  > li ~ li:last-child {
+    border-bottom: none;
+  }
+}
+```
+
+### Nesting Media / Container Queries
+
+```css
+.sidebar {
+  width: 280px;
+  display: flex;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    position: fixed;
+    inset: 0;
+    transform: translateX(-100%);
+
+    &.open {
+      transform: translateX(0);
+    }
+  }
+}
+```
+
+Media queries nested inside a rule are scoped to that rule's selector — the browser expands them as if the selector were inside the `@media` block.
+
+### Specificity Behavior
+
+Nested selectors have the same specificity as their expanded equivalent:
+
+```css
+/* This nested rule... */
+.card {
+  .title { color: blue; }
+}
+
+/* ...has the same specificity as: */
+.card .title { color: blue; }
+/* Specificity: (0, 2, 0) */
+```
+
+**Exception:** Using `&` in ways that create `:is()` wrappers:
+
+```css
+.card, .panel {
+  .title { color: blue; }
+}
+/* Expands to: :is(.card, .panel) .title { color: blue; } */
+/* Specificity: (0, 2, 0) — :is() takes the highest specificity of its arguments */
+```
+
+### Nesting Depth Guidelines
+
+| Depth | Example | Recommendation |
+|-------|---------|----------------|
+| 1 level | `.card { .title {} }` | Ideal |
+| 2 levels | `.card { .header { .title {} } }` | Acceptable |
+| 3 levels | `.card { .header { .title { &:hover {} } } }` | Maximum recommended |
+| 4+ levels | Deep nesting | Refactor — extract components |
+
+The same **3-level max** rule from Sass applies to native nesting. Deep nesting generates high-specificity selectors and makes styles hard to override.
+
+### Comparison with Sass
+
+| Feature | Sass | Native CSS Nesting |
+|---------|------|--------------------|
+| Syntax | `{ }` nesting with `&` | Same (minor differences) |
+| `&` in selectors | `&-suffix` creates `.parent-suffix` | Not supported — `&` is the full selector, not a string |
+| Variables | `$var` | `var(--prop)` |
+| Mixins | `@mixin` / `@include` | Not available (use custom properties + cascade layers) |
+| Loops/conditionals | `@for`, `@if` | Not available |
+| Output | Compiled to flat CSS | Native — no build step |
+
+**Migration note:** Sass's `&-suffix` pattern (`&__element`, `&--modifier` in BEM) does not work in native nesting. You must write the full selector:
+
+```css
+/* Sass (works) */
+.block { &__element { } &--modifier { } }
+
+/* Native CSS (required alternative) */
+.block {
+  /* Cannot do &__element */
+}
+.block__element { /* Must be a separate rule */ }
+.block--modifier { /* Must be a separate rule */ }
+```
+
+### Checklist
+
+- [ ] Use nesting for related selectors (pseudo-classes, states, children of a component).
+- [ ] Limit nesting depth to 3 levels maximum.
+- [ ] Use `&` explicitly for pseudo-classes (`:hover`, `:focus`), pseudo-elements (`::before`), and compound selectors (`.class`).
+- [ ] Nest `@media` queries inside component rules for colocation.
+- [ ] Do not use `&`-suffix concatenation (not supported — break BEM patterns into separate rules).
+- [ ] Browser support: ~92% global (2024). Use PostCSS nesting plugin for older browser support.
+- [ ] Maintain the same specificity awareness as un-nested CSS — nesting does not change specificity.
+
+### Anti-Patterns
+
+- Nesting beyond 3 levels — creates overly specific selectors and hard-to-maintain stylesheets.
+- Attempting `&__element` BEM patterns — fails silently or produces broken selectors in native CSS.
+- Nesting everything — not every selector needs nesting. Unrelated styles in the same block reduce readability.
+- Assuming nesting reduces specificity — it does not; `.a { .b {} }` is `(0,2,0)`, same as `.a .b`.
+- Duplicating media queries inside every component instead of using a design token system for breakpoints.
+
+> **Sources:** MDN — CSS Nesting; W3C CSS Nesting Module spec; Chrome Developers — "CSS Nesting" (Adam Argyle, 2023); Chrome 112 release notes; Can I Use — CSS Nesting.
+
+---
+
+## CF. List Virtualization & Windowing
+
+### Overview
+
+List virtualization (also called "windowing") renders only the visible portion of a large list or table, keeping DOM node count low. Without virtualization, a list of 10,000 items creates 10,000+ DOM nodes, causing slow initial render (>1 s), high memory usage (200+ MB), and janky scrolling. Virtualization typically reduces the DOM to 20–50 visible nodes plus a small overscan buffer. This is critical for data tables, infinite feeds, chat logs, and any list exceeding ~200 items.
+
+### When to Virtualize
+
+| List Size | Recommendation |
+|-----------|---------------|
+| < 100 items | No virtualization needed |
+| 100–500 items | Consider virtualization if items are complex (images, interactive elements) |
+| 500–5,000 items | Virtualize |
+| 5,000+ items | Virtualize + pagination or infinite scroll |
+
+### CSS `content-visibility` (Browser-Native)
+
+Before reaching for a library, consider the CSS `content-visibility` property — a browser-native optimization:
+
+```css
+.list-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 80px; /* estimated height */
+}
+```
+
+| Property | Effect |
+|----------|--------|
+| `content-visibility: auto` | Browser skips rendering of off-screen items (layout, paint, style) |
+| `contain-intrinsic-size: auto 80px` | Provides a placeholder height so scrollbar sizing is correct |
+
+**Performance gains:** Up to **7x faster initial render** on long pages (Chrome team measurements on travel sites with 300+ sections). The `auto` keyword in `contain-intrinsic-size` remembers the real size once rendered, preventing layout shifts on re-scroll.
+
+**Limitations:** No control over data fetching — all items must be in the DOM. For true virtualization (items not in DOM until scrolled into view), use a library.
+
+### react-window (Lightweight)
+
+```jsx
+import { FixedSizeList } from 'react-window';
+
+function VirtualList({ items }) {
+  return (
+    <FixedSizeList
+      height={600}          // container height
+      width="100%"
+      itemCount={items.length}
+      itemSize={48}         // row height in px
+      overscanCount={5}     // render 5 extra items above/below viewport
+    >
+      {({ index, style }) => (
+        <div style={style} className="list-item">
+          {items[index].name}
+        </div>
+      )}
+    </FixedSizeList>
+  );
+}
+```
+
+- **Bundle size:** ~6 KB gzipped (vs ~33 KB for react-virtualized).
+- **Fixed vs Variable:** Use `FixedSizeList` for uniform heights, `VariableSizeList` for dynamic heights.
+
+### @tanstack/react-virtual (Framework-Agnostic)
+
+```jsx
+import { useVirtualizer } from '@tanstack/react-virtual';
+
+function VirtualList({ items }) {
+  const parentRef = useRef(null);
+
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 48,    // estimated row height
+    overscan: 5,
+  });
+
+  return (
+    <div ref={parentRef} style={{ height: 600, overflow: 'auto' }}>
+      <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+        {virtualizer.getVirtualItems().map((virtualRow) => (
+          <div
+            key={virtualRow.key}
+            style={{
+              position: 'absolute',
+              top: 0,
+              transform: `translateY(${virtualRow.start}px)`,
+              height: virtualRow.size,
+              width: '100%',
+            }}
+          >
+            {items[virtualRow.index].name}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+- **Bundle size:** ~3 KB gzipped.
+- **Framework support:** React, Vue, Svelte, Solid, vanilla JS.
+- Supports horizontal and grid virtualization.
+
+### Variable-Height Items
+
+Variable heights require measuring each item after render:
+
+```jsx
+const virtualizer = useVirtualizer({
+  count: items.length,
+  getScrollElement: () => parentRef.current,
+  estimateSize: () => 80,  // estimate — will be corrected after measurement
+  measureElement: (el) => el.getBoundingClientRect().height,
+});
+```
+
+**Key considerations:**
+- Provide a reasonable `estimateSize` to avoid scrollbar jumping.
+- Use `ResizeObserver` (built into TanStack Virtual) to handle dynamic content changes.
+- **Scrollbar stability:** Bad estimates cause the scrollbar thumb to jump as items are measured. Target estimates within **20%** of actual size.
+
+### Overscan Configuration
+
+| Use Case | Overscan Count | Rationale |
+|----------|---------------|-----------|
+| Fast scrolling (feed) | 3–5 items | Minimal whitespace flicker |
+| Slow scrolling (data table) | 5–10 items | Smooth keyboard navigation |
+| Keyboard navigation heavy | 10+ items | Ensures focus targets are in DOM |
+
+### Scroll Restoration
+
+When navigating away and returning, the scroll position must be restored:
+
+```js
+// Save position before navigation
+const savedPosition = scrollElement.scrollTop;
+
+// Restore after re-mount
+useEffect(() => {
+  if (savedPosition) {
+    scrollElement.scrollTop = savedPosition;
+    // For virtualized lists, also restore the virtual offset
+    virtualizer.scrollToOffset(savedPosition);
+  }
+}, []);
+```
+
+### Accessibility Considerations
+
+Virtualization removes items from the DOM, which breaks screen reader expectations:
+
+| Concern | Solution |
+|---------|----------|
+| Total count unknown | `aria-setsize` on each visible item, `aria-posinset` for position |
+| Focus lost on scroll | Return focus to the container or the nearest visible item |
+| `Ctrl+F` browser search | Does not find off-screen items — provide an in-app search |
+| `role="feed"` | Use for infinite-scroll feeds — announces loading of new items |
+
+```html
+<div role="feed" aria-busy="false" aria-label="Search results">
+  <article role="article" aria-setsize="1000" aria-posinset="1">...</article>
+  <article role="article" aria-setsize="1000" aria-posinset="2">...</article>
+  <!-- only visible items rendered -->
+</div>
+```
+
+### Checklist
+
+- [ ] Virtualize lists with 200+ items (or 100+ complex items).
+- [ ] Try `content-visibility: auto` first — no library needed, ~7x faster render.
+- [ ] Set `contain-intrinsic-size` with the `auto` keyword for accurate scroll sizing.
+- [ ] Choose `estimateSize` within 20% of actual item height to prevent scrollbar jumping.
+- [ ] Set `overscan` to 5 for general use; increase for keyboard-heavy UIs.
+- [ ] Add `aria-setsize` and `aria-posinset` to virtualized items.
+- [ ] Implement scroll restoration for back-navigation scenarios.
+- [ ] Provide in-app search — browser `Ctrl+F` cannot find off-screen items.
+- [ ] Test with screen readers — ensure focus management when items enter/leave the DOM.
+
+### Anti-Patterns
+
+- Virtualizing short lists (< 100 items) — adds complexity with negligible benefit.
+- Not setting `contain-intrinsic-size` with `content-visibility: auto` — causes a 0-height collapsed layout and a tiny scrollbar.
+- Overscan of 0 — visible white flashes during fast scrolling.
+- Forgetting `aria-setsize` / `aria-posinset` — screen readers cannot convey list context.
+- Using `position: absolute` without `will-change: transform` on rapidly scrolling containers — causes repaint storms.
+- Mixing virtualization with CSS transitions on list items — transitions fire on every mount/unmount during scroll.
+
+> **Sources:** web.dev — "content-visibility: the new CSS property that boosts rendering performance" (Una Kravets & Vladimir Levin, 2020); Addy Osmani — "Rendering large lists with react-window" (web.dev); TanStack Virtual documentation; MDN — content-visibility; WCAG 4.1.2 — Name, Role, Value.
+
+---
+
+## CG. Framework Rendering Patterns (SSR/SSG/ISR)
+
+### Overview
+
+Modern web frameworks offer multiple rendering strategies, each with different tradeoffs for performance (TTFB, FCP, TTI, LCP), SEO, infrastructure cost, and developer experience. Choosing the right pattern per page — not per application — is key to optimal web performance.
+
+### Rendering Pattern Comparison
+
+| Pattern | Render Time | HTML Delivery | JS Needed | Best For |
+|---------|-------------|--------------|-----------|----------|
+| **CSR** (Client-Side Rendering) | In browser | Empty shell | Yes, full bundle | Authenticated dashboards, SPAs |
+| **SSR** (Server-Side Rendering) | Per request on server | Full HTML | Yes, hydration | Dynamic, personalized pages |
+| **SSG** (Static Site Generation) | At build time | Full HTML from CDN | Optional | Blog posts, docs, marketing pages |
+| **ISR** (Incremental Static Regeneration) | At build + revalidation | Full HTML from CDN, updated in background | Optional | Product pages, listings with periodic updates |
+| **Streaming SSR** | Per request, progressive | Chunked HTML | Yes, selective hydration | Complex pages with mixed fast/slow data |
+| **RSC** (React Server Components) | On server, component-level | Serialized component tree | Only for client components | Data-heavy pages with interactive islands |
+| **Islands** | Static shell + isolated dynamic regions | Full HTML | Only for interactive islands | Content-heavy sites with few interactive areas |
+
+### Performance Metrics by Pattern
+
+| Pattern | TTFB | FCP | LCP | TTI | SEO |
+|---------|------|-----|-----|-----|-----|
+| CSR | Fast (~50 ms) | Slow (~1.5–3 s) | Slow (~2–4 s) | Slow (~3–5 s) | Poor (empty HTML) |
+| SSR | Moderate (~200–800 ms) | Fast (~400–800 ms) | Fast (~800–1,500 ms) | Moderate (~1–2 s hydration) | Excellent |
+| SSG | Very fast (~50 ms CDN) | Very fast (~100–300 ms) | Very fast (~300–600 ms) | Fast (~500 ms) | Excellent |
+| ISR | Very fast (~50 ms CDN) | Very fast (~100–300 ms) | Very fast (~300–600 ms) | Fast (~500 ms) | Excellent |
+| Streaming SSR | Fast (~100 ms first chunk) | Fast (~200–500 ms) | Moderate (depends on stream) | Progressive | Excellent |
+| RSC | Fast (~100 ms) | Fast (~300–600 ms) | Fast (~500–1,000 ms) | Fast (less client JS) | Excellent |
+| Islands | Very fast (~50 ms CDN) | Very fast (~100–300 ms) | Very fast (~300–600 ms) | Very fast (~200–500 ms) | Excellent |
+
+### Server-Side Rendering (SSR)
+
+```jsx
+// Next.js App Router — SSR by default for server components
+// app/products/[id]/page.tsx
+export default async function ProductPage({ params }) {
+  const product = await db.products.findUnique({ where: { id: params.id } });
+  return (
+    <main>
+      <h1>{product.name}</h1>
+      <p>{product.description}</p>
+      <AddToCartButton id={product.id} /> {/* Client component */}
+    </main>
+  );
+}
+```
+
+**When to use:** Pages that need fresh data on every request (user-specific content, real-time inventory, search results with filters).
+
+**Key tradeoff:** TTFB is slower than static (server must render), but content is always fresh.
+
+### Static Site Generation (SSG)
+
+```jsx
+// Next.js — generateStaticParams for SSG
+export async function generateStaticParams() {
+  const posts = await getAllPosts();
+  return posts.map((post) => ({ slug: post.slug }));
+}
+
+export default async function BlogPost({ params }) {
+  const post = await getPost(params.slug);
+  return <article dangerouslySetInnerHTML={{ __html: post.html }} />;
+}
+```
+
+**When to use:** Content that changes infrequently (blog posts, documentation, marketing pages, legal pages).
+
+**Build time concern:** 10,000 pages at 200 ms/page = 33 minutes build time. Use ISR for large catalogs.
+
+### Incremental Static Regeneration (ISR)
+
+```jsx
+// Next.js App Router — revalidate every 60 seconds
+export const revalidate = 60;
+
+export default async function ProductPage({ params }) {
+  const product = await getProduct(params.id);
+  return <ProductDetail product={product} />;
+}
+```
+
+Or on-demand revalidation:
+
+```js
+// app/api/revalidate/route.ts
+import { revalidatePath } from 'next/cache';
+
+export async function POST(request) {
+  const { path } = await request.json();
+  revalidatePath(path);
+  return Response.json({ revalidated: true });
+}
+```
+
+**When to use:** Product pages, user profiles, listings — content that is semi-static but needs periodic updates without full rebuilds.
+
+### Streaming SSR
+
+```jsx
+// React 18 + Next.js — Suspense for streaming
+import { Suspense } from 'react';
+
+export default function DashboardPage() {
+  return (
+    <main>
+      <h1>Dashboard</h1>
+      {/* Header renders immediately */}
+      <Suspense fallback={<SkeletonChart />}>
+        <SlowAnalyticsChart /> {/* Streams in when data is ready */}
+      </Suspense>
+      <Suspense fallback={<SkeletonTable />}>
+        <RecentOrdersTable /> {/* Streams independently */}
+      </Suspense>
+    </main>
+  );
+}
+```
+
+The server sends the HTML shell immediately (fast TTFB), then streams additional chunks as async data resolves. Each `<Suspense>` boundary can hydrate independently (selective hydration).
+
+### Islands Architecture
+
+```html
+<!-- Astro example — static HTML with interactive islands -->
+---
+import Header from '../components/Header.astro';    // Static (no JS)
+import ProductCarousel from '../components/ProductCarousel.tsx'; // Interactive
+---
+<html>
+<body>
+  <Header />                                          <!-- 0 KB JS -->
+  <main>
+    <article set:html={post.html} />                  <!-- 0 KB JS -->
+    <ProductCarousel client:visible products={products} />  <!-- JS loaded on visibility -->
+  </main>
+</body>
+</html>
+```
+
+**Hydration directives (Astro):**
+- `client:load` — Hydrate immediately on page load.
+- `client:idle` — Hydrate when browser is idle (`requestIdleCallback`).
+- `client:visible` — Hydrate when element enters viewport (IntersectionObserver).
+- `client:media="(max-width: 768px)"` — Hydrate only on matching media query.
+
+### Decision Matrix
+
+```
+Is the page content personalized or user-specific?
+├── Yes → Is real-time freshness critical?
+│   ├── Yes → SSR (or Streaming SSR for complex pages)
+│   └── No → SSR with short cache (Cache-Control: s-maxage=60)
+└── No → Does the content change frequently?
+    ├── Rarely (< 1x/week) → SSG
+    ├── Sometimes (hourly/daily) → ISR
+    └── Has interactive sections? → Islands Architecture
+```
+
+### Hydration Cost
+
+Full-page hydration is the hidden cost of SSR:
+
+| Bundle Size | Hydration Time (3G mobile) | Hydration Time (4G) |
+|-------------|--------------------------|---------------------|
+| 100 KB JS | ~800 ms | ~200 ms |
+| 300 KB JS | ~2,400 ms | ~600 ms |
+| 500 KB JS | ~4,000 ms | ~1,000 ms |
+
+**Mitigation strategies:**
+- Selective hydration (React 18 + Suspense).
+- Islands architecture — only hydrate interactive components.
+- React Server Components — zero client JS for data-fetching components.
+- Progressive hydration — hydrate above-the-fold first, defer below-the-fold.
+
+### Checklist
+
+- [ ] Choose rendering pattern per page/route, not per application.
+- [ ] SSG for content that changes < 1x/week; ISR for hourly/daily changes.
+- [ ] SSR only when content is personalized or requires per-request freshness.
+- [ ] Use Streaming SSR (Suspense boundaries) for pages with mixed fast/slow data.
+- [ ] Measure hydration cost: keep client JS under 200 KB for sub-1s TTI on mobile.
+- [ ] Islands architecture for content-heavy sites with few interactive areas.
+- [ ] Set `Cache-Control: s-maxage` headers on SSR pages for CDN edge caching.
+- [ ] Monitor TTFB, LCP, and TTI in RUM (see section CL) to validate pattern choices.
+
+### Anti-Patterns
+
+- CSR for public, SEO-critical pages — search engines see an empty shell.
+- SSR everything when most pages are static — wastes server compute and increases TTFB.
+- SSG for thousands of frequently changing pages — builds take 30+ minutes.
+- Full-page hydration with 500 KB+ JS bundles — TTI exceeds 4 seconds on mobile.
+- No `Cache-Control` headers on SSR pages — every request hits the origin server.
+- Choosing a rendering pattern based on framework defaults rather than per-page requirements.
+
+> **Sources:** web.dev — "Rendering on the Web" (Jason Miller & Addy Osmani); Patterns.dev — "Rendering Patterns" (Addy Osmani & Lydia Hallie); Vercel — Next.js App Router documentation; Astro documentation — Islands Architecture; React docs — Server Components.
+
+---
+
+## CH. Conflict Resolution & CRDT UX
+
+### Overview
+
+Collaborative and offline-first applications must handle concurrent edits by multiple users — or by the same user across devices. The UX challenge is not just the merge algorithm (OT vs CRDT) but how to communicate conflicts, presence, and sync state to users. Poor conflict UX leads to data loss, confusion, and distrust.
+
+### Operational Transform vs CRDT
+
+| Aspect | Operational Transform (OT) | CRDT (Conflict-free Replicated Data Type) |
+|--------|---------------------------|------------------------------------------|
+| Architecture | Requires central server to sequence operations | Peer-to-peer or server-relayed; no central ordering needed |
+| Conflict resolution | Server resolves conflicts by transforming operations | Mathematically guaranteed convergence — no conflicts by design |
+| Offline support | Limited — operations queue but require server to resolve | Full offline support — merge on reconnect |
+| Complexity | Transform functions are hard to implement correctly | Data structure design is complex; merge is automatic |
+| Examples | Google Docs (original), ShareDB | Automerge, Yjs, Figma, Linear |
+| Latency sensitivity | High — depends on server round-trip | Low — local-first, sync eventually |
+
+### Presence Awareness
+
+Show who is viewing or editing the same document:
+
+```
+┌─────────────────────────────────────────┐
+│ Document Title           👤 Alice (you) │
+│                          👤 Bob         │
+│                          👤 Carol       │
+└─────────────────────────────────────────┘
+```
+
+**Implementation guidelines:**
+
+| Element | Specification |
+|---------|---------------|
+| Avatar size | `28–32px` circle with 2px colored border |
+| Color assignment | Assign each user a consistent color from a palette of 8–12 distinguishable hues |
+| Max visible avatars | Show 3–4, then "+N" overflow badge |
+| Idle timeout | Gray out avatar after **5 minutes** of inactivity; remove after **30 minutes** |
+| Tooltip | Show user name + "Editing" / "Viewing" / "Idle" on hover |
+
+### Cursor & Selection Sharing
+
+For text editors and design tools:
+
+```css
+/* Remote user cursor */
+.remote-cursor {
+  position: absolute;
+  width: 2px;
+  height: 1.2em;
+  animation: blink 1s step-end infinite;
+}
+
+/* Remote user selection */
+.remote-selection {
+  background: var(--user-color);
+  opacity: 0.25;
+  border-radius: 2px;
+}
+
+/* Cursor label */
+.remote-cursor-label {
+  position: absolute;
+  top: -20px;
+  left: 0;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--user-color);
+  color: #fff;
+  white-space: nowrap;
+  pointer-events: none;
+}
+```
+
+**Guidelines:**
+- Show cursor label for **3 seconds** after cursor moves, then fade to just the cursor line.
+- Use the same color for cursor, selection highlight, and presence avatar.
+- Debounce cursor position broadcasts to **50 ms** intervals to avoid network flooding.
+- Hide own cursor label — only show remote users' labels.
+
+### Conflict Indicators
+
+When automatic merge is not possible (e.g., two users edit the same cell in a spreadsheet):
+
+```
+┌─────────────────────────────────┐
+│ Cell B4: Revenue               │
+│                                 │
+│ ⚠ Conflict detected            │
+│                                 │
+│ ┌─ Your version ─────────────┐ │
+│ │ $142,500                    │ │
+│ └─────────────────────────────┘ │
+│ ┌─ Bob's version (2 min ago) ┐ │
+│ │ $145,000                    │ │
+│ └─────────────────────────────┘ │
+│                                 │
+│ [Keep Yours] [Accept Bob's]     │
+│ [View Diff]                     │
+└─────────────────────────────────┘
+```
+
+**Rules:**
+- Highlight conflicted fields with amber border (`#f59e0b`) and a warning icon.
+- Show both versions with clear attribution (who, when).
+- Default to "last write wins" only if the user has not made a choice within **30 seconds** (auto-resolve with undo option).
+- Log all auto-resolved conflicts in a "Sync History" accessible from settings.
+
+### Sync State Communication
+
+Users must always know the sync status of their data:
+
+| State | Visual Indicator | Copy |
+|-------|-----------------|------|
+| Synced | Green check (subtle, in status bar) | "All changes saved" |
+| Syncing | Animated sync icon (spinning) | "Saving..." |
+| Pending (offline) | Gray cloud with arrow | "Changes saved locally — will sync when online" |
+| Conflict | Amber warning badge | "1 conflict needs your attention" |
+| Error | Red exclamation | "Unable to save — Retry" |
+
+Position the sync indicator in a **persistent, non-intrusive location** — typically the header bar or bottom status bar. Never use a modal for routine sync status.
+
+### Offline-First Sync Pattern
+
+```
+Online: User edits → Local CRDT state → Broadcast to peers → UI reflects merged state
+                                       → Persist to server
+
+Offline: User edits → Local CRDT state → Persist to IndexedDB
+                                        → Queue changes
+
+Reconnect: Send queued CRDT operations → Server merges → Broadcast to peers
+           ← Receive missed operations → Merge locally → UI updates
+```
+
+**UX requirements during offline:**
+- All features should remain functional (read + write).
+- Show offline indicator: banner at top or icon in header.
+- On reconnect, show "Syncing X changes..." with progress.
+- If conflicts arise during merge, show conflict resolution UI (see above).
+
+### Merge Strategies for Different Data Types
+
+| Data Type | Strategy | User Expectation |
+|-----------|----------|-----------------|
+| Rich text | Character-level CRDT (Yjs, Automerge) | Both users' edits appear — no lost characters |
+| Spreadsheet cells | Last-write-wins per cell, with conflict UI for simultaneous edits | Clear winner, option to review |
+| JSON/structured data | Field-level merge (merge non-conflicting field changes) | Only truly conflicting fields need resolution |
+| Files / binary | Version history — cannot merge | "Bob uploaded a new version. Keep yours or use theirs?" |
+| Drawing canvas | Operation-level CRDT (stroke/shape operations) | Both users' strokes appear |
+
+### Yjs Integration Example
+
+```js
+import * as Y from 'yjs';
+import { WebsocketProvider } from 'y-websocket';
+
+const doc = new Y.Doc();
+const provider = new WebsocketProvider('wss://sync.example.com', 'document-id', doc);
+const yText = doc.getText('content');
+
+// Awareness (presence)
+const awareness = provider.awareness;
+awareness.setLocalStateField('user', { name: 'Alice', color: '#e91e63' });
+
+// Listen for remote presence
+awareness.on('change', () => {
+  const states = Array.from(awareness.getStates().values());
+  updatePresenceUI(states);
+});
+
+// Sync status
+provider.on('status', ({ status }) => {
+  // status: 'connecting' | 'connected' | 'disconnected'
+  updateSyncIndicator(status);
+});
+```
+
+### Checklist
+
+- [ ] Show presence indicators (avatars + colors) for all active users.
+- [ ] Display sync state persistently: synced / syncing / offline / conflict / error.
+- [ ] Implement cursor and selection sharing for real-time text editing.
+- [ ] Auto-resolve simple conflicts (non-overlapping edits) silently; show UI for true conflicts.
+- [ ] Provide version history / undo for auto-resolved conflicts.
+- [ ] Debounce cursor broadcasts to 50 ms minimum interval.
+- [ ] Support full offline editing with local persistence (IndexedDB).
+- [ ] On reconnect, show merge progress and surface any conflicts.
+- [ ] Log all conflict resolutions in a viewable "Sync History."
+- [ ] Assign consistent, distinguishable colors to each user (8–12 hue palette).
+
+### Anti-Patterns
+
+- Silent data loss — one user's changes overwritten without notification.
+- Blocking UI during sync — showing a loading overlay while merging changes.
+- No offline capability in a collaborative app — users lose work when connectivity drops.
+- Conflict resolution via modal interruptions — disrupts flow; use inline indicators instead.
+- Showing technical CRDT/merge details to users ("Vector clock mismatch") — use human-readable language.
+- No presence awareness — users unknowingly edit the same section simultaneously.
+
+> **Sources:** Martin Kleppmann — "Automerge: A JSON-like data structure for building collaborative applications" (automerge.org); Yjs documentation (yjs.dev); Figma Engineering — "How Figma's multiplayer technology works" (Evan Wallace, 2019); Ink & Switch — "Local-first software" (2019); Kevin Jahns — "Are CRDTs suitable for shared editing?" (2020).
+
+---
+
+## CI. Navigation API
+
+### Overview
+
+The Navigation API is a modern replacement for the History API (`history.pushState`, `popstate` events) designed specifically for single-page application (SPA) navigation. It provides a single event (`navigate`) for all navigation types, built-in scroll restoration, transition tracking, and the ability to intercept and transform navigations declaratively. Available in Chrome 102+, Edge 102+. Polyfills exist for other browsers.
+
+### Problems with the History API
+
+| Issue | History API | Navigation API |
+|-------|-------------|---------------|
+| Event model | `popstate` fires only for back/forward, not `pushState` | `navigate` fires for all navigations |
+| Current URL | Must manually track with `location.href` | `navigation.currentEntry.url` |
+| Scroll restoration | `history.scrollRestoration` is all-or-nothing | Per-entry scroll restoration via `intercept({ scroll: 'after-transition' })` |
+| Transition state | No built-in concept of "navigation in progress" | `navigation.transition` tracks pending navigations |
+| Entries list | `history.length` only — no access to actual entries | `navigation.entries()` returns all entries with state |
+
+### Basic Navigation Interception
+
+```js
+navigation.addEventListener('navigate', (event) => {
+  // Only handle same-origin, non-anchor navigations
+  if (!event.canIntercept || event.hashChange) return;
+
+  const url = new URL(event.destination.url);
+
+  // Route matching
+  if (url.pathname.startsWith('/products/')) {
+    event.intercept({
+      async handler() {
+        const productId = url.pathname.split('/')[2];
+        const product = await fetchProduct(productId);
+        renderProductPage(product);
+      },
+      focusReset: 'after-transition',  // reset focus after render
+      scroll: 'after-transition',       // restore scroll after render
+    });
+  }
+});
+```
+
+### NavigateEvent Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `event.navigationType` | `'push'` / `'replace'` / `'reload'` / `'traverse'` | What kind of navigation |
+| `event.destination.url` | `string` | Target URL |
+| `event.destination.getState()` | `any` | State associated with the destination entry |
+| `event.canIntercept` | `boolean` | `true` if the navigation can be intercepted (same-origin, not cross-document) |
+| `event.hashChange` | `boolean` | `true` if only the hash changed |
+| `event.formData` | `FormData` or `null` | Non-null for form submissions |
+| `event.downloadRequest` | `string` or `null` | Non-null for download links |
+| `event.signal` | `AbortSignal` | Aborted if navigation is cancelled (e.g., user clicks another link) |
+
+### Programmatic Navigation
+
+```js
+// Navigate (push)
+navigation.navigate('/products/42');
+
+// Navigate with state
+navigation.navigate('/products/42', {
+  state: { fromSearch: true, query: 'blue widget' },
+});
+
+// Replace current entry
+navigation.navigate('/products/42', { history: 'replace' });
+
+// Back / Forward
+navigation.back();
+navigation.forward();
+
+// Traverse to a specific entry
+const entries = navigation.entries();
+navigation.traverseTo(entries[2].key);
+```
+
+### Transition Tracking
+
+```js
+navigation.addEventListener('navigate', (event) => {
+  event.intercept({
+    async handler() {
+      showLoadingIndicator();
+      try {
+        const data = await fetchData(event.destination.url);
+        renderPage(data);
+      } finally {
+        hideLoadingIndicator();
+      }
+    }
+  });
+});
+
+// Global transition tracking
+navigation.addEventListener('navigatesuccess', () => {
+  console.log('Navigation complete');
+});
+
+navigation.addEventListener('navigateerror', (event) => {
+  console.error('Navigation failed:', event.error);
+  showErrorPage(event.error);
+});
+```
+
+### Abort Signal for Cancelled Navigations
+
+```js
+navigation.addEventListener('navigate', (event) => {
+  event.intercept({
+    async handler() {
+      // Pass the signal to fetch — automatically cancelled if user navigates away
+      const response = await fetch(`/api${event.destination.url}`, {
+        signal: event.signal,
+      });
+      const data = await response.json();
+      renderPage(data);
+    }
+  });
+});
+```
+
+This eliminates the common SPA bug of rendering stale data when a user clicks multiple links quickly — only the latest navigation's fetch completes.
+
+### Navigation Entries
+
+```js
+const entries = navigation.entries();
+// Returns: NavigationHistoryEntry[]
+// Each entry has: .url, .key, .id, .index, .getState(), .sameDocument
+
+// Current entry
+const current = navigation.currentEntry;
+console.log(current.url, current.getState());
+
+// Update current entry's state without navigation
+navigation.updateCurrentEntry({ state: { scrollY: window.scrollY } });
+```
+
+### Progressive Enhancement
+
+```js
+if ('navigation' in window) {
+  // Use Navigation API
+  navigation.addEventListener('navigate', handleNavigate);
+} else {
+  // Fallback to History API
+  window.addEventListener('popstate', handlePopState);
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('a');
+    if (link && link.origin === location.origin) {
+      e.preventDefault();
+      history.pushState(null, '', link.href);
+      handleRouteChange(link.href);
+    }
+  });
+}
+```
+
+### Checklist
+
+- [ ] Use `navigation.addEventListener('navigate', ...)` instead of multiple History API listeners.
+- [ ] Check `event.canIntercept` before calling `event.intercept()` — cross-origin navigations cannot be intercepted.
+- [ ] Pass `event.signal` to all `fetch()` calls to automatically abort on navigation cancellation.
+- [ ] Use `scroll: 'after-transition'` for automatic scroll restoration.
+- [ ] Use `focusReset: 'after-transition'` to move focus to the new content after render.
+- [ ] Handle `navigateerror` for failed navigations — show an error page, not a blank screen.
+- [ ] Feature detection: `if ('navigation' in window)` with History API fallback.
+- [ ] Use `navigation.updateCurrentEntry()` to persist scroll position or form state.
+
+### Anti-Patterns
+
+- Ignoring `event.signal` — leads to race conditions where stale data renders over the current page.
+- Intercepting download links (`event.downloadRequest !== null`) — let them proceed natively.
+- Intercepting cross-origin navigations — `canIntercept` is `false`, but not checking causes errors.
+- Mixing History API and Navigation API in the same codebase — use one or the other, with feature detection.
+- Not providing a loading indicator during `handler()` — users see no feedback for slow navigations.
+
+> **Sources:** MDN — Navigation API; WICG Navigation API spec; Chrome Developers — "Modern client-side routing: the Navigation API" (Jake Archibald, 2022); Chrome 102 release notes.
+
+---
+
+## CJ. Third-Party Script Performance
+
+### Overview
+
+Third-party scripts (analytics, ads, chat widgets, social embeds, A/B testing, consent managers) are the largest contributor to web performance degradation for most sites. Studies show third-party code accounts for **57% of JavaScript execution time** on the median website (HTTP Archive, 2024). Careful loading strategies can reduce Total Blocking Time (TBT) by 50–80% without losing functionality.
+
+### Script Loading Strategies
+
+```html
+<!-- Blocks HTML parsing — avoid for 3P scripts -->
+<script src="https://example.com/widget.js"></script>
+
+<!-- Async: downloads in parallel, executes ASAP (blocks parsing briefly on execute) -->
+<script async src="https://example.com/analytics.js"></script>
+
+<!-- Defer: downloads in parallel, executes after HTML parsing, in order -->
+<script defer src="https://example.com/non-critical.js"></script>
+
+<!-- Module: deferred by default, strict mode -->
+<script type="module" src="https://example.com/modern.js"></script>
+```
+
+| Strategy | Download | Execution | Order Preserved | Use For |
+|----------|----------|-----------|-----------------|---------|
+| (none) | Blocking | Blocking | Yes | Never for 3P |
+| `async` | Parallel | ASAP | No | Analytics, ads |
+| `defer` | Parallel | After parse | Yes | Non-critical, order-dependent |
+| `module` | Parallel | After parse | Yes | Modern 3P with ESM |
+
+### Loading Priority Decision Tree
+
+```
+Is the script needed for above-the-fold content?
+├── Yes → <script defer> in <head> (or inline critical portion)
+└── No → Is it needed on page load at all?
+    ├── Yes → <script async> or requestIdleCallback
+    └── No → Is it triggered by user interaction?
+        ├── Yes → Load on interaction (facade pattern)
+        └── No → Load after page is fully interactive (setTimeout or idle)
+```
+
+### Consent-Gated Loading
+
+GDPR/CCPA compliance requires delaying analytics and ad scripts until consent:
+
+```js
+// Only load after user grants consent
+function onConsentGranted(categories) {
+  if (categories.includes('analytics')) {
+    const script = document.createElement('script');
+    script.src = 'https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX';
+    script.async = true;
+    document.head.appendChild(script);
+  }
+  if (categories.includes('marketing')) {
+    loadFacebookPixel();
+    loadLinkedInInsight();
+  }
+}
+```
+
+**Performance benefit:** Users who decline cookies never download tracking scripts (~200–500 KB savings).
+
+### Facade Pattern for Embeds
+
+Replace heavy embeds with lightweight placeholders that load the real embed on interaction:
+
+```html
+<!-- Instead of loading the full YouTube embed (1.3 MB) -->
+<!-- Use a facade: static thumbnail + play button -->
+<div class="youtube-facade" data-video-id="dQw4w9WgXcQ"
+     role="button" aria-label="Play video: Title Here"
+     tabindex="0">
+  <img src="https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"
+       alt="Video thumbnail" loading="lazy" width="480" height="360">
+  <button class="play-btn" aria-hidden="true">▶</button>
+</div>
+```
+
+```js
+document.querySelectorAll('.youtube-facade').forEach(facade => {
+  const load = () => {
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://www.youtube.com/embed/${facade.dataset.videoId}?autoplay=1`;
+    iframe.allow = 'autoplay; encrypted-media';
+    iframe.allowFullscreen = true;
+    iframe.width = 480;
+    iframe.height = 360;
+    facade.replaceWith(iframe);
+  };
+  facade.addEventListener('click', load, { once: true });
+  facade.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') load();
+  }, { once: true });
+});
+```
+
+**Savings by embed type:**
+
+| Embed | Full Load Cost | Facade Cost | Savings |
+|-------|---------------|-------------|---------|
+| YouTube | ~1.3 MB, 32 requests | ~15 KB (thumbnail) | 98.8% |
+| Google Maps | ~800 KB, 25 requests | ~20 KB (static map image) | 97.5% |
+| Twitter/X embed | ~1.1 MB, 15 requests | ~5 KB (quoted text + link) | 99.5% |
+| Intercom chat | ~400 KB, 8 requests | ~2 KB (chat icon SVG) | 99.5% |
+
+### Partytown (Web Worker Offloading)
+
+Partytown moves third-party scripts to a web worker, freeing the main thread:
+
+```html
+<!-- In <head> -->
+<script src="/~partytown/partytown.js"></script>
+
+<!-- Third-party script runs in web worker instead of main thread -->
+<script type="text/partytown" src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX"></script>
+```
+
+| Metric | Without Partytown | With Partytown | Improvement |
+|--------|------------------|----------------|-------------|
+| Total Blocking Time | ~1,200 ms | ~200 ms | −83% |
+| Main thread JS time | ~3,500 ms | ~800 ms | −77% |
+| TTI | ~4,200 ms | ~1,800 ms | −57% |
+
+**Limitations:**
+- Scripts that access DOM directly (e.g., chat widgets that inject UI) require proxying and may not work correctly.
+- `document.cookie` access is async in the worker — some scripts break.
+- Best for analytics, tracking pixels, and non-UI scripts.
+
+### Performance Budgets for Third-Party Scripts
+
+| Metric | Budget | Measurement |
+|--------|--------|-------------|
+| Total 3P JavaScript | < 100 KB compressed | `Performance.getEntriesByType('resource').filter(r => !r.name.includes(location.host))` |
+| 3P execution time | < 500 ms on mobile 3G | Chrome DevTools > Performance > Bottom-Up > Group by Domain |
+| 3P requests | < 10 origins | DevTools > Network > Group by Domain |
+| TBT contribution from 3P | < 200 ms | Lighthouse > Treemap > Third-party code |
+| DNS lookups for 3P | Preconnect top 3 origins | `<link rel="preconnect" href="https://...">` |
+
+```html
+<!-- Preconnect to critical third-party origins -->
+<link rel="preconnect" href="https://www.googletagmanager.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="dns-prefetch" href="https://cdn.example-analytics.com">
+```
+
+### Monitoring and Auditing
+
+```js
+// PerformanceObserver for long tasks caused by 3P
+const observer = new PerformanceObserver((list) => {
+  for (const entry of list.getEntries()) {
+    if (entry.duration > 50) { // Long task (>50ms)
+      const attribution = entry.attribution?.[0];
+      console.warn(`Long task: ${entry.duration}ms`,
+        attribution?.containerSrc || 'inline script');
+    }
+  }
+});
+observer.observe({ type: 'longtask', buffered: true });
+```
+
+### Checklist
+
+- [ ] Never use blocking `<script>` for third-party code — always `async` or `defer`.
+- [ ] Apply facade pattern to heavy embeds (YouTube, Maps, chat widgets).
+- [ ] Set a 3P JS budget: < 100 KB compressed, < 500 ms execution time.
+- [ ] Preconnect to top 3 third-party origins: `<link rel="preconnect">`.
+- [ ] Gate analytics/marketing scripts behind cookie consent.
+- [ ] Consider Partytown for analytics scripts that don't need DOM access.
+- [ ] Audit 3P impact quarterly: Lighthouse > Treemap > Third-party code.
+- [ ] Monitor long tasks with `PerformanceObserver` — flag 3P scripts exceeding 50 ms.
+- [ ] Lazy-load below-the-fold social embeds with `loading="lazy"` on iframes.
+- [ ] Remove unused 3P scripts — audit with Chrome DevTools Coverage panel.
+
+### Anti-Patterns
+
+- Loading all 3P scripts synchronously in `<head>` — blocks page render entirely.
+- Multiple analytics providers tracking the same events — redundant load (~100–300 KB each).
+- Chat widgets loading on every page when only used on support pages — load conditionally.
+- No `rel="preconnect"` for critical 3P origins — adds 100–300 ms DNS+TLS per origin.
+- A/B testing scripts that block rendering while fetching experiment config — use edge-side A/B instead.
+- Not auditing 3P scripts after initial integration — they grow over time (tag managers accumulate tags).
+
+> **Sources:** web.dev — "Loading Third-Party JavaScript" (Addy Osmani & Arthur Evans); Lighthouse documentation — "Reduce the impact of third-party code"; Harry Roberts (csswizardry) — "Third-Party Performance" (2023); HTTP Archive — Web Almanac, Third Parties chapter (2024); Partytown documentation (builder.io).
+
+---
+
+## CK. Permissions Policy Headers
+
+### Overview
+
+Permissions Policy (formerly Feature Policy) is an HTTP response header and HTML attribute that allows a site to control which browser features can be used by its own code and by embedded third-party iframes. It provides defense-in-depth against malicious or misbehaving third-party scripts and enforces least-privilege access to sensitive APIs (camera, microphone, geolocation, payment). Supported in Chrome 88+, Edge 88+, Firefox 74+ (partial), Safari 15.4+ (partial).
+
+### Header Syntax
+
+```http
+Permissions-Policy: camera=(), microphone=(), geolocation=(self), payment=(self "https://checkout.stripe.com"), fullscreen=(self)
+```
+
+| Directive | Value | Meaning |
+|-----------|-------|---------|
+| `camera=()` | Empty | Disabled for all — no page or iframe can access camera |
+| `microphone=()` | Empty | Disabled for all |
+| `geolocation=(self)` | `self` | Allowed for same-origin only |
+| `payment=(self "https://checkout.stripe.com")` | Origins | Allowed for same-origin and specified third-party |
+| `fullscreen=(self)` | `self` | Allowed for same-origin only |
+| `autoplay=(self)` | `self` | Autoplay allowed only for same-origin |
+
+### Recommended Default Policy
+
+```http
+Permissions-Policy: accelerometer=(), ambient-light-sensor=(), autoplay=(self), battery=(), camera=(), cross-origin-isolated=(), display-capture=(), document-domain=(), encrypted-media=(self), execution-while-not-rendered=(), execution-while-out-of-viewport=(), fullscreen=(self), gamepad=(), geolocation=(), gyroscope=(), hid=(), identity-credentials-get=(), idle-detection=(), local-fonts=(), magnetometer=(), microphone=(), midi=(), otp-credentials=(), payment=(), picture-in-picture=(self), publickey-credentials-create=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), speaker-selection=(), storage-access=(), usb=(), web-share=(self), xr-spatial-tracking=()
+```
+
+**Principle:** Deny everything by default, then allow specific features as needed. This is the "allowlist" approach.
+
+### Iframe Sandboxing with `allow`
+
+```html
+<!-- Third-party iframe with minimal permissions -->
+<iframe
+  src="https://maps.example.com/embed"
+  allow="geolocation 'self'"
+  sandbox="allow-scripts allow-same-origin"
+  loading="lazy"
+  width="600" height="400"
+  title="Interactive map"
+></iframe>
+
+<!-- Payment iframe with specific permissions -->
+<iframe
+  src="https://checkout.stripe.com/pay"
+  allow="payment 'src'"
+  sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+  title="Checkout form"
+></iframe>
+```
+
+The `allow` attribute on iframes restricts what features the embedded content can use, independent of the parent page's Permissions Policy.
+
+### Common Feature Policies
+
+| Feature | Recommended Policy | Reason |
+|---------|-------------------|--------|
+| `camera` | `()` unless video app | Prevents drive-by camera access |
+| `microphone` | `()` unless voice/audio app | Prevents silent recording |
+| `geolocation` | `(self)` or `()` | Location access should be first-party only |
+| `autoplay` | `(self)` | Prevents 3P ads from autoplaying audio |
+| `payment` | `(self "https://trusted-psp.com")` | Restricts Payment Request API to trusted processors |
+| `fullscreen` | `(self)` | Prevents 3P iframes from going fullscreen without permission |
+| `document-domain` | `()` | Deprecated feature — disable entirely |
+| `display-capture` | `()` unless screen-sharing app | Prevents screen capture |
+| `serial`, `usb`, `hid`, `bluetooth` | `()` | Hardware APIs rarely needed in web apps |
+
+### Reporting Violations
+
+```http
+Permissions-Policy: camera=()
+Reporting-Endpoints: permissions="https://reporting.example.com/permissions"
+
+<!-- Alternative: Report-To header (older API) -->
+Report-To: {"group":"permissions","max_age":86400,"endpoints":[{"url":"https://reporting.example.com/permissions"}]}
+```
+
+```js
+// Client-side detection of policy violations
+document.addEventListener('securitypolicyviolation', (e) => {
+  if (e.disposition === 'enforce') {
+    console.warn(`Permissions Policy violation: ${e.violatedDirective}`);
+    // Optionally show user-facing message:
+    // "Camera access is not available on this page."
+  }
+});
+```
+
+### UX When a Feature is Blocked
+
+When a permissions policy blocks a feature, the browser throws an error (e.g., `NotAllowedError` from `getUserMedia`). Your UI should handle this gracefully:
+
+```js
+async function requestCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    showVideoPreview(stream);
+  } catch (error) {
+    if (error.name === 'NotAllowedError') {
+      // Could be permissions policy OR user denied
+      showMessage(
+        'Camera access is not available.',
+        'This may be due to your browser settings or site policy. ' +
+        'Please check your browser permissions.'
+      );
+    }
+  }
+}
+```
+
+### Security-by-Default Patterns
+
+**1. New project template:**
+
+```
+# .htaccess or nginx config
+Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), display-capture=(), document-domain=()
+```
+
+Start with everything denied. Add permissions as features are developed.
+
+**2. Feature flag integration:**
+
+```js
+// Only request permission if the feature is both policy-allowed and feature-flagged
+if (featureFlags.videoChat && document.featurePolicy?.allowsFeature('camera')) {
+  showVideoChatButton();
+}
+```
+
+**3. CSP + Permissions Policy together:**
+
+```http
+Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.example.com
+Permissions-Policy: camera=(), microphone=(), geolocation=(self)
+```
+
+CSP controls what code can run; Permissions Policy controls what APIs that code can access. Use both.
+
+### Checklist
+
+- [ ] Set a `Permissions-Policy` header on all responses — deny unused features by default.
+- [ ] Use `allow` attribute on all third-party iframes with minimum required permissions.
+- [ ] Combine `sandbox` + `allow` on iframes for defense-in-depth.
+- [ ] Handle `NotAllowedError` gracefully in UI — explain why the feature is unavailable.
+- [ ] Disable `document-domain` (`document-domain=()`) — it is deprecated and a security risk.
+- [ ] Set up violation reporting with `Reporting-Endpoints` header.
+- [ ] Audit permissions quarterly — remove permissions for features no longer in use.
+- [ ] Use `document.featurePolicy.allowsFeature()` to check before requesting access.
+- [ ] Disable hardware APIs (`serial`, `usb`, `hid`, `bluetooth`) unless specifically needed.
+
+### Anti-Patterns
+
+- No `Permissions-Policy` header — every embedded iframe has full access to all browser APIs by default.
+- Allowing `camera` and `microphone` globally when only one page needs them — over-permissive.
+- Using only `sandbox` without `allow` on iframes — `sandbox` blocks scripts by default but does not control individual APIs.
+- Not testing after policy changes — a new restriction can break existing features silently.
+- Permissions Policy without CSP — controls API access but not script execution; use both.
+
+> **Sources:** MDN — Permissions Policy; W3C Permissions Policy spec; Chrome Developers — "Permissions Policy" documentation; OWASP — Security Headers; Scott Helme — "securityheaders.com" analysis.
+
+---
+
+## CL. Web Vitals RUM Implementation
+
+### Overview
+
+Real User Monitoring (RUM) captures performance metrics from actual users in the field — complementing lab tools like Lighthouse. The three Core Web Vitals (LCP, INP, CLS) are Google's ranking signals and the primary metrics for user-perceived performance. A robust RUM pipeline includes: client-side collection via the `web-vitals` library, server-side aggregation at the 75th percentile (p75), dashboards for analysis, and attribution data for debugging regressions.
+
+### Core Web Vitals Targets (2024+)
+
+| Metric | Good | Needs Improvement | Poor | What It Measures |
+|--------|------|--------------------|------|-----------------|
+| **LCP** (Largest Contentful Paint) | ≤ 2.5 s | 2.5–4.0 s | > 4.0 s | Loading — when the largest visible element renders |
+| **INP** (Interaction to Next Paint) | ≤ 200 ms | 200–500 ms | > 500 ms | Responsiveness — worst-case input delay across all interactions |
+| **CLS** (Cumulative Layout Shift) | ≤ 0.1 | 0.1–0.25 | > 0.25 | Visual stability — unexpected layout movements |
+
+**p75 rule:** Google evaluates the **75th percentile** of all page loads, not the median. Your site must meet "Good" thresholds at p75 to pass Core Web Vitals assessment.
+
+### web-vitals Library Setup
+
+```bash
+npm install web-vitals
+```
+
+```js
+// Basic collection
+import { onLCP, onINP, onCLS, onFCP, onTTFB } from 'web-vitals';
+
+function sendToAnalytics(metric) {
+  const body = JSON.stringify({
+    name: metric.name,
+    value: metric.value,
+    rating: metric.rating,   // 'good', 'needs-improvement', 'poor'
+    delta: metric.delta,
+    id: metric.id,           // unique per page load
+    navigationType: metric.navigationType, // 'navigate', 'reload', 'back-forward', etc.
+    url: location.href,
+    timestamp: Date.now(),
+  });
+
+  // Use sendBeacon for reliability (fires even on page unload)
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon('/api/vitals', body);
+  } else {
+    fetch('/api/vitals', { body, method: 'POST', keepalive: true });
+  }
+}
+
+onLCP(sendToAnalytics);
+onINP(sendToAnalytics);
+onCLS(sendToAnalytics);
+onFCP(sendToAnalytics);
+onTTFB(sendToAnalytics);
+```
+
+### Attribution Builds for Debugging
+
+The `web-vitals/attribution` build includes detailed diagnostic data for each metric:
+
+```js
+import { onLCP, onINP, onCLS } from 'web-vitals/attribution';
+
+onLCP((metric) => {
+  console.log('LCP element:', metric.attribution.element);           // e.g., 'img.hero'
+  console.log('LCP resource URL:', metric.attribution.url);          // e.g., '/images/hero.webp'
+  console.log('Time to first byte:', metric.attribution.timeToFirstByte);
+  console.log('Resource load delay:', metric.attribution.resourceLoadDelay);
+  console.log('Resource load time:', metric.attribution.resourceLoadDuration);
+  console.log('Element render delay:', metric.attribution.elementRenderDelay);
+});
+
+onINP((metric) => {
+  console.log('INP event type:', metric.attribution.eventType);      // e.g., 'pointerup'
+  console.log('INP target:', metric.attribution.eventTarget);         // e.g., 'button#submit'
+  console.log('Input delay:', metric.attribution.inputDelay);         // ms before handler runs
+  console.log('Processing time:', metric.attribution.processingDuration); // handler execution
+  console.log('Presentation delay:', metric.attribution.presentationDelay); // paint after handler
+});
+
+onCLS((metric) => {
+  console.log('Largest shift target:', metric.attribution.largestShiftTarget); // e.g., 'div.ad-slot'
+  console.log('Largest shift value:', metric.attribution.largestShiftValue);
+  console.log('Largest shift time:', metric.attribution.largestShiftTime);
+});
+```
+
+**Bundle size:** Base library ~1.5 KB gzipped; attribution build ~3 KB gzipped.
+
+### CrUX API (Chrome User Experience Report)
+
+CrUX provides aggregated field data from Chrome users (28-day rolling window):
+
+```js
+// Query CrUX API
+async function getCruxData(url) {
+  const response = await fetch(
+    `https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=${API_KEY}`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        url: url,
+        metrics: [
+          'largest_contentful_paint',
+          'interaction_to_next_paint',
+          'cumulative_layout_shift',
+          'experimental_time_to_first_byte',
+        ],
+      }),
+    }
+  );
+  return response.json();
+}
+
+// Response includes histogram buckets and p75 values:
+// { record: { metrics: { largest_contentful_paint: { percentiles: { p75: 2400 } } } } }
+```
+
+**CrUX vs RUM:**
+
+| Aspect | CrUX | Custom RUM |
+|--------|------|------------|
+| Data source | Chrome users only (~65% market share) | All browsers |
+| Granularity | Origin-level or URL-level (if sufficient traffic) | Per-session, per-user |
+| Freshness | 28-day rolling average | Real-time |
+| Custom dimensions | None | Page type, user segment, A/B variant, etc. |
+| Cost | Free (API + BigQuery) | Infrastructure cost for ingestion + storage |
+
+### PerformanceObserver Patterns
+
+For custom metrics beyond Core Web Vitals:
+
+```js
+// Long Tasks (>50ms main thread blocks)
+const longTaskObserver = new PerformanceObserver((list) => {
+  for (const entry of list.getEntries()) {
+    sendToAnalytics({
+      name: 'long-task',
+      value: entry.duration,
+      attribution: entry.attribution?.[0]?.containerSrc || 'self',
+    });
+  }
+});
+longTaskObserver.observe({ type: 'longtask', buffered: true });
+
+// Resource Timing (slow resources)
+const resourceObserver = new PerformanceObserver((list) => {
+  for (const entry of list.getEntries()) {
+    if (entry.duration > 1000) { // Resources taking >1s
+      sendToAnalytics({
+        name: 'slow-resource',
+        value: entry.duration,
+        url: entry.name,
+        type: entry.initiatorType,
+      });
+    }
+  }
+});
+resourceObserver.observe({ type: 'resource', buffered: true });
+
+// Element Timing (custom LCP-like tracking for specific elements)
+const elementObserver = new PerformanceObserver((list) => {
+  for (const entry of list.getEntries()) {
+    sendToAnalytics({
+      name: `element-${entry.identifier}`,
+      value: entry.renderTime || entry.loadTime,
+    });
+  }
+});
+elementObserver.observe({ type: 'element', buffered: true });
+```
+
+```html
+<!-- Mark specific elements for Element Timing -->
+<img elementtiming="hero-image" src="/hero.webp" alt="Hero">
+<h1 elementtiming="main-heading">Welcome</h1>
+```
+
+### Dashboard Design
+
+Structure your RUM dashboard around these views:
+
+**1. Overview (executive):**
+- p75 LCP, INP, CLS — current values with trend arrows (7-day / 30-day).
+- % of page loads in "Good" threshold for each metric.
+- Traffic-weighted overall score.
+
+**2. Breakdown (debugging):**
+- Metrics by page type (homepage, PDP, checkout, search results).
+- Metrics by device (mobile / desktop / tablet).
+- Metrics by connection type (4G, 3G, slow-2G).
+- Metrics by geography (country-level).
+- Metrics by browser (Chrome, Safari, Firefox).
+
+**3. Regressions (alerting):**
+- Alert when p75 crosses from "Good" to "Needs Improvement" for 2+ consecutive days.
+- Show deployment markers on timeline charts.
+- Drill down from regression to attribution data (which element, which resource).
+
+**4. A/B test correlation:**
+- Web Vitals by experiment variant.
+- Conversion rate overlaid with performance metrics.
+
+### Data Pipeline Architecture
+
+```
+Browser                    Server                      Dashboard
+┌──────────┐    beacon    ┌──────────────┐   ETL      ┌──────────┐
+│web-vitals├──────────────►│ /api/vitals  ├───────────►│ BigQuery │
+│ library  │              │ (edge fn)    │            │ or       │
+└──────────┘              └──────┬───────┘            │ ClickHouse│
+                                 │                     └────┬─────┘
+                                 │ buffer + batch            │
+                                 ▼                           ▼
+                          ┌──────────────┐            ┌──────────┐
+                          │ Message Queue│            │ Grafana / │
+                          │ (Kafka/SQS)  │            │ Looker    │
+                          └──────────────┘            └──────────┘
+```
+
+**Key decisions:**
+- Use `navigator.sendBeacon()` for reliable delivery on page unload.
+- Batch writes: buffer client events for 5–10 seconds before flushing (reduces server load).
+- Sample at high traffic: collect 100% up to 10K daily page loads, then sample 10–25% above that.
+- Store raw events for 90 days; aggregated p75 values indefinitely.
+
+### Sampling Strategy
+
+| Daily Page Views | Recommended Sample Rate | Estimated Monthly Storage |
+|-----------------|------------------------|--------------------------|
+| < 10,000 | 100% | ~50 MB |
+| 10,000–100,000 | 25% | ~125 MB |
+| 100,000–1,000,000 | 10% | ~500 MB |
+| > 1,000,000 | 1–5% | ~1 GB |
+
+```js
+// Client-side sampling
+const SAMPLE_RATE = 0.1; // 10%
+
+function sendToAnalytics(metric) {
+  if (Math.random() > SAMPLE_RATE) return;
+  // ... send metric
+}
+```
+
+### Checklist
+
+- [ ] Install `web-vitals` library and report LCP, INP, CLS, FCP, TTFB.
+- [ ] Use the `/attribution` build in staging/debugging; base build in production if bundle size matters.
+- [ ] Send metrics via `navigator.sendBeacon()` for reliable delivery.
+- [ ] Evaluate at **p75** — not median, not average.
+- [ ] Targets: LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1 at p75.
+- [ ] Segment by device type, connection speed, page type, and geography.
+- [ ] Set up alerts for p75 regressions crossing "Good" → "Needs Improvement."
+- [ ] Add deployment markers to timeline charts for regression correlation.
+- [ ] Use `elementtiming` attribute on key above-the-fold elements.
+- [ ] Monitor long tasks with `PerformanceObserver({ type: 'longtask' })`.
+- [ ] Implement sampling for sites with > 10K daily page views.
+- [ ] Cross-reference CrUX data with your RUM for validation.
+- [ ] Include `navigationType` in reports — distinguish between navigations, reloads, and back-forward.
+
+### Anti-Patterns
+
+- Reporting only averages — outliers (p95, p99) skew averages; p75 is the standard for Core Web Vitals.
+- Using `fetch()` without `keepalive: true` on page unload — request is cancelled by the browser.
+- Collecting RUM data but never acting on it — dashboards without alert thresholds are vanity metrics.
+- Not segmenting by device — desktop p75 may be "Good" while mobile is "Poor."
+- Sampling at 1% on low-traffic sites — insufficient data for meaningful p75 calculations (need ~200+ samples per segment).
+- Ignoring `navigationType` — back-forward navigations from bfcache have near-zero LCP, skewing data downward.
+- Alerting on daily fluctuations — use 2-day or 7-day rolling p75 to avoid noise.
+
+> **Sources:** web.dev — "Web Vitals" (Philip Walton); web-vitals library documentation (GitHub); Chrome UX Report (CrUX) documentation; web.dev — "Best practices for measuring Web Vitals in the field"; Google Search Central — Core Web Vitals & ranking; Philip Walton — "Fixing INP" (web.dev, 2024).

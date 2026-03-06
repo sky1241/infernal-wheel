@@ -10446,3 +10446,3153 @@ Capture and diff the accessibility hierarchy between builds to detect unintentio
 Store baseline snapshots in the repo under `tests/a11y-baselines/`. On each PR, generate a fresh dump and diff against baseline. Flag any removed labels, changed roles, or deleted nodes as potential regressions. Update baselines intentionally via a dedicated `update-a11y-baseline` CI job requiring explicit reviewer approval.
 
 ---
+
+## BZ. AI/ML UX Patterns on Mobile
+
+### When to Use On-Device ML
+
+On-device inference eliminates network latency, works offline, and keeps sensitive data local. Use server-side models only when the task exceeds device capability (large language models, complex generative tasks) or when the model exceeds reasonable download size (>50 MB compressed).
+
+| Capability | iOS Framework | Android Framework | Typical Latency |
+|-----------|--------------|-------------------|-----------------|
+| Image classification | Core ML + Vision | ML Kit Image Labeling | 15-50 ms (on-device) |
+| Object detection | Core ML + Vision | ML Kit Object Detection | 20-60 ms |
+| Text recognition (OCR) | Vision | ML Kit Text Recognition | 30-100 ms |
+| Face detection | Vision | ML Kit Face Detection | 10-30 ms |
+| Barcode scanning | Vision | ML Kit Barcode Scanning | 5-20 ms |
+| Smart Reply | Create ML (custom) | ML Kit Smart Reply | 10-40 ms |
+| On-device translation | Translation framework (iOS 15+) | ML Kit Translation | 30-80 ms per sentence |
+| Pose detection | Vision body pose (iOS 14+) | ML Kit Pose Detection | 20-50 ms |
+
+Sources: Apple Core ML documentation, Google ML Kit documentation.
+
+### Smart Suggestions UX
+
+Present ML-generated suggestions as gentle nudges, never as forced choices. The user must always retain full control.
+
+**Presentation hierarchy (by confidence):**
+
+| Confidence Level | UI Treatment | Example |
+|-----------------|-------------|---------|
+| High (>90%) | Inline auto-fill, single tap to accept | QuickType keyboard suggestion |
+| Medium (60-90%) | Chip row or dropdown, 2-3 options | Smart Reply bubbles |
+| Low (30-60%) | Collapsed "Suggestions" section | "Did you mean..." link |
+| Very low (<30%) | Do not show | Suppress prediction entirely |
+
+**Rules:**
+- Show at most 3 suggestions simultaneously (NNGroup recommendation for choice overload)
+- Place suggestions near the input they relate to, within 8-16 dp/pt
+- Use a distinct visual style (e.g., outlined chip, lighter background) to differentiate from user-generated content
+- Always provide a dismiss/clear action (X button or swipe)
+
+```kotlin
+// ML Kit Smart Reply — Android
+val smartReplyGenerator = SmartReply.getClient()
+smartReplyGenerator.suggestReplies(conversation)
+    .addOnSuccessListener { result ->
+        if (result.status == SmartReplySuggestionResult.STATUS_SUCCESS) {
+            result.suggestions.take(3).forEach { suggestion ->
+                // Display as MaterialChip, confidence not exposed but
+                // internally filtered by ML Kit (only high-confidence shown)
+                addSuggestionChip(suggestion.text)
+            }
+        }
+    }
+```
+
+```swift
+// Core ML custom suggestion model — iOS
+func predict(context: String) {
+    guard let model = try? SmartSuggestionModel(configuration: .init()),
+          let output = try? model.prediction(input: context) else {
+        // Fallback: show no suggestions (graceful degradation)
+        return
+    }
+    let suggestions = output.topK(3).filter { $0.confidence > 0.6 }
+    DispatchQueue.main.async {
+        self.showSuggestionChips(suggestions.map(\.label))
+    }
+}
+```
+
+### Camera-Based ML UX
+
+| Guideline | Value | Source |
+|-----------|-------|--------|
+| Viewfinder frame rate | 30 fps minimum, 60 fps preferred | Apple AVFoundation docs |
+| Detection overlay delay | < 100 ms from frame capture to bounding box render | Google ML Kit performance guidance |
+| Bounding box stroke | 2-3 dp/pt, high-contrast color on semi-transparent scrim | Material Design guidance |
+| Confidence label font | 12-14 sp, positioned above bounding box with 4 dp padding | Material Design typography |
+| Haptic on detection | UIImpactFeedbackGenerator.style.light (iOS) / HapticFeedbackConstants.CONFIRM (Android) | Platform HIG |
+
+**Camera permission flow:** Request access only when the user initiates a camera-based ML feature, not at app launch. Show a pre-permission screen explaining why the camera is needed and what the ML model will do with the visual data.
+
+### Trust & Explainability
+
+Users must understand why the system made a decision, especially for consequential outcomes (financial, health, safety).
+
+| Principle | Implementation | Example |
+|-----------|---------------|---------|
+| Transparency | Show source data that influenced the result | "Based on your last 3 purchases" |
+| Calibrated confidence | Map internal scores to user-friendly language | "Very likely" / "Possible" / "Uncertain" |
+| Correction mechanism | Let users override or correct ML output | "Not relevant" button, edit suggestion |
+| Attribution | Cite the model or data source when appropriate | "Suggested by on-device analysis" |
+| Progressive disclosure | Summary first, details on tap | "Why this suggestion?" expandable row |
+
+Source: Apple Machine Learning HIG ("People should always feel in control"), NNGroup AI UX guidelines (2023).
+
+### Fallback When Model Fails
+
+| Failure Mode | Detection | Fallback UX |
+|-------------|-----------|-------------|
+| Model file missing/corrupt | `try/catch` on model load | Offer manual input; download model in background |
+| Low confidence on all classes | Max confidence < threshold (e.g., 30%) | "We're not sure. Please enter manually." |
+| Timeout (inference > 2 s) | Watchdog timer | Cancel inference, show manual path |
+| Out-of-distribution input | Anomaly detection layer or confidence check | "This doesn't look like [expected input]. Try again." |
+| Hardware acceleration unavailable | Check GPU/NPU delegate availability | Fall back to CPU inference (slower but functional) |
+
+```kotlin
+// Android — graceful fallback on model load failure
+val options = CustomImageLabelerOptions.Builder()
+    .setConfidenceThreshold(0.5f)
+    .setMaxResultCount(5)
+    .build()
+
+try {
+    val labeler = ImageLabeling.getClient(localModel, options)
+    labeler.process(image)
+        .addOnSuccessListener { labels ->
+            if (labels.isEmpty()) showManualInput()
+            else displayResults(labels)
+        }
+        .addOnFailureListener { showManualInput() }
+} catch (e: Exception) {
+    // Model not available — degrade to manual
+    showManualInput()
+    downloadModelInBackground()
+}
+```
+
+### Checklist
+
+- [ ] ML suggestions show at most 3 options with clear dismiss action
+- [ ] Confidence below 30% suppresses prediction entirely
+- [ ] Camera ML overlay renders within 100 ms of frame capture
+- [ ] Every ML decision has an explanation path ("Why this?")
+- [ ] Users can correct or override every ML output
+- [ ] Model load failure falls back to manual input without crash
+- [ ] On-device models are under 50 MB compressed
+- [ ] Pre-permission screen explains ML camera usage before requesting access
+- [ ] Haptic feedback confirms detection events
+
+### Anti-Patterns
+
+- **Overconfident UI**: Presenting low-confidence predictions as certain facts
+- **Black box**: No explanation for why a suggestion was made
+- **Hard dependency**: App crashes or shows empty state when model fails instead of falling back to manual input
+- **Permission grab**: Requesting camera at app launch "for ML features"
+- **Suggestion fatigue**: Showing suggestions on every screen regardless of relevance
+
+**Sources:** Apple Machine Learning Human Interface Guidelines, Google ML Kit documentation, NNGroup "AI and UX" research reports (2023), Core ML documentation (Apple Developer), TensorFlow Lite Android documentation.
+
+---
+
+## CA. Privacy Regulation UX (GDPR / ATT / CCPA)
+
+### App Tracking Transparency (iOS 14.5+)
+
+ATT requires apps to request user permission before tracking across apps and websites owned by other companies. The system dialog is non-customizable, but the pre-prompt screen is yours.
+
+| Rule | Detail | Source |
+|------|--------|--------|
+| System prompt trigger | `ATTrackingManager.requestTrackingAuthorization()` | Apple ATT docs |
+| Pre-prompt recommended | Explain value before system dialog appears | Apple HIG — Accessing Private Data |
+| Prompt timing | After onboarding, during a natural pause — never on first launch | Apple HIG |
+| Purpose string required | `NSUserTrackingUsageDescription` in Info.plist | Apple Developer docs |
+| Rejection rate | ~75-85% of users deny tracking (industry average, 2023) | AppsFlyer, Adjust public reports |
+| Re-prompt | Cannot re-trigger system dialog; guide user to Settings | Apple ATT docs |
+
+**Pre-prompt pattern (recommended):**
+
+```
+┌──────────────────────────────────────┐
+│                                      │
+│     [App icon / illustration]        │
+│                                      │
+│   Help us show you relevant ads      │  <- Title, 20sp
+│                                      │
+│   We use an identifier to serve      │  <- Body, 16sp, secondary
+│   ads that match your interests.     │
+│   Your data is never sold.           │
+│                                      │
+│   ┌──────────────────────────┐       │
+│   │      Continue             │      │  <- Primary CTA -> triggers system dialog
+│   └──────────────────────────┘       │
+│                                      │
+│         Not Now                      │  <- Secondary: sets .denied without prompt
+│                                      │
+└──────────────────────────────────────┘
+```
+
+```swift
+// iOS — ATT flow with pre-prompt
+import AppTrackingTransparency
+
+func requestTracking() {
+    // Check current status first
+    let status = ATTrackingManager.trackingAuthorizationStatus
+    switch status {
+    case .notDetermined:
+        showPrePromptScreen {
+            ATTrackingManager.requestTrackingAuthorization { newStatus in
+                DispatchQueue.main.async {
+                    self.configureAnalytics(for: newStatus)
+                }
+            }
+        }
+    case .denied, .restricted:
+        configureAnalytics(for: status) // Use SKAdNetwork only
+    case .authorized:
+        configureAnalytics(for: status) // Full attribution
+    @unknown default:
+        break
+    }
+}
+```
+
+### GDPR Consent Flows
+
+GDPR Article 7 requires consent to be freely given, specific, informed, and unambiguous. Pre-ticked boxes or bundled consent are invalid.
+
+| Requirement | Implementation | Violation Example |
+|------------|---------------|-------------------|
+| Freely given | Equal visual weight for Accept/Reject | Giant "Accept" vs tiny "Manage" link |
+| Specific | Separate toggles per purpose (analytics, ads, personalization) | Single "Accept all" with no granular option |
+| Informed | Plain-language explanation of each purpose | Legal jargon only |
+| Unambiguous | Affirmative action required (tap, toggle) | Pre-checked boxes |
+| Withdrawable | Settings path to revoke at any time | No way to change consent later |
+| Age-gated | Under-16 requires parental consent (varies by EU member state: 13-16) | No age verification |
+
+**Consent banner layout:**
+
+```
+┌──────────────────────────────────────┐
+│  We value your privacy               │  <- Title, 18sp bold
+│                                      │
+│  We use cookies and similar tech     │  <- Body, 14sp
+│  for analytics and personalization.  │
+│                                      │
+│  ○ Essential (always on)             │  <- Non-toggleable
+│  ○ Analytics         [toggle OFF]    │  <- Default OFF per GDPR
+│  ○ Advertising       [toggle OFF]    │
+│  ○ Personalization   [toggle OFF]    │
+│                                      │
+│  ┌────────────┐  ┌────────────┐      │
+│  │  Accept All │  │ Save Choices│     │  <- Equal visual weight
+│  └────────────┘  └────────────┘      │
+│                                      │
+│        Reject All                    │  <- Must be equally accessible
+│                                      │
+│  Privacy Policy                      │
+└──────────────────────────────────────┘
+```
+
+**Critical sizing rules:**
+- "Reject All" button must be the same size and prominence as "Accept All" (CNIL enforcement, 2022: fined Google EUR 150M for making rejection harder)
+- Minimum touch target 48 dp / 44 pt for all consent buttons
+- Consent toggles must default to OFF (opt-in, not opt-out)
+
+### CCPA / CPRA — Do Not Sell
+
+| Requirement | Implementation | Source |
+|------------|---------------|--------|
+| "Do Not Sell or Share" link | Visible in app Settings, accessible within 2 taps from home | CCPA Section 1798.135 |
+| Opt-out mechanism | Toggle or explicit button, no account required | CCPA regulations |
+| Response time | Honor request within 15 business days | CCPA Section 1798.135 |
+| Annual reminder | For users who previously opted in, remind them of the right | CPRA amendment |
+| Global Privacy Control | Respect GPC browser signal (`Sec-GPC: 1`) | California AG guidance |
+
+### Privacy Nutrition Labels
+
+Both platforms require disclosure of data practices before download.
+
+| Platform | Label Name | Categories | Source |
+|----------|-----------|-----------|--------|
+| iOS | App Privacy (App Store) | Data Used to Track You, Data Linked to You, Data Not Linked to You, Data Not Collected | Apple App Store Review Guidelines 5.1.2 |
+| Android | Data Safety section (Play Store) | Data shared, Data collected, Security practices | Google Play Data Safety policy |
+
+**Data types to declare (both platforms):** Contact info, health/fitness, financial, location, contacts, user content, browsing history, search history, identifiers, usage data, diagnostics, purchases.
+
+### Data Deletion Requests
+
+| Platform | Requirement | Deadline | Source |
+|---------|------------|----------|--------|
+| iOS (App Store) | Must offer account deletion if app offers account creation | Within reasonable time | Apple App Store Review Guideline 5.1.1(v) |
+| Android (Play Store) | Must offer in-app and web-based account/data deletion | Within reasonable time | Google Play User Data policy (2023) |
+| GDPR | Right to erasure (Article 17) | 30 days | GDPR |
+| CCPA | Right to delete | 45 days (extendable to 90) | CCPA Section 1798.105 |
+
+**Deletion flow UX:**
+
+```swift
+// iOS — Account deletion with confirmation
+func requestAccountDeletion() {
+    let alert = UIAlertController(
+        title: "Delete Account?",
+        message: "This will permanently delete your account and all associated data. This action cannot be undone.",
+        preferredStyle: .alert
+    )
+    alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+    alert.addAction(UIAlertAction(title: "Delete Account", style: .destructive) { _ in
+        self.showReauthentication { success in
+            if success {
+                self.performDeletion()
+            }
+        }
+    })
+    present(alert, animated: true)
+}
+```
+
+### Consent Management UI Patterns
+
+| Pattern | Use Case | Implementation |
+|---------|----------|---------------|
+| Just-in-time consent | Feature-specific permission | Show consent dialog when user first accesses feature |
+| Layered notice | Complex privacy policy | Summary layer + full detail on tap |
+| Preference center | Granular control | Settings screen with per-category toggles |
+| Consent receipt | Audit trail | Store timestamp, version, and choices; export on request |
+| Re-consent on change | Policy update | Block access until user reviews new terms |
+
+### Checklist
+
+- [ ] ATT pre-prompt explains value before system dialog (iOS)
+- [ ] ATT is never triggered on first app launch
+- [ ] GDPR consent toggles default to OFF
+- [ ] "Reject All" has equal visual weight as "Accept All"
+- [ ] CCPA "Do Not Sell" link accessible within 2 taps from home
+- [ ] Account deletion offered in-app if account creation exists
+- [ ] Privacy nutrition labels submitted and accurate on both stores
+- [ ] Consent choices stored with timestamp and version for audit
+- [ ] Under-16 consent gating implemented for EU users
+- [ ] Re-authentication required before account deletion
+
+### Anti-Patterns
+
+- **Dark patterns**: Making "Reject" harder to find, smaller, or requiring more taps than "Accept"
+- **Consent wall**: Blocking app usage entirely until all tracking is accepted (illegal under GDPR)
+- **Bundled consent**: Single checkbox for all purposes without granular control
+- **Zombie tracking**: Continuing to track after user revokes consent
+- **Deletion theater**: Marking data as deleted but retaining it in backups indefinitely
+
+**Sources:** Apple App Tracking Transparency documentation, Apple App Store Review Guidelines 5.1, GDPR Articles 7/17, CCPA Sections 1798.105/135, CNIL enforcement decisions (2022), Google Play Data Safety policy, ICO consent guidance.
+
+---
+
+## CB. Android 15 Edge-to-Edge Mandatory
+
+### Overview
+
+Starting with Android 15 (API 35), edge-to-edge rendering is enforced for all apps targeting the new SDK. Apps draw behind system bars (status bar and navigation bar) by default. The previously optional `enableEdgeToEdge()` behavior is now mandatory.
+
+### What Changed in API 35
+
+| Component | Gesture Navigation | 3-Button Navigation | Source |
+|-----------|-------------------|---------------------|--------|
+| Status bar | Transparent, no offset | Transparent, no offset | Android 15 behavior changes |
+| Navigation bar | Transparent, no offset | 80% opaque, matches window background | Android 15 behavior changes |
+| `setStatusBarColor()` | Deprecated, no effect | Deprecated, no effect | Android developer docs |
+| `setNavigationBarColor()` | Deprecated, no effect | Deprecated, still functional | Android developer docs |
+| `setNavigationBarContrastEnforced()` | No effect | Defaults to true (adds 80% scrim) | Android developer docs |
+| `setDecorFitsSystemWindows()` | Deprecated, no effect | Deprecated, no effect | Android developer docs |
+| Display cutout mode | Forced to `ALWAYS` | Forced to `ALWAYS` | Android developer docs |
+
+### WindowInsets API — Core Types
+
+```kotlin
+// Primary inset types
+WindowInsets.Type.statusBars()       // Height of the status bar
+WindowInsets.Type.navigationBars()   // Height of the navigation bar
+WindowInsets.Type.systemBars()       // Combined: status + navigation + caption bar
+WindowInsets.Type.ime()              // Software keyboard
+WindowInsets.Type.displayCutout()    // Notch / punch-hole / Dynamic Island
+WindowInsets.Type.tappableElement()  // Tappable region of navigation bar (3-button)
+WindowInsets.Type.systemGestures()   // System gesture zones (20 dp on edges)
+WindowInsets.Type.mandatorySystemGestures() // Home gesture (bottom 16-24 dp)
+```
+
+### Migration: Jetpack Compose (Material 3)
+
+Material 3 Compose components handle insets automatically when using `Scaffold`:
+
+```kotlin
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppScreen() {
+    Scaffold(
+        topBar = {
+            TopAppBar(title = { Text("Title") })
+            // Automatically pads for status bar
+        },
+        bottomBar = {
+            NavigationBar { /* ... */ }
+            // Automatically pads for navigation bar
+        }
+    ) { innerPadding ->
+        LazyColumn(
+            contentPadding = innerPadding  // Apply scaffold padding
+        ) {
+            items(data) { item -> ItemRow(item) }
+        }
+    }
+}
+```
+
+For custom layouts without Scaffold:
+
+```kotlin
+@Composable
+fun CustomScreen() {
+    val insets = WindowInsets.systemBars
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(insets)
+    ) {
+        // Content is within safe area
+    }
+}
+
+// For LazyColumn — pad content, not the list itself
+LazyColumn(
+    contentPadding = WindowInsets.systemBars.asPaddingValues()
+) { /* items */ }
+```
+
+### Migration: Android Views
+
+```kotlin
+// Activity setup — no longer needed for API 35, but required for backward compat
+override fun onCreate(savedInstanceState: Bundle?) {
+    enableEdgeToEdge()  // androidx.activity 1.8+
+    super.onCreate(savedInstanceState)
+    setContentView(R.layout.activity_main)
+
+    // Apply insets to your root content
+    ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+        val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+        v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+        insets
+    }
+}
+```
+
+**RecyclerView with edge-to-edge:**
+
+```kotlin
+ViewCompat.setOnApplyWindowInsetsListener(recyclerView) { view, insets ->
+    val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+    view.setPadding(systemBars.left, 0, systemBars.right, systemBars.bottom)
+    insets
+}
+recyclerView.clipToPadding = false  // Critical: content scrolls behind nav bar
+```
+
+**AppBarLayout with Material Components:**
+
+```xml
+<com.google.android.material.appbar.AppBarLayout
+    android:fitsSystemWindows="true"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.google.android.material.appbar.MaterialToolbar
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize" />
+</com.google.android.material.appbar.AppBarLayout>
+```
+
+### Gesture Navigation Compatibility
+
+| Zone | Width/Height | Behavior | Override Possible? |
+|------|-------------|----------|-------------------|
+| Back gesture (left/right edges) | 20 dp from each edge | System back swipe | Yes, via `setSystemGestureExclusionRects()` — max 200 dp total height |
+| Home gesture (bottom) | 16-24 dp from bottom | Swipe up to go home | No — mandatory system gesture |
+| Recent apps | Long swipe up from bottom | App switcher | No |
+
+```kotlin
+// Exclude a region from system back gesture (e.g., a custom slider)
+view.doOnLayout {
+    val exclusionRect = Rect(0, 0, 20.dpToPx(), it.height)
+    it.systemGestureExclusionRects = listOf(exclusionRect)
+}
+// Total exclusion height capped at 200 dp per edge
+```
+
+### Configuration Class Change
+
+`Configuration.screenWidthDp` and `screenHeightDp` now include system bars. Replace old checks:
+
+```kotlin
+// OLD — unreliable on API 35
+val width = resources.configuration.screenWidthDp
+
+// NEW — use WindowMetrics
+val metrics = WindowMetricsCalculator.getOrCreate()
+    .computeCurrentWindowMetrics(activity)
+val widthDp = metrics.bounds.width() / resources.displayMetrics.density
+```
+
+### Testing Matrix
+
+| Configuration | Test Points |
+|--------------|------------|
+| Gesture navigation | Content not obscured by transparent nav bar |
+| 3-button navigation | Content not obscured by opaque nav bar (80%) |
+| Display cutout (notch) | Content avoids cutout area |
+| Landscape orientation | Side insets applied correctly |
+| Foldable (unfolded) | Insets correct in tabletop and book postures |
+| Keyboard open | `WindowInsets.ime()` pushes content above keyboard |
+
+### Checklist
+
+- [ ] `enableEdgeToEdge()` called in `onCreate()` before `setContentView()` (backward compat)
+- [ ] `ViewCompat.setOnApplyWindowInsetsListener()` applied to root view (Views)
+- [ ] `windowInsetsPadding()` or `contentPadding` used in Compose
+- [ ] `RecyclerView.clipToPadding = false` for lists that scroll behind nav bar
+- [ ] `fitsSystemWindows="true"` on AppBarLayout (Material Components)
+- [ ] `Configuration.screenWidthDp` replaced with `WindowMetricsCalculator`
+- [ ] Tested on gesture nav, 3-button nav, cutout devices, landscape, and foldables
+- [ ] Splash screen uses `core-splashscreen:1.2.0-alpha01+` or handles cutout mode
+
+### Anti-Patterns
+
+- **Hardcoded status bar height**: Using `24 dp` instead of `WindowInsets.statusBars()`
+- **Double padding**: Applying both `fitsSystemWindows` and manual inset padding
+- **Ignoring IME insets**: Keyboard covers input fields because only `systemBars()` is handled
+- **Opaque nav bar hack**: Trying to force an opaque color on gesture navigation bar (no longer possible)
+
+**Sources:** Android 15 behavior changes documentation, Android developer WindowInsets guide, Material Design 3 Scaffold documentation, AndroidX Activity 1.8 release notes.
+
+---
+
+## CC. Material You Expressive (2025)
+
+### Overview
+
+Material Design Expressive, announced at Google I/O 2025, extends Material You's dynamic color with new theme dimensions that let apps express distinct emotional tones. It adds four expressive dimensions beyond the existing baseline theme, plus updated motion, shape, and component-level tokens.
+
+### Expressive Theme Dimensions
+
+| Dimension | Character | Color Treatment | Shape | Motion | Use Case |
+|-----------|-----------|----------------|-------|--------|----------|
+| **Casual** | Friendly, relaxed | Warmer tones, higher chroma | Rounded (full pill) | Bouncy, playful easing | Social, lifestyle apps |
+| **Bold** | Confident, assertive | High contrast, saturated primaries | Angular, sharper corners | Snappy, decisive timing | Productivity, fintech |
+| **Warm** | Inviting, comforting | Earth tones, amber/terracotta shifts | Soft squircle | Gentle, smooth easing | Health, wellness apps |
+| **Playful** | Fun, energetic | Bright, multi-hue palette | Irregular, wavy | Springy, overshoot easing | Kids, games, creative apps |
+| **Baseline** | Neutral, professional | Standard M3 tonal palette | Rounded rectangle (12 dp) | Standard M3 easing | Default, enterprise |
+
+### Dynamic Color 2.0
+
+Material You Expressive builds on the original dynamic color extraction from wallpaper/content:
+
+| Feature | M3 Original | M3 Expressive | Source |
+|---------|-------------|---------------|--------|
+| Source colors | 1 seed from wallpaper | 1 seed + dimension adjustments | Material Design blog |
+| Tonal palettes | 5 (Primary, Secondary, Tertiary, Neutral, Neutral Variant) | 5 + expressive overrides per dimension | M3 color system docs |
+| Chroma range | Fixed per palette | Adjustable per dimension (e.g., Bold = +20% chroma) | Google I/O 2025 |
+| Harmonized colors | Manual via `MaterialColors.harmonize()` | Automatic per-dimension harmonization | M3 Expressive docs |
+| Color roles | 29 roles (surface, on-surface, primary, etc.) | 29 roles + 6 new expressive surface variants | M3 Expressive docs |
+
+```kotlin
+// Android — applying an expressive theme dimension
+// build.gradle: implementation "com.google.android.material:material:1.13.0+"
+import com.google.android.material.color.DynamicColors
+
+class MyApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        // Apply expressive dynamic color with a specific dimension
+        DynamicColors.applyToActivitiesIfAvailable(
+            this,
+            DynamicColorsOptions.Builder()
+                .setThemeOverlay(R.style.ThemeOverlay_Material3_Expressive_Casual)
+                .build()
+        )
+    }
+}
+```
+
+### Motion Tokens
+
+Expressive introduces named motion tokens that vary by dimension:
+
+| Token | Baseline | Casual/Warm | Bold | Playful |
+|-------|----------|-------------|------|---------|
+| `duration.short1` | 50 ms | 50 ms | 50 ms | 50 ms |
+| `duration.short2` | 100 ms | 100 ms | 80 ms | 120 ms |
+| `duration.medium1` | 250 ms | 300 ms | 200 ms | 350 ms |
+| `duration.medium2` | 350 ms | 400 ms | 300 ms | 450 ms |
+| `duration.long1` | 450 ms | 500 ms | 350 ms | 550 ms |
+| `easing.standard` | cubic-bezier(0.2, 0, 0, 1) | cubic-bezier(0.2, 0.1, 0, 1.1) | cubic-bezier(0.3, 0, 0.1, 1) | cubic-bezier(0.1, 0.2, 0, 1.2) |
+| `easing.emphasized` | cubic-bezier(0.2, 0, 0, 1) | Springy overshoot | Sharp snap | Bouncy with overshoot |
+
+Source: Material Design 3 motion specification, Google I/O 2025.
+
+### Shape Morphing
+
+Components can morph between shape states during interaction:
+
+| Component State | Baseline Shape | Casual Shape | Playful Shape |
+|----------------|---------------|--------------|---------------|
+| FAB (resting) | 16 dp corner radius | Full pill (50%) | Squircle with 24 dp |
+| FAB (pressed) | 12 dp corner radius | Slightly compressed pill | Blob morph |
+| Card (resting) | 12 dp corner radius | 16 dp corner radius | Wavy border (SVG path) |
+| Button (resting) | 20 dp corner radius (full) | Full pill | Asymmetric rounded |
+| Button (pressed) | Scale 0.95 + corner stays | Scale 0.92 + squish | Scale 1.05 + bounce |
+
+```kotlin
+// Compose — shape morphing on press
+val interactionSource = remember { MutableInteractionSource() }
+val isPressed by interactionSource.collectIsPressedAsState()
+
+val cornerRadius by animateDpAsState(
+    targetValue = if (isPressed) 12.dp else 16.dp,
+    animationSpec = spring(
+        dampingRatio = Spring.DampingRatioMediumBouncy,  // Expressive: bouncy
+        stiffness = Spring.StiffnessMedium
+    )
+)
+
+Surface(
+    shape = RoundedCornerShape(cornerRadius),
+    interactionSource = interactionSource,
+) { /* content */ }
+```
+
+### Component-Level Theming
+
+Expressive allows different dimensions per component on the same screen:
+
+```kotlin
+// Apply Bold dimension to a specific card
+MaterialTheme(
+    colorScheme = dynamicExpressiveColorScheme(
+        dimension = ExpressiveDimension.Bold
+    )
+) {
+    ElevatedCard { /* High-impact CTA card */ }
+}
+
+// Rest of the screen uses Casual dimension
+```
+
+### Harmonized Colors
+
+Custom brand colors automatically adjust to harmonize with the user's wallpaper-derived theme:
+
+```kotlin
+// Harmonize a fixed brand color with the dynamic theme
+val brandRed = Color(0xFFE53935)
+val harmonizedRed = MaterialColors.harmonize(
+    brandRed.toArgb(),
+    MaterialTheme.colorScheme.primary.toArgb()
+).let { Color(it) }
+// Result: brand red shifted slightly toward the user's primary hue
+```
+
+| Harmonization Shift | Effect | When to Use |
+|-------------------|--------|-------------|
+| Full harmonize | Shifts brand color up to 40 degrees toward primary | Non-brand UI elements |
+| Partial harmonize | Shifts up to 15 degrees | Secondary brand elements |
+| No harmonize | Brand color unchanged | Logo, critical brand marks |
+
+### Checklist
+
+- [ ] Selected appropriate expressive dimension for app personality
+- [ ] Tested dynamic color with all 5 dimensions on multiple wallpapers
+- [ ] Motion tokens match dimension (bouncy for Casual, snappy for Bold)
+- [ ] Shape morphing animates smoothly at 60 fps
+- [ ] Harmonized colors applied to non-brand custom colors
+- [ ] Fallback theme defined for devices without dynamic color (pre-Android 12)
+- [ ] Component-level theme overrides tested for visual coherence
+- [ ] Dark theme variants tested for all dimensions
+
+### Anti-Patterns
+
+- **Dimension mismatch**: Using Playful shapes with Bold motion (inconsistent personality)
+- **Over-morphing**: Shape animations on every component causing visual chaos
+- **Ignoring fallback**: No static theme for pre-Android 12 devices (33% of active devices as of 2025)
+- **Brand color conflict**: Fully harmonizing primary brand colors, making them unrecognizable
+
+**Sources:** Material Design 3 Expressive documentation, Google I/O 2025 "What's new in Material Design" talk, Material Design 3 color system docs, Android Dynamic Colors API reference.
+
+---
+
+## CD. Passkeys & Credential Manager
+
+### Overview
+
+Passkeys replace passwords with cryptographic key pairs bound to the user's device. They use FIDO2/WebAuthn standards and are phishing-resistant by design because the private key never leaves the device and the credential is bound to the relying party origin.
+
+### Platform APIs
+
+| Platform | API | Min Version | Biometric Integration | Source |
+|----------|-----|------------|----------------------|--------|
+| Android | Credential Manager (`androidx.credentials`) | Android 4.4+ (via Play Services) | Integrated via BiometricPrompt | Android Credential Manager docs |
+| iOS | `ASAuthorizationController` + `ASAuthorizationPlatformPublicKeyCredentialProvider` | iOS 16+ | Face ID / Touch ID automatic | Apple Authentication Services docs |
+| Cross-device | Hybrid transport (QR + BLE) | Android 9+, iOS 16+ | On the authenticator device | FIDO Alliance spec |
+
+### Passkey Creation Flow (Android)
+
+```kotlin
+// 1. Get challenge from server
+val createRequest = CreatePublicKeyCredentialRequest(
+    requestJson = """
+    {
+        "challenge": "${serverChallenge}",
+        "rp": { "name": "My App", "id": "example.com" },
+        "user": {
+            "id": "${userId}",
+            "name": "user@example.com",
+            "displayName": "Jane Doe"
+        },
+        "pubKeyCredParams": [
+            { "type": "public-key", "alg": -7 },
+            { "type": "public-key", "alg": -257 }
+        ],
+        "authenticatorSelection": {
+            "authenticatorAttachment": "platform",
+            "residentKey": "required",
+            "userVerification": "required"
+        },
+        "timeout": 300000
+    }
+    """.trimIndent()
+)
+
+// 2. Launch Credential Manager
+val credentialManager = CredentialManager.create(context)
+try {
+    val result = credentialManager.createCredential(
+        request = createRequest,
+        context = activity
+    )
+    // 3. Send result.data to server for verification
+    sendToServer((result as CreatePublicKeyCredentialResponse).registrationResponseJson)
+} catch (e: CreateCredentialCancellationException) {
+    // User cancelled
+} catch (e: CreateCredentialException) {
+    // Handle error — offer password fallback
+}
+```
+
+### Passkey Sign-In Flow (Android)
+
+```kotlin
+val getRequest = GetCredentialRequest(listOf(
+    GetPublicKeyCredentialOption(
+        requestJson = """
+        {
+            "challenge": "${serverChallenge}",
+            "rpId": "example.com",
+            "userVerification": "required",
+            "timeout": 300000
+        }
+        """.trimIndent()
+    ),
+    // Also offer password and Google Sign-In as fallbacks
+    GetPasswordOption(),
+    GetGoogleIdOption(serverClientId = "YOUR_SERVER_CLIENT_ID")
+))
+
+try {
+    val result = credentialManager.getCredential(
+        request = getRequest,
+        context = activity
+    )
+    when (val credential = result.credential) {
+        is PublicKeyCredential -> {
+            sendToServer(credential.authenticationResponseJson)
+        }
+        is PasswordCredential -> {
+            signInWithPassword(credential.id, credential.password)
+        }
+        is CustomCredential -> {
+            if (credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                val googleId = GoogleIdTokenCredential.createFrom(credential.data)
+                signInWithGoogle(googleId.idToken)
+            }
+        }
+    }
+} catch (e: GetCredentialCancellationException) {
+    // User cancelled bottom sheet
+} catch (e: NoCredentialException) {
+    // No passkeys/passwords stored — show registration flow
+}
+```
+
+### Passkey Flow (iOS)
+
+```swift
+// Passkey creation
+import AuthenticationServices
+
+class SignUpController: UIViewController, ASAuthorizationControllerDelegate,
+    ASAuthorizationControllerPresentationContextProviding {
+
+    func createPasskey() {
+        let provider = ASAuthorizationPlatformPublicKeyCredentialProvider(
+            relyingPartyIdentifier: "example.com"
+        )
+        let challenge = Data(serverChallenge.utf8) // From server
+        let request = provider.createCredentialRegistrationRequest(
+            challenge: challenge,
+            name: "user@example.com",
+            userID: Data(userId.utf8)
+        )
+        let controller = ASAuthorizationController(authorizationRequests: [request])
+        controller.delegate = self
+        controller.presentationContextProvider = self
+        controller.performRequests()
+    }
+
+    func authorizationController(controller: ASAuthorizationController,
+        didCompleteWithAuthorization authorization: ASAuthorization) {
+        guard let credential = authorization.credential
+            as? ASAuthorizationPlatformPublicKeyCredentialRegistration else { return }
+        // Send credential.rawAttestationObject to server
+        sendRegistrationToServer(credential)
+    }
+}
+```
+
+### Migration from Passwords to Passkeys
+
+| Phase | Action | UX Pattern | Timeline |
+|-------|--------|-----------|----------|
+| 1. Introduction | Offer passkey creation after successful password login | "Simplify your sign-in" banner at top of home screen | Months 1-3 |
+| 2. Encouragement | Prompt passkey creation at natural moments (profile settings, security checkup) | Modal with benefits: "Sign in with your fingerprint" | Months 3-6 |
+| 3. Default | Make passkey the default sign-in, password as fallback | Credential Manager bottom sheet shows passkey first | Months 6-12 |
+| 4. Password-optional | Allow removing password once passkey + recovery method set | Settings > Security > "Remove password" | Month 12+ |
+
+**FIDO Alliance UX recommendations:**
+- Use the term "passkey" (lowercase), not "FIDO credential" or "WebAuthn key"
+- Show the passkey icon (FIDO Alliance standard icon) next to passkey options
+- Explain in one sentence: "Sign in with your fingerprint, face, or screen lock"
+- Never require users to understand the cryptography; abstract it behind biometrics
+
+### Biometric Prompt Integration
+
+| Platform | Trigger | Customization | Source |
+|----------|---------|---------------|--------|
+| Android | Automatic via Credential Manager — `userVerification: "required"` | Title, subtitle via `BiometricPrompt.PromptInfo` | Android BiometricPrompt docs |
+| iOS | Automatic via `ASAuthorizationController` | System dialog, non-customizable | Apple Authentication Services |
+| Fallback | Device PIN/pattern if biometric fails 3 times | Platform-managed | Both platforms |
+
+### Checklist
+
+- [ ] Credential Manager / ASAuthorizationController used (not raw FIDO2 API)
+- [ ] Both passkey and password offered in sign-in bottom sheet
+- [ ] Passkey creation offered after successful password login (not forced)
+- [ ] Server sends correct `challenge`, `rpId`, `userVerification` parameters
+- [ ] Error handling covers cancellation, no-credential, and network failure
+- [ ] "Passkey" terminology used (lowercase, no jargon)
+- [ ] Cross-device sign-in supported via hybrid transport (QR code flow)
+- [ ] Password fallback remains available during migration period
+- [ ] Recovery method (email, phone) required alongside passkey
+
+### Anti-Patterns
+
+- **Forced migration**: Removing password sign-in before users have created passkeys
+- **Jargon overload**: Saying "FIDO2 credential" or "public key" in user-facing text
+- **Missing fallback**: No alternative when biometric fails and device has no PIN
+- **Silent failure**: Credential Manager error caught but no feedback shown to user
+- **Ignoring cross-device**: Only supporting same-device passkeys, breaking multi-device users
+
+**Sources:** Android Credential Manager documentation, Apple Authentication Services (ASAuthorizationController) documentation, FIDO Alliance UX Guidelines for Passkeys (2023), WebAuthn Level 2 specification (W3C).
+
+---
+
+## CE. Thumb Zone Reachability
+
+### One-Handed Reach Zones
+
+Steven Hoober's research (2013, updated 2017) and Luke Wroblewski's analysis established three reachability zones for one-handed phone use:
+
+| Zone | Reach Effort | Screen Position | Color Code |
+|------|-------------|----------------|------------|
+| Natural | Easy, no stretch | Bottom center, bottom-left (right hand) / bottom-right (left hand) | Green |
+| Stretch | Requires finger extension | Middle band, opposite-side edges | Yellow |
+| Hard | Requires grip shift or second hand | Top corners, far opposite edge | Red |
+
+**Usage data (Hoober, 2013):**
+- 49% of users hold phone with one hand
+- 36% cradle with one hand, interact with the other
+- 15% use two hands (both thumbs)
+
+### Device Size Matrix
+
+| Device Category | Screen Height | Natural Zone | Hard Zone Starts At |
+|----------------|--------------|-------------|-------------------|
+| Compact (iPhone SE, ~4.7") | ~667 pt | Bottom 40% | Top 25% |
+| Standard (iPhone 15, ~6.1") | ~844 pt | Bottom 33% | Top 20% |
+| Large (iPhone 15 Plus, ~6.7") | ~932 pt | Bottom 28% | Top 18% |
+| Android compact (~6.0") | ~760 dp | Bottom 35% | Top 22% |
+| Android standard (~6.4") | ~800 dp | Bottom 30% | Top 20% |
+| Android large (~6.7"+) | ~850 dp | Bottom 25% | Top 18% |
+
+Source: Scott Hurff "Designing Products People Love", Luke Wroblewski screen-size research.
+
+### Bottom-Anchored Actions
+
+Primary actions must live in the Natural zone. This is the foundational principle behind bottom navigation, bottom sheets, and FAB placement.
+
+| Pattern | Placement | Rationale |
+|---------|-----------|-----------|
+| Primary CTA | Bottom 88 dp/pt bar, or inline at scroll end | Always reachable with natural thumb arc |
+| Navigation | Bottom bar, 56-80 dp height | Most-used UI element in natural zone |
+| Search | Bottom bar icon or pull-down header | Top-right search icon is in Hard zone on large phones |
+| Contextual actions | Bottom sheet or FAB | Avoids top-right overflow menu |
+| Form submit | Sticky bottom bar or keyboard accessory | Thumb can reach without grip shift |
+| Destructive actions | Top area or behind confirmation | Harder to reach = harder to accidentally trigger |
+
+```
+┌──────────────────────────────────┐
+│  ████  HARD ZONE  ████████████  │  <- Top bar, navigation title
+│  ████████████████████████████   │
+│                                  │
+│  ░░░░  STRETCH ZONE  ░░░░░░░░  │  <- Content, scrollable area
+│  ░░░░░░░░░░░░░░░░░░░░░░░░░░░  │
+│  ░░░░░░░░░░░░░░░░░░░░░░░░░░░  │
+│                                  │
+│  ▓▓▓▓  NATURAL ZONE  ▓▓▓▓▓▓▓  │  <- Primary actions here
+│  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  │
+│  ┌────────────────────────────┐ │
+│  │  [Action 1]    [Action 2]  │ │  <- Bottom action bar
+│  └────────────────────────────┘ │
+└──────────────────────────────────┘
+```
+
+### Reachability Mode (iOS)
+
+iOS provides a system-level reachability gesture (swipe down on bottom edge / double-tap Home button) that slides the top half of the screen down.
+
+| Aspect | Detail | Source |
+|--------|--------|--------|
+| Trigger (Face ID devices) | Swipe down on bottom edge of screen | Apple HIG |
+| Trigger (Touch ID devices) | Double-tap Home button | Apple HIG |
+| Screen shift | Top half moves to mid-screen | Apple HIG |
+| Auto-dismiss | After ~8 seconds of inactivity | iOS system behavior |
+| Developer action | None required — system-managed | Apple HIG |
+| Design implication | Do not rely on reachability; design for bottom-first | Apple HIG recommendation |
+
+### One-Handed Mode (Android)
+
+Android 12+ introduced a one-handed mode that shrinks the display:
+
+| Aspect | Detail | Source |
+|--------|--------|--------|
+| Trigger | Swipe down on gesture bar (or Settings > One-handed mode) | Android developer docs |
+| Effect | Screen shrinks to ~60% size, anchored bottom-left or bottom-right | Android 12 feature docs |
+| User toggle | Settings > System > Gestures > One-handed mode | Android Settings |
+| Developer action | None required — system-managed; ensure layouts scale correctly | Android docs |
+| Samsung One UI | Separate "Reduce screen size" feature (long-press Home) | Samsung One UI docs |
+| Timeout | Auto-restores after ~5 seconds of inactivity | System behavior |
+
+### Floating Action Button Placement
+
+| Guideline | Value | Source |
+|-----------|-------|--------|
+| Default position | Bottom-right, 16 dp margin from edges | Material Design 3 |
+| Distance from bottom nav | 16 dp above BottomNavigationView | Material Design 3 |
+| Size (standard) | 56 x 56 dp | Material Design 3 |
+| Size (small) | 40 x 40 dp | Material Design 3 |
+| Size (large) | 96 x 96 dp | Material Design 3 |
+| Touch target | Minimum 48 x 48 dp (small FAB meets this) | Material Design 3 |
+| Thumb reach | Bottom-right = natural zone for right-handed (75% of users) | Hoober research |
+
+### Checklist
+
+- [ ] Primary CTA positioned in bottom 33% of screen (natural zone)
+- [ ] Navigation bar uses bottom placement, not top-only
+- [ ] Search is accessible without reaching top-right corner
+- [ ] Destructive actions placed in hard-to-reach zones or behind confirmation
+- [ ] FAB positioned bottom-right with 16 dp margins
+- [ ] Form submit buttons are sticky at bottom or in keyboard accessory
+- [ ] Tested one-handed operation on largest supported device size
+- [ ] No critical actions require reaching top-left or top-right corners
+
+### Anti-Patterns
+
+- **Top-only actions**: Placing the only "Save" or "Submit" button in the top-right nav bar
+- **Hamburger-only navigation**: Forcing users to reach the top-left corner for primary nav
+- **Center-top search**: Search bar at the very top of the screen with no bottom alternative
+- **Ignoring handedness**: Assuming all users are right-handed (left-hand users struggle with bottom-right FAB)
+- **Toolbar overload**: Putting 5+ actions in the top app bar where they require a grip shift to reach
+
+**Sources:** Steven Hoober "How Do Users Really Hold Mobile Devices?" (UXmatters, 2013; updated 2017), Scott Hurff "Designing Products People Love" (2016), Luke Wroblewski mobile screen analysis, Material Design 3 FAB guidelines, Apple HIG Reachability documentation.
+
+---
+
+## CF. Scroll Performance & List Virtualization
+
+### The Core Problem
+
+Mobile screens display 8-15 items at a time, but lists may contain thousands. Rendering all items at once causes frame drops (jank), excessive memory use, and slow initial render. Virtualization creates and recycles only the visible items plus a small buffer.
+
+### Android: RecyclerView (Views)
+
+| Concept | Detail | Source |
+|---------|--------|--------|
+| ViewHolder pattern | Each item type has a ViewHolder; views are recycled, not re-created | Android RecyclerView docs |
+| Default prefetch | Prefetches items during idle time on the UI thread | GapWorker (built-in since Support Library 25.1) |
+| Prefetch count | Default: 2 items ahead of scroll direction | `LinearLayoutManager.setInitialPrefetchItemCount()` |
+| Stable IDs | `setHasStableIds(true)` — enables `notifyDataSetChanged()` to animate rather than rebind all | RecyclerView.Adapter docs |
+| Item animator | `DefaultItemAnimator` adds 250 ms animation per change | RecyclerView docs |
+| View pool | `RecycledViewPool` shared across multiple RecyclerViews (e.g., ViewPager2 tabs) | Android developer docs |
+| Max scrap | Default 5 per view type; increase for fast-scrolling lists: `setMaxRecycledViews(viewType, 20)` | RecyclerView.RecycledViewPool docs |
+
+```kotlin
+// Optimized RecyclerView setup
+recyclerView.apply {
+    layoutManager = LinearLayoutManager(context).apply {
+        initialPrefetchItemCount = 4 // For nested horizontal lists
+    }
+    setHasFixedSize(true) // Skip layout pass when adapter changes
+    setItemViewCacheSize(10) // Cache 10 off-screen views (default 2)
+    recycledViewPool.setMaxRecycledViews(VIEW_TYPE_CARD, 15)
+    itemAnimator = null // Remove animator for maximum scroll perf
+}
+
+// DiffUtil for efficient updates
+class ItemDiffCallback : DiffUtil.ItemCallback<Item>() {
+    override fun areItemsTheSame(old: Item, new: Item) = old.id == new.id
+    override fun areContentsTheSame(old: Item, new: Item) = old == new
+}
+val adapter = ListAdapter(ItemDiffCallback())
+```
+
+### Android: LazyColumn / LazyRow (Compose)
+
+| Optimization | Detail | Source |
+|-------------|--------|--------|
+| `key` parameter | Stable unique ID per item — enables state preservation and efficient recomposition | Compose lists docs |
+| `contentType` | Differentiates item types for composition reuse (like ViewHolder types) | Compose 1.2+ |
+| Avoid 0-px items | Items with no intrinsic size cause all items to be composed | Compose performance guide |
+| `derivedStateOf` | For scroll-dependent UI (e.g., show/hide FAB) — prevents unnecessary recomposition | Compose state docs |
+| No nested same-direction scroll | `LazyColumn` inside `Column(Modifier.verticalScroll())` throws `IllegalStateException` | Compose docs |
+
+```kotlin
+// Optimized LazyColumn
+LazyColumn(
+    state = rememberLazyListState(),
+    contentPadding = PaddingValues(vertical = 8.dp)
+) {
+    items(
+        items = dataList,
+        key = { it.id },           // Stable key for reuse
+        contentType = { it.type }  // Type-based composition reuse
+    ) { item ->
+        when (item.type) {
+            ItemType.HEADER -> HeaderRow(item)
+            ItemType.CONTENT -> ContentRow(item)
+        }
+    }
+}
+
+// Scroll-dependent FAB visibility without recomposition spam
+val listState = rememberLazyListState()
+val showFab by remember {
+    derivedStateOf { listState.firstVisibleItemIndex > 0 }
+}
+```
+
+### iOS: UICollectionView Compositional Layout
+
+| Feature | Detail | Source |
+|---------|--------|--------|
+| Cell reuse | `dequeueReusableCell(withReuseIdentifier:for:)` — O(1) cell creation after initial | Apple UICollectionView docs |
+| Prefetching | `UICollectionViewDataSourcePrefetching` — prefetch data (images, API) for upcoming cells | Apple WWDC 2016 |
+| Self-sizing | `UICollectionViewCompositionalLayout` auto-sizes with `estimated()` dimensions | Apple WWDC 2019 |
+| Diffable data source | `NSDiffableDataSourceSnapshot` — automatic, animated diff updates | Apple WWDC 2019 |
+| Section snapshots | Hierarchical data (expandable sections) via `NSDiffableDataSourceSectionSnapshot` | iOS 14+ |
+| Cell registration | `UICollectionView.CellRegistration` — type-safe, closure-based (no string identifiers) | iOS 14+ |
+
+```swift
+// Modern UICollectionView setup (iOS 14+)
+var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
+
+func configureDataSource() {
+    let cellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Item> {
+        cell, indexPath, item in
+        var content = cell.defaultContentConfiguration()
+        content.text = item.title
+        content.secondaryText = item.subtitle
+        content.image = UIImage(systemName: item.icon)
+        cell.contentConfiguration = content
+    }
+
+    dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) {
+        collectionView, indexPath, item in
+        collectionView.dequeueConfiguredReusableCell(using: cellRegistration,
+            for: indexPath, item: item)
+    }
+}
+
+// Prefetching
+extension ViewController: UICollectionViewDataSourcePrefetching {
+    func collectionView(_ collectionView: UICollectionView,
+        prefetchItemsAt indexPaths: [IndexPath]) {
+        for indexPath in indexPaths {
+            imageLoader.prefetch(url: items[indexPath.item].imageURL)
+        }
+    }
+}
+```
+
+### iOS: SwiftUI LazyVStack / LazyHStack
+
+| Optimization | Detail | Source |
+|-------------|--------|--------|
+| Lazy instantiation | Views created only when scrolled into visible region | Apple SwiftUI docs |
+| `id()` modifier | Stable identity for efficient diffing (like Compose `key`) | SwiftUI docs |
+| Pinned headers | `pinnedViews: [.sectionHeaders]` in `LazyVStack` | iOS 14+ |
+| `task` modifier | Async data loading triggered on appearance | iOS 15+ |
+| ScrollView performance | `scrollTargetBehavior(.viewAligned)` for paging (iOS 17+) | Apple WWDC 2023 |
+
+```swift
+// Optimized SwiftUI list
+ScrollView {
+    LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+        ForEach(sections) { section in
+            Section {
+                ForEach(section.items, id: \.id) { item in
+                    ItemRow(item: item)
+                        .task {
+                            await prefetchImageIfNeeded(item)
+                        }
+                }
+            } header: {
+                SectionHeader(title: section.title)
+            }
+        }
+    }
+}
+```
+
+### Frame Budget & Jank Detection
+
+| Metric | Target | Jank Threshold | Source |
+|--------|--------|---------------|--------|
+| Frame time (60 Hz) | 16.67 ms | > 16.67 ms = dropped frame | Android performance docs |
+| Frame time (90 Hz) | 11.11 ms | > 11.11 ms = dropped frame | ProMotion / high refresh docs |
+| Frame time (120 Hz) | 8.33 ms | > 8.33 ms = dropped frame | ProMotion / high refresh docs |
+| Frozen frames | < 700 ms | > 700 ms = frozen frame (Android Vitals) | Android Vitals |
+| Slow render rate | < 5% of frames | > 5% flagged in Android Vitals | Android Vitals |
+| Hitch rate (iOS) | < 5 ms/s | > 5 ms/s = perceptible jank | Apple MetricKit / Instruments |
+
+**Profiling tools:**
+
+| Tool | Platform | What It Shows |
+|------|----------|--------------|
+| Android Studio Layout Inspector | Android | Recomposition counts, view hierarchy depth |
+| Compose Compiler Metrics | Android | Skippable/restartable composable analysis |
+| GPU Profiling (adb shell dumpsys gfxinfo) | Android | Per-frame render times |
+| Xcode Instruments (Core Animation) | iOS | Offscreen rendering, blending, frame times |
+| MetricKit (MXSignpostMetric) | iOS | Hitch rate in production |
+| Compose `RecompositionHighlighter` | Android | Visual overlay showing recomposition frequency |
+
+### Checklist
+
+- [ ] All list items have stable unique keys/IDs
+- [ ] `contentType` specified for multi-type lists (Compose)
+- [ ] `DiffUtil` / `DiffableDataSource` used for updates (not `notifyDataSetChanged()`)
+- [ ] Prefetching enabled for image-heavy lists
+- [ ] No nested same-direction scrollables
+- [ ] Frame time profiled under load (500+ items, fast scrolling)
+- [ ] Jank rate below 5% of frames in production monitoring
+- [ ] `setHasFixedSize(true)` set when RecyclerView dimensions are constant
+- [ ] Item animations disabled for maximum scroll performance on long lists
+
+### Anti-Patterns
+
+- **`notifyDataSetChanged()`**: Rebuilds entire list, kills animations, O(n) instead of O(changes)
+- **Nested scroll same direction**: `LazyColumn` inside `verticalScroll()` — crashes (Compose) or infinite height (Views)
+- **Heavy `onBindViewHolder`**: Loading images synchronously, running regex, or formatting dates in bind
+- **No keys**: List items without stable IDs cause unnecessary recomposition/rebinding on every update
+- **Measuring in release only**: Debug builds are 5-10x slower than release; never profile in debug
+
+**Sources:** Android RecyclerView documentation, Jetpack Compose Lists and Performance guides, Apple UICollectionView documentation, Apple WWDC sessions (2016: prefetching, 2019: compositional layout, 2023: scroll performance), Android Vitals documentation, Apple MetricKit documentation.
+
+---
+
+## CG. App Launch & Cold Start Performance
+
+### Start Type Definitions
+
+| Start Type | Definition | Process State | Android Vitals Threshold | Source |
+|-----------|-----------|--------------|------------------------|--------|
+| Cold start | No process exists; system creates process from scratch | Not running | >= 5 s is excessive | Android Vitals docs |
+| Warm start | Process exists but activity must be recreated (`onCreate()`) | Running, activity destroyed | >= 2 s is excessive | Android Vitals docs |
+| Hot start | Process + activity exist; brought to foreground | Running, activity stopped | >= 1.5 s is excessive | Android Vitals docs |
+
+**iOS equivalents (Apple WWDC "Improving App Launch"):**
+
+| Phase | Equivalent | Target | Source |
+|-------|-----------|--------|--------|
+| Pre-main (dylib loading, runtime init) | Cold start overhead | < 400 ms (recommended) | Apple WWDC 2019 (Optimizing App Launch) |
+| Post-main (`application:didFinishLaunching`) | App initialization | < 200 ms | Apple WWDC 2019 |
+| First frame render | TTID equivalent | < 1 s total | Apple performance guidelines |
+| Full interactivity | TTFD equivalent | < 2 s total | Apple performance guidelines |
+
+### Measuring Launch Time
+
+**Android — Time to Initial Display (TTID):**
+
+```bash
+# ADB measurement
+adb shell am start-activity -W -n com.example.app/.MainActivity
+# Output: TotalTime: 534 (ms)
+
+# Logcat
+# ActivityManager: Displayed com.example.app/.MainActivity: +534ms
+```
+
+**Android — Time to Full Display (TTFD):**
+
+```kotlin
+// Signal when all async content is loaded
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Hold splash screen until data ready
+        val content: View = findViewById(android.R.id.content)
+        content.viewTreeObserver.addOnPreDrawListener(
+            object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    return if (viewModel.isReady.value) {
+                        content.viewTreeObserver.removeOnPreDrawListener(this)
+                        true // Proceed with drawing
+                    } else {
+                        false // Keep splash screen
+                    }
+                }
+            }
+        )
+    }
+
+    private fun onAllContentLoaded() {
+        reportFullyDrawn() // Logs "Fully drawn" in Logcat
+    }
+}
+```
+
+**iOS — Instruments measurement:**
+
+```swift
+// Xcode: Product > Profile > App Launch template
+// Or use os_signpost for custom intervals:
+import os.signpost
+
+let log = OSLog(subsystem: "com.example.app", category: .pointsOfInterest)
+let signpostID = OSSignpostID(log: log)
+
+os_signpost(.begin, log: log, name: "AppLaunch", signpostID: signpostID)
+// ... app initialization ...
+os_signpost(.end, log: log, name: "AppLaunch", signpostID: signpostID)
+```
+
+### Android App Startup Library
+
+Replaces multiple `ContentProvider` initializations (each adds ~2-4 ms) with a single merged provider:
+
+```kotlin
+// build.gradle
+implementation("androidx.startup:startup-runtime:1.1.1")
+
+// Initializer for WorkManager
+class WorkManagerInitializer : Initializer<WorkManager> {
+    override fun create(context: Context): WorkManager {
+        val config = Configuration.Builder().build()
+        WorkManager.initialize(context, config)
+        return WorkManager.getInstance(context)
+    }
+    override fun dependencies(): List<Class<out Initializer<*>>> = emptyList()
+}
+
+// Declare in AndroidManifest.xml
+<provider
+    android:name="androidx.startup.InitializationProvider"
+    android:authorities="${applicationId}.androidx-startup"
+    android:exported="false"
+    tools:node="merge">
+    <meta-data
+        android:name="com.example.WorkManagerInitializer"
+        android:value="androidx.startup" />
+</provider>
+```
+
+**Impact:** Apps with 5+ ContentProviders save 10-50 ms on cold start by merging into one.
+
+### Baseline Profiles (Android)
+
+Baseline Profiles provide AOT-compiled code paths for critical user journeys, eliminating JIT compilation stutter on first launch.
+
+| Metric | Without Baseline Profile | With Baseline Profile | Improvement | Source |
+|--------|------------------------|---------------------|-------------|--------|
+| Cold start time | 100% (baseline) | 20-40% faster | 20-40% reduction | Android developer docs |
+| Time to first frame | 100% | 15-30% faster | 15-30% reduction | Google I/O 2022 |
+| Jank on first scroll | Present | Eliminated | 100% reduction | Android performance blog |
+
+```kotlin
+// benchmark/build.gradle.kts
+dependencies {
+    implementation("androidx.benchmark:benchmark-macro-junit4:1.2.0")
+}
+
+// Generate baseline profile
+@RunWith(AndroidJUnit4::class)
+class BaselineProfileGenerator {
+    @get:Rule
+    val rule = BaselineProfileRule()
+
+    @Test
+    fun generateProfile() {
+        rule.collect(
+            packageName = "com.example.app",
+            includeInStartupProfile = true
+        ) {
+            // Critical user journey
+            pressHome()
+            startActivityAndWait()
+            // Scroll main list
+            device.findObject(By.res("main_list")).scroll(Direction.DOWN, 2f)
+        }
+    }
+}
+```
+
+### iOS Launch Storyboard Optimization
+
+| Optimization | Detail | Impact | Source |
+|-------------|--------|--------|--------|
+| Minimize launch storyboard complexity | Use solid color + logo only, no custom views | Saves 50-200 ms pre-main | Apple WWDC 2019 |
+| Reduce dylib count | Each dynamic framework adds ~3-6 ms | Consolidate or use static linking | Apple WWDC 2019 |
+| Remove +load / +initialize | ObjC class methods run before main() | Can add 100+ ms total | Apple WWDC 2016 |
+| Use DYLD_PRINT_STATISTICS | `Edit Scheme > Environment Variables` | Shows pre-main breakdown | Apple developer tools |
+| Static linking | Prefer static libraries over dynamic frameworks | Saves 3-6 ms per framework | Apple WWDC 2022 |
+
+```swift
+// Defer heavy initialization
+class AppDelegate: UIResponder, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // FAST: only essential setup here
+        configureAppearance()
+        setupRootViewController()
+        return true
+        // DEFER: analytics, feature flags, non-critical SDKs
+    }
+
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        // Deferred initialization after first frame
+        DispatchQueue.main.async {
+            self.initializeAnalytics()
+            self.fetchFeatureFlags()
+            self.warmCaches()
+        }
+    }
+}
+```
+
+### Splash Screen Timing (Android 12+)
+
+| Attribute | Value | Source |
+|-----------|-------|--------|
+| Max animation duration (recommended) | 1,000 ms | Android splash screen docs |
+| Max delayed start (entrance animation) | 166 ms | Android splash screen docs |
+| Icon size (with background) | 240 x 240 dp; visible in 160 dp circle | Android splash screen docs |
+| Icon size (no background) | 288 x 288 dp; visible in 192 dp circle | Android splash screen docs |
+| Branding image size | 200 x 80 dp (bottom of splash) | Android splash screen docs |
+| Exit animation | Custom via `setOnExitAnimationListener()` | Android splash screen docs |
+
+### Checklist
+
+- [ ] Cold start < 2 s on mid-range device (target), < 5 s (hard limit per Android Vitals)
+- [ ] iOS total launch < 1 s to first frame, < 400 ms pre-main
+- [ ] `reportFullyDrawn()` called when async content is loaded (Android)
+- [ ] App Startup library used to merge ContentProvider initializations (Android)
+- [ ] Baseline Profile generated for critical launch path (Android)
+- [ ] Heavy SDK initialization deferred to after first frame
+- [ ] Launch storyboard is minimal — solid color + logo only (iOS)
+- [ ] Dynamic framework count minimized; static linking preferred (iOS)
+- [ ] Splash screen animation under 1,000 ms (Android 12+)
+- [ ] Launch time monitored in production (Firebase Performance / MetricKit)
+
+### Anti-Patterns
+
+- **Blocking main thread**: Network calls, database queries, or heavy computation in `onCreate()` / `application:didFinishLaunching`
+- **Eager SDK init**: Initializing analytics, crash reporting, A/B testing all synchronously before first frame
+- **ContentProvider bloat**: 10+ ContentProviders from third-party SDKs, each adding 2-4 ms
+- **Complex splash layout**: Custom views, animations, and network calls in splash screen
+- **No measurement**: Shipping without profiling launch time on low-end devices
+
+**Sources:** Android Vitals launch time documentation, Android App Startup library docs, Android Baseline Profiles guide, Android 12+ Splash Screen API docs, Apple WWDC 2019 "Optimizing App Launch Time", Apple WWDC 2022 "Link Fast", Firebase Performance Monitoring documentation.
+
+---
+
+## CH. Image Loading Pipeline
+
+### Library Landscape
+
+| Library | Platform | Format Support | Cache Layers | Source |
+|---------|----------|---------------|-------------|--------|
+| Coil | Android (Kotlin-first) | JPEG, PNG, WebP, AVIF, GIF, SVG, HEIF | Memory (LRU) + Disk (OkHttp) | Coil docs (coil-kt.github.io) |
+| Glide | Android (Java/Kotlin) | JPEG, PNG, WebP, GIF, HEIF | Memory (LRU) + Disk (DiskLruCache) | Glide docs (bumptech.github.io) |
+| SDWebImage | iOS (Obj-C/Swift) | JPEG, PNG, WebP, AVIF, GIF, HEIF, SVG (plugin) | Memory (NSCache) + Disk (FileManager) | SDWebImage GitHub docs |
+| Kingfisher | iOS (Swift) | JPEG, PNG, WebP, GIF, HEIF | Memory (NSCache) + Disk (FileManager) | Kingfisher docs |
+| Compose AsyncImage | Android (Compose) | Via Coil backend | Via Coil | Coil Compose integration |
+
+### Progressive Loading Strategy
+
+The ideal image loading sequence provides instant visual feedback and progressively improves quality:
+
+```
+1. BlurHash placeholder (< 1 ms, ~30 bytes)    → Colored blur
+2. Low-quality thumbnail (50-100 ms, ~2 KB)     → Recognizable shape
+3. Full resolution (200-2000 ms, 50-500 KB)     → Final image
+```
+
+| Phase | Size | Timing | Visual |
+|-------|------|--------|--------|
+| BlurHash / ThumbHash | 20-30 bytes (encoded string) | Instant (decoded client-side) | Colored blur matching image palette |
+| LQIP (Low Quality Image Placeholder) | 1-3 KB (JPEG q=10, 32px wide) | < 100 ms | Blurry but recognizable |
+| Progressive JPEG | Streamed in passes | 200-1000 ms | Sharpens in 3-5 passes |
+| Full resolution | 50-500 KB (optimized) | 200-2000 ms | Final crisp image |
+
+```kotlin
+// Android (Coil) — BlurHash placeholder + crossfade
+AsyncImage(
+    model = ImageRequest.Builder(LocalContext.current)
+        .data(imageUrl)
+        .crossfade(300)
+        .placeholder(
+            BlurHashDecoder.decode(item.blurHash, 32, 32)
+                ?.toDrawable(resources)
+        )
+        .error(R.drawable.image_error)
+        .build(),
+    contentDescription = item.description,
+    modifier = Modifier
+        .fillMaxWidth()
+        .aspectRatio(16f / 9f),  // Prevent layout shift
+    contentScale = ContentScale.Crop
+)
+```
+
+```swift
+// iOS (Kingfisher) — progressive loading with blur placeholder
+imageView.kf.setImage(
+    with: URL(string: imageURL),
+    placeholder: UIImage(blurHash: item.blurHash, size: CGSize(width: 32, height: 32)),
+    options: [
+        .transition(.fade(0.3)),
+        .cacheOriginalImage,
+        .progressiveJPEG(
+            ImageProgressive(
+                isBlur: true,         // Blur incomplete scans
+                isFastestScan: true,  // Show first scan immediately
+                scanInterval: 0       // No delay between scans
+            )
+        )
+    ]
+)
+```
+
+### Memory / Disk Cache Strategies
+
+| Strategy | When to Use | Max Size Guideline | Source |
+|----------|-----------|-------------------|--------|
+| Memory cache (LRU) | All images currently/recently visible | 15-25% of available heap (default in Coil/Glide) | Library defaults |
+| Disk cache | Persistent across sessions | 150-250 MB default; configurable | Coil: 250 MB, Glide: 250 MB |
+| No cache | Sensitive images (banking, health) | 0 | Security best practice |
+| Cache-only (offline) | Airplane mode fallback | Use disk cache as source of truth | Offline-first pattern |
+| Short TTL | User avatars, frequently updated content | 1-24 hours disk, session for memory | App-specific |
+
+```kotlin
+// Android (Coil) — custom cache policy
+val imageLoader = ImageLoader.Builder(context)
+    .memoryCache {
+        MemoryCache.Builder(context)
+            .maxSizePercent(0.20)  // 20% of available heap
+            .build()
+    }
+    .diskCache {
+        DiskCache.Builder()
+            .directory(context.cacheDir.resolve("image_cache"))
+            .maxSizeBytes(200L * 1024 * 1024) // 200 MB
+            .build()
+    }
+    .respectCacheHeaders(true) // Honor HTTP Cache-Control
+    .build()
+```
+
+### Image Sizing Rules
+
+Serving images at the correct resolution prevents wasted bandwidth and memory:
+
+| Device Density | Scale Factor | Image for 200 dp/pt view | Source |
+|---------------|-------------|--------------------------|--------|
+| mdpi / @1x | 1.0x | 200 px | Android density docs / Apple HIG |
+| hdpi | 1.5x | 300 px | Android density docs |
+| xhdpi / @2x | 2.0x | 400 px | Android density docs / Apple HIG |
+| xxhdpi / @3x | 3.0x | 600 px | Android density docs / Apple HIG |
+| xxxhdpi | 4.0x | 800 px | Android density docs |
+
+**Server-side sizing (recommended):** Request images at the exact pixel dimensions needed:
+
+```kotlin
+// URL-based resizing (common CDN pattern)
+val density = resources.displayMetrics.density
+val widthPx = (viewWidthDp * density).toInt()
+val heightPx = (viewHeightDp * density).toInt()
+val url = "https://cdn.example.com/image/${id}?w=${widthPx}&h=${heightPx}&q=80"
+```
+
+**Client-side downsampling:**
+
+```kotlin
+// Coil — downsample to view size
+AsyncImage(
+    model = ImageRequest.Builder(LocalContext.current)
+        .data(imageUrl)
+        .size(Size.ORIGINAL)  // Or specify exact: .size(400, 300)
+        .scale(Scale.FILL)
+        .build(),
+    // ...
+)
+
+// Glide — explicit override
+Glide.with(context)
+    .load(imageUrl)
+    .override(widthPx, heightPx)
+    .into(imageView)
+```
+
+### WebP / AVIF Support
+
+| Format | Android Support | iOS Support | Size vs JPEG | Quality | Source |
+|--------|---------------|-------------|-------------|---------|--------|
+| WebP (lossy) | Android 4.0+ | iOS 14+ | 25-35% smaller | Equivalent | Google WebP docs |
+| WebP (lossless) | Android 4.0+ | iOS 14+ | 26% smaller than PNG | Lossless | Google WebP docs |
+| AVIF | Android 12+ (API 31) | iOS 16+ | 30-50% smaller than JPEG | Superior | AOM / web.dev |
+| HEIF/HEIC | Android 10+ (decode) | iOS 11+ (native) | 40-50% smaller than JPEG | Superior | Platform docs |
+
+**Format selection strategy:**
+
+```
+if (device supports AVIF && server can encode)  → AVIF
+else if (device supports WebP)                   → WebP
+else                                             → JPEG (quality 80-85)
+```
+
+### Preventing Layout Shift
+
+Always reserve space for images before they load:
+
+```kotlin
+// Compose — aspect ratio placeholder
+AsyncImage(
+    model = imageUrl,
+    contentDescription = null,
+    modifier = Modifier
+        .fillMaxWidth()
+        .aspectRatio(item.width.toFloat() / item.height.toFloat()),  // Server provides dimensions
+    contentScale = ContentScale.Crop
+)
+```
+
+```swift
+// SwiftUI — aspect ratio placeholder
+AsyncImage(url: URL(string: imageURL)) { phase in
+    switch phase {
+    case .empty:
+        Rectangle()
+            .fill(Color.gray.opacity(0.2))
+            .aspectRatio(item.aspectRatio, contentMode: .fit)
+    case .success(let image):
+        image.resizable().aspectRatio(contentMode: .fill)
+    case .failure:
+        Image(systemName: "photo").foregroundColor(.gray)
+    @unknown default:
+        EmptyView()
+    }
+}
+.frame(maxWidth: .infinity)
+.aspectRatio(item.aspectRatio, contentMode: .fit)
+```
+
+### Checklist
+
+- [ ] BlurHash or ThumbHash placeholder for all remote images
+- [ ] Crossfade transition (200-300 ms) on image load
+- [ ] Aspect ratio set to prevent layout shift before image loads
+- [ ] Images requested at correct pixel dimensions for device density
+- [ ] WebP served as default format (AVIF where supported)
+- [ ] Memory cache limited to 15-25% of heap
+- [ ] Disk cache limited to 150-250 MB with LRU eviction
+- [ ] Error state image/icon shown on load failure
+- [ ] Sensitive images bypass cache (no-store)
+- [ ] Image list uses prefetching (UICollectionViewDataSourcePrefetching / Coil prefetch)
+
+### Anti-Patterns
+
+- **Full-resolution load**: Loading a 4000x3000 px image into a 200x150 dp thumbnail
+- **No placeholder**: Blank white/black space while image loads, causing perceived slowness
+- **Layout shift**: Image loads and pushes content down because no space was reserved
+- **Cache everything**: Caching sensitive medical or financial images to disk
+- **JPEG for everything**: Not using WebP/AVIF when platform supports them (25-50% bandwidth waste)
+- **Synchronous decode**: Decoding large images on the main thread, causing frame drops
+
+**Sources:** Coil documentation (coil-kt.github.io), Glide documentation (bumptech.github.io), Kingfisher documentation, SDWebImage documentation, Android image loading best practices, web.dev image optimization guide, Apple WWDC 2018 "Image and Graphics Best Practices".
+
+---
+
+## CI. Cross-Platform Framework Pitfalls
+
+### Framework Overview
+
+| Framework | Language | Rendering | Native Access | Market Share (2024) | Source |
+|-----------|---------|-----------|--------------|-------------------|--------|
+| Flutter | Dart | Custom (Skia/Impeller) | Platform channels | ~13% of cross-platform apps | Statista, JetBrains survey |
+| React Native | JavaScript/TypeScript | Native components (via bridge/JSI) | Native modules / TurboModules | ~38% of cross-platform apps | Statista, JetBrains survey |
+| Kotlin Multiplatform (KMP) | Kotlin | Native per-platform (Compose Multiplatform or SwiftUI) | Direct Kotlin/Swift interop | Growing (~5% in 2024) | JetBrains survey |
+| Capacitor/Ionic | HTML/CSS/JS | WebView | Capacitor plugins | ~8% of cross-platform apps | Statista |
+
+### Platform-Specific UX Expectations
+
+Users expect apps to behave like native apps on their platform. Cross-platform frameworks must accommodate these differences:
+
+| UX Element | iOS Expectation | Android Expectation | Common Pitfall |
+|-----------|----------------|--------------------|--------------------|
+| Back navigation | Swipe from left edge, no system back button | System back button/gesture (predictive back) | Flutter/RN override system back, breaking predictive back |
+| Scroll physics | Bouncing overscroll (elastic) | Glow/stretch overscroll (Android 12+) | Flutter uses same physics on both; must customize |
+| Page transitions | Slide from right (push), slide left (pop) | Fade through or shared axis (M3 motion) | React Native Navigator uses iOS transitions on Android |
+| Tab bar position | Bottom (UITabBarController) | Bottom (Material) or top (TabLayout) | Forcing iOS-style tabs on Android or vice versa |
+| Typography | SF Pro, Dynamic Type | Roboto, Material type scale | Using system-agnostic font, missing platform type features |
+| Dialogs | Center, rounded, "Cancel" left / "OK" right | Center, Material shape, actions right-aligned | Using identical dialog style on both platforms |
+| Pull-to-refresh | UIRefreshControl (spinner at top) | SwipeRefreshLayout (circular spinner) | Custom refresh that matches neither platform |
+| Haptics | Taptic Engine (UIFeedbackGenerator) | Vibration API (limited variety) | No haptics, or iOS-quality haptics expected on all Android |
+
+### Navigation Differences
+
+| Pattern | iOS Native | Android Native | Cross-Platform Issue |
+|---------|-----------|---------------|---------------------|
+| Stack navigation | UINavigationController (push/pop) | Fragment/NavController (navigate/popBackStack) | React Navigation / GoRouter may not support predictive back |
+| Tab switching | UITabBarController (state preserved per tab) | BottomNavigationView (Fragment re-creation or hide/show) | Flutter: tabs may lose scroll position on switch |
+| Modal presentation | `.sheet()` / `present()` with drag-to-dismiss | BottomSheetDialogFragment or Dialog | Flutter BottomSheet doesn't support native pull-to-dismiss on iOS |
+| Deep linking | Universal Links + `ASWebAuthenticationSession` | App Links + Intent filters | Cross-platform routers often miss platform-specific edge cases |
+
+### Gesture Handling Gaps
+
+| Gesture | iOS Native | Android Native | Framework Gap |
+|---------|-----------|---------------|---------------|
+| Edge swipe back | `UINavigationController` built-in | System gesture (20 dp zone) | Flutter `WillPopScope` blocks iOS swipe-back |
+| Long press | `UILongPressGestureRecognizer` (500 ms default) | `onLongClick` (500 ms default) | RN `Pressable` long press may conflict with scroll |
+| Drag and drop | `UIDragInteraction` / `UIDropInteraction` | `View.startDragAndDrop()` | Limited/no support in Flutter, partial in RN |
+| Pinch-to-zoom | `UIPinchGestureRecognizer` | `ScaleGestureDetector` | Custom implementations often miss inertia/momentum |
+
+### Accessibility Gaps
+
+| Feature | iOS Native | Android Native | Cross-Platform Status |
+|---------|-----------|---------------|-----------------------|
+| Screen reader | VoiceOver | TalkBack | Flutter: `Semantics` widget (good). RN: `accessible` prop (partial) |
+| Dynamic Type / font scaling | Full support via `UIFontMetrics` | Full support via `sp` units | Flutter: `MediaQuery.textScaleFactor`. RN: `PixelRatio.getFontScale()` |
+| Reduce Motion | `UIAccessibility.isReduceMotionEnabled` | `Settings.Global.ANIMATOR_DURATION_SCALE` | Must check platform-specific API; not abstracted |
+| Focus order | Automatic based on layout | Automatic + `accessibilityTraversalBefore/After` | Flutter: `FocusTraversalOrder`. RN: manual `accessibilityOrder` |
+| Switch Control / Switch Access | Full support | Full support | Often broken — custom widgets may not expose correct roles |
+| Live regions | `UIAccessibility.post(.announcement)` | `accessibilityLiveRegion` | Flutter: `Semantics(liveRegion:)`. RN: `accessibilityLiveRegion` |
+
+### When Native Beats Cross-Platform
+
+| Scenario | Why Native Wins | Source |
+|----------|----------------|--------|
+| Heavy animations (60+ fps, complex transitions) | No bridge overhead, direct GPU access | Flutter Impeller narrows this gap |
+| Camera/AR/ML (real-time processing) | Direct sensor API access, lower latency | ARKit/ARCore native SDKs |
+| Platform-latest APIs (Day-1 iOS/Android features) | No wait for framework support (weeks to months lag) | Historical pattern |
+| Accessibility-critical apps | Full semantics tree, native screen reader behavior | NNGroup accessibility research |
+| App size budget < 10 MB | Flutter adds ~5-8 MB, RN adds ~7-12 MB to baseline | Framework overhead measurements |
+| OS integration (widgets, extensions, Siri/Assistant) | Requires native code regardless | Platform extension APIs |
+
+### Checklist
+
+- [ ] Scroll physics match platform (bouncing on iOS, stretch on Android)
+- [ ] Page transitions follow platform conventions (slide on iOS, fade-through on Android)
+- [ ] System back gesture works correctly on Android (predictive back compatible)
+- [ ] iOS swipe-to-go-back gesture not blocked by custom gesture handlers
+- [ ] Typography uses platform system font or matches platform type scale
+- [ ] Dialog button order follows platform convention
+- [ ] Screen reader (VoiceOver/TalkBack) tested on both platforms
+- [ ] Dynamic Type / font scaling tested at 200% on both platforms
+- [ ] Platform-specific haptic feedback implemented
+- [ ] Deep linking tested with platform-specific URL schemes
+
+### Anti-Patterns
+
+- **"Write once, test once"**: Shipping without testing on both platforms — UI looks different, gestures behave differently
+- **iOS-first design on Android**: Using iOS-style back arrows, bottom sheets, and navigation on Android
+- **Ignoring platform font**: Using a custom font everywhere, breaking Dynamic Type on iOS and `sp` scaling on Android
+- **Bridging everything**: Using platform channels for operations the framework already handles natively
+- **Same animations everywhere**: Using identical transition curves on both platforms, feeling "off" on each
+
+**Sources:** Flutter platform-specific documentation (flutter.dev/platform-integration), React Native Accessibility docs, Kotlin Multiplatform documentation (kotlinlang.org), Apple Human Interface Guidelines platform differences, Material Design 3 cross-platform guidance, NNGroup "Mobile UX" research.
+
+---
+
+## CJ. visionOS & Spatial Computing UX
+
+### Input Model
+
+visionOS uses indirect interaction as the primary input: the user looks at a target (eye tracking) and taps their fingers together (hand gesture) to select. This fundamentally changes UI design from touch-based mobile.
+
+| Input Method | Action | Equivalent on Mobile | Source |
+|-------------|--------|---------------------|--------|
+| Look + tap (pinch) | Select / activate | Tap | Apple visionOS HIG |
+| Look + pinch and drag | Scroll, move, resize | Scroll, drag | Apple visionOS HIG |
+| Look + double tap | Zoom / expand | Double tap | Apple visionOS HIG |
+| Look + long pinch | Context menu / secondary action | Long press | Apple visionOS HIG |
+| Direct touch (near field) | Touch virtual objects in reach | Tap | Apple visionOS HIG |
+| Eyes only (dwell) | Hover effect; never use as sole input | Hover on desktop | Apple visionOS HIG |
+
+**Critical rule:** Eye position alone must never trigger an action — only the physical hand gesture confirms intent. This prevents the "Midas touch" problem where everything you look at activates.
+
+### Spatial Layout Fundamentals
+
+| Guideline | Value | Source |
+|-----------|-------|--------|
+| Default window distance from user | 1.5 meters (arm's length) | Apple visionOS HIG |
+| Comfortable depth range | 0.5 m to 3.0 m | Apple spatial design WWDC 2023 |
+| Window width (standard) | 1280 pt default, resizable | Apple visionOS HIG |
+| Minimum text size | 17 pt (at 1.5 m distance) | Apple visionOS HIG |
+| Recommended body text | 22 pt minimum for comfortable reading | Apple WWDC 2023 spatial design |
+| Tap target minimum | 60 x 60 pt (larger than mobile due to eye tracking precision) | Apple visionOS HIG |
+| Spacing between targets | 16 pt minimum to prevent selection ambiguity | Apple visionOS HIG |
+| Maximum simultaneous windows | System-managed, typically 3-5 comfortably | Apple visionOS guidelines |
+| Z-depth separation between layers | 4-20 pt for subtle depth, 40+ pt for distinct separation | Apple spatial design sessions |
+
+### Content Hierarchy
+
+| Container | Description | Use Case |
+|-----------|------------|----------|
+| Window | 2D SwiftUI content in a glass panel | Standard app interface, lists, forms |
+| Volume | 3D bounded content visible from all angles | 3D model viewer, globe, game board |
+| Full Space | Immersive 3D environment, app has exclusive scene control | AR/VR experiences, room-scale apps |
+| Ornament | Floating toolbar attached to window edge | Controls, toolbars, media playback |
+| Pop-up | Floating panel near parent element | Popovers, context menus |
+
+```swift
+// visionOS — Window with Ornament
+struct ContentView: View {
+    var body: some View {
+        NavigationSplitView {
+            Sidebar()
+        } detail: {
+            DetailView()
+        }
+        .ornament(
+            visibility: .visible,
+            attachmentAnchor: .scene(.bottom)
+        ) {
+            HStack(spacing: 12) {
+                Button(action: { /* play */ }) {
+                    Label("Play", systemImage: "play.fill")
+                }
+                Button(action: { /* pause */ }) {
+                    Label("Pause", systemImage: "pause.fill")
+                }
+            }
+            .padding(12)
+            .glassBackgroundEffect()  // Frosted glass material
+        }
+    }
+}
+```
+
+### Hover Effects (Essential for Eye Tracking)
+
+Because eye tracking replaces cursor movement, every interactive element must provide a visible hover effect so users know what they are targeting before they pinch.
+
+| Element | Hover Effect | Source |
+|---------|-------------|--------|
+| Buttons | Subtle highlight / lift (1-2 pt Z offset) | Apple visionOS HIG |
+| List rows | Background highlight with rounded corners | Apple visionOS HIG |
+| Custom interactive views | Must implement `.hoverEffect()` modifier | Apple visionOS docs |
+| Non-interactive content | No hover effect (critical distinction) | Apple visionOS HIG |
+
+```swift
+// Apply hover effect to custom interactive view
+Button(action: { selectItem() }) {
+    ItemCard(item: item)
+}
+.buttonStyle(.plain)
+.hoverEffect(.highlight) // System hover effect
+// Options: .automatic, .highlight, .lift
+```
+
+### Vergence-Accommodation Conflict
+
+The vergence-accommodation conflict is a key comfort concern: the user's eyes focus at a fixed display distance (accommodation) but converge to match virtual object depth (vergence). Mismatches cause discomfort.
+
+| Guideline | Rule | Source |
+|-----------|------|--------|
+| Content depth range | Keep primary content between 0.5 m and 3.0 m | Apple WWDC 2023 |
+| Avoid extreme near-field | No content closer than 0.3 m (causes eye strain) | Apple spatial comfort guidelines |
+| Avoid extreme far-field | No content beyond 5 m (becomes hard to read) | Apple spatial comfort guidelines |
+| Depth transitions | Animate smoothly over 200-400 ms, no instant jumps | Apple motion guidelines |
+| Text depth | Keep all text at consistent depth (avoid text at varying Z) | Apple typography in visionOS |
+| Head-locked content | Never — causes motion sickness. Anchor to world or window. | Apple visionOS HIG |
+
+### Text Legibility in 3D
+
+| Parameter | Value | Source |
+|-----------|-------|--------|
+| Minimum font size | 17 pt at standard 1.5 m distance | Apple visionOS HIG |
+| Recommended body font | 22 pt for comfortable reading | Apple WWDC 2023 |
+| Font weight | Medium weight minimum (Regular can be too thin in spatial context) | Apple visionOS typography |
+| Line height | 1.4-1.6x (more generous than mobile) | Apple spatial typography guidelines |
+| Contrast on glass material | System vibrancy materials provide sufficient contrast | Apple visionOS materials |
+| Background for text | Use `.glassBackgroundEffect()` — never place text floating in space without backing | Apple visionOS HIG |
+| Text max width | ~700 pt (similar to readable content guide on iPad) | Apple typography guidelines |
+
+### Checklist
+
+- [ ] All interactive elements have visible hover effects
+- [ ] Tap targets minimum 60 x 60 pt
+- [ ] No actions triggered by eye gaze alone (always require physical gesture)
+- [ ] Primary content placed at 0.5-3.0 m depth range
+- [ ] No content closer than 0.3 m from user
+- [ ] Text minimum 17 pt, recommended 22 pt at standard distance
+- [ ] All text has a glass or solid background — never floats in empty space
+- [ ] Depth transitions animated over 200-400 ms (no instant jumps)
+- [ ] No head-locked content (all content world-anchored or window-anchored)
+- [ ] Ornaments used for persistent controls instead of overlaid buttons
+
+### Anti-Patterns
+
+- **Flat mobile port**: Directly porting a 2D mobile layout to a window without spatial design considerations
+- **Head-locked HUD**: Attaching UI to the user's head position — causes immediate motion sickness
+- **Tiny targets**: Using mobile-sized 44 pt targets — too small for eye tracking precision
+- **Invisible interactivity**: No hover effect on interactive elements — users cannot tell what is tappable
+- **Depth abuse**: Placing UI elements at wildly different Z depths, causing vergence-accommodation discomfort
+- **Text in space**: Floating text without glass backing — poor contrast against any background
+
+**Sources:** Apple visionOS Human Interface Guidelines, Apple WWDC 2023 "Principles of Spatial Design", Apple WWDC 2023 "Design for Spatial Input", Apple WWDC 2024 "Design Great visionOS Apps", Apple visionOS developer documentation.
+
+---
+
+## CK. Samsung One UI Guidelines
+
+### Design Philosophy
+
+Samsung One UI (version 6.x / 7.0 as of 2025) is built on a "Focus Block" layout: the top ~40% of the screen is reserved for contextual information (title, description) and the bottom ~60% contains interactive elements. This aligns with thumb zone reachability research (see section CE).
+
+| Principle | Implementation | Source |
+|-----------|---------------|--------|
+| Focus Block | Top: large title + description. Bottom: actionable content | Samsung One UI design guidelines |
+| One-handed operation | All primary actions within thumb reach | Samsung developer docs |
+| Consistent headers | Large header area scrolls away, sticky compact header appears | One UI component docs |
+| Reduced visual complexity | Generous whitespace, simplified iconography | Samsung design language |
+
+### Samsung-Specific Components
+
+| Component | Description | Usage | Source |
+|-----------|------------|-------|--------|
+| Edge Panel | Slide-in panel from screen edge (right side, configurable) | Quick actions, favorite apps, clipboard | Samsung Edge Panel SDK |
+| Flex Mode | Foldable split layout when Galaxy Z Fold/Flip is partially folded (75-115 degrees) | Video calls on top, controls on bottom | Samsung Flex Mode docs |
+| S Pen integration | Hover detection (Air Actions), pressure sensitivity (4096 levels on Note/Ultra) | Drawing, precise selection, Air Command | Samsung S Pen SDK |
+| Multi-window | Split-screen and pop-up window support | Side-by-side multitasking | Samsung Multi-Window API |
+| DeX mode | Desktop-like interface when connected to external display | Full windowed mode, keyboard/mouse input | Samsung DeX developer docs |
+| Routine triggers | App actions triggered by Samsung Routines (Bixby Routines successor) | Automation hooks (location, time, Bluetooth) | Samsung Routines API |
+
+### Flex Mode for Foldables
+
+When a Galaxy Z Flip or Fold is in a partially folded posture (between 75 and 115 degrees), the screen splits into two logical halves:
+
+| Zone | Position | Usage | Source |
+|------|----------|-------|--------|
+| Flex top panel | Upper half of fold | Content viewing: video, camera preview, maps | Samsung Flex Mode guide |
+| Flex bottom panel | Lower half of fold | Controls: playback controls, shutter button, comments | Samsung Flex Mode guide |
+| Hinge area | Center fold line | 24 dp avoidance zone (content may distort at hinge) | Samsung developer docs |
+
+```kotlin
+// Detect Flex Mode on Samsung foldables
+import androidx.window.layout.WindowInfoTracker
+import androidx.window.layout.FoldingFeature
+
+class FlexModeActivity : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        lifecycleScope.launch {
+            WindowInfoTracker.getOrCreate(this@FlexModeActivity)
+                .windowLayoutInfo(this@FlexModeActivity)
+                .collect { layoutInfo ->
+                    val foldingFeature = layoutInfo.displayFeatures
+                        .filterIsInstance<FoldingFeature>()
+                        .firstOrNull()
+
+                    when {
+                        foldingFeature?.state == FoldingFeature.State.HALF_OPENED &&
+                        foldingFeature.orientation == FoldingFeature.Orientation.HORIZONTAL -> {
+                            // Flex Mode: top half = content, bottom half = controls
+                            enableFlexLayout(foldingFeature.bounds)
+                        }
+                        foldingFeature?.state == FoldingFeature.State.FLAT -> {
+                            // Fully open: normal layout
+                            enableFullLayout()
+                        }
+                        else -> enableCompactLayout()
+                    }
+                }
+        }
+    }
+
+    private fun enableFlexLayout(hingeBounds: Rect) {
+        // Place video/content above hinge
+        // Place controls below hinge
+        // Avoid placing interactive elements within 24dp of hinge center
+        val hingeCenter = hingeBounds.centerY()
+        topPanel.layoutParams.height = hingeCenter - 12.dpToPx() // 12dp padding from hinge
+        bottomPanel.layoutParams.height = screenHeight - hingeCenter - 12.dpToPx()
+    }
+}
+```
+
+### Edge Panel Integration
+
+| Property | Value | Source |
+|----------|-------|--------|
+| Panel width | 60-90 dp (user-configurable) | Samsung Edge Panel docs |
+| Trigger zone | Right edge (default), configurable position | Samsung Settings > Display |
+| Max items | 10-12 in a single panel page | Samsung Edge Panel SDK |
+| Icon size | 48 x 48 dp | Samsung Edge Panel design specs |
+| Custom panel | Apps can provide a custom Edge Panel via `EdgePanelProvider` | Samsung Edge Panel SDK |
+
+### S Pen Integration
+
+| Feature | API | Min SDK | Source |
+|---------|-----|---------|--------|
+| Hover detection (Air View) | `View.onHoverEvent()` or `Modifier.hoverable()` | Android standard | Android developer docs |
+| Pressure sensitivity | `MotionEvent.getPressure()` — 0.0 to 1.0 (4096 levels on supported devices) | API 1+ | Android MotionEvent docs |
+| Button press (side button) | `MotionEvent.getButtonState() == BUTTON_STYLUS_PRIMARY` | API 14+ | Android MotionEvent docs |
+| Air Command (S Pen menu) | Register app shortcuts in Samsung Air Command | Samsung S Pen SDK | Samsung developer docs |
+| Palm rejection | Automatic when `MotionEvent.getToolType() == TOOL_TYPE_STYLUS` | API 14+ | Android docs |
+
+### DeX Desktop Mode
+
+When connected to an external display (or via Samsung DeX wireless), apps run in resizable windows with keyboard and mouse input:
+
+| Adaptation | Implementation | Source |
+|-----------|---------------|--------|
+| Resizable window | Declare `android:resizeableActivity="true"` + handle `onConfigurationChanged` | Samsung DeX developer guide |
+| Minimum window size | `android:minWidth="480dp"` `android:minHeight="320dp"` | Samsung DeX docs |
+| Keyboard shortcuts | Implement `onKeyDown()` / `onKeyUp()` for common shortcuts (Ctrl+S, Ctrl+Z) | Android KeyEvent docs |
+| Right-click context menu | Handle `MotionEvent.BUTTON_SECONDARY` for right-click | Android MotionEvent docs |
+| Mouse hover | `View.onHoverEvent()` for desktop-style hover states | Android standard |
+| Multi-window | Support drag-and-drop between windows via `View.startDragAndDrop()` | Android Drag and Drop docs |
+
+### Checklist
+
+- [ ] Primary actions in bottom 60% of screen (One UI Focus Block principle)
+- [ ] Flex Mode detected and layout adapted on foldable devices
+- [ ] 24 dp avoidance zone around hinge center in Flex Mode
+- [ ] `resizeableActivity="true"` for DeX compatibility
+- [ ] Keyboard shortcuts implemented for common actions (DeX)
+- [ ] Right-click context menu supported for mouse input (DeX)
+- [ ] S Pen hover effects implemented for stylus-capable devices
+- [ ] Edge Panel custom shortcuts provided if app has quick actions
+- [ ] Tested on Galaxy Z Flip (clamshell Flex), Z Fold (book Flex), and DeX mode
+
+### Anti-Patterns
+
+- **Ignoring Flex Mode**: Not adapting layout when foldable is half-opened — content is hidden at the hinge
+- **Hinge collision**: Placing buttons or text directly on the hinge line where they are invisible/distorted
+- **DeX as afterthought**: App crashes or shows phone layout on a 27" external display
+- **No keyboard support**: DeX users with keyboard cannot use Ctrl+C/V or Tab navigation
+- **Blocking multi-window**: Setting `resizeableActivity="false"` — breaks split-screen and DeX
+
+**Sources:** Samsung One UI Design Guidelines (developer.samsung.com/one-ui), Samsung Flex Mode documentation, Samsung DeX Developer Guide, Samsung S Pen SDK documentation, Samsung Edge Panel SDK, AndroidX Window Manager library documentation.
+
+---
+
+## CL. Data Visualization on Mobile
+
+### Chart Types for Small Screens
+
+Mobile screens (320-430 dp wide) impose severe constraints on data visualization. Choose chart types that communicate clearly in limited space.
+
+| Chart Type | Min Width Needed | Max Data Points (Mobile) | Best For | Avoid When |
+|-----------|-----------------|------------------------|----------|------------|
+| Line chart | 200 dp | 30-50 points | Trends over time | Few data points (<5) |
+| Bar chart (vertical) | 200 dp | 6-8 bars visible | Category comparison | >12 categories (use horizontal) |
+| Bar chart (horizontal) | 280 dp | 8-12 bars visible | Long labels, ranked data | <3 categories |
+| Sparkline | 60-120 dp | 20-50 points | Inline trend indicator | Precise values needed |
+| Donut/Pie chart | 160 dp diameter | 4-6 segments max | Part-of-whole (simple) | >6 segments (use bar chart) |
+| Scatter plot | 280 dp | 50-200 points | Correlation | Exact value reading |
+| Area chart (stacked) | 200 dp | 3-4 series max | Composition over time | >4 series (unreadable) |
+| Gauge / radial | 120 dp | 1 value | Single KPI (e.g., progress) | Multiple values |
+| Heat map | Full width | Grid-dependent | Dense time/category data | Color-blind users without labels |
+
+Source: NNGroup "Data Visualization on Mobile" (2021), Edward Tufte "The Visual Display of Quantitative Information" adapted for mobile.
+
+### Touch Interactions
+
+| Interaction | Gesture | Implementation | Min Target |
+|------------|---------|----------------|------------|
+| Select data point | Tap | Tooltip/popover appears near tap point | 44 pt / 48 dp hit area around point |
+| Pan (horizontal) | Horizontal drag | Shifts visible range, preserves Y axis | Entire chart area |
+| Zoom (horizontal) | Pinch horizontal | Changes time range / granularity | Two-finger gesture zone |
+| Zoom (vertical) | Pinch vertical | Changes value range (less common) | Two-finger gesture zone |
+| Scrub / crosshair | Long press + drag | Moves a vertical line across chart, live tooltip follows | Chart area |
+| Reset zoom | Double tap | Returns to default range | Entire chart area |
+
+**Tooltip positioning rules:**
+
+```
+┌──────────────────────────────────┐
+│   ┌─────────────────────────┐    │
+│   │     LINE CHART          │    │
+│   │         *───────────    │    │
+│   │    ┌──────────┐         │    │
+│   │    │ Mar 15    │←tooltip │    │  <- Tooltip above point
+│   │    │ 2,340 steps│        │    │     if point in bottom half
+│   │    └──────────┘         │    │     below point if top half
+│   │  *                      │    │
+│   │*────                    │    │
+│   └─────────────────────────┘    │
+│   Jan    Feb    Mar    Apr       │
+└──────────────────────────────────┘
+```
+
+- Tooltip width: max 50% of chart width
+- Tooltip offset from data point: 8-12 dp/pt
+- Auto-flip: if tooltip would overflow screen edge, flip to opposite side
+- Show only on interaction (tap/scrub), not permanently
+
+### Responsive Chart Sizing
+
+| Screen Width | Chart Height | Aspect Ratio | Source |
+|-------------|-------------|-------------|--------|
+| < 360 dp (compact) | 180-200 dp | ~2:1 | NNGroup mobile data viz |
+| 360-430 dp (standard phone) | 200-240 dp | ~1.8:1 | NNGroup mobile data viz |
+| 430-600 dp (large phone/small tablet) | 240-320 dp | ~1.5:1 | NNGroup mobile data viz |
+| 600+ dp (tablet) | 320-400 dp | ~1.3:1 | NNGroup mobile data viz |
+
+**Rules:**
+- Chart minimum height: 160 dp (below this, trends are indistinguishable)
+- Chart should never exceed 50% of viewport height (user needs to see surrounding context)
+- Labels: 10-12 sp minimum, 14 sp recommended on mobile
+- Axis tick count: 4-6 horizontal, 3-5 vertical (auto-select nice round numbers)
+
+### Color-Blind Safe Palettes
+
+8% of males and 0.5% of females have color vision deficiency. Charts must remain legible without relying solely on hue.
+
+| Palette Type | Colors | Hex Values | Use Case |
+|-------------|--------|-----------|----------|
+| Sequential (single hue) | 5 steps | #f7fbff, #c6dbef, #6baed6, #2171b5, #084594 | Ordered data, heat maps |
+| Diverging (blue-red safe) | 5 steps | #0571b0, #92c5de, #f7f7f7, #f4a582, #ca0020 | Deviation from center |
+| Categorical (ColorBrewer safe) | 8 colors | #1b9e77, #d95f02, #7570b3, #e7298a, #66a61e, #e6ab02, #a6761d, #666666 | Distinct categories |
+| Monochrome + pattern | Unlimited | Single hue + stripes, dots, hatching | Maximum accessibility |
+
+**Supplementary encoding (always use at least one alongside color):**
+
+| Encoding | Example | Implementation |
+|----------|---------|---------------|
+| Shape | Circle vs square vs triangle data points | MPAndroidChart: `setShape()` |
+| Pattern | Striped vs solid vs dotted bar fills | iOS Charts: custom renderer |
+| Label | Direct data labels on bars/segments | Preferred for < 8 categories |
+| Thickness | Thin vs thick lines for different series | Line chart series differentiation |
+| Position | Grouped bars side-by-side | Instead of color-only stacked bars |
+
+### Annotation Patterns
+
+| Pattern | Use Case | Implementation |
+|---------|----------|---------------|
+| Reference line | Target/goal, average, threshold | Dashed horizontal line with label |
+| Highlight band | Date range, acceptable zone | Semi-transparent vertical/horizontal band |
+| Point annotation | Notable event (launch, outage) | Marker + label on specific data point |
+| Trend line | Linear regression, moving average | Overlaid dashed line, lighter color |
+| Callout | Key insight summary | Text box with leader line to data |
+
+### Sparklines
+
+Compact inline charts (no axes, no labels) embedded in text or table cells:
+
+| Guideline | Value | Source |
+|-----------|-------|--------|
+| Height | 16-32 dp/pt (inline with text) | Tufte, adapted |
+| Width | 60-120 dp/pt | Context-dependent |
+| Min/max indicators | Optional dot at highest and lowest point | Common pattern |
+| Color | Single color, match text or accent | Tufte — minimize ink |
+| Interaction | Tap to expand to full chart | Mobile adaptation |
+
+```kotlin
+// Android — minimal sparkline in Compose Canvas
+@Composable
+fun Sparkline(
+    data: List<Float>,
+    modifier: Modifier = Modifier
+        .height(24.dp)
+        .width(80.dp),
+    color: Color = MaterialTheme.colorScheme.primary
+) {
+    Canvas(modifier = modifier) {
+        if (data.size < 2) return@Canvas
+        val max = data.max()
+        val min = data.min()
+        val range = (max - min).coerceAtLeast(1f)
+        val stepX = size.width / (data.size - 1)
+        val path = Path().apply {
+            data.forEachIndexed { i, value ->
+                val x = i * stepX
+                val y = size.height - ((value - min) / range) * size.height
+                if (i == 0) moveTo(x, y) else lineTo(x, y)
+            }
+        }
+        drawPath(path, color, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
+    }
+}
+```
+
+### Checklist
+
+- [ ] Chart type appropriate for data (line for trends, bar for comparison, sparkline for inline)
+- [ ] Touch target >= 44 pt / 48 dp around data points
+- [ ] Tooltip appears on tap/scrub, auto-positions to avoid screen edges
+- [ ] Chart height >= 160 dp, aspect ratio between 1.3:1 and 2:1
+- [ ] Axis labels 10-12 sp minimum, 4-6 ticks per axis
+- [ ] Color palette is color-blind safe (tested with simulator)
+- [ ] At least one supplementary encoding (shape, pattern, label) alongside color
+- [ ] Pinch-to-zoom and pan implemented for time-series charts
+- [ ] Double-tap resets zoom to default range
+- [ ] Sparklines used for inline trend indication in tables/lists
+
+### Anti-Patterns
+
+- **3D charts on mobile**: 3D pie charts, 3D bar charts — distort data perception and waste pixels
+- **Rainbow palette**: Using all hues of the rainbow for categories — indistinguishable for color-blind users
+- **Axis label overflow**: Rotated 90-degree text on X axis that is unreadable at 10 sp
+- **Permanent tooltip**: Always-visible tooltip that occludes chart data
+- **Desktop chart on mobile**: Porting a 1200 px wide desktop chart to a 360 dp phone without adaptation
+- **Too many series**: 6+ line series on a single mobile chart — unreadable spaghetti
+
+**Sources:** NNGroup "Data Visualization for Mobile" (2021), Edward Tufte "The Visual Display of Quantitative Information", ColorBrewer 2.0 (colorbrewer2.org), MPAndroidChart documentation, iOS Charts (danielgindi/Charts) documentation, Vico chart library documentation.
+
+---
+
+## CM. App Size Budget
+
+### Platform Size Limits
+
+| Platform | Limit | Context | Source |
+|----------|-------|---------|--------|
+| App Store (iOS) | 200 MB | Maximum for cellular download (no WiFi prompt above this) | Apple App Store docs |
+| App Store (iOS) | 4 GB | Absolute maximum app bundle size | Apple App Store docs |
+| Play Store (Android) | 150 MB | Maximum APK size for download | Google Play Store policies |
+| Play Store (AAB) | 150 MB base + 2 GB on-demand | AAB base module limit; feature modules downloaded on demand | Google Play AAB docs |
+| Play Store install | ~500 MB | Approximate max expanded install size before user friction rises | Google Play research |
+| Average user threshold | ~100 MB | Users hesitate to download apps >100 MB on mobile data | Google internal research (2022) |
+
+### Download Size vs Install Size
+
+| Metric | Definition | Typical Ratio | Source |
+|--------|-----------|--------------|--------|
+| Download size | Compressed size transferred over network | 1x | Store metrics |
+| Install size | Uncompressed on-device size | 1.5-3x download size | Platform docs |
+| Play Store displayed | Download size (pre-AAB) or estimated device-specific size (AAB) | Device-specific | Play Console |
+| App Store displayed | Approximate download size (varies by device) | Device-specific since iOS 13 | App Store Connect |
+
+### App Thinning (iOS)
+
+App thinning automatically delivers only the resources needed for the specific device:
+
+| Technology | What It Removes | Savings | Source |
+|-----------|----------------|---------|--------|
+| App Slicing | Unused device-specific assets (@1x on @3x device, unused architectures) | 20-60% reduction | Apple App Thinning docs |
+| Bitcode | Recompiles for specific architecture server-side (deprecated in Xcode 14) | ~10-15% (historical) | Apple docs |
+| On-Demand Resources (ODR) | Defers asset download until needed (game levels, rare features) | Varies (up to 80% of initial download) | Apple ODR docs |
+
+```swift
+// iOS — On-Demand Resources
+// 1. Tag resources in Xcode: Select asset > Attributes Inspector > On Demand Resource Tags
+// 2. Request at runtime:
+let resourceRequest = NSBundleResourceRequest(tags: ["level_5_assets"])
+resourceRequest.conditionallyBeginAccessingResources { available in
+    if available {
+        // Assets already cached — use immediately
+        self.loadLevel5()
+    } else {
+        resourceRequest.beginAccessingResources { error in
+            if let error = error {
+                self.showDownloadError(error)
+                return
+            }
+            DispatchQueue.main.async {
+                self.loadLevel5()
+            }
+        }
+    }
+}
+// 3. Release when done:
+// resourceRequest.endAccessingResources()
+```
+
+### Android App Bundle (AAB)
+
+AAB enables Play Store to generate optimized APKs per device configuration:
+
+| Split Type | What It Splits | Typical Savings | Source |
+|-----------|---------------|----------------|--------|
+| ABI split | CPU architecture (arm64-v8a, x86_64, armeabi-v7a) | 30-50% (removes unused native libs) | Android AAB docs |
+| Screen density split | Drawable resources (mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi) | 15-30% (serves only matching density) | Android AAB docs |
+| Language split | String resources, locale-specific assets | 5-10% | Android AAB docs |
+| Feature modules | Dynamic Feature Modules downloaded on demand | Varies (up to 80%) | Android Dynamic Delivery docs |
+
+```kotlin
+// Android — Dynamic Feature Module (on-demand delivery)
+// In the dynamic feature module's build.gradle:
+android {
+    dynamicFeatures = [":feature_ar_scanner"]
+}
+
+// Request installation at runtime:
+val splitInstallManager = SplitInstallManagerFactory.create(context)
+val request = SplitInstallRequest.newBuilder()
+    .addModule("feature_ar_scanner")
+    .build()
+
+splitInstallManager.startInstall(request)
+    .addOnSuccessListener { sessionId ->
+        // Monitor download progress
+    }
+    .addOnFailureListener { exception ->
+        // Handle failure — offer degraded experience
+    }
+```
+
+### Size Budget Breakdown (Target: 30 MB Download)
+
+| Category | Budget | Optimization | Source |
+|----------|--------|-------------|--------|
+| Code (DEX/Swift) | 5-8 MB | ProGuard/R8 shrinking, tree shaking | Android R8 / Swift compiler |
+| Native libraries (.so) | 3-10 MB | ABI split (AAB), strip debug symbols | Android NDK docs |
+| Images/drawables | 5-10 MB | WebP format, vector drawables where possible | Google image optimization |
+| Fonts | 0.5-2 MB | Use system font, subset custom fonts (only needed glyphs) | Font optimization guides |
+| ML models | 2-20 MB | Quantize (float32 -> int8 = 4x smaller), split to on-demand | TFLite / Core ML optimization |
+| Third-party SDKs | 3-15 MB | Audit and remove unused SDKs, prefer lighter alternatives | Size analysis tools |
+| Assets (audio, video, JSON) | 0-5 MB | Compress, stream instead of bundle, on-demand | Best practice |
+
+### Size Monitoring in CI
+
+```yaml
+# .github/workflows/size-check.yml
+name: App Size Check
+on: [pull_request]
+
+jobs:
+  android-size:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build release AAB
+        run: ./gradlew bundleRelease
+      - name: Check APK size with bundletool
+        run: |
+          java -jar bundletool.jar get-size total \
+            --apks=app/build/outputs/bundle/release/app-release.aab \
+            --dimensions=ABI,SCREEN_DENSITY
+      - name: Fail if base APK > 15 MB
+        run: |
+          SIZE=$(java -jar bundletool.jar get-size total --apks=*.aab | tail -1 | cut -f2)
+          if [ "$SIZE" -gt 15728640 ]; then
+            echo "FAIL: Base APK size $SIZE exceeds 15 MB budget"
+            exit 1
+          fi
+
+  ios-size:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and export IPA
+        run: |
+          xcodebuild archive -scheme App -archivePath build/App.xcarchive
+          xcodebuild -exportArchive -archivePath build/App.xcarchive \
+            -exportOptionsPlist ExportOptions.plist -exportPath build/
+      - name: Report app thinning sizes
+        run: |
+          # App Thinning Size Report generated during export
+          cat build/App-Thinning-Size-Report.txt
+```
+
+### Checklist
+
+- [ ] Download size under 100 MB (ideal: under 30 MB for highest install conversion)
+- [ ] AAB used for Play Store distribution (not APK)
+- [ ] App Slicing / On-Demand Resources configured for iOS
+- [ ] Native libraries split by ABI (no universal fat binary in production)
+- [ ] Images use WebP/AVIF; vectors used for icons and simple illustrations
+- [ ] ML models quantized (int8) and/or downloaded on demand
+- [ ] Third-party SDK audit: each SDK justified by size impact
+- [ ] CI pipeline measures and gates on app size per PR
+- [ ] Custom fonts subsetted to only required glyphs/weights
+- [ ] R8 full mode / ProGuard enabled for release builds (Android)
+
+### Anti-Patterns
+
+- **Shipping APK instead of AAB**: Includes all ABI, density, and language resources — 2-3x larger than needed
+- **Bundled video/audio**: Including large media files in the binary instead of streaming
+- **Unoptimized PNGs**: Using PNG for photographs instead of WebP (3-5x larger)
+- **Debug symbols in release**: Shipping native libraries with debug symbols (2-10x larger)
+- **Universal font**: Bundling all weights (Thin through Black) of a custom font when only Regular and Bold are used
+- **No size monitoring**: Size creeps up with each SDK addition; no CI gate catches it
+
+**Sources:** Apple App Store size limits documentation, Apple App Thinning guide, Google Play Store APK/AAB size policies, Android App Bundle documentation, Android Dynamic Delivery docs, Google Play Console size optimization report.
+
+---
+
+## CN. Predictive Back Gesture (Android 13+)
+
+### Overview
+
+Predictive back lets users see a preview of the destination before completing the back gesture. Instead of an immediate transition, the user sees an animated preview behind the current screen. Releasing completes the back action; pulling the finger back cancels it.
+
+### System Animations
+
+| Animation | Min API | Behavior | Source |
+|-----------|---------|----------|--------|
+| Back-to-home | API 33 (opt-in), API 35 (default) | Current app shrinks, wallpaper/home screen peeks behind | Android predictive back docs |
+| Cross-activity | API 35 | Previous activity visible behind current during swipe | Android 15 docs |
+| Cross-task | API 35 | Previous task visible when back crosses task boundary | Android 15 docs |
+| Custom transitions | API 33+ | Developer-defined animations with progress tracking | AndroidX Activity 1.6+ |
+
+### Opt-In Migration
+
+| API Level | Behavior | Required Action |
+|-----------|----------|----------------|
+| API 33-34 | Opt-in via manifest; animations visible only with developer option enabled | Set `android:enableOnBackInvokedCallback="true"` in manifest |
+| API 35+ | System animations (back-to-home, cross-activity) enabled by default | Migrate all `onBackPressed()` overrides |
+| Any API | Custom AndroidX callbacks work regardless of manifest flag | Use `OnBackPressedCallback` |
+
+```xml
+<!-- AndroidManifest.xml — per-activity opt-in (recommended for gradual migration) -->
+<application android:enableOnBackInvokedCallback="false">
+    <!-- Migrated activity -->
+    <activity
+        android:name=".HomeActivity"
+        android:enableOnBackInvokedCallback="true" />
+    <!-- Not yet migrated -->
+    <activity
+        android:name=".LegacyActivity"
+        android:enableOnBackInvokedCallback="false" />
+</application>
+```
+
+### Migrating from onBackPressed()
+
+**Before (deprecated):**
+
+```kotlin
+// DEPRECATED — blocks predictive back animation
+override fun onBackPressed() {
+    if (viewModel.hasUnsavedChanges()) {
+        showUnsavedChangesDialog()
+    } else {
+        super.onBackPressed()
+    }
+}
+```
+
+**After (recommended):**
+
+```kotlin
+// AndroidX OnBackPressedCallback — works with predictive back
+class EditActivity : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        val callback = object : OnBackPressedCallback(enabled = false) {
+            override fun handleOnBackPressed() {
+                showUnsavedChangesDialog()
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, callback)
+
+        // Enable/disable based on UI state
+        viewModel.hasUnsavedChanges.observe(this) { hasChanges ->
+            callback.isEnabled = hasChanges
+            // When disabled, system handles back (with animation)
+            // When enabled, our callback intercepts
+        }
+    }
+}
+```
+
+### Custom Transitions with Progress Tracking
+
+```kotlin
+// Compose — PredictiveBackHandler with animation progress
+@Composable
+fun BottomSheetWithPredictiveBack(onDismiss: () -> Unit) {
+    var offsetY by remember { mutableFloatStateOf(0f) }
+
+    PredictiveBackHandler(enabled = true) { progress: Flow<BackEventCompat> ->
+        try {
+            progress.collect { event ->
+                // event.progress: 0.0 (start) to 1.0 (committed)
+                // event.touchX, event.touchY: finger position
+                // event.swipeEdge: LEFT or RIGHT
+                offsetY = event.progress * 300f // Slide sheet down
+            }
+            // Back gesture completed — dismiss
+            onDismiss()
+        } catch (e: CancellationException) {
+            // Back gesture cancelled — reset
+            animate(offsetY, 0f) { value, _ -> offsetY = value }
+        }
+    }
+
+    Surface(
+        modifier = Modifier
+            .offset { IntOffset(0, offsetY.toInt()) }
+            .fillMaxWidth()
+    ) {
+        // Bottom sheet content
+    }
+}
+```
+
+### Shared Element Transitions with Predictive Back
+
+```kotlin
+// Android 15+ — shared element transitions respect predictive back
+class DetailActivity : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        // Enable shared element transitions that work with predictive back
+        window.requestFeature(Window.FEATURE_ACTIVITY_TRANSITIONS)
+        window.sharedElementEnterTransition = MaterialContainerTransform().apply {
+            addTarget(R.id.detail_container)
+            duration = 300
+        }
+        // The return transition automatically animates during predictive back swipe
+        window.sharedElementReturnTransition = MaterialContainerTransform().apply {
+            addTarget(R.id.detail_container)
+            duration = 300
+        }
+        super.onCreate(savedInstanceState)
+    }
+}
+```
+
+### API Replacement Table
+
+| Deprecated API | Replacement | Notes |
+|---------------|------------|-------|
+| `Activity.onBackPressed()` | `OnBackPressedDispatcher.addCallback()` | AndroidX Activity 1.6+ |
+| `KeyEvent.KEYCODE_BACK` handling | `OnBackPressedCallback` | Same dispatcher |
+| `Dialog.onBackPressed()` | `OnBackPressedCallback` added to dialog's dispatcher | Wrap in callback |
+| `Fragment.onBackPressed()` | Callback scoped to fragment viewLifecycleOwner | Auto-removed on destroy |
+| Analytics on back | `PRIORITY_SYSTEM_NAVIGATION_OBSERVER` (API 36+) | Observe without consuming |
+
+### Testing Predictive Back
+
+| Android Version | How to Test | Source |
+|----------------|------------|--------|
+| 13-14 | Settings > System > Developer options > "Predictive back animations" toggle | Android developer docs |
+| 15+ | System animations appear automatically for opted-in activities | Android 15 docs |
+| Emulator | Same developer option; use long-press back button to simulate slow gesture | Android Studio |
+
+### Checklist
+
+- [ ] `android:enableOnBackInvokedCallback="true"` set (per-activity or per-app)
+- [ ] All `onBackPressed()` overrides migrated to `OnBackPressedCallback`
+- [ ] All `KEYCODE_BACK` handling migrated to `OnBackPressedCallback`
+- [ ] Callbacks tied to observable UI state (enabled/disabled dynamically)
+- [ ] Custom transitions use `PredictiveBackHandler` (Compose) or progress-based animation
+- [ ] Bottom sheets and dialogs support predictive back dismissal
+- [ ] Shared element transitions tested with predictive back swipe
+- [ ] Tested on API 33 (developer option), API 35 (default), and pre-13 (no animation)
+- [ ] No analytics or business logic in back callbacks (use lifecycle instead)
+
+### Anti-Patterns
+
+- **Always-enabled callback**: Callback that is always enabled blocks all system back animations permanently
+- **Business logic in back handler**: Running network calls or saving data in `handleOnBackPressed()` — use ViewModel + lifecycle
+- **Ignoring cancellation**: Not resetting UI state when back gesture is cancelled (finger pulled back)
+- **`onBackPressed()` + callback**: Having both deprecated override and new callback — causes double handling
+- **Not testing**: Shipping without testing predictive back animations — users see broken transitions
+
+**Sources:** Android Predictive Back Gesture documentation, AndroidX Activity 1.6+ release notes, Android 15 behavior changes (API 35), Material Motion guidance for Android, Google "Handling Back Navigation" codelab.
+
+---
+
+## CO. Per-App Language (Android 13+ / iOS)
+
+### Overview
+
+Per-app language preferences allow users to set a different language for each app independently of their device system language. This is critical for multilingual users (e.g., system in English but banking app in French).
+
+### Android 13+ Implementation
+
+**Method 1: Automatic (AGP 8.1+, recommended):**
+
+```kotlin
+// build.gradle.kts
+android {
+    androidResources {
+        generateLocaleConfig = true  // Auto-generates locale list from res/values-*/
+    }
+}
+```
+
+```properties
+# app/src/main/resources.properties
+unqualifiedResLocale=en-US
+```
+
+**Method 2: Manual locale config:**
+
+```xml
+<!-- res/xml/locales_config.xml -->
+<?xml version="1.0" encoding="utf-8"?>
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en-US"/>
+    <locale android:name="fr"/>
+    <locale android:name="es"/>
+    <locale android:name="de"/>
+    <locale android:name="ja"/>
+    <locale android:name="ar"/>    <!-- RTL language -->
+    <locale android:name="zh-Hans"/>
+</locale-config>
+```
+
+```xml
+<!-- AndroidManifest.xml -->
+<application
+    android:localeConfig="@xml/locales_config"
+    ...>
+</application>
+```
+
+**User access points (system-managed):**
+- Settings > System > Languages & Input > App Languages > [App]
+- Settings > Apps > [App] > Language
+
+### Programmatic Language Change (Android)
+
+```kotlin
+// Using AndroidX AppCompat 1.6.0+ (backward compatible to API 24)
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
+
+// Set language programmatically (in-app language picker)
+fun setAppLanguage(languageTag: String) {
+    val localeList = LocaleListCompat.forLanguageTags(languageTag)
+    // Must be called on main thread — may trigger Activity recreation
+    AppCompatDelegate.setApplicationLocales(localeList)
+}
+
+// Get current app language
+fun getCurrentLanguage(): String {
+    val locales = AppCompatDelegate.getApplicationLocales()
+    return if (locales.isEmpty) "system" else locales.toLanguageTags()
+}
+
+// Reset to system language
+fun resetToSystemLanguage() {
+    AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
+}
+```
+
+**Backward compatibility (Android 12 and below):**
+
+```xml
+<!-- AndroidManifest.xml — enable auto-storage for pre-13 devices -->
+<application>
+    <service
+        android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+        android:enabled="false"
+        android:exported="false">
+        <meta-data
+            android:name="autoStoreLocales"
+            android:value="true" />
+    </service>
+</application>
+```
+
+### iOS Per-App Language
+
+iOS has supported per-app language since iOS 13 via the system Settings app. No code is required for basic support — the system handles it based on your app's `.lproj` bundles.
+
+**User access:**
+- Settings > [App Name] > Language (listed under "Preferred Language")
+
+**In-app language picker (optional, for custom UX):**
+
+```swift
+// iOS — programmatic language change (requires app restart)
+// Option 1: Direct UserDefaults (traditional approach)
+func setAppLanguage(_ languageCode: String) {
+    UserDefaults.standard.set([languageCode], forKey: "AppleLanguages")
+    UserDefaults.standard.synchronize()
+    // Show alert: "Please restart the app for the language change to take effect"
+}
+
+// Option 2: Use Bundle override (no restart, SwiftUI)
+class LanguageManager: ObservableObject {
+    @Published var currentLanguage: String = "en" {
+        didSet {
+            UserDefaults.standard.set([currentLanguage], forKey: "AppleLanguages")
+            Bundle.setLanguage(currentLanguage) // Custom extension
+        }
+    }
+}
+
+// Bundle extension for runtime language switching
+extension Bundle {
+    private static var onLanguageDispatchOnce: () = {
+        object_setClass(Bundle.main, PrivateBundle.self)
+    }()
+
+    static func setLanguage(_ language: String) {
+        _ = onLanguageDispatchOnce
+        // ... swap main bundle's localization
+    }
+}
+```
+
+### In-App Language Picker UX
+
+| Guideline | Implementation | Source |
+|-----------|---------------|--------|
+| Placement | Settings screen, near top | Common pattern |
+| Display format | Native language name + English name: "Francais (French)" | FIDO Alliance, Google guidelines |
+| Current selection | Clearly highlighted with checkmark | Standard list selection |
+| Search | Provide search/filter for apps with 10+ languages | UX best practice |
+| Restart warning | If restart required, warn before applying | iOS needs restart; Android may recreate Activity |
+| Flag icons | Do not use flags for languages (flags = countries, not languages) | NNGroup, W3C i18n |
+
+```
+┌──────────────────────────────────┐
+│  ← Settings                      │
+│                                  │
+│  Language                        │
+│                                  │
+│  ┌──────────────────────────┐   │
+│  │ 🔍 Search languages      │   │
+│  └──────────────────────────┘   │
+│                                  │
+│  ✓ English                       │  <- Current selection
+│    Francais (French)             │
+│    Espanol (Spanish)             │
+│    Deutsch (German)              │
+│    日本語 (Japanese)               │
+│    العربية (Arabic)               │  <- RTL indicator
+│    中文简体 (Chinese Simplified)   │
+│                                  │
+│  System Default                  │  <- Reset option
+│                                  │
+└──────────────────────────────────┘
+```
+
+### RTL Switching
+
+When the user switches to an RTL language (Arabic, Hebrew, Farsi, Urdu), the entire layout must mirror:
+
+| Element | LTR | RTL | Source |
+|---------|-----|-----|--------|
+| Text alignment | Left | Right | Android/iOS auto with `start`/`end` |
+| Navigation back arrow | ← (left) | → (right) | Platform auto-mirrored |
+| List chevrons | > (right) | < (left) | Auto-mirrored |
+| Progress bars | Left to right | Right to left | Auto-mirrored |
+| Icons with directionality | Original | Mirrored (send arrow, forward, etc.) | Must use `autoMirrored="true"` (Android) |
+| Icons without directionality | Original | NOT mirrored (play, search, clock) | Leave as-is |
+| Swipe gestures | Swipe right = back | Swipe left = back | Platform-managed |
+| Number formatting | 123,456.78 | May use Hindi numerals (١٢٣) depending on locale | Locale-specific |
+
+```kotlin
+// Android — auto-mirrored vector drawable
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:autoMirrored="true"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:pathData="M20,11H7.83l5.59-5.59L12,4l-8,8 8,8 1.41-1.41L7.83,13H20v-2z"/>
+</vector>
+```
+
+```kotlin
+// Android — force layout direction for testing
+// In Developer Options: "Force RTL layout direction"
+// Or programmatically in tests:
+ViewCompat.setLayoutDirection(view, ViewCompat.LAYOUT_DIRECTION_RTL)
+```
+
+### Dynamic Locale Configuration (Android 14+)
+
+Customize available languages per region at runtime:
+
+```kotlin
+// Show different language options per region
+val localeManager = getSystemService(LocaleManager::class.java)
+localeManager.overrideLocaleConfig = LocaleConfig(
+    LocaleList.forLanguageTags(
+        when (userRegion) {
+            "EU" -> "en-US,fr,de,es,it,pt,nl,pl"
+            "APAC" -> "en-US,ja,ko,zh-Hans,zh-Hant,th,vi"
+            else -> "en-US,fr,es,de,ja"
+        }
+    )
+)
+```
+
+### Checklist
+
+- [ ] `localeConfig` declared in manifest or auto-generated via AGP 8.1+
+- [ ] All user-facing strings in `strings.xml` / `Localizable.strings` (no hardcoded text)
+- [ ] In-app language picker shows native language names
+- [ ] RTL layout tested for all RTL languages (Arabic, Hebrew, Farsi, Urdu)
+- [ ] Directional icons use `autoMirrored="true"` (Android)
+- [ ] Non-directional icons do NOT mirror in RTL
+- [ ] Activity recreation handled gracefully on language change (no data loss)
+- [ ] `AppleLanguages` UserDefaults honored on iOS
+- [ ] Backward compatibility for Android 12 and below (autoStoreLocales service)
+- [ ] No flag icons used to represent languages
+
+### Anti-Patterns
+
+- **Hardcoded strings**: Any user-visible text outside of resource files breaks all localization
+- **Flag icons for languages**: Spanish flag for Spanish — but which Spanish? Spain, Mexico, Argentina? Languages are not countries
+- **Forgetting RTL**: Layout breaks when Arabic or Hebrew user selects their language
+- **No restart handling**: Language change causes Activity recreation, losing form data or scroll position
+- **Missing plural forms**: Using string concatenation for counts ("3 item(s)") instead of proper plurals (`plurals.xml` / `stringsdict`)
+
+**Sources:** Android per-app language preferences documentation, AndroidX AppCompat 1.6.0 release notes, Android 14 dynamic locale configuration docs, Apple Settings Bundle documentation, W3C Internationalization best practices, NNGroup localization guidelines.
+
+---
+
+## CP. iOS 18 Control Center Widgets
+
+### Overview
+
+iOS 18 (WWDC 2024) introduced the ControlWidget API, allowing third-party apps to place controls in Control Center, the Lock Screen, and the Action Button. Controls are lightweight, always-available toggles and buttons that perform a single action without opening the app.
+
+### Control Types
+
+| Type | Behavior | Use Case | Example |
+|------|----------|----------|---------|
+| Toggle | Binary on/off state, persists | Enable/disable a feature | Smart light toggle, Do Not Disturb, VPN on/off |
+| Button | Momentary action, no persistent state | Trigger an action | Lock door, start timer, open camera |
+
+### ControlWidget API
+
+```swift
+// Define a toggle control
+import WidgetKit
+import AppIntents
+
+struct CaffeineTrackingControl: ControlWidget {
+    static let kind: String = "com.example.app.caffeine-tracking"
+
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(
+            kind: Self.kind,
+            provider: CaffeineValueProvider()
+        ) { value in
+            ControlWidgetToggle(
+                "Track Caffeine",
+                isOn: value,
+                action: ToggleCaffeineTrackingIntent()
+            ) { isOn in
+                Label(
+                    isOn ? "Tracking" : "Paused",
+                    systemImage: isOn ? "cup.and.saucer.fill" : "cup.and.saucer"
+                )
+            }
+        }
+        .displayName("Caffeine Tracking")
+        .description("Toggle caffeine intake tracking")
+    }
+}
+
+// Value provider
+struct CaffeineValueProvider: ControlValueProvider {
+    var previewValue: Bool { true }
+
+    func currentValue() async throws -> Bool {
+        // Read current state from your app's data store
+        let store = CaffeineStore.shared
+        return await store.isTrackingEnabled
+    }
+}
+
+// App Intent for the toggle action
+struct ToggleCaffeineTrackingIntent: SetValueIntent {
+    static var title: LocalizedStringResource = "Toggle Caffeine Tracking"
+
+    @Parameter(title: "Enabled")
+    var value: Bool
+
+    func perform() async throws -> some IntentResult {
+        let store = CaffeineStore.shared
+        await store.setTrackingEnabled(value)
+        return .result()
+    }
+}
+```
+
+### Button Control
+
+```swift
+struct QuickLogControl: ControlWidget {
+    static let kind: String = "com.example.app.quick-log"
+
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(
+            kind: Self.kind
+        ) {
+            ControlWidgetButton(action: LogCigaretteIntent()) {
+                Label("Log Entry", systemImage: "plus.circle.fill")
+            }
+        }
+        .displayName("Quick Log")
+        .description("Log an entry with one tap")
+    }
+}
+
+struct LogCigaretteIntent: AppIntent {
+    static var title: LocalizedStringResource = "Log Entry"
+    static var openAppWhenRun: Bool = false  // Runs without opening app
+
+    func perform() async throws -> some IntentResult {
+        let store = DataStore.shared
+        await store.logEntry(date: .now)
+        return .result()
+    }
+}
+```
+
+### Registration
+
+```swift
+// Register controls in your WidgetBundle
+@main
+struct AppWidgetBundle: WidgetBundle {
+    var body: some Widget {
+        // Home Screen widgets
+        DailySummaryWidget()
+        WeeklyChartWidget()
+
+        // Control Center controls
+        CaffeineTrackingControl()
+        QuickLogControl()
+    }
+}
+```
+
+### Design Constraints
+
+| Constraint | Value | Source |
+|-----------|-------|--------|
+| Control size | System-defined, not customizable (similar to widget small size) | Apple WidgetKit docs |
+| Tint color | System applies dynamic tinting; you provide a template image | Apple WWDC 2024 |
+| Icon style | SF Symbols required (filled variant preferred) | Apple HIG |
+| Label | Short text, 1-2 words (system truncates long text) | Apple WidgetKit docs |
+| Interactivity | Toggle (on/off) or Button (momentary) only — no sliders, pickers, or text input | Apple ControlWidget docs |
+| State updates | Via `ControlCenter.shared.reloadControls(ofKind:)` | Apple WidgetKit docs |
+| App launch | Optional: set `openAppWhenRun = true` on AppIntent to open app | Apple AppIntents docs |
+| Background execution | AppIntent runs in background (no UI), limited to 30 seconds | Apple AppIntents docs |
+
+### Lock Screen Placement
+
+Controls can also appear on the Lock Screen (iOS 18+):
+
+| Placement | Access | Source |
+|-----------|--------|--------|
+| Control Center | Swipe down from top-right (Face ID) / swipe up from bottom (Touch ID) | iOS standard gesture |
+| Lock Screen | Long-press Lock Screen > customize > add controls to bottom row | iOS 18 customization |
+| Action Button (iPhone 15 Pro+) | Hardware button on left side — can be assigned to a control | Apple Action Button docs |
+
+### Checklist
+
+- [ ] ControlWidget conforms to `ControlWidget` protocol
+- [ ] `StaticControlConfiguration` (or `AppIntentControlConfiguration`) used
+- [ ] `displayName` and `description` provided for Controls Gallery
+- [ ] SF Symbols used for icons (filled variant)
+- [ ] Labels short (1-2 words, system truncates)
+- [ ] Toggle: `ControlWidgetToggle` with `SetValueIntent`
+- [ ] Button: `ControlWidgetButton` with `AppIntent`
+- [ ] `openAppWhenRun = false` for actions that don't need the app foreground
+- [ ] `reloadControls(ofKind:)` called when state changes from within the app
+- [ ] Registered in `WidgetBundle`
+
+### Anti-Patterns
+
+- **Complex interactions**: Trying to build a mini-app in a control — controls are single-action only
+- **Long-running intent**: AppIntent that takes > 5 seconds — user sees spinner, feels broken
+- **Missing state sync**: Toggle shows "on" in Control Center but feature is actually off because `reloadControls` was not called
+- **Verbose labels**: "Start Tracking My Daily Caffeine Intake" — will be truncated to "Start Tracking..."
+- **Custom icons**: Using custom images instead of SF Symbols — inconsistent with system controls
+
+**Sources:** Apple WWDC 2024 "Extend Your App's Controls Across the System", Apple WidgetKit documentation (ControlWidget), Apple AppIntents framework documentation, Apple Human Interface Guidelines (Controls).
+
+---
+
+## CQ. Baymard Mobile Checkout Research Data
+
+### Mobile Checkout Abandonment
+
+Baymard Institute's large-scale quantitative research (aggregated from 49 studies, 2012-2024) provides benchmark data for mobile e-commerce checkout:
+
+| Metric | Value | Source |
+|--------|-------|--------|
+| Average cart abandonment rate (all devices) | 70.19% | Baymard Institute (49-study average, 2024) |
+| Mobile cart abandonment rate | 85.65% | Baymard mobile-specific studies (2023) |
+| Desktop cart abandonment rate | 73.07% | Baymard desktop benchmark |
+| Mobile-to-desktop gap | +12.58 percentage points | Baymard comparative analysis |
+| Checkout-specific abandonment (entered checkout but did not complete) | 27% of users | Baymard checkout usability study (2024) |
+
+### Reasons for Abandonment (Mobile-Specific)
+
+| Reason | % of Abandoners | UX Fix | Source |
+|--------|----------------|--------|--------|
+| Extra costs too high (shipping, tax, fees) | 48% | Show total cost early, before checkout | Baymard 2024 |
+| Required to create an account | 26% | Offer guest checkout prominently | Baymard 2024 |
+| Delivery too slow | 22% | Show estimated delivery date on product page | Baymard 2024 |
+| Didn't trust site with credit card info | 25% | Security badges near payment form, padlock icon | Baymard 2024 |
+| Too long/complicated checkout | 22% | Reduce to 3-5 steps; show progress indicator | Baymard 2024 |
+| Couldn't see total order cost upfront | 21% | Running order summary visible at all times | Baymard 2024 |
+| Returns policy not satisfactory | 10% | Link returns policy prominently in cart | Baymard 2024 |
+| Website errors/crashes | 17% | Error recovery, retry mechanisms (see section BX) | Baymard 2024 |
+| Not enough payment methods | 13% | Offer Apple Pay, Google Pay, PayPal, BNPL | Baymard 2024 |
+| Card declined | 4% | Clear error message + alternative payment suggestion | Baymard 2024 |
+
+### Form Field Ordering
+
+Baymard's research on 220+ checkout flows identified the optimal field order for mobile:
+
+| Order | Field | Notes | Source |
+|-------|-------|-------|--------|
+| 1 | Email address | First — enables cart recovery emails if abandoned | Baymard checkout research |
+| 2 | First name | Before last name (Western convention) | Baymard |
+| 3 | Last name | | Baymard |
+| 4 | Street address (line 1) | Auto-complete with Google Places / Apple Maps | Baymard |
+| 5 | Street address (line 2) | Optional — collapse behind "Add apt/suite" link | Baymard |
+| 6 | City | Auto-fill from ZIP/postal code when possible | Baymard |
+| 7 | State/Province | Dropdown, not free text (reduces errors) | Baymard |
+| 8 | ZIP/Postal code | If entered first, can auto-fill city + state | Baymard |
+| 9 | Country | Default to detected location; dropdown for override | Baymard |
+| 10 | Phone number | With country code prefix | Baymard |
+
+**Key finding:** 24% of e-commerce sites have suboptimal field ordering that increases cognitive load. The above order matches user mental models from Baymard's eye-tracking studies.
+
+### Express Checkout Placement
+
+| Guideline | Detail | Source |
+|-----------|--------|--------|
+| Position | Above the fold on cart page, before standard checkout CTA | Baymard checkout research |
+| Methods to show | Apple Pay, Google Pay, PayPal — show only those available on device | Baymard + platform docs |
+| Button styling | Use platform-specific branded buttons (Apple Pay black, Google Pay white) | Apple Pay HIG, Google Pay Brand Guidelines |
+| Reduction in fields | Express checkout skips ~60% of form fields (address, name auto-filled from wallet) | Baymard 2023 |
+| Conversion lift | Sites offering express checkout see 20-35% higher mobile conversion | Multiple industry reports |
+
+```
+┌──────────────────────────────────┐
+│  Your Cart (2 items)    $89.97   │
+│                                  │
+│  ┌────────────────────────────┐  │
+│  │    [Apple Pay]              │  │  <- Express checkout FIRST
+│  └────────────────────────────┘  │
+│  ┌────────────────────────────┐  │
+│  │    [Google Pay]             │  │
+│  └────────────────────────────┘  │
+│  ┌────────────────────────────┐  │
+│  │    [PayPal]                 │  │
+│  └────────────────────────────┘  │
+│                                  │
+│  ─────── or ────────             │  <- Visual separator
+│                                  │
+│  ┌────────────────────────────┐  │
+│  │   Continue to Checkout     │  │  <- Standard checkout below
+│  └────────────────────────────┘  │
+│                                  │
+└──────────────────────────────────┘
+```
+
+### Shipping / Billing Address UX
+
+| Pattern | Recommendation | Impact | Source |
+|---------|---------------|--------|--------|
+| "Same as shipping" default | Pre-check "Billing same as shipping" (default ON) | 75% of users have same address — saves 8+ fields | Baymard checkout |
+| Address autocomplete | Google Places / Apple MapKit autocomplete after 3 characters typed | Reduces typing by 70%, errors by 20% | Baymard address research |
+| ZIP-first lookup | Enter ZIP code first, auto-fill city + state | Saves 2 fields of typing | Baymard field study |
+| Country detection | Default country from IP/locale; allow override | 92% accuracy, saves 1 field interaction | Baymard |
+| Address line 2 | Hide behind "Add apartment, suite, etc." link | 70% of users do not need this field | Baymard |
+| International addresses | Adapt fields per country (UK: no State; Japan: different order) | Prevents confusion for international users | Baymard international study |
+
+```kotlin
+// Android — Google Places autocomplete for address
+val autocompleteFragment = AutocompleteSupportFragment.newInstance()
+autocompleteFragment.setTypesFilter(listOf("address"))
+autocompleteFragment.setCountries("US", "CA", "GB") // Limit to shipping regions
+autocompleteFragment.setPlaceFields(listOf(
+    Place.Field.ADDRESS_COMPONENTS,
+    Place.Field.FORMATTED_ADDRESS
+))
+autocompleteFragment.setOnPlaceSelectedListener(object : PlaceSelectionListener {
+    override fun onPlaceSelected(place: Place) {
+        place.addressComponents?.asList()?.forEach { component ->
+            when {
+                component.types.contains("street_number") -> streetNumberField.setText(component.name)
+                component.types.contains("route") -> streetField.setText(component.name)
+                component.types.contains("locality") -> cityField.setText(component.name)
+                component.types.contains("administrative_area_level_1") -> stateField.setText(component.shortName)
+                component.types.contains("postal_code") -> zipField.setText(component.name)
+            }
+        }
+    }
+    override fun onError(status: Status) { /* Handle error */ }
+})
+```
+
+### Payment Method Selection
+
+| Guideline | Detail | Source |
+|-----------|--------|--------|
+| Show all accepted methods upfront | Icons (Visa, MC, Amex, etc.) visible before entering card details | Baymard payment research |
+| Card type auto-detection | Detect Visa/MC/Amex from first 4 digits, show icon | Baymard |
+| Number formatting | Auto-format as "4242 4242 4242 4242" (groups of 4) | Baymard |
+| Expiry format | MM/YY with auto-slash insertion | Baymard |
+| CVV help | Info icon (?) showing where CVV is located on card | Baymard — 20% of users confused by CVV |
+| Save card | "Save for next time" checkbox (default OFF for privacy) | Baymard + GDPR |
+| BNPL placement | Show Buy Now Pay Later (Klarna, Afterpay) as separate payment option, not afterthought | Baymard 2023 |
+
+**Card form layout (optimized for mobile):**
+
+```
+┌──────────────────────────────────┐
+│  Payment                         │
+│                                  │
+│  💳 Visa  MC  Amex  Discover     │  <- Accepted cards
+│                                  │
+│  Card Number                     │
+│  ┌──────────────────────────┐    │
+│  │ 4242 4242 4242 4242  💳  │    │  <- Auto-detected icon
+│  └──────────────────────────┘    │
+│                                  │
+│  ┌────────────┐ ┌────────────┐   │
+│  │ MM/YY      │ │ CVV    (?) │   │  <- Side-by-side, CVV help
+│  └────────────┘ └────────────┘   │
+│                                  │
+│  Name on Card                    │
+│  ┌──────────────────────────┐    │
+│  │                           │   │
+│  └──────────────────────────┘    │
+│                                  │
+│  □ Save card for next time       │  <- Default OFF
+│                                  │
+└──────────────────────────────────┘
+```
+
+### Order Summary Visibility
+
+| Guideline | Detail | Source |
+|-----------|--------|--------|
+| Always visible | Running total visible at all times during checkout (sticky footer or collapsible top) | Baymard 2024 — 21% abandon due to hidden costs |
+| Itemized breakdown | Show subtotal, shipping, tax, discount as separate lines | Baymard |
+| Line item thumbnail | Small product image (40x40 dp) + name + quantity + price per item | Baymard |
+| Shipping cost timing | Show shipping cost before payment step (never surprise at the end) | Baymard — #1 abandonment reason |
+| Editable from summary | Tap item to edit quantity or remove without leaving checkout | Baymard |
+| Promo code field | Collapsible "Have a promo code?" link (not a prominent empty field) | Baymard — prominent field triggers "coupon hunting" |
+
+```
+┌──────────────────────────────────┐
+│  Order Summary              ▼    │  <- Collapsible on mobile
+│                                  │
+│  ┌──┐ Widget Pro × 1    $49.99  │
+│  └──┘                            │
+│  ┌──┐ Case            × 1  $19.99│
+│  └──┘                            │
+│                                  │
+│  Subtotal                $69.98  │
+│  Shipping (Standard)      $5.99  │
+│  Tax                      $5.60  │
+│  ─────────────────────────────── │
+│  Total                   $81.57  │
+│                                  │
+│  Have a promo code?              │  <- Collapsed by default
+│                                  │
+└──────────────────────────────────┘
+```
+
+### Checkout Step Count
+
+| Steps | Conversion Impact | Recommendation | Source |
+|-------|------------------|---------------|--------|
+| 1 (one-page) | Best for simple orders (1-2 items) | Use for digital goods, subscriptions | Baymard |
+| 2-3 steps | Optimal for most mobile checkouts | Shipping > Payment > Review | Baymard (2023 benchmark) |
+| 4-5 steps | Acceptable if each step is short | Account > Shipping > Payment > Review > Confirm | Baymard |
+| 6+ steps | Significant drop-off (22% cite "too long" as reason) | Consolidate into fewer steps | Baymard |
+
+**Progress indicator (required for multi-step):**
+
+```
+┌──────────────────────────────────┐
+│  ● Shipping ─── ○ Payment ─── ○ Review │  <- Step indicator
+│                                        │
+│  Step 1 of 3                           │  <- Text fallback for a11y
+└────────────────────────────────────────┘
+```
+
+### Mobile-Specific Optimizations
+
+| Optimization | Detail | Impact | Source |
+|-------------|--------|--------|--------|
+| Numeric keyboard for card/ZIP | `inputType="number"` / `keyboardType: .numberPad` | Reduces errors by 30% | Baymard input study |
+| Auto-advance fields | After ZIP code, auto-focus next field | Saves 1-2 taps per form | Baymard |
+| Inline validation | Validate on field exit, not on submit | 22% fewer form errors | Baymard (see also section BX) |
+| Large touch targets | 48 dp minimum for all checkout buttons and form fields | Reduces mis-taps | Material Design 3 / Apple HIG |
+| Sticky CTA | "Place Order" button sticky at bottom of viewport | Always reachable (thumb zone) | Baymard + section CE |
+| Trust signals | Padlock icon, "Secure Checkout", payment logos near card form | 25% cite trust as concern | Baymard 2024 |
+
+### Checklist
+
+- [ ] Guest checkout available without forced account creation
+- [ ] Express checkout (Apple Pay / Google Pay / PayPal) above the fold on cart page
+- [ ] Total cost (including shipping and tax) visible before payment step
+- [ ] "Billing same as shipping" pre-checked by default
+- [ ] Address autocomplete implemented (Google Places / Apple MapKit)
+- [ ] Form fields in optimal order (email first for cart recovery)
+- [ ] Card type auto-detected from first digits
+- [ ] CVV help tooltip explains location on card
+- [ ] Progress indicator shown for multi-step checkout
+- [ ] Numeric keyboard triggered for card number, ZIP, CVV, phone
+- [ ] Promo code field collapsed by default (not a prominent empty field)
+- [ ] Order summary collapsible but always accessible during checkout
+- [ ] "Place Order" button sticky at bottom of viewport
+- [ ] Inline validation on field exit (not on submit)
+
+### Anti-Patterns
+
+- **Forced account creation**: Requiring registration before checkout (26% abandonment cause)
+- **Hidden shipping costs**: Revealing shipping cost only at the final step (48% cite this as #1 reason to abandon)
+- **Prominent promo code field**: Large empty "Promo Code" input triggers users to leave and search for coupons, increasing abandonment
+- **Desktop checkout on mobile**: Long scrolling single-page form with tiny fields designed for desktop
+- **No express checkout**: Missing Apple Pay / Google Pay when 50%+ of mobile users prefer them
+- **Billing address always expanded**: Showing all billing fields when 75% of users have same billing/shipping address
+- **Submit-only validation**: Showing all errors only after tapping "Place Order" — forces scroll to find errors
+
+**Sources:** Baymard Institute "Cart & Checkout UX" research study (2020-2024, based on 220+ checkout evaluations), Baymard Institute cart abandonment statistics (49-study aggregate, 2024 update), Baymard Institute mobile checkout benchmark data, Baymard Institute address form usability study, Baymard Institute payment form usability study.
+
+---
