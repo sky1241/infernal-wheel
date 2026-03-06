@@ -42,13 +42,6 @@
     {
       "mode": "break",
       "requireOk": true,
-      "label": "Chier",
-      "key": "chier",
-      "minutes": 10
-    },
-    {
-      "mode": "break",
-      "requireOk": true,
       "label": "Douche",
       "key": "douche",
       "minutes": 10
@@ -87,6 +80,15 @@
       "label": "Sport",
       "key": "sport",
       "minutes": 45
+    },
+    {
+      "color": "#ff9955",
+      "requireOk": true,
+      "minutes": 0,
+      "mode": "break",
+      "key": "lecture",
+      "custom": true,
+      "label": "lecture"
     }
   ]
 }
