@@ -2463,3 +2463,2713 @@ new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(12
 - [ ] Peut être skip/dismiss
 - [ ] State persisté (pas re-montrer)
 - [ ] Help accessible pour revoir
+
+
+---
+
+## W. Web Performance & Core Web Vitals
+
+### 109. Core Web Vitals Metrics
+
+| Metric | Good | Needs Improvement | Poor | What it measures | Source |
+|--------|------|-------------------|------|------------------|--------|
+| LCP (Largest Contentful Paint) | <= 2.5s | 2.5s - 4.0s | > 4.0s | Perceived load speed | [web.dev LCP](https://web.dev/articles/lcp) |
+| CLS (Cumulative Layout Shift) | <= 0.1 | 0.1 - 0.25 | > 0.25 | Visual stability | [web.dev CLS](https://web.dev/articles/cls) |
+| INP (Interaction to Next Paint) | <= 200ms | 200ms - 500ms | > 500ms | Input responsiveness | [web.dev INP](https://web.dev/articles/inp) |
+| TTFB (Time to First Byte) | <= 800ms | 800ms - 1800ms | > 1800ms | Server responsiveness | [web.dev TTFB](https://web.dev/articles/ttfb) |
+| FCP (First Contentful Paint) | <= 1.8s | 1.8s - 3.0s | > 3.0s | First visual feedback | [web.dev FCP](https://web.dev/articles/fcp) |
+
+**LCP Elements typiques:**
+- `<img>` dans le hero
+- `<video>` poster image
+- Bloc texte (`<h1>`, `<p>`) avec grande police
+- Background image via `url()` CSS
+
+**CLS Causes principales:**
+- Images/iframes sans dimensions explicites
+- Fonts qui swappent (FOIT -> FOUT)
+- Contenu injecte dynamiquement au-dessus du viewport
+- Animations qui triggent layout (top/left vs transform)
+
+**INP Causes principales:**
+- Event handlers lourds (> 200ms)
+- Main thread bloque par JS
+- Absence de `requestAnimationFrame` pour visual updates
+- Hydration frameworks lente
+
+**Checklist:**
+- [ ] LCP element identifie et optimise (preload, priority)
+- [ ] Toutes les images ont width/height explicites
+- [ ] Pas de contenu injecte au-dessus du fold apres chargement
+- [ ] Event handlers < 200ms, yield au main thread si lourd
+- [ ] Mesure en conditions reelles (CrUX, RUM) pas seulement lab
+
+---
+
+### 110. Critical Rendering Path
+
+| Etape | Optimisation | Impact | Source |
+|-------|-------------|--------|--------|
+| HTML parsing | Minimiser HTML, eviter nested tables | TTFB, FCP | [MDN Critical Rendering Path](https://developer.mozilla.org/en-US/docs/Web/Performance/Critical_rendering_path) |
+| CSS blocking | Inline critical CSS, defer non-critical | FCP, LCP | [web.dev Extract Critical CSS](https://web.dev/articles/extract-critical-css) |
+| JS blocking | `defer` ou `async`, pas de `<script>` dans `<head>` sans attribut | FCP, INP | [web.dev Render Blocking JS](https://web.dev/articles/render-blocking-resources) |
+| Render tree | Eviter `display:none` sur gros arbres, utiliser `content-visibility` | LCP | [web.dev content-visibility](https://web.dev/articles/content-visibility) |
+
+**Critical CSS Strategy:**
+```html
+<!-- Inline critical CSS dans <head> -->
+<style>
+  /* Only above-the-fold styles here (~14KB max) */
+  .hero { ... }
+  .nav { ... }
+</style>
+
+<!-- Defer non-critical CSS -->
+<link rel="preload" href="/styles/main.css" as="style"
+      onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="/styles/main.css"></noscript>
+```
+
+**Script Loading:**
+```html
+<!-- Render-blocking (avoid) -->
+<script src="app.js"></script>
+
+<!-- Deferred (recommended for most scripts) -->
+<script src="app.js" defer></script>
+
+<!-- Async (for independent scripts: analytics, ads) -->
+<script src="analytics.js" async></script>
+
+<!-- Module (deferred by default) -->
+<script type="module" src="app.mjs"></script>
+```
+
+**Checklist:**
+- [ ] Critical CSS inline (< 14KB compressed)
+- [ ] Non-critical CSS deferred
+- [ ] Tous les scripts avec `defer` ou `async`
+- [ ] `content-visibility: auto` sur sections below-the-fold
+- [ ] Preconnect aux origins tierces critiques
+
+---
+
+### 111. Font Loading Strategy
+
+| Strategy | Behavior | Pros | Cons | Source |
+|----------|----------|------|------|--------|
+| `font-display: swap` | FOUT: fallback immediatement, swap quand pret | Texte visible immediatement | Layout shift au swap | [web.dev font-display](https://web.dev/articles/font-display) |
+| `font-display: optional` | Fallback si font pas dans cache | Zero layout shift | Premiere visite sans custom font | [web.dev font-best-practices](https://web.dev/articles/font-best-practices) |
+| `font-display: fallback` | Court FOIT (100ms), puis fallback, swap si < 3s | Compromis | Peut FOIT puis FOUT | MDN |
+| `font-display: block` | FOIT (3s max) | Pas de FOUT | Texte invisible 3s | Eviter en general |
+
+**Recommandation 2025:**
+```css
+@font-face {
+  font-family: 'Brand';
+  src: url('/fonts/brand.woff2') format('woff2');
+  font-display: swap; /* ou optional pour 0 CLS */
+  font-weight: 400;
+  unicode-range: U+0000-00FF; /* Latin basique */
+}
+```
+
+**Preload des fonts critiques:**
+```html
+<link rel="preload" href="/fonts/brand-400.woff2"
+      as="font" type="font/woff2" crossorigin>
+```
+
+**Size-adjust pour reduire CLS:**
+```css
+@font-face {
+  font-family: 'Brand Fallback';
+  src: local('Arial');
+  size-adjust: 105%;
+  ascent-override: 95%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+body {
+  font-family: 'Brand', 'Brand Fallback', sans-serif;
+}
+```
+
+**Budget fonts:** Max 2 familles, 4 fichiers total, < 100KB total
+
+**Checklist:**
+- [ ] `font-display: swap` ou `optional` sur toutes les @font-face
+- [ ] Preload de 1-2 fonts critiques max
+- [ ] Format WOFF2 uniquement (support 97%+)
+- [ ] `unicode-range` pour subsetter
+- [ ] Fallback font avec `size-adjust` pour reduire CLS
+- [ ] Max 4 fichiers font total
+
+---
+
+### 112. Image Optimization
+
+| Format | Usage | Compression | Support 2025 | Source |
+|--------|-------|-------------|-------------|--------|
+| WebP | Photos, illustrations | 25-35% plus petit que JPEG | 97%+ | [caniuse WebP](https://caniuse.com/webp) |
+| AVIF | Photos haute qualite | 50% plus petit que JPEG | 92%+ | [caniuse AVIF](https://caniuse.com/avif) |
+| SVG | Icones, logos, illustrations simples | Vectoriel, infiniment scalable | 99%+ | Standard |
+| PNG | Transparence, screenshots | Lossless, gros fichier | 100% | Standard |
+| JPEG | Fallback photos | Bonne compression lossy | 100% | Standard |
+
+**Responsive images:**
+```html
+<!-- Art direction avec <picture> -->
+<picture>
+  <source media="(min-width: 800px)"
+          srcset="hero-desktop.avif" type="image/avif">
+  <source media="(min-width: 800px)"
+          srcset="hero-desktop.webp" type="image/webp">
+  <source srcset="hero-mobile.avif" type="image/avif">
+  <source srcset="hero-mobile.webp" type="image/webp">
+  <img src="hero-mobile.jpg" alt="Description"
+       width="800" height="400"
+       loading="lazy" decoding="async">
+</picture>
+
+<!-- Resolution switching avec srcset -->
+<img src="photo-400.jpg"
+     srcset="photo-400.jpg 400w,
+             photo-800.jpg 800w,
+             photo-1200.jpg 1200w"
+     sizes="(max-width: 600px) 100vw,
+            (max-width: 1200px) 50vw,
+            33vw"
+     alt="Description"
+     width="1200" height="800"
+     loading="lazy" decoding="async">
+```
+
+**Priority hints (LCP image):**
+```html
+<!-- Hero image: NO lazy loading, high priority -->
+<img src="hero.webp" alt="Hero"
+     width="1200" height="600"
+     fetchpriority="high"
+     decoding="async">
+
+<!-- Below fold: lazy + low priority -->
+<img src="card.webp" alt="Card"
+     width="400" height="300"
+     loading="lazy"
+     fetchpriority="low"
+     decoding="async">
+```
+
+**Budget images:**
+| Type | Taille max recommandee |
+|------|----------------------|
+| Hero image | < 200KB |
+| Card thumbnail | < 50KB |
+| Icon/logo | < 10KB (SVG preferred) |
+| Background texture | < 100KB |
+| Total page images | < 1MB |
+
+**Checklist:**
+- [ ] Format AVIF avec fallback WebP puis JPEG
+- [ ] `width` et `height` sur toutes les `<img>` (evite CLS)
+- [ ] `loading="lazy"` sur tout sauf LCP image
+- [ ] `fetchpriority="high"` sur LCP image
+- [ ] `decoding="async"` sur toutes les images
+- [ ] `srcset` + `sizes` pour resolution switching
+- [ ] Budget: hero < 200KB, total page < 1MB
+
+---
+
+### 113. Code Splitting & Bundle
+
+| Technique | Quand utiliser | Impact | Source |
+|-----------|---------------|--------|--------|
+| Route-based splitting | Chaque page = chunk separe | LCP, TTI | [web.dev Code Splitting](https://web.dev/articles/reduce-javascript-payloads-with-code-splitting) |
+| Component-based lazy | Modals, tabs, drawers non visibles au load | TTI, INP | React.lazy / dynamic import |
+| Vendor chunk | Libraries stables (React, lodash) = chunk separe avec long cache | Cache hit ratio | Webpack/Vite config |
+| Tree shaking | Eliminer dead code | Bundle size | [MDN Tree Shaking](https://developer.mozilla.org/en-US/docs/Glossary/Tree_shaking) |
+
+**Dynamic import pattern:**
+```javascript
+// Route-based (React)
+const Dashboard = React.lazy(() => import('./Dashboard'));
+
+// Event-based (any framework)
+button.addEventListener('click', async () => {
+  const { openModal } = await import('./heavy-modal.js');
+  openModal();
+});
+
+// Intersection Observer based
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      import('./chart-component.js');
+      observer.unobserve(entry.target);
+    }
+  });
+});
+```
+
+**Performance budgets:**
+| Metric | Budget | Source |
+|--------|--------|--------|
+| Total JS (compressed) | < 200KB | [web.dev Performance Budgets](https://web.dev/articles/performance-budgets-101) |
+| Total CSS (compressed) | < 50KB | Best practice |
+| Total page weight | < 1.5MB | HTTP Archive median |
+| Main bundle | < 100KB | Best practice |
+| Third-party JS | < 100KB | web.dev |
+
+**Checklist:**
+- [ ] Route-based code splitting actif
+- [ ] Components lourds lazy-loaded (modals, charts, editors)
+- [ ] Vendor chunk separe avec long cache (1 an)
+- [ ] Tree shaking actif (ESM imports, sideEffects: false)
+- [ ] Bundle analyzer en CI (webpack-bundle-analyzer, source-map-explorer)
+- [ ] Budget JS < 200KB compressed
+
+---
+
+### 114. Service Workers & Caching
+
+| Strategie | Pattern | Usage | Source |
+|-----------|---------|-------|--------|
+| Cache First | Cache -> Network (fallback) | Assets statiques (fonts, images, CSS) | [web.dev Offline Cookbook](https://web.dev/articles/offline-cookbook) |
+| Network First | Network -> Cache (fallback) | API data, pages dynamiques | web.dev |
+| Stale While Revalidate | Cache (immediate) + Network (update cache) | Contenu semi-dynamique | web.dev |
+| Network Only | Network uniquement | Transactions, auth | web.dev |
+| Cache Only | Cache uniquement | Assets versionnes, app shell | web.dev |
+
+**Cache headers recommandes:**
+| Resource | Cache-Control | Pourquoi |
+|----------|--------------|----------|
+| HTML | `no-cache` ou `max-age=0, must-revalidate` | Toujours frais |
+| CSS/JS (hashed) | `max-age=31536000, immutable` | Nom change si contenu change |
+| Fonts | `max-age=31536000, immutable` | Rarement change |
+| Images | `max-age=86400` (1 jour) ou `31536000` si hashed | Depende du use case |
+| API responses | `no-store` ou `max-age=60` | Donnees dynamiques |
+
+**Checklist:**
+- [ ] Service worker enregistre avec bon scope
+- [ ] Strategie cache appropriee par type de ressource
+- [ ] Versionning des caches (supprimer anciens dans `activate`)
+- [ ] Cache headers serveur coherents avec SW strategy
+- [ ] Fallback offline page pour navigation requests
+
+---
+
+### 115. Above-the-Fold & Performance Budget
+
+**Regle des 14KB:**
+- Le premier round-trip TCP envoie ~14KB (10 TCP packets)
+- Le critical CSS + HTML inline doit tenir dans ces 14KB
+- Tout ce qui est au-dessus du fold doit charger sans round-trip supplementaire
+
+**Above-the-fold checklist:**
+| Element | Requirement |
+|---------|------------|
+| Hero image | `fetchpriority="high"`, preload si background-image |
+| Navigation | Inline CSS, pas de JS pour render initial |
+| CTA principal | Visible sans JS |
+| Custom font | Preload, `font-display: swap` |
+| Third-party scripts | Jamais dans le critical path |
+
+**Performance budget template:**
+| Category | Budget | Measurement |
+|----------|--------|-------------|
+| LCP | < 2.5s | Field data (CrUX) |
+| CLS | < 0.1 | Field data |
+| INP | < 200ms | Field data |
+| Total page weight | < 1.5MB | Lighthouse |
+| JS execution time | < 2s | Lighthouse |
+| Number of requests | < 50 | DevTools Network |
+| Time to Interactive | < 3.8s | Lighthouse |
+
+**Checklist:**
+- [ ] Critical resources identified et preloaded
+- [ ] Performance budget documente et en CI
+- [ ] Lighthouse score > 90 sur toutes categories
+- [ ] Real User Monitoring (RUM) en place
+- [ ] Budget alerts si regression > 10%
+
+---
+
+## X. Progressive Web Apps (PWA)
+
+### 116. Web App Manifest
+
+```json
+{
+  "name": "Infernal Wheel - Cigarette Tracker",
+  "short_name": "Infernal Wheel",
+  "description": "Track and reduce your smoking habits",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1a1a2e",
+  "background_color": "#1a1a2e",
+  "icons": [
+    { "src": "/icons/192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "/screenshots/home.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow" }
+  ],
+  "shortcuts": [
+    { "name": "Log Cigarette", "url": "/log", "icons": [{ "src": "/icons/log-96.png", "sizes": "96x96" }] },
+    { "name": "View Stats", "url": "/stats", "icons": [{ "src": "/icons/stats-96.png", "sizes": "96x96" }] }
+  ],
+  "categories": ["health", "lifestyle"]
+}
+```
+
+| Propriete | Valeur | Notes | Source |
+|-----------|--------|-------|--------|
+| `display` | `standalone` | Pas de barre navigateur, comme app native | [MDN Manifest](https://developer.mozilla.org/en-US/docs/Web/Manifest) |
+| `display` | `minimal-ui` | Barre minimale (back, reload) | MDN |
+| `display` | `fullscreen` | Plein ecran (jeux) | MDN |
+| `display` | `browser` | Tab navigateur normal | MDN |
+| `theme_color` | Hex color | Barre status sur mobile, title bar desktop | MDN |
+| `background_color` | Hex color | Splash screen avant CSS charge | MDN |
+| Icons maskable | Safe zone = cercle central 80% | Padding interne pour adaptive icons Android | [web.dev Maskable Icons](https://web.dev/articles/maskable-icon) |
+
+**Checklist:**
+- [ ] `name` (< 45 chars) et `short_name` (< 12 chars) definis
+- [ ] Icons: 192px + 512px + maskable version
+- [ ] `display: standalone` pour experience app-like
+- [ ] `theme_color` et `background_color` coherents avec branding
+- [ ] `start_url` pointe vers la page d'accueil logique
+- [ ] Screenshots pour richer install UI (Chrome 120+)
+
+---
+
+### 117. Service Worker Lifecycle
+
+| Phase | Event | Action typique | Source |
+|-------|-------|---------------|--------|
+| Registration | `navigator.serviceWorker.register()` | Enregistrer le SW avec bon scope | [MDN Service Worker](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API) |
+| Install | `install` event | Pre-cache app shell et assets critiques | web.dev |
+| Wait | Waiting state | Nouveau SW attend que ancien soit release | web.dev |
+| Activate | `activate` event | Nettoyer anciens caches | web.dev |
+| Fetch | `fetch` event | Intercepter requetes, servir depuis cache | web.dev |
+| Update | Browser check ~24h | Byte comparison du SW file | web.dev |
+
+**Registration pattern:**
+```javascript
+// Register only after page load (don't compete with critical resources)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.error('SW failed:', err));
+  });
+}
+```
+
+**Update UX pattern:**
+```javascript
+// Detect update and prompt user
+navigator.serviceWorker.register('/sw.js').then(reg => {
+  reg.addEventListener('updatefound', () => {
+    const newSW = reg.installing;
+    newSW.addEventListener('statechange', () => {
+      if (newSW.state === 'activated') {
+        // Show "New version available" banner
+        showUpdateBanner(() => window.location.reload());
+      }
+    });
+  });
+});
+```
+
+**Checklist:**
+- [ ] SW enregistre apres `window.load` (pas blocking)
+- [ ] App shell pre-cached dans `install`
+- [ ] Anciens caches nettoyes dans `activate`
+- [ ] Update banner UX (pas de reload force)
+- [ ] Scope correct (`/` pour whole-site PWA)
+
+---
+
+### 118. Install Prompt UX
+
+**`beforeinstallprompt` pattern:**
+```javascript
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault(); // Don't show browser default
+  deferredPrompt = e;
+  showInstallButton(); // Show custom UI
+});
+
+installButton.addEventListener('click', async () => {
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  console.log(outcome); // 'accepted' or 'dismissed'
+  deferredPrompt = null;
+  hideInstallButton();
+});
+```
+
+| Regle | Detail | Source |
+|-------|--------|--------|
+| Ne pas montrer immediatement | Attendre engagement (2+ pages, 30s+, action significative) | [web.dev Install Criteria](https://web.dev/articles/install-criteria) |
+| Custom UI > browser prompt | Expliquer la valeur avant de prompter | UX best practice |
+| Respecter le dismiss | Ne pas re-prompter pendant 2+ semaines | [web.dev Promote Install](https://web.dev/articles/promote-install) |
+| Post-install | Rediriger vers experience standalone, confirmer installation | web.dev |
+
+**Install criteria Chrome 2025:**
+- HTTPS (ou localhost)
+- Web App Manifest valide (name, icons 192+512, start_url, display)
+- Service Worker avec `fetch` event handler
+- User engagement (visite multiple ou interaction)
+
+**Checklist:**
+- [ ] `beforeinstallprompt` intercepte et differe
+- [ ] UI custom explique la valeur ("Access offline, faster loading")
+- [ ] Prompter apres engagement, pas au premier load
+- [ ] Respecter dismiss (cooldown 2+ semaines)
+- [ ] Tracker outcome (accepted/dismissed) en analytics
+- [ ] Post-install UX (welcome, standalone features)
+
+---
+
+### 119. Offline-First Patterns
+
+| Pattern | Description | Usage | Source |
+|---------|-------------|-------|--------|
+| App Shell | HTML/CSS/JS shell cached, contenu dynamique via network | SPA, apps interactives | [web.dev App Shell](https://web.dev/articles/app-shell) |
+| Offline page | Page fallback quand navigation echoue | Sites de contenu | web.dev |
+| Offline queue | Actions mises en queue, sync quand online | Forms, tracking, CRUD | Background Sync API |
+| Cache then network | Afficher cache, mettre a jour avec network en parallele | Feeds, dashboards | web.dev |
+
+**Offline indicator UX:**
+- Afficher banner subtil quand offline (pas modal bloquant)
+- Indiquer quelles features sont disponibles offline
+- Queue les actions et confirmer ("Will sync when online")
+- Ne pas cacher les actions -- les desactiver avec explication
+
+**Offline page minimale:**
+```html
+<!-- /offline.html - pre-cached in SW install -->
+<h1>You're offline</h1>
+<p>Check your connection. Your data is safe and will sync when you're back online.</p>
+<button onclick="location.reload()">Try again</button>
+```
+
+**Checklist:**
+- [ ] App shell ou offline page pre-cached
+- [ ] Banner offline subtil (pas bloquant)
+- [ ] Actions queued pour sync ulterieur
+- [ ] Donnees locales preservees (IndexedDB/localStorage)
+- [ ] Navigation events interceptes avec fallback offline
+
+---
+
+### 120. Push Notifications Web
+
+| Aspect | Regle | Anti-pattern | Source |
+|--------|-------|-------------|--------|
+| Timing | Demander apres action pertinente (ex: apres premier log) | Permission au premier load | [web.dev Notifications](https://web.dev/articles/push-notifications-overview) |
+| Explication | Expliquer la valeur avant le prompt natif | Prompt natif brut sans contexte | [NN/g Permission Requests](https://www.nngroup.com/articles/permission-requests/) |
+| Frequence | Max 1-3/jour pour engagement, 1/semaine pour re-engagement | Spam quotidien | Best practice |
+| Contenu | Actionable, personnalise, timely | Generique, promotionnel | web.dev |
+
+**Double opt-in pattern (recommande):**
+```javascript
+// Step 1: Custom UI explaining value
+showNotificationExplainer({
+  title: "Stay on track",
+  body: "Get reminders when it's time to check your progress",
+  cta: "Enable notifications"
+});
+
+// Step 2: Only THEN trigger native permission
+async function requestPermission() {
+  const permission = await Notification.requestPermission();
+  if (permission === 'granted') {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+    // Send subscription to server
+    await fetch('/api/push/subscribe', {
+      method: 'POST',
+      body: JSON.stringify(subscription)
+    });
+  }
+}
+```
+
+**Notification categories pour cessation app:**
+| Type | Timing | Contenu |
+|------|--------|---------|
+| Progress | Quotidien 9h | "Day 5! You've saved X EUR and Y hours" |
+| Craving support | On-demand trigger | "Craving? Try the 4-7-8 breathing exercise" |
+| Milestone | Achievement events | "1 week smoke-free! Your lungs are recovering" |
+| Re-engagement | 3 jours inactif | "We miss you. Check your progress" |
+
+**Checklist:**
+- [ ] Double opt-in (custom UI puis prompt natif)
+- [ ] Timing: apres engagement, pas au premier load
+- [ ] Contenu actionable et personnalise
+- [ ] Frequence raisonnable (1-3/jour max)
+- [ ] Easy opt-out dans settings
+- [ ] VAPID keys configurees cote serveur
+
+---
+
+### 121. Web Share & Badges
+
+**Web Share API:**
+```javascript
+async function shareProgress(stats) {
+  if (navigator.share) {
+    await navigator.share({
+      title: 'My Smoke-Free Progress',
+      text: `${stats.days} days smoke-free! Saved ${stats.money} EUR.`,
+      url: 'https://infernal-wheel.app/share'
+    });
+  } else {
+    // Fallback: copy link or show share buttons
+    copyToClipboard('https://infernal-wheel.app/share');
+  }
+}
+```
+
+**App Badge API:**
+```javascript
+// Set badge (e.g., unread notifications count)
+navigator.setAppBadge(3);
+
+// Clear badge
+navigator.clearAppBadge();
+```
+
+| API | Support 2025 | Fallback | Source |
+|-----|-------------|----------|--------|
+| Web Share | 95%+ mobile, 80% desktop | Custom share buttons | [MDN Web Share](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/share) |
+| Web Share (files) | 80%+ mobile | File download link | MDN |
+| App Badge | 85%+ | Favicon with count overlay | [MDN setAppBadge](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/setAppBadge) |
+
+**Checklist:**
+- [ ] Feature detection avant utilisation (`if (navigator.share)`)
+- [ ] Fallback fonctionnel (copy link, share buttons)
+- [ ] Badge count reflete etat reel (reset apres lecture)
+- [ ] Share content optimise (titre court, URL canonique)
+
+---
+
+## Y. Responsive Design Advanced
+
+### 122. Container Queries
+
+| Aspect | Syntaxe | Usage | Source |
+|--------|---------|-------|--------|
+| Container definition | `container-type: inline-size` | Definir element comme container | [MDN Container Queries](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_containment/Container_queries) |
+| Container query | `@container (min-width: 400px)` | Adapter layout au container | MDN |
+| Named container | `container-name: card` | Cibler container specifique | MDN |
+| Support 2025 | 93%+ | Progressivement adoptable | [caniuse Container Queries](https://caniuse.com/css-container-queries) |
+
+**Container queries vs Media queries:**
+| Critere | Media Query | Container Query |
+|---------|------------|----------------|
+| Reference | Viewport | Parent container |
+| Composabilite | Composant depend du contexte page | Composant autonome |
+| Reusability | Faible (breakpoints globaux) | Haute (breakpoints locaux) |
+| Use case | Page layout | Component layout |
+
+```css
+/* Define container */
+.card-container {
+  container-type: inline-size;
+  container-name: card;
+}
+
+/* Component adapts to its container, not viewport */
+@container card (min-width: 400px) {
+  .card {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 16px;
+  }
+}
+
+@container card (max-width: 399px) {
+  .card {
+    display: flex;
+    flex-direction: column;
+  }
+  .card img {
+    aspect-ratio: 16/9;
+    width: 100%;
+  }
+}
+```
+
+**Checklist:**
+- [ ] Components reusables utilisent container queries
+- [ ] Page layout utilise media queries
+- [ ] `container-type: inline-size` (pas `size` sauf besoin height)
+- [ ] Fallback media query pour navigateurs < 2023
+
+---
+
+### 123. CSS Grid Advanced
+
+| Pattern | Code | Usage | Source |
+|---------|------|-------|--------|
+| Auto-fill responsive | `grid-template-columns: repeat(auto-fill, minmax(250px, 1fr))` | Card grids responsives sans media queries | [MDN CSS Grid](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout) |
+| Auto-fit responsive | `repeat(auto-fit, minmax(250px, 1fr))` | Comme auto-fill mais colonnes s'etirent | MDN |
+| Subgrid | `grid-template-rows: subgrid` | Aligner enfants sur grille parente | [MDN Subgrid](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout/Subgrid) |
+| Named areas | `grid-template-areas` | Layouts complexes lisibles | MDN |
+
+**Auto-fill vs auto-fit:**
+```css
+/* auto-fill: keeps empty tracks (columns don't stretch) */
+.grid-fill {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+/* auto-fit: collapses empty tracks (columns stretch to fill) */
+.grid-fit {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+```
+
+**Subgrid (support 93%+ en 2025):**
+```css
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.card {
+  display: grid;
+  grid-template-rows: subgrid; /* Align card internals to parent grid */
+  grid-row: span 3; /* header, body, footer */
+}
+```
+
+**Named areas pour layout page:**
+```css
+.page {
+  display: grid;
+  grid-template-areas:
+    "header header"
+    "sidebar main"
+    "footer footer";
+  grid-template-columns: 280px 1fr;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100dvh;
+}
+
+@media (max-width: 768px) {
+  .page {
+    grid-template-areas:
+      "header"
+      "main"
+      "footer";
+    grid-template-columns: 1fr;
+  }
+}
+```
+
+**Checklist:**
+- [ ] `auto-fill` / `auto-fit` + `minmax()` pour grids responsives sans breakpoints
+- [ ] Subgrid pour aligner contenu entre cards
+- [ ] `gap` au lieu de margins pour espacement grille
+- [ ] `min-height: 100dvh` pour full-height layouts (pas `vh`)
+
+---
+
+### 124. Fluid Typography
+
+| Technique | Code | Source |
+|-----------|------|--------|
+| `clamp()` | `font-size: clamp(1rem, 0.5rem + 1.5vw, 2rem)` | [MDN clamp()](https://developer.mozilla.org/en-US/docs/Web/CSS/clamp) |
+| Min readable | 16px minimum sur mobile | WCAG, Apple HIG |
+| Scale ratio | 1.2 (minor third) mobile, 1.25 (major third) desktop | [Type Scale](https://typescale.com/) |
+
+**Fluid type scale:**
+```css
+:root {
+  /* Body text: 16px @ 320px -> 18px @ 1200px */
+  --fs-body: clamp(1rem, 0.955rem + 0.227vw, 1.125rem);
+
+  /* H3: 20px @ 320px -> 28px @ 1200px */
+  --fs-h3: clamp(1.25rem, 1.023rem + 0.909vw, 1.75rem);
+
+  /* H2: 24px @ 320px -> 36px @ 1200px */
+  --fs-h2: clamp(1.5rem, 1.159rem + 1.364vw, 2.25rem);
+
+  /* H1: 30px @ 320px -> 48px @ 1200px */
+  --fs-h1: clamp(1.875rem, 1.364rem + 2.045vw, 3rem);
+
+  /* Display: 36px @ 320px -> 64px @ 1200px */
+  --fs-display: clamp(2.25rem, 1.455rem + 3.182vw, 4rem);
+}
+```
+
+**Formule clamp:**
+```
+clamp(min, preferred, max)
+preferred = min + (max - min) * (100vw - minViewport) / (maxViewport - minViewport)
+```
+
+**Fluid spacing (meme principe):**
+```css
+:root {
+  --space-s: clamp(0.75rem, 0.614rem + 0.545vw, 1rem);
+  --space-m: clamp(1rem, 0.773rem + 0.909vw, 1.5rem);
+  --space-l: clamp(1.5rem, 1.091rem + 1.636vw, 2.5rem);
+  --space-xl: clamp(2rem, 1.364rem + 2.545vw, 4rem);
+}
+```
+
+**Checklist:**
+- [ ] `clamp()` pour toutes les tailles de texte (pas de media queries pour font-size)
+- [ ] Minimum 16px (1rem) pour body text
+- [ ] Tester a 320px et 1440px+ pour verifier les extremes
+- [ ] Spacing fluid pour coherence avec typography fluid
+- [ ] `line-height` proportionnel (1.5 body, 1.1-1.2 headings)
+
+---
+
+### 125. Breakpoint Strategy
+
+| Approche | Description | Quand utiliser | Source |
+|----------|-------------|---------------|--------|
+| Content-based | Breakpoints ou le contenu casse | Composants, sites contenu | [NN/g Responsive Design](https://www.nngroup.com/articles/responsive-web-design-definition/) |
+| Device-based | Breakpoints fixes (320, 768, 1024, 1440) | E-commerce, apps business | Convention |
+
+**Breakpoints recommandes 2025:**
+| Token | Value | Cible |
+|-------|-------|-------|
+| `--bp-sm` | 480px | Petits mobiles -> grands mobiles |
+| `--bp-md` | 768px | Mobile -> tablette |
+| `--bp-lg` | 1024px | Tablette -> desktop |
+| `--bp-xl` | 1280px | Desktop -> grand ecran |
+| `--bp-2xl` | 1536px | Grand ecran -> ultra-wide |
+
+**Mobile-first (recommande):**
+```css
+/* Base styles = mobile */
+.grid { display: flex; flex-direction: column; }
+
+/* Progressive enhancement */
+@media (min-width: 768px) {
+  .grid { flex-direction: row; }
+}
+
+@media (min-width: 1024px) {
+  .grid { max-width: 1120px; margin-inline: auto; }
+}
+```
+
+**Touch vs pointer detection:**
+```css
+/* Coarse pointer = touch (mobile, tablet) */
+@media (pointer: coarse) {
+  .button { min-height: 48px; padding: 12px 24px; }
+  .link { padding: 8px; } /* Larger tap target */
+}
+
+/* Fine pointer = mouse */
+@media (pointer: fine) {
+  .button { min-height: 36px; padding: 8px 16px; }
+}
+
+/* Hover capability */
+@media (hover: hover) {
+  .card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+}
+
+@media (hover: none) {
+  /* No hover effects on touch devices */
+  .card { box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+}
+```
+
+**Checklist:**
+- [ ] Mobile-first (`min-width`) par defaut
+- [ ] Breakpoints bases sur le contenu, pas les devices
+- [ ] `pointer: coarse` pour agrandir tap targets sur touch
+- [ ] `hover: hover` pour limiter hover effects au mouse
+- [ ] Tester sur vrais devices (pas seulement DevTools resize)
+- [ ] Max 4-5 breakpoints pour maintenabilite
+
+---
+
+### 126. Responsive Tables & Images
+
+**Responsive tables:**
+| Pattern | Quand utiliser | Technique |
+|---------|---------------|-----------|
+| Scroll horizontal | Tables larges, donnees tabulaires | `overflow-x: auto` wrapper |
+| Stack cards | Tables simples, < 5 colonnes | `display: block` sur `<tr>` en mobile |
+| Hide columns | Colonnes secondaires | `display: none` + "Show more" toggle |
+| Fixed first column | Comparaison, spreadsheet-like | `position: sticky; left: 0` |
+
+```css
+/* Scroll wrapper */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Stack pattern */
+@media (max-width: 600px) {
+  table, thead, tbody, tr, td, th {
+    display: block;
+  }
+  thead { display: none; }
+  td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    display: block;
+    margin-bottom: 4px;
+  }
+}
+```
+
+**Responsive images (art direction):**
+```html
+<picture>
+  <!-- Crop different for mobile vs desktop -->
+  <source media="(max-width: 600px)"
+          srcset="hero-portrait.avif 600w"
+          type="image/avif">
+  <source media="(min-width: 601px)"
+          srcset="hero-landscape.avif 1200w"
+          type="image/avif">
+  <img src="hero-landscape.jpg" alt="Hero"
+       width="1200" height="600">
+</picture>
+```
+
+**Checklist:**
+- [ ] Tables dans wrapper `overflow-x: auto`
+- [ ] Tables complexes: stack ou hide columns sur mobile
+- [ ] Images: `<picture>` pour art direction, `srcset` pour resolution
+- [ ] `object-fit: cover` pour images dans containers fixes
+
+---
+
+## Z. Authentication & Security UX
+
+### 127. Login Form UX
+
+| Pattern | Regle | Anti-pattern | Source |
+|---------|-------|-------------|--------|
+| Email field | `type="email"`, `autocomplete="email"` | `type="text"` pour email | [web.dev Sign-in Form](https://web.dev/articles/sign-in-form-best-practices) |
+| Password field | `autocomplete="current-password"`, show/hide toggle | Disable paste, no toggle | web.dev |
+| Social login | OAuth buttons au-dessus du form (Google, Apple, Facebook) | Trop de providers (> 4), faux boutons | [NN/g Social Login](https://www.nngroup.com/articles/social-login/) |
+| Magic link | Email a link, click to login, no password | Lent si email est lent | Best practice |
+| Passkeys | WebAuthn, biometric, FIDO2 | Seule option sans fallback | [web.dev Passkeys](https://web.dev/articles/passkey-registration) |
+
+**Login form optimal:**
+```html
+<form action="/login" method="POST">
+  <label for="email">Email</label>
+  <input id="email" type="email" name="email"
+         autocomplete="email" required
+         inputmode="email">
+
+  <label for="password">Password</label>
+  <div class="password-field">
+    <input id="password" type="password" name="password"
+           autocomplete="current-password" required
+           minlength="8">
+    <button type="button" aria-label="Show password"
+            onclick="togglePassword()">Show</button>
+  </div>
+
+  <a href="/forgot-password">Forgot password?</a>
+  <button type="submit">Sign in</button>
+</form>
+
+<!-- Social login -->
+<div class="social-login" role="group" aria-label="Sign in with">
+  <button class="google-signin">Continue with Google</button>
+  <button class="apple-signin">Continue with Apple</button>
+</div>
+```
+
+**Autocomplete values essentiels:**
+| Field | `autocomplete` value |
+|-------|---------------------|
+| Email | `email` |
+| Password (login) | `current-password` |
+| Password (register) | `new-password` |
+| Name | `name` |
+| Phone | `tel` |
+| OTP code | `one-time-code` |
+
+**Checklist:**
+- [ ] `autocomplete` correct sur chaque champ
+- [ ] Password show/hide toggle
+- [ ] Paste autorise dans les champs password
+- [ ] "Forgot password?" visible sans scroll
+- [ ] Social login en haut, email/password en bas
+- [ ] Max 3-4 social providers
+- [ ] Error message ne revele pas si le compte existe
+
+---
+
+### 128. Registration Flow
+
+| Pattern | Regle | Source |
+|---------|-------|--------|
+| Progressive profiling | Minimum au signup (email + password), reste plus tard | [NN/g Streamlining](https://www.nngroup.com/articles/streamlining-sign-up-flow/) |
+| Password requirements | Afficher en temps reel, pas apres submit | [Baymard Password](https://baymard.com/blog/password-requirements) |
+| Email verification | Envoyer verification, permettre usage avant confirm | Best practice |
+| Username | Verifier disponibilite en temps reel (debounce 300ms) | Convention |
+
+**Password strength UI:**
+```html
+<div class="password-requirements" aria-live="polite">
+  <p id="req-length" class="requirement">
+    <span aria-hidden="true">x</span> At least 8 characters
+  </p>
+  <p id="req-upper" class="requirement">
+    <span aria-hidden="true">x</span> One uppercase letter
+  </p>
+  <p id="req-number" class="requirement">
+    <span aria-hidden="true">x</span> One number
+  </p>
+</div>
+
+<!-- Strength meter -->
+<meter min="0" max="4" value="2"
+       aria-label="Password strength: medium">
+  Medium
+</meter>
+```
+
+**Recommended fields par etape:**
+| Etape | Champs | Pourquoi |
+|-------|--------|----------|
+| Signup | Email + password (ou social) | Minimum friction |
+| Post-signup | Nom, objectif (quitter, reduire) | Personnalisation |
+| First use | Habitudes actuelles (cig/jour, marque) | Donnees essentielles |
+| Later | Photo profil, preferences notifications | Engagement |
+
+**Checklist:**
+- [ ] 2-3 champs max au signup initial
+- [ ] Password requirements visibles en temps reel
+- [ ] Strength meter (pas juste pass/fail)
+- [ ] `autocomplete="new-password"` pour signup
+- [ ] Email verification non-bloquante
+- [ ] Progressive profiling apres signup
+
+---
+
+### 129. 2FA / MFA UX
+
+| Methode | Securite | UX Friction | Recommandation | Source |
+|---------|----------|-------------|----------------|--------|
+| SMS OTP | Moyenne (SIM swap) | Faible | Acceptable, pas ideal | [NIST 800-63B](https://pages.nist.gov/800-63-3/sp800-63b.html) |
+| TOTP app (Google Auth) | Haute | Moyenne | Recommande | NIST |
+| Security key (FIDO2) | Tres haute | Moyenne | Recommande pour high-value | NIST |
+| Push notification | Haute | Faible | Bon compromis UX/security | Best practice |
+| Passkey | Tres haute | Tres faible | Future default | [web.dev Passkeys](https://web.dev/articles/passkey-registration) |
+
+**OTP input pattern:**
+```html
+<label for="otp">Enter the 6-digit code</label>
+<input id="otp" type="text"
+       inputmode="numeric"
+       autocomplete="one-time-code"
+       pattern="[0-9]{6}"
+       maxlength="6"
+       aria-describedby="otp-help">
+<p id="otp-help">Code sent to j***@email.com. Expires in 10 minutes.</p>
+
+<!-- Resend with cooldown -->
+<button id="resend" disabled>Resend code (60s)</button>
+```
+
+| Element UX | Regle |
+|-----------|-------|
+| Auto-focus | Focus sur le premier champ OTP au load |
+| Auto-submit | Soumettre automatiquement apres 6 digits |
+| Resend cooldown | 60s avant de pouvoir renvoyer |
+| Expiration | Afficher countdown (10 min typique) |
+| Recovery | "Lost access? Use recovery code" visible |
+| Remember device | "Trust this device for 30 days" option |
+
+**Checklist:**
+- [ ] `inputmode="numeric"` pour clavier numerique mobile
+- [ ] `autocomplete="one-time-code"` pour autofill SMS
+- [ ] Auto-submit apres saisie complete
+- [ ] Resend avec cooldown (60s)
+- [ ] Recovery codes fournis a l'activation 2FA
+- [ ] "Trust this device" option
+
+---
+
+### 130. Session Management UX
+
+| Pattern | Valeur | Source |
+|---------|--------|--------|
+| Session timeout warning | 2 minutes avant expiration, modal "Extend session?" | [WCAG 2.2.1 Timing Adjustable](https://www.w3.org/WAI/WCAG22/Understanding/timing-adjustable.html) |
+| Session duration | 30 min inactive (sensible), 24h (standard), 30 jours (remember me) | Convention |
+| Remember me | Token long-lived dans cookie HttpOnly Secure SameSite=Strict | Security best practice |
+| Concurrent sessions | Montrer liste des sessions actives, permettre revocation | UX + Security |
+
+**Timeout warning pattern:**
+```javascript
+const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 min
+const WARNING_BEFORE = 2 * 60 * 1000;   // 2 min before
+
+let timeoutId = setTimeout(() => {
+  showModal({
+    title: "Session expiring",
+    body: "Your session will expire in 2 minutes. Extend?",
+    actions: [
+      { label: "Stay signed in", action: extendSession },
+      { label: "Sign out", action: logout }
+    ]
+  });
+}, SESSION_TIMEOUT - WARNING_BEFORE);
+
+// Reset on user activity
+['click', 'keydown', 'scroll'].forEach(event => {
+  document.addEventListener(event, () => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(showWarning, SESSION_TIMEOUT - WARNING_BEFORE);
+  }, { passive: true });
+});
+```
+
+**Checklist:**
+- [ ] Warning modal 2 min avant expiration (WCAG requis)
+- [ ] "Stay signed in" button reset le timer
+- [ ] "Remember me" = 30 jours, cookie secure
+- [ ] Sessions actives listees dans settings
+- [ ] Logout revoke le token (pas juste delete cookie)
+
+---
+
+### 131. Passkeys & WebAuthn
+
+| Aspect | Detail | Source |
+|--------|--------|--------|
+| Registration | `navigator.credentials.create()` avec PublicKeyCredentialCreationOptions | [web.dev Passkeys](https://web.dev/articles/passkey-registration) |
+| Authentication | `navigator.credentials.get()` avec PublicKeyCredentialRequestOptions | web.dev |
+| Support 2025 | 90%+ (Chrome, Safari, Firefox, Edge) | [passkeys.dev](https://passkeys.dev/device-support/) |
+| UX avantage | Pas de mot de passe, biometrique ou PIN, resistant au phishing | FIDO Alliance |
+
+**Passkey UX flow:**
+1. User clicks "Create passkey" (post-login, settings, ou registration)
+2. Browser/OS shows biometric prompt (fingerprint, face, PIN)
+3. Passkey created and synced across devices (iCloud Keychain, Google Password Manager)
+4. Next login: "Sign in with passkey" -> biometric -> done
+
+**Recommandations:**
+- Proposer passkey comme upgrade, pas remplacer password immediatement
+- Montrer quels devices ont des passkeys dans settings
+- Garder password comme fallback pendant transition
+- Expliquer clairement ce qu'est un passkey ("Sign in with your fingerprint or face")
+
+**Checklist:**
+- [ ] Proposer creation passkey apres login reussi
+- [ ] Fallback password toujours disponible
+- [ ] Liste des passkeys dans account settings
+- [ ] Revocation possible par device
+- [ ] Copy claire ("Sign in with fingerprint" pas "WebAuthn")
+
+---
+
+## AA. E-commerce Patterns
+
+### 132. Product Page Anatomy
+
+| Element | Position | Regle | Source |
+|---------|----------|-------|--------|
+| Image gallery | Gauche (desktop), pleine largeur (mobile) | Min 4-5 images, zoom on hover, 1:1 ou 4:3 | [Baymard Product Page](https://baymard.com/blog/product-page-design) |
+| Title + price | Droite (desktop), sous images (mobile) | Prix visible sans scroll | Baymard |
+| Add to cart CTA | Sticky visible, couleur primaire | Toujours visible, meme au scroll | Baymard |
+| Reviews summary | Pres du titre (stars + count) | "4.5 (238 reviews)" format | [NN/g Reviews](https://www.nngroup.com/articles/online-reviews/) |
+| Variants | Pres du CTA (taille, couleur) | Swatches visuels, selection claire | Baymard |
+| Description | Below fold, tabs ou accordion | Scannable, bullet points | Baymard |
+
+**Prix display:**
+| Pattern | Format | Quand |
+|---------|--------|-------|
+| Prix simple | 29.99 EUR | Standard |
+| Prix barre | ~~39.99~~ 29.99 EUR (-25%) | Promotion |
+| Prix /unite | 2.99 EUR/mois | Abonnement |
+| Free | Gratuit / Free | Freemium |
+
+**Checklist:**
+- [ ] Images haute qualite, zoom, multiple angles
+- [ ] Prix visible sans scroll
+- [ ] CTA "Add to Cart" sticky en mobile
+- [ ] Reviews score pres du titre
+- [ ] Variants avec selection visuelle claire
+- [ ] Stock status visible (si pertinent)
+
+---
+
+### 133. Cart UX
+
+| Pattern | Usage | Avantage | Source |
+|---------|-------|----------|--------|
+| Mini-cart (dropdown) | Apres ajout, header hover | Pas de changement de page | [Baymard Cart](https://baymard.com/blog/cart-usability) |
+| Sidebar cart | Slide-in depuis la droite | Voir cart sans quitter la page | E-commerce standard |
+| Cart page | Page dediee | Vue complete, modifications | Baymard |
+| Sticky cart bar | Barre en bas avec total + CTA | Rappel constant du panier | Mobile pattern |
+
+**Cart best practices:**
+| Element | Regle | Anti-pattern |
+|---------|-------|-------------|
+| Ajout feedback | Animation + mini-cart ouvert 3-5s | Redirect vers cart page |
+| Quantite | +/- stepper, input editable | Dropdown select pour quantite |
+| Supprimer | Icon X + confirmation (undo 5s) | Supprimer sans confirmation |
+| Total | Sous-total visible, estimation shipping | Cacher frais jusqu'au checkout |
+| Empty cart | CTA "Continue shopping", recommandations | Message vide sans action |
+
+**Checklist:**
+- [ ] Feedback visuel a l'ajout (animation, mini-cart)
+- [ ] Modifier quantite sans recharger la page
+- [ ] Undo sur suppression (pas confirm dialog)
+- [ ] Sous-total toujours visible
+- [ ] Estimation shipping avant checkout
+- [ ] Cart persiste entre sessions (localStorage/server)
+
+---
+
+### 134. Checkout Funnel
+
+| Etape | Champs essentiels | Optimisation | Source |
+|-------|-------------------|-------------|--------|
+| 1. Information | Email, nom, adresse | Autocomplete, address API | [Baymard Checkout](https://baymard.com/blog/checkout-usability) |
+| 2. Shipping | Methode livraison | Default pre-selectionne, dates estimees | Baymard |
+| 3. Payment | Card/PayPal/etc | One-click (Apple Pay, Google Pay) | Baymard |
+| 4. Review | Recapitulatif | Editable, prix final clair | Baymard |
+
+**Guest checkout (obligatoire):**
+- 25% des abandons sont dus au forced account creation (Baymard)
+- Pattern: checkout en guest, proposer creation compte APRES la commande
+- "Save your info for next time? Create an account" avec password only
+
+**Address autocomplete:**
+```html
+<input type="text" id="address"
+       autocomplete="street-address"
+       placeholder="Start typing your address...">
+<!-- Use Google Places / Mapbox Autofill -->
+```
+
+**Payment form:**
+```html
+<input type="text" id="card-number"
+       autocomplete="cc-number"
+       inputmode="numeric"
+       pattern="[0-9\s]{13,19}">
+<input type="text" id="expiry"
+       autocomplete="cc-exp"
+       placeholder="MM/YY"
+       inputmode="numeric">
+<input type="text" id="cvc"
+       autocomplete="cc-csc"
+       inputmode="numeric"
+       maxlength="4">
+```
+
+**Checkout conversion killers:**
+| Cause | % abandon | Solution |
+|-------|-----------|----------|
+| Frais caches (shipping, taxes) | 48% | Afficher estimation tot |
+| Forced account creation | 25% | Guest checkout |
+| Processus trop long | 18% | Max 3-4 etapes |
+| Trust (securite payment) | 17% | Badges SSL, logos payment |
+| Erreurs formulaire | 12% | Validation inline temps reel |
+
+**Checklist:**
+- [ ] Guest checkout disponible
+- [ ] Max 3-4 etapes
+- [ ] Progress indicator visible
+- [ ] Autocomplete sur tous les champs
+- [ ] Frais totaux affiches avant paiement
+- [ ] Apple Pay / Google Pay si possible
+- [ ] Trust badges (SSL, payment logos)
+- [ ] Order summary sticky en desktop
+
+---
+
+### 135. Pricing Page Design
+
+| Element | Regle | Source |
+|---------|-------|--------|
+| Nombre de tiers | 3-4 max (Free, Pro, Enterprise) | [NN/g Pricing](https://www.nngroup.com/articles/pricing-page/) |
+| Highlighted plan | Visuellement distinct (border, badge "Most Popular") | Convention |
+| Comparison table | Features en lignes, plans en colonnes | Baymard |
+| Toggle mensuel/annuel | Default annuel (afficher economie %) | SaaS standard |
+| CTA hierarchy | Primary sur recommended, secondary sur others | Design best practice |
+
+**Pricing table pattern:**
+| Element | Free | Pro (recommended) | Enterprise |
+|---------|------|-------------------|------------|
+| Visual | Normal | Highlighted border + badge | Normal |
+| CTA | "Get Started" (secondary) | "Start Free Trial" (primary) | "Contact Sales" (secondary) |
+| Price | 0 EUR/mo | ~~19~~ 15 EUR/mo (billed annually) | Custom |
+
+**Checklist:**
+- [ ] 3-4 tiers max
+- [ ] Plan recommande visuellement distinct
+- [ ] Toggle mensuel/annuel avec % economie
+- [ ] Features comparables dans un tableau
+- [ ] CTA primaire sur plan recommande
+- [ ] FAQ sous les prix
+
+---
+
+### 136. Order & Post-Purchase
+
+| Phase | UX Element | Regle |
+|-------|-----------|-------|
+| Confirmation | Page + email | Numero commande, recapitulatif, ETA |
+| Tracking | Status timeline | Etapes visuelles (ordered > shipped > delivered) |
+| Returns | Self-service | Formulaire simple, label pre-paye |
+| Wishlist | Save for later | Coeur/bookmark, accessible depuis profil |
+
+**Order confirmation page:**
+- Numero de commande prominent
+- Recapitulatif articles + prix
+- Adresse livraison
+- Date estimee livraison
+- CTA: "Track order" + "Continue shopping"
+- Proposition creation compte (si guest)
+
+**Checklist:**
+- [ ] Email confirmation automatique
+- [ ] Numero commande copie-able
+- [ ] Tracking link dans email et account
+- [ ] Retours en self-service
+- [ ] Wishlist persistee (login) ou localStorage (guest)
+
+---
+
+## AB. Landing Pages & Marketing
+
+### 137. Hero Section Patterns
+
+| Type | Description | Quand utiliser | Source |
+|------|-------------|---------------|--------|
+| Headline + CTA + Image | Classique, efficace | SaaS, apps | [NN/g Above the Fold](https://www.nngroup.com/articles/scrolling-and-attention/) |
+| Video background | Immersif, emotionnel | Branding, lifestyle | Use with caution |
+| Split screen | Texte gauche, visuel droite | Product showcase | Convention |
+| Full-screen hero | Impact maximal | Portfolio, luxury | Convention |
+| Illustration | Friendly, approachable | Startups, tools | Convention |
+
+**Hero anatomy:**
+| Element | Regle | Anti-pattern |
+|---------|-------|-------------|
+| Headline | 6-12 mots, benefice clair | Feature-first, jargon |
+| Subheadline | 1-2 phrases, clarifier headline | Repeter le headline |
+| CTA primaire | Action verbe + benefice ("Start Free Trial") | "Submit", "Click Here" |
+| CTA secondaire | "Learn more", "Watch demo" (optionnel) | Meme poids que primaire |
+| Visual | Produit en contexte, hero image | Stock photo generique |
+
+**Hero pour cessation app:**
+```
+Headline: "Break Free from Smoking, One Day at a Time"
+Subheadline: "Track your progress, save money, and improve your health
+              with smart insights and real-time support."
+CTA Primary: "Start Your Journey - It's Free"
+CTA Secondary: "See How It Works"
+Visual: App screenshot showing progress dashboard
+```
+
+**Checklist:**
+- [ ] Headline benefice-oriented (pas feature)
+- [ ] CTA visible sans scroll (above fold)
+- [ ] Un seul CTA primaire
+- [ ] Visual pertinent (produit, pas stock)
+- [ ] Load time hero < 2.5s (LCP)
+
+---
+
+### 138. Social Proof
+
+| Type | Placement | Format | Source |
+|------|-----------|--------|--------|
+| Logos clients | Sous le hero | Grayscale, 4-6 logos | [NN/g Social Proof](https://www.nngroup.com/articles/social-proof-ux/) |
+| Temoignages | Section dediee apres features | Photo + nom + role + quote | NN/g |
+| Stats | Hero ou section separee | "50,000+ users", "4.8/5 rating" | Convention |
+| Reviews | Pres du CTA ou product page | Stars + nombre | Convention |
+| Case studies | Lien vers page dediee | Titre + resultat chiffre | B2B standard |
+
+**Temoignage efficace:**
+```html
+<blockquote>
+  <p>"I quit smoking after 15 years thanks to this app.
+     The daily tracking kept me accountable."</p>
+  <footer>
+    <img src="avatar.jpg" alt="" width="48" height="48">
+    <cite>Marie D., smoke-free since March 2025</cite>
+  </footer>
+</blockquote>
+```
+
+**Stats formatting:**
+- "50,000+" pas "50000" (lisibilite)
+- Arrondir (pas "49,873 users")
+- Combiner avec temporalite ("50K users in 2024")
+
+**Checklist:**
+- [ ] Social proof visible sans scroll (logos) ou juste apres hero
+- [ ] Temoignages avec photo, nom, contexte
+- [ ] Stats arrondis et formats lisiblement
+- [ ] Mix de proof types (logos + quotes + numbers)
+- [ ] Temoignages pertinents au use case
+
+---
+
+### 139. CTA Hierarchy & Placement
+
+| Level | Style | Usage | Example |
+|-------|-------|-------|---------|
+| Primary | Filled, couleur brand, large | Action principale par page | "Start Free Trial" |
+| Secondary | Outlined ou ghost | Alternative, learn more | "Watch Demo" |
+| Tertiary | Text link, underlined | Navigation, details | "Read case study" |
+
+**Regles placement:**
+| Regle | Detail | Source |
+|-------|--------|--------|
+| 1 primary par viewport | Pas 2 boutons primaires cote a cote | [NN/g CTA](https://www.nngroup.com/articles/call-to-action-buttons/) |
+| Repeter le CTA | Hero + fin de page (+ sticky mobile) | Convention landing page |
+| F-pattern | CTA en fin de section de contenu | Eye tracking NN/g |
+| Sticky CTA mobile | Barre en bas avec CTA primaire | Mobile conversion |
+
+**Checklist:**
+- [ ] 1 CTA primaire par section/viewport
+- [ ] CTA repete en fin de page
+- [ ] Hierarchy visuelle claire (primary > secondary > tertiary)
+- [ ] CTA label = verbe + benefice
+- [ ] Mobile: CTA sticky en bas si longue page
+
+---
+
+### 140. Footer Patterns
+
+| Element | Inclusion | Position |
+|---------|-----------|----------|
+| Navigation | Liens principaux organises par categorie | Colonnes |
+| Legal | Privacy policy, Terms, Cookie settings | Derniere ligne |
+| Social | Icones reseaux sociaux | Pres du legal ou section separee |
+| Newsletter | Email + subscribe button | Section dediee |
+| Contact | Email, phone, address | Colonne dediee |
+| App store badges | iOS + Android links | Si apps natives |
+| Copyright | "(c) 2025 Company Name" | Derniere ligne |
+
+**Footer layout:**
+```
+[Logo]  [Product]     [Company]    [Support]     [Newsletter]
+        Features      About        Help Center   [email input]
+        Pricing       Blog         Contact       [Subscribe]
+        Docs          Careers      Status
+        Changelog     Press
+
+---
+(c) 2025 Infernal Wheel | Privacy | Terms | Cookie Settings | [social icons]
+```
+
+**Checklist:**
+- [ ] Navigation organisee par categorie (3-4 colonnes)
+- [ ] Liens legal accessibles (privacy, terms, cookies)
+- [ ] Newsletter avec email validation
+- [ ] Social links ouvrent dans nouvel onglet
+- [ ] Stack en colonnes sur mobile
+- [ ] "Back to top" link si page longue
+
+---
+
+## AC. Error Pages & System States
+
+### 141. 404 Page Design
+
+| Element | Requirement | Exemple |
+|---------|------------|---------|
+| Code + titre | Clair, humain | "Page not found" (pas "Error 404") |
+| Explication | Pourquoi ca arrive | "The page may have been moved or deleted" |
+| Search | Barre de recherche | Permettre de trouver le contenu |
+| Links populaires | 3-5 liens utiles | Home, Features, Help, Blog |
+| Brand voice | Ton coherent avec la marque | Peut etre leger (pas frustrant) |
+
+**404 template:**
+```html
+<main class="error-page" role="main">
+  <h1>Page not found</h1>
+  <p>Sorry, we couldn't find the page you're looking for.
+     It may have been moved or deleted.</p>
+
+  <form action="/search" role="search">
+    <label for="search-404">Search for something else</label>
+    <input id="search-404" type="search" name="q"
+           placeholder="Search...">
+    <button type="submit">Search</button>
+  </form>
+
+  <nav aria-label="Helpful links">
+    <h2>Try these instead</h2>
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="/features">Features</a></li>
+      <li><a href="/help">Help Center</a></li>
+      <li><a href="/blog">Blog</a></li>
+    </ul>
+  </nav>
+</main>
+```
+
+**Checklist:**
+- [ ] Message humain (pas de code technique seul)
+- [ ] Search disponible
+- [ ] Liens populaires
+- [ ] Navigation principale toujours presente
+- [ ] Ton coherent avec la marque
+- [ ] Tracking 404 pour identifier liens casses
+
+---
+
+### 142. Server Error Pages (500, 503, 429)
+
+| Code | Page | Contenu essentiel | Source |
+|------|------|-------------------|--------|
+| 500 | Internal Server Error | "Something went wrong. We're on it." + retry + status page link | Best practice |
+| 503 | Service Unavailable / Maintenance | Temps estime, status page, newsletter update | Best practice |
+| 429 | Rate Limited | "Too many requests. Try again in X seconds." + countdown | Best practice |
+
+**Maintenance page:**
+```html
+<main class="maintenance-page">
+  <h1>We'll be back soon</h1>
+  <p>We're performing scheduled maintenance.
+     Expected completion: <time datetime="2025-03-06T14:00:00Z">2:00 PM UTC</time></p>
+  <p>Follow <a href="https://status.infernal-wheel.app">our status page</a>
+     for real-time updates.</p>
+</main>
+```
+
+**Rate limiting UX:**
+```javascript
+// After 429 response
+const retryAfter = response.headers.get('Retry-After'); // seconds
+showMessage(`Too many requests. Please wait ${retryAfter} seconds.`);
+// Show countdown timer
+startCountdown(parseInt(retryAfter));
+```
+
+**Checklist:**
+- [ ] 500: message rassurant + retry + status page
+- [ ] 503: temps estime + status page + notification option
+- [ ] 429: countdown + retry automatique
+- [ ] Toutes pages d'erreur statiques (pas dependent du serveur qui a crash)
+- [ ] Error pages servies depuis CDN ou statiquement
+
+---
+
+### 143. Browser & JS Fallbacks
+
+| Situation | Solution | Source |
+|-----------|----------|--------|
+| JS disabled | `<noscript>` message + basic HTML fallback | Progressive enhancement |
+| Old browser | Feature detection + polyfills ou banner | [MDN Feature Detection](https://developer.mozilla.org/en-US/docs/Learn/Tools_and_testing/Cross_browser_testing/Feature_detection) |
+| Print | `@media print` stylesheet | UX completeness |
+
+**Noscript pattern:**
+```html
+<noscript>
+  <div class="noscript-warning">
+    <p>This app requires JavaScript for full functionality.
+       Please enable JavaScript or use a modern browser.</p>
+  </div>
+</noscript>
+```
+
+**Print stylesheet essentials:**
+```css
+@media print {
+  /* Hide non-essential elements */
+  nav, footer, .sidebar, .no-print,
+  button, .modal, .toast { display: none; }
+
+  /* Ensure readability */
+  body { font-size: 12pt; color: #000; background: #fff; }
+
+  /* Show URLs for links */
+  a[href]::after { content: " (" attr(href) ")"; font-size: 0.8em; }
+
+  /* Avoid page breaks inside elements */
+  h1, h2, h3, img, table { break-inside: avoid; }
+
+  /* Force single column */
+  .grid, .flex { display: block; }
+}
+```
+
+**Checklist:**
+- [ ] `<noscript>` avec message et alternatives
+- [ ] Feature detection (pas UA sniffing)
+- [ ] Print stylesheet pour pages de contenu
+- [ ] Links avec URL visible en print
+- [ ] Pas de break inside headings/images en print
+
+---
+
+## AD. File Upload & Media
+
+### 144. Upload Zone Design
+
+| Element | Regle | Anti-pattern | Source |
+|---------|-------|-------------|--------|
+| Drop zone | Border dashed, icone upload, label "Drag & drop or click to upload" | Zone trop petite, pas de label | [NN/g File Upload](https://www.nngroup.com/articles/upload-images/) |
+| Visual feedback | Highlight border on dragover | Aucun feedback au drag | UX best practice |
+| Validation | Type + taille avant upload | Upload puis erreur serveur | Performance |
+| Restrictions | Afficher formats + taille max acceptes | Cacher les restrictions | UX transparency |
+
+**Drop zone pattern:**
+```html
+<div class="upload-zone" role="button" tabindex="0"
+     aria-label="Upload file. Drag and drop or click to browse."
+     ondragover="handleDragOver(event)"
+     ondrop="handleDrop(event)">
+  <svg class="upload-icon"><!-- upload icon --></svg>
+  <p class="upload-label">
+    <strong>Drag & drop</strong> files here, or
+    <span class="upload-browse">browse</span>
+  </p>
+  <p class="upload-restrictions">
+    PNG, JPG, or WebP. Max 5MB.
+  </p>
+  <input type="file" hidden accept=".png,.jpg,.jpeg,.webp"
+         multiple aria-hidden="true">
+</div>
+```
+
+**Validation client-side:**
+```javascript
+function validateFile(file) {
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+
+  if (!allowedTypes.includes(file.type)) {
+    return { valid: false, error: `${file.name}: format not supported. Use PNG, JPG, or WebP.` };
+  }
+  if (file.size > maxSize) {
+    return { valid: false, error: `${file.name}: too large (${(file.size/1024/1024).toFixed(1)}MB). Max 5MB.` };
+  }
+  return { valid: true };
+}
+```
+
+**Checklist:**
+- [ ] Drop zone large et visible
+- [ ] Highlight visuel au dragover
+- [ ] Formats et taille max affiches
+- [ ] Validation client-side avant envoi
+- [ ] Click alternative au drag (pour mobile, accessibilite)
+- [ ] Keyboard accessible (Enter/Space pour browse)
+
+---
+
+### 145. Upload Progress
+
+| Type | Pattern | UX |
+|------|---------|-----|
+| Single file | Progress bar horizontale + % + nom fichier | Feedback continu |
+| Multiple files | Liste avec progress individuel + progress global | Vue d'ensemble |
+| Batch | Progress global + nombre complete/total | Simplifie |
+
+**Progress states:**
+| State | Visual | Action |
+|-------|--------|--------|
+| Queued | Icone file, "Waiting..." | - |
+| Uploading | Progress bar animated, "42%" | Cancel button |
+| Processing | Spinner, "Processing..." | - |
+| Complete | Check icon, thumbnail preview | Remove / Replace |
+| Error | Error icon, message | Retry button |
+
+**Upload progress UI:**
+```html
+<div class="upload-item" role="progressbar"
+     aria-valuenow="42" aria-valuemin="0" aria-valuemax="100"
+     aria-label="Uploading photo.jpg: 42%">
+  <div class="upload-thumbnail">
+    <img src="blob:..." alt="Preview">
+  </div>
+  <div class="upload-info">
+    <span class="upload-name">photo.jpg</span>
+    <span class="upload-size">2.1 MB</span>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: 42%"></div>
+    </div>
+  </div>
+  <button class="upload-cancel" aria-label="Cancel upload">X</button>
+</div>
+```
+
+**Checklist:**
+- [ ] Progress bar avec pourcentage
+- [ ] Cancel possible pendant upload
+- [ ] Preview (thumbnail) pour images
+- [ ] Retry sur erreur individuelle
+- [ ] Resume upload si possible (tus protocol)
+- [ ] `aria-valuenow` sur progress bar
+
+---
+
+### 146. Gallery & Media Players
+
+**Image gallery patterns:**
+| Pattern | Usage | Implementation |
+|---------|-------|----------------|
+| Grid | Vue d'ensemble, portfolio | CSS Grid auto-fill |
+| Masonry | Pinterest-like, mixed aspect ratios | CSS columns ou JS layout |
+| Carousel | Featured content, hero | Scroll snap + nav buttons |
+| Lightbox | Detail view, zoom | Modal overlay + prev/next |
+
+**Video player UX:**
+| Element | Regle | Source |
+|---------|-------|--------|
+| Autoplay | Muted only (browser restriction), avec pause visible | [MDN Autoplay](https://developer.mozilla.org/en-US/docs/Web/Media/Autoplay_guide) |
+| Controls | Custom ou native, toujours accessible keyboard | WCAG |
+| Captions | Toujours disponibles, toggle on/off | WCAG 1.2.2 |
+| PiP | Proposer Picture-in-Picture pour long content | UX enhancement |
+| Preload | `preload="metadata"` (pas `auto` pour perf) | Performance |
+
+**Carousel accessible:**
+```html
+<div class="carousel" role="region" aria-label="Featured images"
+     aria-roledescription="carousel">
+  <div class="carousel-track" aria-live="polite">
+    <div role="group" aria-roledescription="slide"
+         aria-label="1 of 5">
+      <img src="..." alt="Description">
+    </div>
+  </div>
+  <button aria-label="Previous slide">Prev</button>
+  <button aria-label="Next slide">Next</button>
+  <!-- Dots -->
+  <div role="tablist" aria-label="Choose slide">
+    <button role="tab" aria-selected="true" aria-label="Slide 1">1</button>
+    <button role="tab" aria-selected="false" aria-label="Slide 2">2</button>
+  </div>
+</div>
+```
+
+**CSS Scroll Snap carousel:**
+```css
+.carousel-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none; /* Firefox */
+}
+
+.carousel-track::-webkit-scrollbar { display: none; }
+
+.carousel-track > * {
+  scroll-snap-align: start;
+  flex: 0 0 100%;
+}
+```
+
+**Checklist:**
+- [ ] Gallery: keyboard navigable, alt text sur images
+- [ ] Carousel: scroll snap, boutons prev/next, dots, pause auto-rotation
+- [ ] Video: `preload="metadata"`, captions, keyboard controls
+- [ ] Lightbox: Escape pour fermer, focus trap, prev/next
+- [ ] Pas d'autoplay avec son
+
+---
+
+## AE. Maps & Geolocation Web
+
+### 147. Map Integration
+
+| Pattern | Usage | Provider | Source |
+|---------|-------|----------|--------|
+| Interactive map | Store locator, data visualization | Mapbox, Google Maps, Leaflet | [Google Maps Platform](https://developers.google.com/maps) |
+| Static map | Confirmation d'adresse, email | Google Static Maps, Mapbox Static | Performance |
+| Embed map | Contact page, directions | Google Maps Embed | Simple |
+
+**Performance considerations:**
+| Optimisation | Technique | Impact |
+|-------------|-----------|--------|
+| Lazy load map | IntersectionObserver, load on scroll | LCP, page weight |
+| Static first | Image statique, interactive on click | Initial load |
+| Marker clustering | Group markers at zoom levels | Rendering perf |
+
+```javascript
+// Lazy load map
+const mapObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      loadMap(entry.target);
+      mapObserver.unobserve(entry.target);
+    }
+  });
+}, { rootMargin: '200px' });
+
+mapObserver.observe(document.getElementById('map'));
+```
+
+**Checklist:**
+- [ ] Map lazy-loaded (pas au initial page load)
+- [ ] Fallback statique pour performance
+- [ ] Clustering si > 50 markers
+- [ ] Keyboard navigable (zoom, pan)
+- [ ] Alt text ou `aria-label` sur map container
+
+---
+
+### 148. Location Permission UX
+
+| Regle | Detail | Anti-pattern | Source |
+|-------|--------|-------------|--------|
+| Expliquer avant | Custom UI expliquant pourquoi | Permission prompt brut au load | [NN/g Permission](https://www.nngroup.com/articles/permission-requests/) |
+| Contextuel | Demander quand l'action le requiert (clic "Near me") | Demander a l'arrivee sur le site | NN/g |
+| Fallback | Recherche manuelle si permission refusee | Bloquer sans fallback | UX requirement |
+| Precision | `enableHighAccuracy` seulement si necessaire | GPS haute precision pour "ville la plus proche" | Performance |
+
+**Location request pattern:**
+```javascript
+async function requestLocation() {
+  // Show custom explainer first
+  const agreed = await showLocationExplainer({
+    title: "Find stores near you",
+    body: "We'll use your location to show nearby stores. You can always search manually.",
+    cta: "Enable Location",
+    dismiss: "Search manually"
+  });
+
+  if (!agreed) {
+    showManualSearch();
+    return;
+  }
+
+  try {
+    const position = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: false, // City-level is enough
+        timeout: 10000,
+        maximumAge: 300000 // 5 min cache
+      });
+    });
+    showNearbyStores(position.coords);
+  } catch (error) {
+    showManualSearch();
+    showToast("Couldn't get your location. Try searching manually.");
+  }
+}
+```
+
+**Address autocomplete:**
+```html
+<label for="address">Address</label>
+<input id="address" type="text"
+       autocomplete="street-address"
+       placeholder="Start typing an address..."
+       aria-describedby="address-help"
+       aria-autocomplete="list"
+       role="combobox">
+<ul id="address-suggestions" role="listbox" hidden>
+  <!-- Populated by Google Places / Mapbox -->
+</ul>
+<p id="address-help">We'll show results as you type</p>
+```
+
+**Checklist:**
+- [ ] Custom explainer avant permission native
+- [ ] Fallback manuel si permission refusee
+- [ ] `enableHighAccuracy: false` sauf besoin reel
+- [ ] Timeout raisonnable (10s)
+- [ ] Cache position (`maximumAge`)
+- [ ] Address autocomplete comme alternative
+
+---
+
+## AF. Real-time & Collaboration
+
+### 149. WebSocket UX
+
+| State | Visual | Action | Source |
+|-------|--------|--------|--------|
+| Connecting | Subtle spinner ou dot orange | Auto, pas d'action user | Best practice |
+| Connected | Dot vert ou rien (etat normal) | - | Best practice |
+| Reconnecting | Banner "Reconnecting..." + spinner | Auto-retry avec backoff | [MDN WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket) |
+| Disconnected | Banner "Offline. Changes saved locally." | Retry button | Best practice |
+| Error | Banner avec message specifique | Retry ou refresh | Best practice |
+
+**Reconnection avec exponential backoff:**
+```javascript
+class ReconnectingWebSocket {
+  constructor(url) {
+    this.url = url;
+    this.retryCount = 0;
+    this.maxRetries = 10;
+    this.connect();
+  }
+
+  connect() {
+    this.ws = new WebSocket(this.url);
+
+    this.ws.onopen = () => {
+      this.retryCount = 0;
+      hideReconnectBanner();
+    };
+
+    this.ws.onclose = () => {
+      if (this.retryCount < this.maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, this.retryCount), 30000);
+        showReconnectBanner(`Reconnecting in ${delay/1000}s...`);
+        setTimeout(() => this.connect(), delay);
+        this.retryCount++;
+      } else {
+        showDisconnectedBanner();
+      }
+    };
+  }
+}
+```
+
+**Checklist:**
+- [ ] Connection state visible mais non-intrusif
+- [ ] Auto-reconnect avec exponential backoff
+- [ ] Cap sur les retries (ex: 10)
+- [ ] Donnees locales preservees pendant deconnexion
+- [ ] Banner non-bloquant pour etat connexion
+
+---
+
+### 150. Presence & Live Indicators
+
+| Pattern | Usage | Implementation |
+|---------|-------|----------------|
+| Live cursors | Collaborative editing (Figma, Google Docs) | WebSocket + `pointermove` throttled |
+| Avatar stack | Qui est en ligne | WebSocket presence channel |
+| Typing indicator | Chat | "User is typing..." avec timeout 3s |
+| Read receipts | Messaging | Double check marks |
+| Live counter | "5 people viewing" | Presence count |
+
+**Presence indicators:**
+```html
+<!-- Online users -->
+<div class="presence" aria-label="3 people online">
+  <div class="avatar-stack">
+    <img src="user1.jpg" alt="Alice" class="avatar online">
+    <img src="user2.jpg" alt="Bob" class="avatar online">
+    <img src="user3.jpg" alt="Carol" class="avatar idle">
+  </div>
+  <span class="presence-count">3 online</span>
+</div>
+
+<!-- Status dot -->
+<span class="status-dot status-online" aria-label="Online"></span>
+<span class="status-dot status-idle" aria-label="Idle"></span>
+<span class="status-dot status-offline" aria-label="Offline"></span>
+```
+
+**Status dot sizes:**
+| Context | Size | Position |
+|---------|------|----------|
+| Avatar (32px) | 8px dot | Bottom-right, offset -2px |
+| Avatar (48px) | 10px dot | Bottom-right, offset -2px |
+| List item | 8px dot | Inline, before name |
+
+**Checklist:**
+- [ ] Presence updates throttled (pas chaque ms)
+- [ ] Idle detection (5 min sans activite)
+- [ ] Graceful degradation (cursor lag acceptable)
+- [ ] Screen reader: status annonce via `aria-label`
+- [ ] Typing indicator timeout (3s apres dernier keystroke)
+
+---
+
+### 151. Chat Patterns
+
+| Element | Pattern | Source |
+|---------|---------|--------|
+| Messages | Bulles, sender gauche/droite | Messaging convention |
+| Timestamps | Relative ("2 min ago"), groupees par jour | UX standard |
+| Status | Sent (1 check) > Delivered (2 checks) > Read (2 blue checks) | WhatsApp pattern |
+| Typing | "Alice is typing..." avec animation dots | Convention |
+| Reactions | Emoji picker on long-press/hover | Slack/Discord pattern |
+
+**Message states:**
+| State | Icon | Meaning |
+|-------|------|---------|
+| Sending | Clock/spinner | En cours d'envoi |
+| Sent | Single check | Serveur a recu |
+| Delivered | Double check | Destinataire a recu |
+| Read | Double check (colored) | Destinataire a lu |
+| Failed | Error icon + Retry | Echec d'envoi |
+
+**Checklist:**
+- [ ] Messages groupes par jour/heure
+- [ ] Status d'envoi visible (sent/delivered/read)
+- [ ] Typing indicator avec timeout
+- [ ] Scroll auto en bas pour nouveaux messages
+- [ ] "New messages" divider si scroll up
+- [ ] Retry sur messages echoues
+
+---
+
+## AG. Admin & Dashboard Patterns
+
+### 152. CRUD Interfaces
+
+| Action | Pattern | UX Regle | Source |
+|--------|---------|----------|--------|
+| Create | Formulaire modal ou page dediee | Pre-remplir defaults, validation inline | Best practice |
+| Read | Table + detail view | Responsive table, click-to-expand | [Pencil & Paper](https://www.pencilandpaper.io/articles/ux-pattern-analysis-enterprise-data-tables) |
+| Update | Inline edit ou modal | Save/cancel explicit, undo | Best practice |
+| Delete | Confirm dialog | Undo 5s > dialog pour destructif | [NN/g Undo](https://www.nngroup.com/articles/confirmation-dialog/) |
+
+**Delete confirmation levels:**
+| Severity | Pattern | Exemple |
+|----------|---------|---------|
+| Low | Undo toast (5s) | Delete message |
+| Medium | Simple confirm dialog | Delete project |
+| High | Type name to confirm | Delete account |
+
+```html
+<!-- High severity: type to confirm -->
+<dialog>
+  <h2>Delete your account?</h2>
+  <p>This will permanently delete all your data.
+     This action cannot be undone.</p>
+  <label>Type <strong>DELETE</strong> to confirm</label>
+  <input type="text" pattern="DELETE" required>
+  <button class="destructive" disabled>Delete Account</button>
+  <button class="secondary">Cancel</button>
+</dialog>
+```
+
+**Checklist:**
+- [ ] Create: validation inline, defaults pre-remplis
+- [ ] Read: pagination, sort, filter, search
+- [ ] Update: inline edit quand possible, save explicite
+- [ ] Delete: severity-appropriate confirmation
+- [ ] Bulk actions: select all, select page, deselect all
+- [ ] Undo prefere aux confirmations (sauf destructif)
+
+---
+
+### 153. Data Tables with Bulk Operations
+
+| Feature | Implementation | Source |
+|---------|---------------|--------|
+| Select all (page) | Checkbox dans header | Convention |
+| Select all (dataset) | Banner "Select all 1,234 items" apres select-all page | Gmail pattern |
+| Bulk actions bar | Sticky bar en haut avec actions + count | Material Design |
+| Deselect | "Clear selection" ou uncheck all | Convention |
+
+**Bulk actions bar:**
+```html
+<div class="bulk-actions" role="toolbar" aria-label="Bulk actions"
+     hidden>
+  <span class="selection-count">3 items selected</span>
+  <button class="bulk-edit">Edit</button>
+  <button class="bulk-export">Export</button>
+  <button class="bulk-delete destructive">Delete</button>
+  <button class="deselect" aria-label="Clear selection">X</button>
+</div>
+```
+
+**Checklist:**
+- [ ] Checkbox select individual + select all page
+- [ ] "Select all X items" pour dataset entier
+- [ ] Bulk actions bar sticky avec count
+- [ ] Destructive bulk actions: confirmation obligatoire
+- [ ] Loading state pendant bulk operation
+- [ ] Deselect accessible
+
+---
+
+### 154. Dashboard Layout
+
+| Layout | Usage | Structure |
+|--------|-------|-----------|
+| Sidebar + content | Admin panels, SaaS | Sidebar 240-280px + main content |
+| Top nav + content | Simple dashboards | Horizontal nav + cards grid |
+| Two-sidebar | IDE-like, complex tools | Left nav + main + right panel |
+
+**Dashboard metrics display:**
+| Component | Usage | Format |
+|-----------|-------|--------|
+| KPI card | Single number highlight | Number + label + trend arrow + sparkline |
+| Chart | Trends over time | Line/bar chart, clear axis labels |
+| Table | Detailed data | Sortable, filterable |
+| Activity feed | Recent events | Timeline, relative timestamps |
+
+**KPI card anatomy:**
+```html
+<div class="kpi-card" role="group" aria-label="Active users">
+  <span class="kpi-label">Active Users</span>
+  <span class="kpi-value">2,847</span>
+  <span class="kpi-trend positive" aria-label="Up 12% from last month">
+    +12%
+  </span>
+  <div class="kpi-sparkline" aria-hidden="true">
+    <!-- Mini chart -->
+  </div>
+</div>
+```
+
+**Sidebar navigation:**
+| Element | Spec |
+|---------|------|
+| Width expanded | 240-280px |
+| Width collapsed | 64-72px |
+| Icon size | 20-24px |
+| Item height | 40-48px |
+| Active indicator | Background highlight ou left border 3px |
+| Group separator | Label uppercase 12px + divider |
+
+**Checklist:**
+- [ ] Sidebar collapsible (icon-only mode)
+- [ ] Active page highlighted dans sidebar
+- [ ] KPI cards avec trend et contexte
+- [ ] Responsive: sidebar -> bottom nav ou hamburger sur mobile
+- [ ] Dashboard customizable (drag to reorder widgets)
+- [ ] Date range picker pour filtrer les donnees
+
+---
+
+## AH. Navigation Advanced Web
+
+### 155. Mega Menu
+
+| Element | Regle | Anti-pattern | Source |
+|---------|-------|-------------|--------|
+| Trigger | Hover (desktop) ou click | Hover sans delai (menu disparait en traversant) | [NN/g Mega Menus](https://www.nngroup.com/articles/mega-menus-work-well/) |
+| Layout | Colonnes par categorie, max 7 categories | Liste lineaire trop longue | NN/g |
+| Featured content | Image/promo dans une colonne | Menu 100% texte (missed marketing opportunity) | Convention |
+| Close | Click outside, Escape, clic sur lien | Pas de moyen de fermer | WCAG |
+| Mobile | Accordion ou drill-down | Mega menu hover sur mobile | UX requirement |
+
+**Hover intent pattern (eviter fermeture accidentelle):**
+```javascript
+let openTimeout, closeTimeout;
+const OPEN_DELAY = 100;  // ms before opening
+const CLOSE_DELAY = 300; // ms before closing (allow diagonal movement)
+
+menuTrigger.addEventListener('mouseenter', () => {
+  clearTimeout(closeTimeout);
+  openTimeout = setTimeout(openMenu, OPEN_DELAY);
+});
+
+menuTrigger.addEventListener('mouseleave', () => {
+  clearTimeout(openTimeout);
+  closeTimeout = setTimeout(closeMenu, CLOSE_DELAY);
+});
+
+megaMenu.addEventListener('mouseenter', () => {
+  clearTimeout(closeTimeout);
+});
+
+megaMenu.addEventListener('mouseleave', () => {
+  closeTimeout = setTimeout(closeMenu, CLOSE_DELAY);
+});
+```
+
+**Checklist:**
+- [ ] Hover intent avec delai (300ms fermeture)
+- [ ] Colonnes organisees par categorie
+- [ ] Keyboard navigable (Arrow keys, Escape)
+- [ ] Featured content / promo dans le menu
+- [ ] Mobile: accordion ou drill-down (pas hover)
+- [ ] Max 7 categories top-level
+
+---
+
+### 156. Command Palette (Cmd+K)
+
+| Element | Spec | Source |
+|---------|------|--------|
+| Shortcut | `Cmd+K` (Mac) / `Ctrl+K` (Win) | Spotlight/Raycast pattern |
+| UI | Modal center-top, search input + results list | Convention |
+| Search | Fuzzy matching, recent items first | UX best practice |
+| Categories | Pages, Actions, Settings, Users | Organize results |
+| Keyboard | Arrow up/down to navigate, Enter to select, Escape to close | WCAG |
+
+**Command palette pattern:**
+```html
+<dialog class="command-palette" role="combobox">
+  <input type="search" placeholder="Search or type a command..."
+         aria-label="Command palette"
+         aria-expanded="true"
+         aria-controls="command-results"
+         aria-activedescendant="result-1">
+  <ul id="command-results" role="listbox">
+    <li role="option" id="result-1" aria-selected="true">
+      <span class="result-icon">Page</span>
+      <span class="result-label">Dashboard</span>
+      <kbd class="result-shortcut">Cmd+D</kbd>
+    </li>
+    <li role="option" id="result-2">
+      <span class="result-icon">Action</span>
+      <span class="result-label">Log Cigarette</span>
+      <kbd class="result-shortcut">Cmd+L</kbd>
+    </li>
+  </ul>
+</dialog>
+```
+
+**Result ranking:**
+1. Exact match on title
+2. Recent/frequent items
+3. Fuzzy match on title
+4. Match on description/tags
+5. Actions related to current context
+
+**Checklist:**
+- [ ] `Cmd+K` / `Ctrl+K` shortcut
+- [ ] Fuzzy search avec ranking
+- [ ] Categories pour organiser les resultats
+- [ ] Recent items en premier
+- [ ] Keyboard navigation complete
+- [ ] Escape pour fermer
+- [ ] Max 7-10 resultats visibles
+
+---
+
+### 157. Breadcrumbs & Sticky Headers
+
+**Breadcrumbs:**
+```html
+<nav aria-label="Breadcrumb">
+  <ol class="breadcrumbs">
+    <li><a href="/">Home</a></li>
+    <li><a href="/stats">Statistics</a></li>
+    <li aria-current="page">Weekly Report</li>
+  </ol>
+</nav>
+```
+
+| Regle | Detail | Source |
+|-------|--------|--------|
+| Separator | `>` ou `/` via CSS `::before` (pas dans le markup) | [WCAG Breadcrumb](https://www.w3.org/WAI/ARIA/apg/patterns/breadcrumb/) |
+| Current page | Pas de lien, `aria-current="page"` | WCAG |
+| Mobile | Tronquer (... > Parent > Current) si trop long | UX mobile |
+| Max depth | 4-5 niveaux visibles | UX readability |
+
+**Sticky header show/hide:**
+```css
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  transition: transform 200ms ease-out;
+}
+
+.header--hidden {
+  transform: translateY(-100%);
+}
+```
+
+```javascript
+let lastScrollY = 0;
+const header = document.querySelector('.header');
+
+window.addEventListener('scroll', () => {
+  const currentScrollY = window.scrollY;
+
+  if (currentScrollY > lastScrollY && currentScrollY > 100) {
+    // Scrolling down, past threshold
+    header.classList.add('header--hidden');
+  } else {
+    // Scrolling up
+    header.classList.remove('header--hidden');
+  }
+
+  lastScrollY = currentScrollY;
+}, { passive: true });
+```
+
+**Checklist:**
+- [ ] Breadcrumbs: `<nav>` + `<ol>` + `aria-label`
+- [ ] Current page sans lien, `aria-current="page"`
+- [ ] Sticky header: show on scroll up, hide on scroll down
+- [ ] Header threshold: hide seulement apres 100px de scroll
+- [ ] Skip navigation link en premier element focusable
+- [ ] `{ passive: true }` sur scroll listener
+
+---
+
+## AI. Cookie Consent & GDPR
+
+### 158. Cookie Banner Patterns
+
+| Pattern | Pros | Cons | Source |
+|---------|------|------|--------|
+| Bottom bar | Moins intrusif, contenu accessible | Peut etre ignore | [GDPR.eu](https://gdpr.eu/cookies/) |
+| Modal overlay | Force la decision | Bloque le contenu, mauvais UX | IAB TCF |
+| Corner popup | Discret | Facile a rater | Convention |
+| Top bar | Visible immediatement | Pousse le contenu vers le bas (CLS!) | Convention |
+
+**Cookie banner minimal viable:**
+```html
+<div class="cookie-banner" role="dialog"
+     aria-label="Cookie consent"
+     aria-describedby="cookie-description">
+  <p id="cookie-description">
+    We use cookies to improve your experience.
+    <a href="/privacy">Learn more</a>
+  </p>
+  <div class="cookie-actions">
+    <button class="primary" data-consent="all">Accept All</button>
+    <button class="secondary" data-consent="necessary">
+      Necessary Only
+    </button>
+    <button class="tertiary" data-consent="customize">
+      Customize
+    </button>
+  </div>
+</div>
+```
+
+**Cookie categories:**
+| Category | Exemples | Opt-out possible | Source |
+|----------|----------|-----------------|--------|
+| Necessary | Session, CSRF, consent choice | Non (toujours actif) | GDPR Art. 6(1)(f) |
+| Analytics | Google Analytics, Mixpanel | Oui | GDPR Art. 6(1)(a) |
+| Marketing | Facebook Pixel, Google Ads | Oui | GDPR Art. 6(1)(a) |
+| Functional | Language pref, theme, A/B test | Oui | GDPR Art. 6(1)(a) |
+
+**Regles GDPR essentielles:**
+| Regle | Requirement |
+|-------|------------|
+| Consentement pre-coche | INTERDIT (pas de cases pre-cochees) |
+| Reject aussi facile que Accept | Bouton "Reject All" au meme niveau que "Accept All" |
+| Granularite | Choix par categorie possible |
+| Retrait | Pouvoir changer d'avis (lien dans footer) |
+| Preuve | Stocker le consentement avec timestamp |
+| Renouvellement | Re-demander tous les 6-12 mois |
+
+**Checklist:**
+- [ ] "Reject All" aussi visible que "Accept All"
+- [ ] Pas de cases pre-cochees
+- [ ] Customisation par categorie
+- [ ] "Necessary only" comme option claire
+- [ ] Cookie settings accessible dans footer
+- [ ] Consent stocke avec timestamp
+- [ ] Pas de tracking avant consentement
+- [ ] Renouvellement du consentement periodique
+
+---
+
+### 159. Privacy & Data Rights UX
+
+| Droit GDPR | UX Implementation | Delai legal |
+|------------|-------------------|-------------|
+| Acces (Art. 15) | "Download my data" button dans settings | 30 jours |
+| Rectification (Art. 16) | Edit profile fields directement | 30 jours |
+| Effacement (Art. 17) | "Delete my account" avec confirmation | 30 jours |
+| Portabilite (Art. 20) | Export JSON/CSV dans settings | 30 jours |
+| Opposition (Art. 21) | Unsubscribe links, notification settings | Immediat |
+
+**Account deletion flow:**
+1. Settings > Account > "Delete my account"
+2. Expliquer consequences (data perdue, abonnement annule)
+3. Confirmation forte (type "DELETE" ou re-enter password)
+4. Grace period: 30 jours pour annuler
+5. Email de confirmation avec lien "Cancel deletion"
+6. Suppression definitive apres 30 jours
+
+**Checklist:**
+- [ ] "Download my data" dans settings
+- [ ] "Delete my account" accessible (pas cache)
+- [ ] Grace period 30 jours pour deletion
+- [ ] Confirmation email pour deletion
+- [ ] Privacy policy lisible (pas juste legal)
+- [ ] Cookie settings accessible en permanence (footer link)
+
+---
+
+## AJ. Rich Text & Content
+
+### 160. Rich Text Editor
+
+| Type | Complexite | Usage | Exemples |
+|------|-----------|-------|----------|
+| Basic | Gras, italique, lien, liste | Commentaires, descriptions | TipTap, Quill |
+| Medium | + images, headings, tables | Blog posts, documentation | ProseMirror, TipTap |
+| Full | + code, embeds, collaboration | CMS, knowledge base | Notion-like, Editor.js |
+| Markdown | Texte brut avec preview | Developpeurs, technical writing | CodeMirror, Monaco |
+
+**Toolbar patterns:**
+| Pattern | Usage | Avantage |
+|---------|-------|----------|
+| Fixed top toolbar | Desktop editors | Toujours visible |
+| Floating toolbar | Selection-based | Moins intrusif |
+| Slash commands | "/heading", "/image" | Power users, no toolbar needed |
+| Bubble menu | Near selection | Contextuel |
+
+**Toolbar essentials:**
+```
+[B] [I] [U] [S] | [H1] [H2] [H3] | [UL] [OL] | [Link] [Image] | [Code] [Quote]
+```
+
+**Checklist:**
+- [ ] Toolbar adapte au use case (basic vs full)
+- [ ] Raccourcis clavier (Ctrl+B, Ctrl+I, Ctrl+K)
+- [ ] Undo/Redo (Ctrl+Z, Ctrl+Shift+Z)
+- [ ] Paste from Word/Google Docs (clean HTML)
+- [ ] Image upload inline (drag & drop)
+- [ ] Autosave (draft every 30s)
+- [ ] Mobile: toolbar sticky en bas
+
+---
+
+### 161. Draft & Version History
+
+| Feature | Implementation | Source |
+|---------|---------------|--------|
+| Autosave | Save draft every 30s ou on pause (debounce 2s) | Google Docs pattern |
+| Draft indicator | "Saved" / "Saving..." / "Unsaved changes" | UX feedback |
+| Version history | Timeline of saves, diff view, restore | Google Docs, Notion |
+| Publishing | Draft -> Review -> Published states | CMS workflow |
+
+**Save states:**
+| State | Visual | Trigger |
+|-------|--------|---------|
+| Editing | "Unsaved changes" (subtle, grey) | Any keystroke |
+| Saving | "Saving..." + spinner | Debounce 2s after last edit |
+| Saved | "All changes saved" + check | Save complete |
+| Error | "Failed to save. Retrying..." | Network error |
+| Offline | "Saved locally. Will sync when online." | No connection |
+
+**Checklist:**
+- [ ] Autosave avec debounce (2s apres dernier edit)
+- [ ] Save state toujours visible
+- [ ] Version history accessible
+- [ ] Restore previous version avec confirmation
+- [ ] Offline: save to localStorage, sync later
+- [ ] "Unsaved changes" warning si navigation away
+
+---
+
+## AK. Social Features Web
+
+### 162. Share & Comments
+
+**Web Share API (preferred):**
+```javascript
+async function share(content) {
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: content.title,
+        text: content.description,
+        url: content.url
+      });
+    } catch (err) {
+      if (err.name !== 'AbortError') console.error(err);
+    }
+  } else {
+    showShareFallback(content); // Custom share buttons
+  }
+}
+```
+
+**Share fallback buttons order (by usage 2025):**
+1. Copy link (most universal)
+2. WhatsApp
+3. X/Twitter
+4. Facebook
+5. Email
+6. LinkedIn (B2B)
+
+**Comment system patterns:**
+| Feature | Pattern |
+|---------|---------|
+| Threading | Max 2-3 levels deep, then "View thread" |
+| Sorting | "Newest" / "Most liked" / "Oldest" toggle |
+| Moderation | Flag/report, auto-moderation, admin tools |
+| Reactions | Emoji picker ou predefined (thumbs up, heart, etc.) |
+| Mentions | @username with autocomplete |
+| Edit/delete | Own comments, within time window (15 min edit) |
+
+**Checklist:**
+- [ ] Web Share API avec fallback custom buttons
+- [ ] Copy link toujours disponible en premier
+- [ ] Comments: threading 2-3 levels max
+- [ ] Report/flag mechanism
+- [ ] Edit window pour ses propres commentaires
+- [ ] Reactions pour engagement low-friction
+- [ ] `rel="noopener noreferrer"` sur social links
+
+---
+
+### 163. User Profiles & Activity
+
+| Element | Spec |
+|---------|------|
+| Avatar | 40px (list), 64px (card), 96-128px (profile page) |
+| Name display | Full name ou username, truncate a 20 chars |
+| Bio | Max 160 chars (comme Twitter) |
+| Stats | Followers, posts, achievements |
+| Activity feed | Chronological, groupable by day |
+
+**Activity feed patterns:**
+| Pattern | Usage |
+|---------|-------|
+| Simple list | "Alice logged 3 cigarettes" |
+| Grouped | "Alice and 2 others achieved 1-week milestone" |
+| Cards | Rich content (images, stats) |
+
+**Checklist:**
+- [ ] Avatar avec fallback initiales si pas d'image
+- [ ] Profile page responsive (stack on mobile)
+- [ ] Activity feed avec pagination/infinite scroll
+- [ ] Privacy controls sur le profil
+- [ ] Block/report other users
+
+---
+
+## AL. Valeurs Cles Web (Memo Rapide)
+
+### 164. Performance Budgets
+
+| Metric | Target | Poor | Source |
+|--------|--------|------|--------|
+| LCP | <= 2.5s | > 4.0s | web.dev |
+| CLS | <= 0.1 | > 0.25 | web.dev |
+| INP | <= 200ms | > 500ms | web.dev |
+| TTFB | <= 800ms | > 1800ms | web.dev |
+| FCP | <= 1.8s | > 3.0s | web.dev |
+| Total JS | < 200KB gz | > 400KB | Best practice |
+| Total CSS | < 50KB gz | > 100KB | Best practice |
+| Total page | < 1.5MB | > 3MB | HTTP Archive |
+| Requests | < 50 | > 100 | Best practice |
+| Fonts total | < 100KB | > 200KB | Best practice |
+| Hero image | < 200KB | > 500KB | Best practice |
+
+---
+
+### 165. Breakpoints
+
+| Token | Value | Target |
+|-------|-------|--------|
+| `sm` | 480px | Mobile large |
+| `md` | 768px | Tablet |
+| `lg` | 1024px | Desktop |
+| `xl` | 1280px | Desktop large |
+| `2xl` | 1536px | Ultra-wide |
+
+---
+
+### 166. Z-index Scale
+
+| Layer | Z-index | Usage |
+|-------|---------|-------|
+| Base | 0 | Normal flow |
+| Dropdown | 100 | Menus, selects |
+| Sticky | 200 | Sticky header, sidebar |
+| Fixed | 300 | Fixed elements |
+| Overlay/backdrop | 400 | Modal backdrop, drawer backdrop |
+| Modal | 500 | Dialogs, modals |
+| Popover | 600 | Tooltips, popovers |
+| Toast | 700 | Snackbars, notifications |
+| Max | 999 | Skip link focus, debug overlays |
+
+---
+
+### 167. Typography Scale
+
+| Token | Size | Line-height | Weight | Usage |
+|-------|------|-------------|--------|-------|
+| `display` | clamp(2.25rem, 4vw, 4rem) | 1.1 | 700 | Hero headlines |
+| `h1` | clamp(1.875rem, 3vw, 3rem) | 1.2 | 700 | Page titles |
+| `h2` | clamp(1.5rem, 2.5vw, 2.25rem) | 1.25 | 600 | Section titles |
+| `h3` | clamp(1.25rem, 2vw, 1.75rem) | 1.3 | 600 | Subsection titles |
+| `h4` | clamp(1.125rem, 1.5vw, 1.375rem) | 1.35 | 600 | Card titles |
+| `body` | clamp(1rem, 0.5vw + 0.875rem, 1.125rem) | 1.5 | 400 | Body text |
+| `small` | 0.875rem (14px) | 1.4 | 400 | Secondary text |
+| `caption` | 0.75rem (12px) | 1.33 | 400 | Labels, captions |
+
+---
+
+### 168. Spacing Scale
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--space-1` | 4px | Inline padding, icon gaps |
+| `--space-2` | 8px | Tight padding, form gaps |
+| `--space-3` | 12px | Card padding (compact) |
+| `--space-4` | 16px | Default padding, card padding |
+| `--space-5` | 20px | - |
+| `--space-6` | 24px | Section padding |
+| `--space-8` | 32px | Large gaps |
+| `--space-10` | 40px | Section spacing |
+| `--space-12` | 48px | Section spacing (large) |
+| `--space-16` | 64px | Page section spacing |
+| `--space-20` | 80px | Desktop margins |
+| `--space-24` | 96px | Hero padding |
+
+---
+
+### 169. Animation Timings
+
+| Token | Duration | Easing | Usage |
+|-------|----------|--------|-------|
+| `instant` | 100ms | `ease-out` | Hover, focus states |
+| `fast` | 150ms | `ease-out` | Tooltips, fade |
+| `normal` | 200ms | `ease-in-out` | Transitions, collapse |
+| `slow` | 300ms | `ease-in-out` | Modal enter, slide |
+| `slower` | 500ms | `cubic-bezier(0.4, 0, 0.2, 1)` | Page transitions |
+
+**Easing tokens:**
+| Token | Value | Usage |
+|-------|-------|-------|
+| `ease-out` | `cubic-bezier(0, 0, 0.2, 1)` | Enter animations |
+| `ease-in` | `cubic-bezier(0.4, 0, 1, 1)` | Exit animations |
+| `ease-in-out` | `cubic-bezier(0.4, 0, 0.2, 1)` | State changes |
+| `spring` | `cubic-bezier(0.34, 1.56, 0.64, 1)` | Playful bounces |
+
+**Reduce motion:**
+```css
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
+
+---
+
+### 170. WCAG Quick Reference
+
+| Criterion | Level | Threshold | Source |
+|-----------|-------|-----------|--------|
+| Color contrast (normal text) | AA | 4.5:1 | WCAG 1.4.3 |
+| Color contrast (large text 18px+) | AA | 3:1 | WCAG 1.4.3 |
+| Color contrast (UI components) | AA | 3:1 | WCAG 1.4.11 |
+| Touch target | AA | 24x24px min | WCAG 2.5.8 |
+| Touch target | Best practice | 44x44px recommended | Apple HIG |
+| Focus visible | AA | 2px outline, 3:1 contrast | WCAG 2.4.7, 2.4.11 |
+| Text resize | AA | Up to 200% without loss | WCAG 1.4.4 |
+| Timing adjustable | A | Warning before timeout | WCAG 2.2.1 |
+| Keyboard | A | All functionality via keyboard | WCAG 2.1.1 |
+| Alt text | A | All images have alt (or alt="") | WCAG 1.1.1 |
+| Page language | A | `lang` attribute on `<html>` | WCAG 3.1.1 |
+| Error identification | A | Errors described in text | WCAG 3.3.1 |
+| Labels | A | All inputs have labels | WCAG 1.3.1 |
+
+---
+
+### 171. CSS Container & Media Query Reference
+
+| Query | Syntax | Usage |
+|-------|--------|-------|
+| Min-width (mobile-first) | `@media (min-width: 768px)` | Breakpoint up |
+| Max-width (desktop-first) | `@media (max-width: 767px)` | Breakpoint down |
+| Dark mode | `@media (prefers-color-scheme: dark)` | Theme |
+| Reduced motion | `@media (prefers-reduced-motion: reduce)` | Accessibility |
+| High contrast | `@media (forced-colors: active)` | Windows high contrast |
+| Touch device | `@media (pointer: coarse)` | Touch targets |
+| Mouse device | `@media (pointer: fine)` | Hover effects |
+| Hover capable | `@media (hover: hover)` | Hover states |
+| Print | `@media print` | Print stylesheet |
+| Container | `@container name (min-width: 400px)` | Component responsive |
+| Orientation | `@media (orientation: portrait)` | Mobile orientation |
+| Display mode (PWA) | `@media (display-mode: standalone)` | PWA-specific styles |
+
+---
+
+### 172. HTML Autocomplete Reference
+
+| Field Type | `autocomplete` Value |
+|-----------|---------------------|
+| Full name | `name` |
+| Email | `email` |
+| Phone | `tel` |
+| Street address | `street-address` |
+| City | `address-level2` |
+| State/Province | `address-level1` |
+| Postal code | `postal-code` |
+| Country | `country` |
+| Login password | `current-password` |
+| New password | `new-password` |
+| Credit card number | `cc-number` |
+| Card expiry | `cc-exp` |
+| Card CVC | `cc-csc` |
+| Card holder | `cc-name` |
+| OTP code | `one-time-code` |
+| Username | `username` |
+| Organization | `organization` |
+| Birthday | `bday` |
+
+---
+
+### 173. Cookie Consent Quick Reference
+
+| Regle | Requirement | Reference |
+|-------|------------|-----------|
+| Pre-checked boxes | INTERDIT | GDPR Art. 7 |
+| Reject = Accept | Meme niveau visuel | EDPB Guidelines |
+| Granularity | Par categorie minimum | ePrivacy Directive |
+| Withdraw | A tout moment, facilement | GDPR Art. 7(3) |
+| Proof | Stocker consentement + timestamp | GDPR Art. 7(1) |
+| Renewal | 6-12 mois | Best practice |
+| No tracking before consent | Aucun cookie non-necessaire avant | GDPR Art. 6 |
+| Children | Age verification si applicable | GDPR Art. 8 |
+
+---
+
+### 174. Common HTTP Status Codes for UX
+
+| Code | Meaning | UX Response |
+|------|---------|-------------|
+| 200 | OK | Normal flow |
+| 201 | Created | Success toast + redirect |
+| 204 | No Content | Silent success (delete) |
+| 301 | Moved Permanently | Auto-redirect |
+| 304 | Not Modified | Serve from cache |
+| 400 | Bad Request | Inline validation errors |
+| 401 | Unauthorized | Redirect to login |
+| 403 | Forbidden | "Access denied" + contact admin |
+| 404 | Not Found | Custom 404 page |
+| 409 | Conflict | "Already exists" or merge prompt |
+| 413 | Payload Too Large | "File too large" error |
+| 422 | Unprocessable Entity | Form validation errors |
+| 429 | Too Many Requests | Countdown + auto-retry |
+| 500 | Internal Server Error | "Something went wrong" + retry |
+| 502 | Bad Gateway | "Server temporarily unavailable" |
+| 503 | Service Unavailable | Maintenance page |
+
+---
+
+### 175. Minimum Dimensions Reference
+
+| Element | Min Size | Touch Target | Source |
+|---------|----------|-------------|--------|
+| Button | 32x32px (desktop) | 48x48px (mobile) | WCAG 2.5.8 |
+| Icon button | 24x24px visual | 44x44px tap area | Apple HIG |
+| Checkbox/Radio | 16x16px visual | 44x44px tap area | WCAG |
+| Input field height | 36-40px | 48px mobile | Convention |
+| Link spacing | N/A | 8px between adjacent links | WCAG 2.5.8 |
+| Scrollbar | 8px (desktop) | 4px (overlay style) | OS convention |
+| Modal min-width | 320px | 100vw mobile | Convention |
+| Modal max-width | 640px (form), 960px (content) | - | Convention |
+| Sidebar | 240-280px expanded | 64-72px collapsed | Convention |
+| Toast/Snackbar | 288px min-width | - | Material Design |

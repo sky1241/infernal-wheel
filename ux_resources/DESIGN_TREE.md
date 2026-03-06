@@ -648,11 +648,221 @@ start  guide   seulement
 PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MOBILE/WEARABLE
      |
      v
-  Mobile?    → MOBILE.md sections A-Z
-  Web?       → WEB.md sections A-V
-  Wearable?  → WEARABLE.md sections A-Z (2217 lignes)
+  Mobile?    → MOBILE.md sections A-AR (5573 lignes, 119 subsections)
+  Web?       → WEB.md sections A-AL (5174 lignes, 175 subsections)
+  Wearable?  → WEARABLE.md sections A-AC (5634 lignes, 120+ subsections)
   Les deux+  → Croiser les fichiers concernes
 ```
+
+---
+
+### Index WEB.md (recherche rapide)
+
+| Besoin | Section | # |
+|--------|---------|---|
+| Loading states, skeleton, optimistic UI | A. Etats & Feedback | 1-5 |
+| Empty states, error messages, success | A. Etats & Feedback | 2-4 |
+| Disabled states | A. Etats & Feedback | 5 |
+| Navigation, breadcrumbs, back behavior | B. Flux utilisateur | 6 |
+| Onboarding, progressive disclosure | B. Flux utilisateur | 7-8 |
+| Wizard, multi-step forms | B. Flux utilisateur | 9 |
+| Search, autocomplete, filters | B. Flux utilisateur | 10 |
+| Forms, labels, validation inline | C. Interactions | 11 |
+| Actions, confirmations, undo, dialogs | C. Interactions | 12 |
+| Selections (radio, checkbox, range) | C. Interactions | 13 |
+| Drag & drop | C. Interactions | 14 |
+| Data display, tables, pagination | D. Information | 16 |
+| Notifications (web) | D. Information | 17 |
+| Help & support, chatbot | D. Information | 18 |
+| Trust patterns, social proof, prix | E. Confiance | 19 |
+| Privacy, consent, GDPR basique | E. Confiance | 20 |
+| WCAG 2.2 touch targets (24px/44px) | F. Accessibilite | 21 |
+| Contraste (4.5:1 text, 3:1 UI) | F. Accessibilite | 22 |
+| Focus clavier (outline, trap, order) | F. Accessibilite | 23-24 |
+| Pointeur, gestes, drag alternatives | F. Accessibilite | 25 |
+| Texte reflow, resize 200%, spacing | F. Accessibilite | 26 |
+| Animation, reduced motion, flashes | F. Accessibilite | 27 |
+| Changements de contexte | F. Accessibilite | 28 |
+| Structure page (skip link, headings) | F. Accessibilite | 29 |
+| Formulaires accessibles, autocomplete | F. Accessibilite | 30 |
+| ARIA, roles, status messages | F. Accessibilite | 31 |
+| Couleurs HSB, variations, hue shift | G. Couleurs HSB | 32-35 |
+| Spacing 4px, marges, grille 12 col | H. Espacement | 36-42 |
+| Tutoriel invisible "Mario" | I. Checklist Mario | 43-48 |
+| Densite, typography fluide, tokens | J. Ajouts 2024-2026 | 49-61 |
+| Checkout benchmarks Baymard | J. Ajouts 2024-2026 | 55-57 |
+| Premium feel, 10 erreurs "meh" | Premium Feel | 60-61 |
+| Data viz, charts, sparklines, dashboard | K. Data Viz | 62-69 |
+| Microcopy, labels boutons, ton | L. Microcopy | 70-71 |
+| i18n, expansion texte, RTL, formats | M. i18n | 72-74 |
+| Gamification (streaks, PBL, loops) | N. Gamification | 75-77 |
+| Tables, data grids, sorting, responsive | O. Tables | 78-82 |
+| Settings, toggle vs checkbox, destructive | P. Settings | 83-85 |
+| Search UX, autocomplete, no results | Q. Search | 86-89 |
+| Loading, skeleton, optimistic, offline | R. Loading | 90-93 |
+| Dark mode surfaces, text, implementation | S. Dark Mode | 94-96 |
+| Modals, bottom sheets, sizing, a11y | T. Modals | 97-100 |
+| Animations, easing, micro-interactions | U. Animations | 101-104 |
+| Onboarding types, permissions, empty | V. Onboarding | 105-108 |
+| **Core Web Vitals (LCP, CLS, INP)** | **W. Performance** | **109** |
+| Critical rendering path, CSS/JS loading | W. Performance | 110 |
+| Font loading (swap, optional, preload) | W. Performance | 111 |
+| Image optimization (WebP, AVIF, srcset) | W. Performance | 112 |
+| Code splitting, bundle, tree shaking | W. Performance | 113 |
+| Service workers, caching strategies | W. Performance | 114 |
+| Above-the-fold, performance budget | W. Performance | 115 |
+| **PWA manifest, icons, display modes** | **X. PWA** | **116** |
+| Service worker lifecycle, update UX | X. PWA | 117 |
+| Install prompt (beforeinstallprompt) | X. PWA | 118 |
+| Offline-first patterns, app shell | X. PWA | 119 |
+| Push notifications web (VAPID) | X. PWA | 120 |
+| Web Share API, App Badge | X. PWA | 121 |
+| **Container queries** | **Y. Responsive** | **122** |
+| CSS Grid advanced, subgrid, named areas | Y. Responsive | 123 |
+| Fluid typography (clamp) | Y. Responsive | 124 |
+| Breakpoint strategy, touch/pointer | Y. Responsive | 125 |
+| Responsive tables, responsive images | Y. Responsive | 126 |
+| **Login form, social login, magic link** | **Z. Auth** | **127** |
+| Registration flow, password strength | Z. Auth | 128 |
+| 2FA/MFA UX (SMS, TOTP, passkey) | Z. Auth | 129 |
+| Session management, timeout warning | Z. Auth | 130 |
+| Passkeys, WebAuthn | Z. Auth | 131 |
+| **Product page, cart, checkout** | **AA. E-commerce** | **132-134** |
+| Pricing page design (SaaS tiers) | AA. E-commerce | 135 |
+| Order confirmation, tracking, returns | AA. E-commerce | 136 |
+| **Hero section patterns** | **AB. Landing** | **137** |
+| Social proof placement | AB. Landing | 138 |
+| CTA hierarchy & placement | AB. Landing | 139 |
+| Footer patterns | AB. Landing | 140 |
+| **404, 500, 503, 429 error pages** | **AC. Error Pages** | **141-142** |
+| Browser fallbacks, print stylesheet | AC. Error Pages | 143 |
+| **File upload, drop zone, progress** | **AD. Upload** | **144-145** |
+| Gallery, carousel, video player | AD. Upload | 146 |
+| **Map integration, lazy loading** | **AE. Maps** | **147** |
+| Location permission UX, address autocomplete | AE. Maps | 148 |
+| **WebSocket UX, reconnection** | **AF. Real-time** | **149** |
+| Presence indicators, live cursors | AF. Real-time | 150 |
+| Chat patterns, message states | AF. Real-time | 151 |
+| **CRUD interfaces, delete confirmation** | **AG. Admin** | **152** |
+| Data tables bulk operations | AG. Admin | 153 |
+| Dashboard layout, KPI cards, sidebar | AG. Admin | 154 |
+| **Mega menu, hover intent** | **AH. Navigation** | **155** |
+| Command palette (Cmd+K) | AH. Navigation | 156 |
+| Breadcrumbs, sticky header show/hide | AH. Navigation | 157 |
+| **Cookie banner, GDPR consent** | **AI. GDPR** | **158** |
+| Privacy & data rights (delete, export) | AI. GDPR | 159 |
+| **Rich text editor, toolbar patterns** | **AJ. Rich Text** | **160** |
+| Draft, autosave, version history | AJ. Rich Text | 161 |
+| **Share buttons, comments, reactions** | **AK. Social** | **162** |
+| User profiles, activity feed | AK. Social | 163 |
+| **Memo rapide: performance budgets** | **AL. Valeurs Cles** | **164** |
+| Breakpoints, z-index scale | AL. Valeurs Cles | 165-166 |
+| Typography scale, spacing scale | AL. Valeurs Cles | 167-168 |
+| Animation timings, WCAG reference | AL. Valeurs Cles | 169-170 |
+| Media queries, autocomplete, HTTP codes | AL. Valeurs Cles | 171-174 |
+| Minimum dimensions reference | AL. Valeurs Cles | 175 |
+
+---
+
+### Index MOBILE.md (recherche rapide)
+
+| Besoin | Section | # |
+|--------|---------|---|
+| Touch targets iOS (44pt) | A. iOS HIG | 1 |
+| Layout margins, safe areas iOS | A. iOS HIG | 2-3 |
+| Typography SF Pro, Dynamic Type | A. iOS HIG | 4 |
+| Tab bar iOS, navigation iOS | A. iOS HIG | 5-6 |
+| Composants iOS dimensions | A. iOS HIG | 7 |
+| Touch targets Android (48dp) | B. Android M3 | 8 |
+| Spacing 8dp, typography Roboto M3 | B. Android M3 | 9-10 |
+| Bottom navigation, drawer Android | B. Android M3 | 11-12 |
+| Composants Android dimensions | B. Android M3 | 13 |
+| Pull-to-refresh | C. Patterns Universels | 14 |
+| Bottom sheets mobile | C. Patterns Universels | 15 |
+| FAB (Floating Action Button) | C. Patterns Universels | 16 |
+| Snackbar & toast | C. Patterns Universels | 17 |
+| Gestes standards mobile | C. Patterns Universels | 18 |
+| Push notifications mobile | C. Patterns Universels | 19 |
+| Etats de chargement mobile | C. Patterns Universels | 20 |
+| Tab bar vs bottom nav vs drawer | D. Navigation | 21 |
+| App bars comparatif iOS/Android | D. Navigation | 22 |
+| VoiceOver / TalkBack | E. Accessibilite | 23 |
+| Modes accessibilite (text, contrast, motion) | E. Accessibilite | 24 |
+| Touch targets tableau final | F. Dimensions | 25 |
+| Composants tableau comparatif | F. Dimensions | 26 |
+| Audit rapide 10 points, tests | G. Checklist | 27-28 |
+| Dark mode couleurs semantiques, elevation | H. Dark Mode | 29-30 |
+| Haptics (impact, notification, selection) | I. Haptics | 31 |
+| Animation durees, easing iOS/Android | J. Animations | 32 |
+| Keyboard handling | K. Keyboard | 33 |
+| Autofill, types clavier, validation | L. Forms | 34-35 |
+| Face ID, Touch ID, fingerprint | M. Biometrics | 36 |
+| Demande de permissions (timing, flow) | N. Permissions | 37 |
+| Offline mode, sync, connectivity | O. Offline | 38 |
+| Splash / Launch screens | P. Splash | 39 |
+| Empty states mobile | Q. Empty States | 40 |
+| Tablets, iPad, multi-window | R. Tablets | 41 |
+| Foldables Android, postures, hinge | S. Foldables | 42 |
+| Spring animations, cross-env nav | T. Ajouts 2024-2026 | 43-46 |
+| Quick reference valeurs critiques | U. Quick Reference | - |
+| i18n mobile, RTL, formats locaux | V. i18n | 47-49 |
+| Gamification (streaks, PBL, loops) | W. Gamification | 50-52 |
+| Settings mobile (architecture, toggle) | X. Settings | 53-55 |
+| Search mobile (input, autocomplete) | Y. Search | 56-58 |
+| Animations mobile (timing, micro, reduce) | Z. Animations | 59-61 |
+| **iOS Universal Links, Android App Links** | **AA. Deep Linking** | **62-63** |
+| Deferred deep links, routing, debugging | AA. Deep Linking | 64-66 |
+| **WidgetKit iOS, Jetpack Glance Android** | **AB. Widgets** | **67-68** |
+| Widget design, interactive widgets | AB. Widgets | 69-70 |
+| Lock screen widgets iOS 16+ | AB. Widgets | 71 |
+| **Live Activities iOS, Dynamic Island** | **AC. Live Activities** | **72-73** |
+| ActivityKit, ongoing notifications Android | AC. Live Activities | 74-75 |
+| **App Clips iOS, Instant Apps Android** | **AD. App Clips** | **76-77** |
+| Size limits, auth in clips | AD. App Clips | 78 |
+| **StoreKit 2, Play Billing** | **AE. In-App Purchases** | **79** |
+| Paywall design (soft vs hard) | AE. In-App Purchases | 80 |
+| Subscription tiers, free trial, cancel | AE. In-App Purchases | 81-82 |
+| **App icon guidelines (1024x1024, adaptive)** | **AF. ASO** | **83** |
+| Screenshots, preview videos, keywords | AF. ASO | 84 |
+| Review prompt timing (SKStoreReview) | AF. ASO | 85 |
+| Privacy labels, Data safety | AF. ASO | 86 |
+| **Share extension iOS/Android** | **AG. Share** | **87** |
+| Quick Actions, Home shortcuts | AG. Share | 88 |
+| App Intents, Siri Shortcuts | AG. Share | 89 |
+| Photo/Document picker (PHPicker, SAF) | AG. Share | 90 |
+| **Camera permission, viewfinder, capture** | **AH. Camera** | **91** |
+| QR/Barcode scanning, image editing | AH. Camera | 92-93 |
+| ARKit / ARCore patterns | AH. Camera | 94 |
+| **MapKit, Google Maps SDK** | **AI. Maps** | **95** |
+| Location permission (Always vs When In Use) | AI. Maps | 96 |
+| Geofencing, store locator, offline maps | AI. Maps | 97 |
+| **BGTaskScheduler iOS, WorkManager Android** | **AJ. Background** | **98** |
+| Background location, silent push, battery | AJ. Background | 99 |
+| **CoreData/SwiftData, Room/DataStore** | **AK. Data** | **100** |
+| Keychain, EncryptedSharedPreferences | AK. Data | 101 |
+| CloudKit/Firebase sync, data migration | AK. Data | 102 |
+| **Certificate pinning, jailbreak detection** | **AL. Security** | **103** |
+| Play Integrity API, OWASP Mobile Top 10 | AL. Security | 104 |
+| Data encryption at rest | AL. Security | 105 |
+| **UI testing (XCUITest, Espresso, Maestro)** | **AM. Testing** | **106** |
+| Snapshot testing (swift-snapshot, Paparazzi) | AM. Testing | 107 |
+| Performance profiling, crash monitoring | AM. Testing | 108 |
+| **Navigation architecture, state restoration** | **AN. Architecture** | **109** |
+| Feature flags, remote config, kill switch | AN. Architecture | 110 |
+| **iOS app icon system, iOS 18 variants** | **AO. App Identity** | **111** |
+| Android adaptive icons, splash screen API | AO. App Identity | 112 |
+| **Apple Handoff, NSUserActivity** | **AP. Multi-Device** | **113** |
+| Cross-device sync, conflict resolution | AP. Multi-Device | 114 |
+| Companion device patterns (phone+watch) | AP. Multi-Device | 115 |
+| **Switch Control, Voice Access** | **AQ. Accessibility** | **116** |
+| Dynamic Type extreme (AX5), layout adapt | AQ. Accessibility | 117 |
+| Smart Invert, high contrast, bold text | AQ. Accessibility | 118 |
+| **Memo rapide: touch, typo, anim, colors** | **AR. Valeurs Cles** | **119-124** |
+| Component size comparison iOS/Android | AR. Valeurs Cles | 122 |
+| Platform-specific values (status bar, etc) | AR. Valeurs Cles | 123 |
+| Checklist rapide universel mobile | AR. Valeurs Cles | 124 |
+
+---
 
 ### Index WEARABLE.md (recherche rapide)
 
