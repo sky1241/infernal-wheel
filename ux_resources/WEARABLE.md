@@ -5632,3 +5632,2639 @@ Le projet [Horologist](https://google.github.io/horologist/) fournit des helpers
 
 *Bible UX Wearable - Mise a jour mars 2026*
 *Sources: [Android Developers](https://developer.android.com/wear), [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/designing-for-watchos), [Samsung Developer](https://developer.samsung.com/one-ui-watch), [GSMArena](https://www.gsmarena.com), [Wear OS App Quality](https://developer.android.com/docs/quality-guidelines/wear-app-quality), [Color Roles M3](https://developer.android.com/design/ui/wear/guides/styles/color/roles-tokens), [NNGroup](https://www.nngroup.com/articles/smartwatch-interactions/), [PMC](https://pmc.ncbi.nlm.nih.gov/articles/PMC11054424/), [Ongoing Activity API](https://developer.android.com/training/wearables/notifications/ongoing-activity), [RemoteActivityHelper](https://developer.android.com/reference/androidx/wear/remote/interactions/RemoteActivityHelper), [WCSession](https://developer.apple.com/documentation/watchconnectivity/wcsession), [NNGroup Omnichannel](https://www.nngroup.com/articles/seamless-cross-channel/), [NNGroup Apple Watch](https://www.nngroup.com/articles/smartwatch/)*
+
+## AD. Workout & Exercise Tracking UI
+
+> Patterns UI pour le suivi d'exercice en temps reel sur montre connectee.
+> Sources: [Health Services API](https://developer.android.com/health-and-fitness/guides), [Apple HealthKit Workouts](https://developer.apple.com/documentation/healthkit/workouts_and_activity_rings), [Wear OS Exercise](https://developer.android.com/training/wearables/health-services/exercise)
+
+### 55. Real-Time Metrics Layout
+
+**Principe:** L'ecran d'exercice actif doit afficher 2-4 metriques simultanement selon le sport. Au-dela de 4, paginer verticalement.
+
+**Layout recommande par sport:**
+
+| Sport | Champ 1 (haut) | Champ 2 (centre) | Champ 3 (bas) | Champ 4 (optionnel) |
+|-------|----------------|-------------------|----------------|----------------------|
+| **Course** | Temps ecoule | Rythme (min/km) | Distance | FC (zone couleur) |
+| **Velo** | Temps | Vitesse (km/h) | Distance | FC |
+| **Natation** | Temps | Longueurs | Distance | SWOLF |
+| **HIIT** | Timer interval | Repetitions | FC | Calories |
+| **Marche** | Temps | Pas | Distance | FC |
+| **Musculation** | Set / Rep | Temps repos | FC | Exercice nom |
+| **Yoga** | Temps total | FC | Calories | - |
+
+**Tailles de police recommandees:**
+
+| Element | Taille | Poids |
+|---------|--------|-------|
+| Metrique principale (temps/distance) | 32-40 sp | Bold |
+| Metrique secondaire | 20-24 sp | Medium |
+| Label (ex: "PACE") | 12-14 sp | Regular, 70% opacite |
+| Unite (km, bpm) | 12-14 sp | Regular |
+
+### 55b. HR Zone Color Coding
+
+**5 zones standard (pourcentage de FC max):**
+
+| Zone | Nom | % FC Max | Couleur Wear OS (M3) | Couleur watchOS | Hex |
+|------|-----|----------|----------------------|-----------------|-----|
+| 1 | Echauffement | 50-60% | `colorTertiaryDim` | `.blue` | #64B5F6 |
+| 2 | Brulage graisse | 60-70% | `colorPrimary` | `.green` | #81C784 |
+| 3 | Cardio | 70-80% | `colorSecondary` | `.yellow` | #FFD54F |
+| 4 | Seuil | 80-90% | `colorError` dim | `.orange` | #FFB74D |
+| 5 | VO2 Max | 90-100% | `colorError` | `.red` | #E57373 |
+
+**Code Compose for Wear OS - Zone display:**
+```kotlin
+@Composable
+fun HrZoneIndicator(currentBpm: Int, maxHr: Int) {
+    val percentage = (currentBpm.toFloat() / maxHr * 100).toInt()
+    val zone = when {
+        percentage < 60 -> HrZone(1, "WARM UP", Color(0xFF64B5F6))
+        percentage < 70 -> HrZone(2, "FAT BURN", Color(0xFF81C784))
+        percentage < 80 -> HrZone(3, "CARDIO", Color(0xFFFFD54F))
+        percentage < 90 -> HrZone(4, "THRESHOLD", Color(0xFFFFB74D))
+        else            -> HrZone(5, "VO2 MAX", Color(0xFFE57373))
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(4.dp)
+            .background(zone.color, RoundedCornerShape(2.dp))
+    )
+    Text(
+        text = "${zone.name} Z${zone.number}",
+        color = zone.color,
+        fontSize = 12.sp,
+        modifier = Modifier.padding(top = 2.dp)
+    )
+}
+```
+
+**SwiftUI watchOS:**
+```swift
+struct HRZoneBar: View {
+    let currentBPM: Int
+    let maxHR: Int
+
+    var zoneColor: Color {
+        let pct = Double(currentBPM) / Double(maxHR)
+        switch pct {
+        case ..<0.6:  return .blue
+        case ..<0.7:  return .green
+        case ..<0.8:  return .yellow
+        case ..<0.9:  return .orange
+        default:      return .red
+        }
+    }
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 2)
+            .fill(zoneColor)
+            .frame(height: 4)
+    }
+}
+```
+
+### 55c. Auto-Pause & GPS Lock
+
+**Auto-pause UX:**
+- Detecter arret (vitesse < 1 km/h pendant 3-5s pour course)
+- Afficher etat "PAUSED" clairement (texte large + fond dim)
+- Reprise auto quand mouvement reprend
+- Haptic feedback a la pause (1 vibration courte) et reprise (2 vibrations courtes)
+- Timer fige visuellement (opacite reduite ou clignotement lent 1Hz)
+
+**GPS lock indicator:**
+
+| Etat | Icone | Couleur | Comportement |
+|------|-------|---------|-------------|
+| Recherche GPS | Satellite animé pulse | Gris 50% | "Acquisition GPS..." |
+| GPS fixe faible (>10m) | Satellite statique | Jaune | Tracking actif |
+| GPS fixe bon (<10m) | Satellite plein | Vert | Tracking optimal |
+| GPS perdu | Satellite barre | Rouge | "Signal GPS perdu" |
+
+**ExerciseClient binding (Wear OS Health Services):**
+```kotlin
+val exerciseClient = HealthServices.getClient(context).exerciseClient
+
+// Verifier capacites
+val capabilities = exerciseClient.getCapabilitiesAsync().await()
+val runCaps = capabilities.getExerciseTypeCapabilities(ExerciseType.RUNNING)
+
+// Configurer exercice
+val config = ExerciseConfig.builder(ExerciseType.RUNNING)
+    .setDataTypes(setOf(
+        DataType.HEART_RATE_BPM,
+        DataType.DISTANCE_TOTAL,
+        DataType.SPEED,
+        DataType.LOCATION
+    ))
+    .setIsAutoPauseAndResumeEnabled(true)
+    .setIsGpsEnabled(true)
+    .build()
+
+exerciseClient.startExerciseAsync(config).await()
+```
+
+### 55d. Lap/Split & Segment Display
+
+**Lap screen layout:**
+- Swipe horizontal (ou bouton physique) pour marquer un tour
+- Haptic confirmation: double tap court (50ms + 50ms)
+- Afficher pendant 2s en overlay: "LAP 3 — 4:32"
+- Liste des laps accessible par swipe vertical depuis l'ecran principal
+
+**Natation segments:**
+- Auto-detection retournement (accelerometre)
+- Affichage: longueur actuelle / total, style detecte (crawl/brasse/dos/papillon)
+- Repos entre series: timer automatique
+
+### 55e. Lock Screen During Workout
+
+**Wear OS:** Water Lock desactive le tactile ; bouton physique seul controle
+**watchOS:** Water Lock via `WKInterfaceDevice.current().enableWaterLock()`
+
+**Regle:** Toujours proposer le verrouillage pour les sports aquatiques et les sports a contact (eviter les touches accidentelles).
+
+### 55f. Post-Workout Summary
+
+**Contenu minimum:**
+| Metrique | Format |
+|----------|--------|
+| Duree totale | HH:MM:SS |
+| Distance | X.XX km |
+| Rythme moyen | M:SS /km |
+| FC moyenne / max | XXX / XXX bpm |
+| Calories | XXX kcal |
+| Carte (si GPS) | Trace miniature |
+| Zones FC | Bar chart horizontal |
+
+**Interaction:** Scroll vertical pour toutes les metriques. Bouton "Save" en bas. Bouton "Discard" avec confirmation.
+
+### 55g. Platform Comparison
+
+| Aspect | Wear OS | watchOS |
+|--------|---------|---------|
+| API | Health Services ExerciseClient | HKWorkoutSession + HKLiveWorkoutBuilder |
+| Auto-pause | `setIsAutoPauseAndResumeEnabled(true)` | `HKWorkoutSession.pause()` auto via motion |
+| GPS | `setIsGpsEnabled(true)` | Automatique si `HKWorkoutActivityType` le requiert |
+| Background | Ongoing Activity obligatoire | Session active = background garanti |
+| Lock screen | Water lock manual | Water Lock + Crown to unlock |
+| Zones FC | A implementer manuellement | Zones natives dans `HKWorkoutBuilder` |
+| Multi-sport | `ExerciseType` enum (50+ types) | `HKWorkoutActivityType` (80+ types) |
+
+### Checklist Workout UI
+
+- ✅ Afficher max 4 metriques par page, paginer au-dela
+- ✅ Couleur HR zone visible en permanence (barre ou fond)
+- ✅ Auto-pause avec feedback haptic distinct pause/reprise
+- ✅ GPS lock indicator avant de demarrer le tracking
+- ✅ Ongoing Activity (Wear OS) pour garder le foreground
+- ✅ Lock screen proposé pour sports aquatiques
+- ✅ Post-workout summary scrollable avec option save/discard
+- ❌ Ne pas afficher plus de 5 metriques sur un seul ecran
+- ❌ Ne pas utiliser de petites polices (<12sp) pour les metriques actives
+- ❌ Ne pas masquer le timer principal — toujours visible
+
+**Anti-patterns:**
+1. **Dashboard surcharge** — 6+ metriques dans un seul ecran, illisible en mouvement
+2. **Pas de GPS feedback** — L'utilisateur demarre la course sans savoir si le GPS est acquis
+3. **Pause silencieuse** — Auto-pause sans haptic = confusion, l'utilisateur ne sait pas si le tracking continue
+
+**Source:** [Health Services on Wear OS](https://developer.android.com/training/wearables/health-services), [Apple Workout API](https://developer.apple.com/documentation/healthkit/hkworkoutsession), [Wear OS App Quality](https://developer.android.com/docs/quality-guidelines/wear-app-quality)
+
+---
+
+## AE. Heart Rate & Health Data Display
+
+> Patterns d'affichage des donnees de sante (FC, SpO2, stress, temperature, ECG).
+> Sources: [Health Services API](https://developer.android.com/training/wearables/health-services), [Apple HealthKit](https://developer.apple.com/documentation/healthkit), [Samsung Health Sensor SDK](https://developer.samsung.com/health/sensor-sdk)
+
+### 56. Continuous HR Graph (Sparkline)
+
+**Contraintes ecran rond:**
+- Largeur graphe: 70-80% du diametre ecran
+- Hauteur graphe: 40-50 dp max
+- Points de donnee affiches: 20-30 (dernieres 5-10 minutes)
+- Epaisseur ligne: 2-3 dp
+- Pas d'axes visibles (trop petit) — utiliser couleur de zone comme reference
+
+**Code Compose sparkline:**
+```kotlin
+@Composable
+fun HrSparkline(
+    readings: List<Int>, // derniers 30 BPM
+    modifier: Modifier = Modifier
+) {
+    val zoneColor = hrZoneColor(readings.lastOrNull() ?: 0)
+    Canvas(modifier = modifier.height(40.dp).fillMaxWidth(0.75f)) {
+        if (readings.size < 2) return@Canvas
+        val min = (readings.min() - 10).coerceAtLeast(40)
+        val max = (readings.max() + 10).coerceAtMost(220)
+        val path = Path()
+        readings.forEachIndexed { i, bpm ->
+            val x = i * size.width / (readings.size - 1)
+            val y = size.height - ((bpm - min).toFloat() / (max - min) * size.height)
+            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        drawPath(path, color = zoneColor, style = Stroke(width = 2.dp.toPx()))
+    }
+}
+```
+
+**SwiftUI watchOS sparkline:**
+```swift
+struct HRSparkline: View {
+    let readings: [Int]
+
+    var body: some View {
+        Chart(Array(readings.enumerated()), id: \.offset) { index, bpm in
+            LineMark(
+                x: .value("Time", index),
+                y: .value("BPM", bpm)
+            )
+            .foregroundStyle(zoneColor(for: bpm))
+            .lineStyle(StrokeStyle(lineWidth: 2))
+        }
+        .chartXAxis(.hidden)
+        .chartYAxis(.hidden)
+        .frame(height: 40)
+        .padding(.horizontal)
+    }
+}
+```
+
+### 56b. HR Zone Visualization Table
+
+| Zone | Plage BPM (age 30, max ~190) | Couleur | Utilite |
+|------|------------------------------|---------|---------|
+| 1 — Rest/Light | 95-114 bpm (50-60%) | #64B5F6 Bleu | Recuperation active |
+| 2 — Fat Burn | 114-133 bpm (60-70%) | #81C784 Vert | Endurance de base |
+| 3 — Cardio | 133-152 bpm (70-80%) | #FFD54F Jaune | Amelioration aerobique |
+| 4 — Hard | 152-171 bpm (80-90%) | #FFB74D Orange | Seuil lactique |
+| 5 — Peak | 171-190 bpm (90-100%) | #E57373 Rouge | Sprint / VO2max |
+
+**Formule FC max:** 220 - age (Tanaka: 208 - 0.7 × age pour plus de precision)
+
+### 56c. Resting HR Trend
+
+**Affichage:**
+- Graphique 7 jours / 30 jours (toggle via tap ou swipe horizontal)
+- Valeur actuelle en grand (32sp bold), tendance en petit (14sp, "↓ 3 bpm vs semaine derniere")
+- Ligne de reference: moyenne 30 jours en pointille (1dp, 40% opacite)
+
+**Seuils d'alerte (adulte):**
+
+| Condition | Seuil | Action UX |
+|-----------|-------|-----------|
+| FC repos normale | 60-100 bpm | Affichage standard |
+| Bradycardie potentielle | < 40 bpm (10 min) | Notification + vibration |
+| Tachycardie repos | > 120 bpm (10 min au repos) | Notification urgente |
+| FC irreguliere | Variation > 20% sans activite | Notification douce |
+
+### 56d. Abnormal HR Alert UX
+
+**Flow d'alerte FC elevee:**
+1. Detection: FC > seuil pendant duree configuree
+2. Haptic: 3 taps longs (600ms each, 200ms gap)
+3. Ecran: fond rouge dim (#E57373 a 20%), icone coeur, "Frequence cardiaque elevee: 142 bpm"
+4. Actions: "OK" (dismiss) + "Details" (historique)
+5. Log dans historique sante
+
+**Regle critique:** Ne JAMAIS utiliser le mot "danger" ou "urgence" pour une alerte FC elevee non confirmee. Formuler: "Votre frequence cardiaque semble elevee pour votre niveau d'activite actuel."
+
+### 56e. SpO2 & Blood Oxygen
+
+**Ecran de mesure "Keep Still":**
+- Fond sombre, icone poumon/O2
+- Texte: "Restez immobile. Mesure en cours..." (16sp)
+- Barre de progression circulaire (15-30 secondes)
+- Bras doit rester plat, montre bien positionnee
+
+**Affichage resultat:**
+| SpO2 | Couleur | Label |
+|------|---------|-------|
+| 95-100% | Vert | Normal |
+| 90-94% | Jaune | Bas — consulter si persistant |
+| < 90% | Rouge | Tres bas — avis medical |
+
+### 56f. ECG Recording Flow
+
+**Apple Watch (Series 4+):**
+1. Ouvrir app ECG → "Posez le doigt sur la Digital Crown"
+2. Timer 30 secondes, trace ECG en temps reel
+3. Resultat: "Rythme sinusal" / "Fibrillation auriculaire" / "Non concluant"
+4. Option: exporter PDF vers Health
+
+**Galaxy Watch (Watch 4+, Samsung Health Monitor):**
+1. Ouvrir Samsung Health Monitor → "Posez le doigt sur le capteur arriere"
+2. Timer 30 secondes
+3. Resultat similaire
+4. Restrictions geographiques (approuve par pays)
+
+### 56g. Real-Time vs Historical Toggle
+
+**Pattern recommande:**
+- Ecran principal: valeur temps reel (gros chiffre, mise a jour chaque seconde)
+- Swipe vertical bas: graphe historique (dernieres 24h / 7j / 30j)
+- Ne PAS melanger temps reel et historique sur le meme ecran (confusion)
+
+### Platform Comparison
+
+| Aspect | Wear OS | watchOS |
+|--------|---------|---------|
+| HR continu | `HeartRateAccuracy` via Health Services | `HKQuantityType.heartRate` via workout/background |
+| SpO2 | `DataType.SPO2` (Health Services) | `HKQuantityType.oxygenSaturation` |
+| ECG | Samsung Health Monitor SDK (restreint) | `HKElectrocardiogram` (natif) |
+| Temperature | `SKIN_TEMPERATURE` (Wear OS 5+) | `HKQuantityType.appleSleepingWristTemperature` |
+| Alerte FC | A implementer manuellement | Alertes HR native dans Settings |
+| Autorisation | `BODY_SENSORS` permission | HealthKit authorization dialog |
+
+### Checklist Health Data Display
+
+- ✅ Sparkline adaptee ecran rond (70-80% largeur, 40dp hauteur)
+- ✅ Couleur de zone HR toujours contextuelle
+- ✅ Seuils d'alerte configurables par l'utilisateur
+- ✅ Ecran "restez immobile" pour SpO2 avec progression
+- ✅ Separer temps reel et historique (ecrans distincts)
+- ✅ Formulation non-alarmiste pour les alertes
+- ❌ Ne pas diagnostiquer — toujours "consulter un professionnel"
+- ❌ Ne pas afficher ECG sans disclaimer reglementaire
+- ❌ Ne pas vibrer en continu pour alerte FC (3 taps puis stop)
+
+**Anti-patterns:**
+1. **Diagnostic medical implicite** — Afficher "Vous avez de la fibrillation" sans disclaimer
+2. **Graphe illisible** — Axes, legende, grille sur 1.3" → bruit visuel total
+3. **Alerte fatigue** — Vibrer toutes les 5 minutes pour FC elevee pendant l'exercice
+
+**Source:** [Health Services Wear OS](https://developer.android.com/training/wearables/health-services), [Apple HealthKit](https://developer.apple.com/documentation/healthkit), [Samsung Health Monitor](https://developer.samsung.com/health/monitor-sdk)
+
+---
+
+## AF. Sleep Tracking UI
+
+> Patterns d'affichage et interaction pour le suivi du sommeil sur montre connectee.
+> Sources: [Apple Sleep Tracking](https://developer.apple.com/documentation/healthkit/hkcategoryvaluesleepanalysis), [Google Sleep API](https://developer.android.com/training/wearables/health-services/passive), [NNGroup](https://www.nngroup.com/articles/smartwatch-interactions/)
+
+### 57. Sleep Stage Visualization
+
+**Couleurs par stade de sommeil:**
+
+| Stade | Couleur | Hex | Position (axe Y, haut = leger) |
+|-------|---------|-----|-------------------------------|
+| Eveille | Rouge clair | #EF9A9A | 4 (haut) |
+| REM | Bleu clair | #90CAF9 | 3 |
+| Sommeil leger | Indigo moyen | #7986CB | 2 |
+| Sommeil profond | Indigo fonce | #3949AB | 1 (bas) |
+
+**Hypnogramme sur ecran rond:**
+- Largeur: 80% du diametre
+- Hauteur: 50-60 dp
+- Axe X = temps (22h → 7h), sans labels (trop petit)
+- Axe Y = stade (4 niveaux), barres empilees ou stepped line
+- Couleur de fond: noir pur (#000000) pour AMOLED
+
+**Code Compose hypnogram simplifie:**
+```kotlin
+@Composable
+fun SleepHypnogram(
+    stages: List<SleepStage>, // (startTime, endTime, stage)
+    modifier: Modifier = Modifier
+) {
+    val colors = mapOf(
+        Stage.AWAKE to Color(0xFFEF9A9A),
+        Stage.REM to Color(0xFF90CAF9),
+        Stage.LIGHT to Color(0xFF7986CB),
+        Stage.DEEP to Color(0xFF3949AB)
+    )
+    Canvas(modifier = modifier.height(50.dp).fillMaxWidth(0.8f)) {
+        val totalDuration = stages.sumOf { it.durationMs }
+        var xOffset = 0f
+        stages.forEach { stage ->
+            val width = (stage.durationMs.toFloat() / totalDuration) * size.width
+            val yTop = when (stage.type) {
+                Stage.AWAKE -> 0f
+                Stage.REM   -> size.height * 0.25f
+                Stage.LIGHT -> size.height * 0.50f
+                Stage.DEEP  -> size.height * 0.75f
+            }
+            drawRect(
+                color = colors[stage.type]!!,
+                topLeft = Offset(xOffset, yTop),
+                size = Size(width, size.height - yTop)
+            )
+            xOffset += width
+        }
+    }
+}
+```
+
+**SwiftUI watchOS:**
+```swift
+struct SleepHypnogram: View {
+    let stages: [SleepStage]
+
+    var body: some View {
+        GeometryReader { geo in
+            HStack(spacing: 0) {
+                ForEach(stages) { stage in
+                    Rectangle()
+                        .fill(stage.color)
+                        .frame(width: geo.size.width * stage.proportion)
+                        .frame(height: geo.size.height, alignment: .bottom)
+                        .frame(height: stage.heightFraction * geo.size.height)
+                }
+            }
+        }
+        .frame(height: 50)
+        .padding(.horizontal)
+    }
+}
+```
+
+### 57b. Sleep Score Display
+
+**Layout recommande:**
+- Score en grand au centre: 72-96 dp, bold (ex: "85")
+- Label sous le score: "Sleep Score" (14sp)
+- Arc circulaire autour du score (gauge 0-100):
+  - 0-50: Rouge
+  - 51-70: Orange
+  - 71-85: Vert clair
+  - 86-100: Vert
+- Sous-metriques en scroll: duree, efficacite, regularity
+
+### 57c. Night Mode (DND automatique)
+
+**Comportement recommande (11pm - 7am par defaut):**
+
+| Propriete | Valeur |
+|-----------|--------|
+| Luminosite ecran | ≤ 10% ou niveau 1 |
+| Always-On Display | Desactive ou minimal (heure seule) |
+| Haptics | Desactivees (sauf alarme) |
+| Notifications | Silencieuses, pas d'ecran allume |
+| Couleur dominante | Rouge fonce / gris sombre |
+| Raise-to-wake | Desactive |
+| Touch-to-wake | Desactive (bouton physique uniquement) |
+
+**Wear OS:**
+```kotlin
+// Activer Bedtime mode via DND
+val notificationManager = getSystemService(NotificationManager::class.java)
+notificationManager.setInterruptionFilter(
+    NotificationManager.INTERRUPTION_FILTER_NONE // ou ALARMS only
+)
+```
+
+**watchOS:** Sleep Focus automatique via `HKCategoryValueSleepAnalysis` detection.
+
+### 57d. Bedtime Reminder & Morning Summary
+
+**Bedtime reminder:**
+- 30 minutes avant heure cible (configurable)
+- Notification douce: 1 haptic tap, ecran: "Bientot l'heure de dormir"
+- Action: "Activer mode nuit" (one-tap)
+
+**Morning summary notification:**
+- Affichee au premier raise-to-wake apres reveil detecte
+- Contenu: score, duree, stades (mini hypnogramme), "Vous avez dormi 7h23"
+- Action: "Details" → ecran complet ou handoff phone
+
+### 57e. Snoring Detection Display
+
+- Indicateur: microphone actif pendant la nuit (icone discrete)
+- Resultat matin: "Ronflements detectes: 23 min (3 episodes)"
+- Audio snippets disponibles sur le telephone (pas sur la montre)
+- Disclaimer: "A titre informatif uniquement, ne constitue pas un diagnostic"
+
+### Platform Comparison
+
+| Aspect | Wear OS | watchOS |
+|--------|---------|---------|
+| Detection sommeil | Health Services PassiveMonitoringClient | Automatique (Sleep Focus + capteurs) |
+| Stades | `SleepStageType` (AWAKE, LIGHT, DEEP, REM) | `HKCategoryValueSleepAnalysis` (inBed, asleepCore, asleepDeep, asleepREM, awake) |
+| Mode nuit | DND / Bedtime mode (Android) | Sleep Focus (watchOS 9+) |
+| Ronflement | Non natif (apps tierces) | Non natif montre (iPhone nearby) |
+| Score sommeil | Implementation app | Non natif (apps tierces comme AutoSleep) |
+| Reveil intelligent | Via alarme app | Natif watchOS 9+ (vibration phase legere) |
+
+### Checklist Sleep UI
+
+- ✅ Hypnogramme simplifie avec 4 couleurs distinctes
+- ✅ Score en grand avec arc gauge
+- ✅ Mode nuit automatique (dim, no haptics, no raise-to-wake)
+- ✅ Notification matinale avec resume compact
+- ✅ Couleurs AMOLED-friendly (fond noir, couleurs saturees)
+- ❌ Ne pas afficher de graphes detailles — renvoyer au telephone
+- ❌ Ne pas vibrer pendant le sommeil (sauf alarme)
+- ❌ Ne pas utiliser de blanc/bleu vif la nuit (lumiere bleue)
+
+**Anti-patterns:**
+1. **Ecran lumineux nocturne** — Summary qui allume l'ecran a pleine luminosite a 3h du matin
+2. **Hypnogramme surcharge** — Axes, labels, legende sur 1.3" rond → illisible
+3. **Vibration intempestive** — Notifier "vous etes eveille depuis 10 min" pendant la nuit
+
+**Source:** [Apple Sleep](https://developer.apple.com/documentation/healthkit/hkcategoryvaluesleepanalysis), [Wear OS Passive Data](https://developer.android.com/training/wearables/health-services/passive), [Sleep Foundation](https://www.sleepfoundation.org/stages-of-sleep)
+
+---
+
+## AG. Maps & Turn-by-Turn Navigation
+
+> Affichage cartographique et navigation guidee sur ecran de montre.
+> Sources: [Google Maps Wear OS](https://developer.android.com/training/wearables/apps/maps), [Apple MapKit watchOS](https://developer.apple.com/documentation/mapkit), [NNGroup](https://www.nngroup.com/articles/smartwatch-interactions/)
+
+### 58. Map Rendering Constraints
+
+**Limites materielles:**
+
+| Contrainte | Valeur | Implication |
+|------------|--------|-------------|
+| RAM disponible pour carte | 50-100 MB max | Tuiles vectorielles obligatoires (pas raster) |
+| Taille cache offline | 50-200 MB recommande | Limiter a zone de 20x20 km |
+| Refresh rate carte | 1-5 FPS suffisant | Pas de 60fps scroll, trop couteux |
+| Tactile sur carte | Imprecis (gros doigts) | Pan = mouvement bras, zoom = bezel/crown |
+| Ecran rond | Coins caches | Centrer POI, eviter info dans les coins |
+
+**Wear OS (Google Maps SDK):**
+```kotlin
+// MapView dans Compose for Wear OS
+implementation "com.google.android.gms:play-services-maps:19.0.0"
+
+@Composable
+fun WearMapScreen(location: LatLng) {
+    AndroidView(factory = { context ->
+        MapView(context).apply {
+            onCreate(null)
+            getMapAsync { map ->
+                map.uiSettings.isZoomControlsEnabled = false // bezel zoom
+                map.moveCamera(CameraUpdateFactory.newLatLngZoom(location, 16f))
+                map.setMapStyle(MapStyleOptions.loadRawResourceStyle(context, R.raw.dark_map))
+            }
+        }
+    })
+}
+```
+
+**Regle:** Toujours utiliser un style de carte sombre (mode nuit) pour economiser la batterie AMOLED et reduire la distraction au poignet.
+
+### 58b. Turn-by-Turn Layout
+
+**Disposition ecran:**
+```
+┌─────────────────┐
+│    ↗ 250m       │  ← Distance prochaine instruction (20sp bold)
+│                 │
+│    ┏━━━━━━┓     │
+│    ┃  ⬆️➡️ ┃     │  ← Grande fleche directionnelle (80x80 dp)
+│    ┗━━━━━━┛     │
+│                 │
+│  Rue de Rivoli  │  ← Nom de rue (16sp, max 20 chars, ellipsis)
+│    ⏱ 12 min     │  ← ETA (14sp, 60% opacite)
+└─────────────────┘
+```
+
+**Tailles recommandees:**
+
+| Element | Taille | Priorite |
+|---------|--------|----------|
+| Fleche directionnelle | 64-80 dp | 1 (toujours visible) |
+| Distance prochaine manoeuvre | 20-24 sp bold | 2 |
+| Nom de rue | 14-16 sp | 3 (tronquer si necessaire) |
+| ETA / distance restante | 12-14 sp, dim | 4 |
+
+### 58c. Haptic Directions
+
+**Pattern haptic par direction (Google Maps Wear OS):**
+
+| Direction | Pattern haptic | Description |
+|-----------|---------------|-------------|
+| Tourner a gauche | 2 taps courts cote gauche | `CLICK` × 2, 100ms gap |
+| Tourner a droite | 3 taps courts cote droit | `CLICK` × 3, 100ms gap |
+| Tout droit (rappel) | 1 tap long | `HEAVY_CLICK` × 1 |
+| Demi-tour | Vibration continue 500ms | Pattern continu |
+| Destination atteinte | 3 taps longs | `HEAVY_CLICK` × 3, 200ms gap |
+| Deviation de route | 2 vibrations longues | 300ms on, 200ms off, 300ms on |
+
+**Code Wear OS haptic:**
+```kotlin
+fun vibrateDirection(context: Context, direction: Direction) {
+    val vibrator = context.getSystemService(Vibrator::class.java)
+    val pattern = when (direction) {
+        Direction.LEFT -> longArrayOf(0, 50, 100, 50) // 2 taps
+        Direction.RIGHT -> longArrayOf(0, 50, 100, 50, 100, 50) // 3 taps
+        Direction.STRAIGHT -> longArrayOf(0, 200) // 1 long
+        Direction.U_TURN -> longArrayOf(0, 500) // continuous
+        Direction.ARRIVED -> longArrayOf(0, 200, 200, 200, 200, 200) // 3 long
+        Direction.OFF_ROUTE -> longArrayOf(0, 300, 200, 300) // 2 long
+    }
+    vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
+}
+```
+
+**watchOS:**
+```swift
+func hapticForDirection(_ direction: Direction) {
+    let device = WKInterfaceDevice.current()
+    switch direction {
+    case .left:
+        device.play(.click)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            device.play(.click)
+        }
+    case .right:
+        device.play(.directionUp) // built-in directional
+    case .arrived:
+        device.play(.success)
+    default:
+        device.play(.notification)
+    }
+}
+```
+
+### 58d. Low-Power Navigation
+
+**Strategie ecran eteint entre les instructions:**
+1. Ecran off apres 5s sans interaction
+2. A 200m de la prochaine manoeuvre: reveil ecran + haptic
+3. Afficher instruction en mode ambient (blanc sur noir, 1 bit)
+4. Apres passage du virage: ecran off a nouveau
+
+**Economie batterie:** ~40% de battery saved vs ecran allume en continu pendant 1h de navigation
+
+### 58e. Breadcrumb Trail (Randonnee)
+
+**Pattern:**
+- Trace du parcours effectue en pointilles sur fond de carte sombre
+- Position actuelle: point bleu pulsant (8dp, animation 1Hz)
+- Waypoints: cercles 6dp avec label court (3-4 chars)
+- Distance restante + denivele en bas d'ecran
+- Boussole: petite fleche nord (12dp) en haut a droite
+
+### 58f. Route Deviation Alert
+
+| Etat | Seuil | UX |
+|------|-------|----|
+| On route | < 30m de la route | Normal |
+| Deviation legere | 30-100m | Haptic douce, "Recalcul..." |
+| Hors route | > 100m pendant 30s | Haptic forte, nouveau calcul auto |
+
+### Platform Comparison
+
+| Aspect | Wear OS | watchOS |
+|--------|---------|---------|
+| SDK carte | Google Maps SDK for Wear | MapKit (limite, pas de navigation native) |
+| Navigation native | Google Maps app | Apple Maps app |
+| Carte offline | Telechargement via phone | Cartes offline automatiques (watchOS 10+) |
+| Haptic directions | Via API Vibrator | `WKInterfaceDevice.play()` |
+| Ambient mode nav | Supporté (instructions low-bit) | Always-On (watchOS 8+) |
+| Boussole | `SensorManager.TYPE_ROTATION_VECTOR` | `CLHeading` + `CMMotionManager` |
+
+### Checklist Navigation
+
+- ✅ Fleche directionnelle large (64-80 dp minimum)
+- ✅ Haptic distinct par type de virage
+- ✅ Mode sombre carte obligatoire (AMOLED)
+- ✅ Ecran eteint entre instructions (economie batterie)
+- ✅ Nom de rue tronque proprement (ellipsis a 20 chars)
+- ✅ Alerte deviation avec recalcul automatique
+- ❌ Ne pas afficher de carte zoomable interactive (imprecis au doigt)
+- ❌ Ne pas garder l'ecran allume en continu pendant la navigation
+- ❌ Ne pas utiliser de couleurs pastel sur fond clair (illisible en exterieur)
+
+**Anti-patterns:**
+1. **Carte interactive complexe** — Pinch-to-zoom sur 1.3" = frustration
+2. **Navigation silencieuse** — Pas de haptic, l'utilisateur doit regarder la montre a chaque intersection
+3. **Instructions trop detaillees** — "Dans 247 metres, prenez la deuxieme sortie du rond-point direction..." → tronquer
+
+**Source:** [Google Maps Wear OS](https://developer.android.com/training/wearables/apps/maps), [Apple MapKit](https://developer.apple.com/documentation/mapkit), [Google Maps haptic research](https://blog.google/products/maps/)
+
+---
+
+## AH. Cellular vs Bluetooth-Only UX
+
+> Gestion des etats de connectivite et degradation gracieuse des fonctionnalites.
+> Sources: [Wear OS Network](https://developer.android.com/training/wearables/data/network-access), [Apple Watch Cellular](https://support.apple.com/guide/watch/use-your-apple-watch-with-a-cellular-network-apd30a498e26/watchos)
+
+### 59. Connection State Indicators
+
+**5 etats de connectivite:**
+
+| Etat | Icone | Couleur | Barre status | Fonctionnalites |
+|------|-------|---------|-------------|-----------------|
+| BT connecte au phone | 📱 (mini) | Vert | Aucune icone (etat normal) | 100% des features |
+| BT deconnecte + LTE | 📶 (signal) | Vert | Icone LTE verte | 80% (pas de sync rapide) |
+| WiFi seulement | 📶 WiFi | Jaune | Icone WiFi | 70% (latence accrue) |
+| BT deconnecte, pas de reseau | ✈️ barré | Rouge | Icone nuage barre | Mode offline |
+| Mode avion | ✈️ | Gris | Icone avion | Capteurs locaux uniquement |
+
+**Regle critique:** Ne PAS afficher d'icone quand la connectivite est normale (BT au phone). N'afficher une icone que pour les etats degrades.
+
+### 59b. Feature Degradation Matrix
+
+| Feature | BT+Phone | LTE seul | WiFi seul | Offline |
+|---------|----------|----------|-----------|---------|
+| Notifications | ✅ Temps reel | ✅ Temps reel | ✅ Temps reel | ❌ |
+| Appels | ✅ Via phone | ✅ Direct | ❌ | ❌ |
+| Messages (envoi) | ✅ | ✅ | ✅ | ❌ (queue) |
+| Musique streaming | ✅ Via phone | ✅ Direct (data!) | ✅ | ❌ |
+| Musique offline | ✅ | ✅ | ✅ | ✅ |
+| GPS / Navigation | ✅ | ✅ | ⚠️ Pas de carte | ⚠️ GPS brut |
+| Health tracking | ✅ | ✅ | ✅ | ✅ (sync later) |
+| Paiement NFC | ✅ | ✅ | ✅ | ✅ (tokenise) |
+| Assistant vocal | ✅ | ✅ | ✅ | ❌ |
+| Apps tierces sync | ✅ | ⚠️ Certaines | ⚠️ Certaines | ❌ |
+
+### 59c. LTE Power Impact
+
+| Mode | Consommation | Impact batterie |
+|------|-------------|-----------------|
+| BT connecte (idle) | ~5-10 mW | Reference |
+| LTE idle (connecte, pas de data) | ~50-80 mW | ~5x BT |
+| LTE actif (streaming) | 200-400 mW | ~30-40x BT |
+| WiFi idle | ~20-40 mW | ~3x BT |
+| WiFi actif | ~100-200 mW | ~15x BT |
+
+**Implication UX:** Avertir l'utilisateur avant le streaming LTE: "Le streaming sur LTE reduit significativement l'autonomie. Telecharger pour ecouter hors ligne?"
+
+### 59d. Data Usage Awareness
+
+**Pattern UI:**
+- Afficher icone "LTE" quand actif (rappel visuel)
+- Dashboard data: "Usage LTE aujourd'hui: 45 MB"
+- Alerte a 80% du forfait montre (si connu)
+- Option: "Limiter aux donnees essentielles en LTE" (pas de sync photos, pas de streaming)
+
+### 59e. Streaming vs Offline Decision Tree
+
+```
+Phone nearby? ──YES──► Stream via phone (BT)
+       │
+       NO
+       │
+  WiFi available? ──YES──► Stream via WiFi
+       │
+       NO
+       │
+  LTE active? ──YES──► Contenu offline disponible? ──YES──► Jouer offline
+       │                        │
+       │                        NO ──► "Streamer via LTE?"
+       │                                (warning batterie/data)
+       NO
+       │
+  ► Mode offline uniquement
+```
+
+### 59f. eSIM & Standalone Considerations
+
+| Aspect | Wear OS | watchOS |
+|--------|---------|---------|
+| eSIM setup | Via Galaxy Wearable / Pixel Watch app | Via Watch app iPhone |
+| Numero partage | Meme numero que phone (NumberSync) | Meme numero que iPhone |
+| Activation | Operateur-dependant | Operateur-dependant |
+| Standalone sans eSIM | WiFi si connu, sinon offline | WiFi si connu, sinon offline |
+| Emergency call sans eSIM | ✅ Supporté (regulation) | ✅ Supporté (regulation) |
+
+### 59g. Emergency Calling
+
+**Regle absolue:** Les appels d'urgence (112/911/999) doivent TOUJOURS fonctionner, meme sans eSIM activee, sans forfait, sans phone. C'est une obligation reglementaire.
+
+**UX:** Le bouton SOS ne doit jamais etre grise ou desactive pour raison de connectivite.
+
+### Checklist Connectivity
+
+- ✅ Pas d'icone en etat normal (BT connecte)
+- ✅ Degradation gracieuse avec fallback offline
+- ✅ Warning avant streaming LTE (batterie + data)
+- ✅ Queue les operations quand offline, sync au retour
+- ✅ Emergency call toujours accessible
+- ✅ Afficher clairement l'etat de connexion dans settings
+- ❌ Ne pas bloquer l'app entiere si offline
+- ❌ Ne pas streamer automatiquement en LTE sans consentement
+- ❌ Ne pas cacher l'etat LTE (l'utilisateur doit savoir qu'il consomme de la data)
+
+**Anti-patterns:**
+1. **App morte offline** — "Connexion requise" au lieu de mode degrade
+2. **Streaming LTE silencieux** — Vide la batterie en 2h sans que l'utilisateur comprenne
+3. **Icone de connexion permanente** — Pollution visuelle quand tout va bien
+
+**Source:** [Wear OS Network Access](https://developer.android.com/training/wearables/data/network-access), [Apple Watch Cellular](https://support.apple.com/guide/watch/), [3GPP Emergency Calling](https://www.3gpp.org/)
+
+---
+
+## AI. Music & Media Control
+
+> Layout et interactions pour le controle multimedia sur montre connectee.
+> Sources: [Media Controls Wear OS](https://developer.android.com/training/wearables/views/media-controls), [Apple Now Playing](https://developer.apple.com/design/human-interface-guidelines/now-playing)
+
+### 60. Now Playing Layout
+
+**Disposition recommandee ecran rond:**
+```
+┌──────────────────┐
+│   🎵 Artist      │  ← Artiste (14sp, 60% opacite, ellipsis)
+│                  │
+│  ┌────────────┐  │
+│  │  Album Art │  │  ← Pochette album (80-100 dp, centre)
+│  └────────────┘  │
+│                  │
+│   Song Title     │  ← Titre (16sp bold, max ~20 chars)
+│                  │
+│  ⏮  ▶️/⏸  ⏭    │  ← Controles (tap targets 48dp min)
+│                  │
+│  ━━━━━●━━━━━━━  │  ← Barre progression (swipeable)
+│                  │
+│  🔊 Volume      │  ← Crown/bezel = volume
+└──────────────────┘
+```
+
+**Tailles des elements:**
+
+| Element | Taille | Interaction |
+|---------|--------|-------------|
+| Pochette album | 80-100 dp carre | Tap = toggle play/pause |
+| Boutons prev/next | 32 dp icone, 48 dp tap target | Tap |
+| Bouton play/pause | 40 dp icone, 52 dp tap target | Tap |
+| Barre de progression | 4 dp hauteur, pleine largeur -16dp | Drag horizontal |
+| Volume | Pas de slider visible | Crown (watchOS) / Bezel (Galaxy) |
+
+### 60b. Volume Control
+
+**Crown (watchOS):** Rotation Digital Crown = volume. Chaque cran = 1 unite (~6.25% sur 16 niveaux). Feedback haptic a chaque cran.
+
+**Bezel (Galaxy Watch):** Rotation bezel = volume. Smooth, pas de crans.
+
+**Wear OS sans bezel:** Boutons +/- ou side button avec RSB (Rotary Side Button).
+
+**Indicateur volume:** Arc en haut de l'ecran apparait pendant 2s lors d'un changement, puis disparait.
+
+### 60c. Offline Music Sync
+
+**UX de telechargement:**
+1. Selection sur le telephone: playlists/albums a synchroniser
+2. Sync automatique quand montre en charge + WiFi
+3. Sur la montre: icone ☁️↓ pendant sync, ✓ quand pret
+4. Indicateur stockage: "2.1 GB / 4.0 GB utilise"
+
+**Limites stockage typiques:**
+
+| Montre | Stockage total | Disponible musique (estime) |
+|--------|---------------|---------------------------|
+| Galaxy Watch 7 | 16 GB | ~5-8 GB |
+| Pixel Watch 3 | 32 GB | ~12-16 GB |
+| Apple Watch S10 | 64 GB | ~30-40 GB |
+
+### 60d. Bluetooth Audio Output
+
+**Picker ecouteurs:**
+- Liste des appareils BT appaires: nom + icone type (earbuds/headphones/speaker)
+- Appareil actif en surbrillance verte
+- Tap pour basculer la sortie audio
+- "Haut-parleur montre" toujours en dernier (qualite mediocre)
+
+### 60e. Streaming vs Local Toggle
+
+**Pattern:**
+- Icone: nuage (streaming) vs appareil (local)
+- Toggle accessible depuis Now Playing (icone en haut a droite)
+- Si LTE: warning "Streaming via donnees mobiles"
+- Si offline: automatiquement local, toggle grise
+
+### 60f. Background Playback Indicator
+
+**Wear OS:** Ongoing Activity avec icone ♫ dans le watch face
+**watchOS:** Now Playing complication auto-update, icone ♫ dans status bar
+
+**Code Wear OS Ongoing Activity:**
+```kotlin
+val ongoingActivity = OngoingActivity.Builder(context, NOTIFICATION_ID, notification)
+    .setStaticIcon(Icon.createWithResource(context, R.drawable.ic_music))
+    .setTouchIntent(openAppPendingIntent)
+    .setStatus(
+        OngoingActivityStatus.Builder()
+            .addPart("song", OngoingActivityStatus.TextPart("Now Playing: Song Title"))
+            .build()
+    )
+    .build()
+ongoingActivity.apply(context)
+```
+
+### Platform Comparison
+
+| Aspect | Wear OS | watchOS |
+|--------|---------|---------|
+| Media control | `MediaBrowserServiceCompat` | `WKNowPlayingInfoCenter` |
+| Volume hardware | RSB / bezel | Digital Crown |
+| Streaming apps | YouTube Music, Spotify | Apple Music, Spotify |
+| Offline sync | App-specifique | Apple Music auto-sync |
+| BT audio switch | Parametres → BT | Now Playing → AirPlay icon |
+| Background | Ongoing Activity | Background audio session |
+
+### Checklist Media
+
+- ✅ Pochette album visible et centree
+- ✅ Volume via hardware (crown/bezel), pas de slider tactile
+- ✅ Titre tronque avec ellipsis (max ~20 chars)
+- ✅ Ongoing Activity / Now Playing complication
+- ✅ Indicateur offline vs streaming clair
+- ✅ Picker BT audio accessible sans quitter le player
+- ❌ Ne pas forcer le streaming en LTE sans confirmation
+- ❌ Ne pas afficher la barre de progression en mode ambient
+- ❌ Ne pas cacher les controles derriere un geste (play/pause toujours visible)
+
+**Anti-patterns:**
+1. **Volume par slider tactile** — Imprecis, couvre la pochette, utiliser le hardware
+2. **Pas d'indicateur offline** — L'utilisateur ne sait pas si la musique est telechargee ou streamee
+3. **Pochette manquante** — Ecran gris avec juste du texte = experience degradee
+
+**Source:** [Wear OS Media](https://developer.android.com/training/wearables/views/media-controls), [Apple Now Playing HIG](https://developer.apple.com/design/human-interface-guidelines/now-playing), [Spotify Wear OS](https://developer.spotify.com/)
+
+---
+
+## AJ. Phone Calls on Watch
+
+> Gestion des appels telephoniques sur montre (reception, emission, en cours).
+> Sources: [Wear OS Calling](https://developer.android.com/training/wearables), [Apple Watch Calls](https://support.apple.com/guide/watch/make-and-receive-phone-calls-apd90498a498/watchos)
+
+### 61. Incoming Call Screen
+
+**Layout:**
+```
+┌──────────────────┐
+│                  │
+│   📞 Incoming    │  ← Label (14sp)
+│                  │
+│   John Doe       │  ← Nom contact (20sp bold)
+│   +33 6 12 34..  │  ← Numero (14sp, 60% opacite)
+│                  │
+│  🟢    🔇    🔴  │  ← Accept / Silence / Reject
+│ Accept Mute Decline│
+│                  │
+│  💬 Reply        │  ← Quick reply message
+└──────────────────┘
+```
+
+**Boutons:**
+
+| Action | Icone | Couleur | Taille tap target | Geste alternatif |
+|--------|-------|---------|-------------------|-----------------|
+| Accepter | Telephone vert | #4CAF50 | 52 dp | - |
+| Refuser | Telephone rouge | #F44336 | 52 dp | - |
+| Silence | Cloche barree | Gris | 40 dp | Poser paume sur ecran |
+| Repondre SMS | Bulle message | Bleu | 36 dp | - |
+
+**Haptic incoming call:** Vibration continue pattern (200ms on, 200ms off) tant que l'appel sonne.
+
+### 61b. In-Call Screen
+
+**Layout pendant l'appel:**
+```
+┌──────────────────┐
+│   John Doe       │  ← Nom (16sp bold)
+│   00:42          │  ← Duree (24sp, mise a jour chaque seconde)
+│                  │
+│  🎤   🔊   ⌨️   │  ← Mute / Speaker / Keypad
+│                  │
+│  🔴 End Call     │  ← Bouton fin (large, 52dp height)
+└──────────────────┘
+```
+
+**Actions disponibles:**
+
+| Action | Icone | Etat toggle |
+|--------|-------|-------------|
+| Mute micro | 🎤 / 🎤❌ | On/Off, couleur change |
+| Haut-parleur | 🔊 / 🔊❌ | On/Off |
+| Clavier DTMF | ⌨️ | Ouvre ecran numerique |
+| Raccrocher | 🔴 | Action definitive |
+
+### 61c. Call Quality Limits
+
+| Aspect | Haut-parleur montre | Ecouteurs BT |
+|--------|-------------------|--------------|
+| Qualite audio | Mediocre (micro loin bouche) | Bonne |
+| Environnement bruyant | Tres mauvais | Acceptable |
+| Distance bras etendu | ~30 cm du micro | N/A |
+| Usage recommande | < 2 min, calme | Appels longs |
+| Privacite | Nulle (haut-parleur) | Bonne |
+
+**UX recommandee:** Si l'appel dure > 30s et pas d'ecouteurs BT, suggerer discretement "Transférer sur le telephone?" en bas d'ecran.
+
+### 61d. Call Routing
+
+**Priorite de routage:**
+1. Ecouteurs BT connectes → audio vers ecouteurs
+2. Haut-parleur montre (si pas d'ecouteurs)
+3. Transfert vers phone (sur action utilisateur)
+
+**Wear OS:**
+```kotlin
+// Verifier ecouteurs connectes
+val audioManager = getSystemService(AudioManager::class.java)
+val isHeadsetConnected = audioManager.isBluetoothA2dpOn
+```
+
+### 61e. DND During Workout
+
+**Regle:** Pendant un exercice, les appels doivent passer en mode silencieux par defaut. Exception: contacts favoris ou urgences (2 appels du meme numero en 3 minutes).
+
+**UX:** Notification tactile douce (1 tap) + nom affiché en banner 3s en haut d'ecran, sans interrompre l'ecran d'exercice.
+
+### Platform Comparison
+
+| Aspect | Wear OS | watchOS |
+|--------|---------|---------|
+| Appels via BT | ✅ Via phone | ✅ Via iPhone |
+| Appels LTE natifs | ✅ (eSIM) | ✅ (eSIM) |
+| Transfert vers phone | Manuel | Automatique (pick up iPhone = transfert) |
+| Silence par geste | Paume sur ecran (certains modeles) | Paume sur ecran |
+| DTMF keypad | ✅ | ✅ |
+| FaceTime audio | ❌ | ✅ |
+| Wi-Fi calling | ✅ (si operateur) | ✅ |
+
+### Checklist Appels
+
+- ✅ Boutons accept/reject larges (52dp) et colores (vert/rouge)
+- ✅ Silence par paume sur ecran
+- ✅ Timer d'appel visible en permanence
+- ✅ Suggestion transfert phone si appel long
+- ✅ DND pendant workout (sauf favoris/urgences)
+- ❌ Ne pas forcer le haut-parleur sans alternative
+- ❌ Ne pas bloquer l'ecran d'exercice pour un appel non-urgent
+- ❌ Ne pas garder l'ecran allume pendant tout l'appel (ambient apres 5s)
+
+**Anti-patterns:**
+1. **Boutons minuscules incoming call** — Rater l'appel parce que le bouton accept fait 32dp
+2. **Pas de transfert phone** — Forcer une conversation de 10 min sur le haut-parleur du poignet
+3. **Exercice interrompu** — L'ecran de workout disparait pour afficher l'appel, l'utilisateur perd ses metriques
+
+**Source:** [Wear OS Calling](https://developer.android.com/training/wearables), [Apple Watch Calls](https://support.apple.com/guide/watch/)
+
+---
+
+## AK. Notification Grouping & Stacking
+
+> Gestion du groupement et de l'empilement des notifications sur montre.
+> Sources: [Wear OS Notifications](https://developer.android.com/training/wearables/notifications), [watchOS Notifications](https://developer.apple.com/documentation/watchos-apps/designing-your-apps-notifications), [Material Design Notifications](https://developer.android.com/design/ui/wear/guides/surfaces/notifications)
+
+### 62. Group Notification Layout
+
+**Principe:** Quand une app envoie 3+ notifications, les grouper sous un summary. L'utilisateur voit d'abord le resume, tap pour expander.
+
+**Layout collapsed (summary):**
+```
+┌──────────────────┐
+│ 📧 Gmail         │
+│ 3 new emails     │  ← Summary text
+│ J. Doe, A. Smith │  ← Apercu expediteurs
+└──────────────────┘
+```
+
+**Layout expanded:**
+```
+┌──────────────────┐
+│ 📧 John Doe      │  ← Notification individuelle 1
+│ Meeting tomorrow  │
+├──────────────────┤
+│ 📧 Alice Smith   │  ← Notification individuelle 2
+│ Project update    │
+├──────────────────┤
+│ 📧 Bob Wilson    │  ← Notification individuelle 3
+│ Quick question    │
+└──────────────────┘
+```
+
+### 62b. Wear OS Grouping API
+
+```kotlin
+// Notification summary (parent)
+val summaryNotif = NotificationCompat.Builder(context, CHANNEL_ID)
+    .setSmallIcon(R.drawable.ic_email)
+    .setContentTitle("3 new emails")
+    .setContentText("J. Doe, A. Smith, B. Wilson")
+    .setGroup(GROUP_KEY_EMAILS)
+    .setGroupSummary(true) // <-- REQUIS pour le parent
+    .setStyle(NotificationCompat.InboxStyle()
+        .addLine("John Doe: Meeting tomorrow")
+        .addLine("Alice Smith: Project update")
+        .addLine("Bob Wilson: Quick question")
+        .setSummaryText("3 new emails")
+    )
+    .build()
+
+// Notifications enfants
+val childNotif = NotificationCompat.Builder(context, CHANNEL_ID)
+    .setSmallIcon(R.drawable.ic_email)
+    .setContentTitle("John Doe")
+    .setContentText("Meeting tomorrow at 2pm")
+    .setGroup(GROUP_KEY_EMAILS) // <-- Meme group key
+    .build()
+
+notificationManager.notify(SUMMARY_ID, summaryNotif)
+notificationManager.notify(CHILD_ID_1, childNotif)
+```
+
+### 62c. watchOS Automatic Stacking
+
+**watchOS gere le groupement automatiquement:**
+- Meme app → stack automatique apres 3+ notifications
+- `threadIdentifier` pour sous-groupes (ex: conversations separees)
+- Pas de `setGroupSummary()` — le systeme cree le summary
+
+```swift
+let content = UNMutableNotificationContent()
+content.title = "John Doe"
+content.body = "Meeting tomorrow at 2pm"
+content.threadIdentifier = "email-inbox" // sous-groupe
+content.summaryArgument = "John Doe"
+content.summaryArgumentCount = 1
+```
+
+### 62d. Notification Limits & Truncation
+
+| Aspect | Wear OS | watchOS |
+|--------|---------|---------|
+| Notifications visibles dans flux | ~20 max (puis "older notifications") | ~20 max |
+| Texte collapsed (body) | ~40-50 chars avant ellipsis | ~40 chars |
+| Texte expanded | ~200 chars | ~200 chars |
+| Actions max par notification | 3 | 4 (dont dismiss) |
+| Groupes max visibles | Pas de limite stricte | Pas de limite |
+| Enfants par groupe avant truncation | ~8-10 puis "X more" | ~5-8 |
+
+### 62e. Notification Channels (Multi-Feature Apps)
+
+**Pattern pour app multi-feature (ex: app sante):**
+
+| Channel | Importance | Comportement montre |
+|---------|-----------|-------------------|
+| `health_alerts` | HIGH | Vibration + ecran allume |
+| `daily_summary` | DEFAULT | Vibration douce |
+| `social` | LOW | Silencieux, dans le flux |
+| `marketing` | MIN | Ne pas bridger du tout |
+
+```kotlin
+val healthChannel = NotificationChannel(
+    "health_alerts",
+    "Health Alerts",
+    NotificationManager.IMPORTANCE_HIGH
+).apply {
+    enableVibration(true)
+    vibrationPattern = longArrayOf(0, 300, 200, 300)
+}
+```
+
+### 62f. Bridging & Cross-Device Dismiss
+
+**Bridging filter (Wear OS):**
+```xml
+<!-- wear.xml - Exclure certaines notifications du bridging phone→watch -->
+<wearableApp>
+    <bridging enabled="true">
+        <excludedTags>
+            <string>marketing</string>
+            <string>low_priority</string>
+        </excludedTags>
+    </bridging>
+</wearableApp>
+```
+
+**Cross-device dismiss sync:**
+```kotlin
+// Synchroniser le dismiss entre phone et watch
+val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+    .setDismissalId("email_123") // <-- Meme ID sur phone et watch
+    .setContentTitle("New email")
+    .build()
+```
+
+**Regle:** Quand l'utilisateur dismiss sur la montre, la notification doit disparaitre du phone (et vice versa). Sans `setDismissalId()`, les dismissals ne sont PAS synchronises.
+
+### Platform Comparison
+
+| Aspect | Wear OS | watchOS |
+|--------|---------|---------|
+| Groupement | Manuel (`setGroup()` + `setGroupSummary()`) | Automatique + `threadIdentifier` |
+| Bridging control | `BridgingManager` / wear.xml | Mirroring automatique, filtre via UNNotificationCategory |
+| Dismiss sync | `setDismissalId()` | Automatique |
+| Actions inline | `RemoteInput` pour reponse | `UNTextInputNotificationAction` |
+| Max actions | 3 | 4 |
+| Rich media | `BigPictureStyle` / `BigTextStyle` | Attachments (`UNNotificationAttachment`) |
+
+### Checklist Notifications
+
+- ✅ Grouper les notifications (3+) avec summary parent
+- ✅ `setDismissalId()` pour sync dismiss cross-device
+- ✅ Channels avec importances differenciees
+- ✅ Filtrer le bridging (exclure marketing/low priority)
+- ✅ Max 3 actions par notification
+- ✅ `threadIdentifier` (watchOS) pour sous-groupes logiques
+- ❌ Ne pas envoyer chaque notification individuellement sans groupement
+- ❌ Ne pas bridger les notifications deja gerees par l'app watch native
+- ❌ Ne pas mettre plus de 3 actions (surcharge cognitive)
+
+**Anti-patterns:**
+1. **Flood de notifications** — 10 emails = 10 vibrations separees au lieu d'un groupe
+2. **Dismiss desynchronise** — Dismisser sur la montre, retrouver la meme notification sur le phone
+3. **Tout en HIGH** — Chaque notification allume l'ecran et vibre fortement
+
+**Source:** [Wear OS Notifications](https://developer.android.com/training/wearables/notifications), [watchOS Notifications](https://developer.apple.com/documentation/watchos-apps/designing-your-apps-notifications), [Bridging API](https://developer.android.com/training/wearables/notifications/bridger)
+
+---
+
+## AL. Payment on Watch (Apple Pay / Google Wallet)
+
+> Patterns UX pour le paiement sans contact depuis la montre.
+> Sources: [Google Wallet Wear OS](https://developer.android.com/wear/tiles/api-overview), [Apple Pay Watch](https://developer.apple.com/apple-pay/), [Samsung Pay](https://developer.samsung.com/pay)
+
+### 63. Activation du Paiement
+
+**Double-press side button:**
+
+| Plateforme | Geste d'activation | Bouton |
+|------------|-------------------|--------|
+| watchOS (Apple Pay) | Double-click bouton lateral | Side button |
+| Wear OS (Google Wallet) | Double-click bouton superieur | Programmable button |
+| Galaxy Watch (Samsung Pay) | Long press Back ou raccourci | Back button |
+
+**Flow paiement:**
+1. Double-press → ecran portefeuille apparait instantanement (<300ms)
+2. Carte par defaut affichee (preview: derniers 4 chiffres + logo)
+3. Swipe horizontal pour changer de carte
+4. "Approchez du terminal" + animation NFC
+5. Contact terminal → haptic + checkmark (200ms)
+6. Ecran resultat: ✓ "Paye" + montant + commercant (3s puis auto-dismiss)
+
+### 63b. Card Selection UI
+
+**Layout:**
+```
+┌──────────────────┐
+│  ← Swipe →       │
+│                  │
+│  ┌────────────┐  │
+│  │ 💳 VISA    │  │  ← Carte active (grande, centre)
+│  │ •••• 4242  │  │
+│  │ Default ✓  │  │
+│  └────────────┘  │
+│                  │
+│  ● ○ ○ ○        │  ← Indicateur page (dots)
+│                  │
+│  Ready to Pay    │  ← Status
+└──────────────────┘
+```
+
+**Swipe horizontal** entre les cartes. Max 8-10 cartes visibles (au-dela, scroll).
+
+### 63c. Authentication & Wrist Detection
+
+| Methode | Plateforme | Quand |
+|---------|-----------|-------|
+| Wrist detection (implicite) | watchOS + Wear OS | Montre au poignet = authentifie |
+| PIN au demarrage | Toutes | Quand la montre est mise au poignet |
+| Re-auth apres retrait | Toutes | Montre retiree → PIN requis au retour |
+| Pas de biometrie pendant paiement | Toutes | Trop lent, wrist detection suffit |
+
+**Regle:** La detection au poignet EST l'authentification. Pas de PIN/biometrie supplementaire par transaction.
+
+### 63d. Transit Cards (Transport)
+
+**Specificite:** Les cartes de transport (Navigo, Suica, PASMO) fonctionnent en "Express Transit" — pas de double-press, pas d'authentification. Simplement approcher la montre du lecteur.
+
+**UX:** Pas d'ecran affiché, transaction silencieuse. Notification post-transaction optionnelle.
+
+### 63e. Success / Failure Feedback
+
+| Resultat | Haptic | Visuel | Duree affichage |
+|----------|--------|--------|----------------|
+| Succes | 2 taps courts `SUCCESS` | ✓ vert + montant | 3s auto-dismiss |
+| Echec | 3 taps longs `FAILURE` | ✗ rouge + "Reessayer" | Reste jusqu'a dismiss |
+| Carte non reconnue | 1 tap long | ⚠️ "Carte non supportee" | 5s |
+| Terminal timeout | Vibration continue 500ms | "Reapprocher du terminal" | Reste actif |
+
+### Platform Comparison
+
+| Aspect | Apple Pay (watchOS) | Google Wallet (Wear OS) | Samsung Pay |
+|--------|-------------------|------------------------|-------------|
+| Activation | Double-click side | Double-click top button | Long press back |
+| Auth | Wrist detection | Wrist detection + PIN setup | Wrist detection |
+| Transit express | ✅ | ✅ (certains pays) | ✅ (certains pays) |
+| Cartes max | Pas de limite stricte | 12 cartes | 12 cartes |
+| NFC offline | ✅ (tokenise) | ✅ (tokenise) | ✅ (MST + NFC) |
+
+### Checklist Paiement
+
+- ✅ Double-press → carte visible en < 300ms
+- ✅ Swipe horizontal pour changer de carte
+- ✅ Haptic + visuel distinct succes/echec
+- ✅ Auto-dismiss apres 3s sur succes
+- ✅ Transit express sans authentification
+- ✅ Wrist detection comme authentification implicite
+- ❌ Ne pas demander de PIN par transaction
+- ❌ Ne pas afficher le numero complet de la carte
+- ❌ Ne pas bloquer le paiement si offline (tokenisation locale)
+
+**Anti-patterns:**
+1. **Auth supplementaire** — Demander un PIN pour chaque paiement en plus du wrist lock
+2. **Lenteur d'activation** — Plus de 500ms entre le double-press et l'ecran portefeuille
+3. **Pas de feedback echec** — Le terminal refuse, la montre ne dit rien
+
+**Source:** [Apple Pay](https://developer.apple.com/apple-pay/), [Google Wallet](https://developers.google.com/wallet), [Samsung Pay SDK](https://developer.samsung.com/pay)
+
+---
+
+## AM. Messaging on Watch
+
+> Patterns d'affichage et de saisie de messages sur montre connectee.
+> Sources: [Wear OS Messaging](https://developer.android.com/training/wearables/notifications), [watchOS Messaging](https://developer.apple.com/design/human-interface-guidelines/messaging), [NNGroup](https://www.nngroup.com/articles/smartwatch-interactions/)
+
+### 64. Conversation List Layout
+
+**Disposition:**
+- Liste verticale scrollable (ScalingLazyColumn / List)
+- Chaque item: avatar (32dp rond) + nom (16sp bold) + preview (14sp, 1 ligne) + timestamp
+- Conversations non lues: nom en bold + point indicateur bleu (8dp)
+- Max ~15-20 conversations visibles avant "Load more"
+
+**Item layout:**
+```
+┌──────────────────────┐
+│ 🟦👤 John Doe   14:32│  ← Avatar + Nom + Heure
+│    Hey, are you f... │  ← Preview message (14sp, 60% opacite)
+├──────────────────────┤
+│ 👤 Alice         13:15│
+│    Thanks for the... │
+└──────────────────────┘
+```
+
+### 64b. Message Bubble on Small Screen
+
+**Contraintes:**
+- Largeur bulle: max 85% de la largeur ecran
+- Bulles envoyees: alignees droite, couleur primaire (#BB86FC ou app color)
+- Bulles recues: alignees gauche, couleur surface (gris fonce)
+- Police: 14-16 sp
+- Max ~50-60 chars visibles sans scroll dans une bulle
+- Messages longs: tronques avec "..." + tap pour expand
+
+### 64c. Input Method Picker
+
+**Methodes disponibles:**
+
+| Methode | Icone | Wear OS | watchOS | Vitesse |
+|---------|-------|---------|---------|---------|
+| Voix (STT) | 🎤 | ✅ Google STT | ✅ Siri STT | Rapide |
+| Clavier QWERTY | ⌨️ | ✅ Gboard mini | ✅ watchOS 9+ | Lent |
+| Scribble/Handwriting | ✍️ | ✅ | ✅ | Moyen |
+| Emoji | 😀 | ✅ | ✅ | Rapide |
+| Smart Reply | 💬 | ✅ ML suggestions | ✅ | Tres rapide |
+| Dessin/GIF | 🎨 | ⚠️ Limite | ✅ (Digital Touch) | Lent |
+
+**Smart Reply ML:**
+- 3 suggestions max affichees sous le message recu
+- Suggestions contextuelles ("Oui", "Non", "Je suis en route")
+- Tap = envoi immediat sans confirmation
+- Wear OS: `RemoteInput` + ML on-device
+- watchOS: suggestions natives dans Notification
+
+### 64d. Smart Reply Code
+
+**Wear OS (RemoteInput):**
+```kotlin
+val remoteInput = RemoteInput.Builder(KEY_QUICK_REPLY)
+    .setLabel("Reply")
+    .setChoices(arrayOf("Yes", "No", "On my way", "Call me"))
+    .build()
+
+val replyAction = NotificationCompat.Action.Builder(
+    R.drawable.ic_reply, "Reply", replyPendingIntent
+)
+    .addRemoteInput(remoteInput)
+    .build()
+```
+
+**watchOS:**
+```swift
+let replyAction = UNTextInputNotificationAction(
+    identifier: "REPLY_ACTION",
+    title: "Reply",
+    options: [],
+    textInputButtonTitle: "Send",
+    textInputPlaceholder: "Type a message"
+)
+```
+
+### 64e. Constraints on Rich Content
+
+| Contenu | Supporte | Limitation |
+|---------|----------|-----------|
+| Texte | ✅ | Max ~200 chars avant scroll |
+| Emoji | ✅ | Rendu natif |
+| Image/Photo | ⚠️ | Thumbnail 100x100dp max, tap pour agrandir |
+| GIF | ⚠️ | Premiere frame statique ou animation courte |
+| Sticker | ⚠️ | Reduit a 64x64dp |
+| Fichier/PDF | ❌ | "Ouvrir sur le telephone" |
+| Lien | ⚠️ | Texte seulement, pas de preview |
+
+### 64f. Read Receipts & Typing Indicator
+
+**Read receipts:** Coches (✓✓ bleu) sous le message, meme pattern que phone mais plus petit (10sp).
+
+**Typing indicator:** "..." anime en bas de conversation, 3 points qui pulsent. Disparait apres 10s timeout.
+
+### Platform Comparison
+
+| Aspect | Wear OS | watchOS |
+|--------|---------|---------|
+| App Messages native | Google Messages | iMessage |
+| Clavier | Gboard (swipe, tap, voice) | QWERTY natif (watchOS 9+) |
+| Smart Reply | ML on-device | Suggestions natives |
+| Scribble | ✅ | ✅ |
+| GIF envoi | Via Gboard | Via #images |
+| Group chat | ✅ | ✅ (iMessage groups) |
+
+### Checklist Messaging
+
+- ✅ Smart Reply en premiere option (le plus rapide)
+- ✅ Voix en deuxieme option
+- ✅ Bulles couleur differenciee envoi/reception
+- ✅ Preview conversation tronquee a 1 ligne
+- ✅ Input method picker accessible en 1 tap
+- ❌ Ne pas forcer le clavier par defaut (voix/smart reply d'abord)
+- ❌ Ne pas afficher les GIF en taille pleine (trop lourd)
+- ❌ Ne pas exiger de scroll pour trouver le champ de saisie
+
+**Anti-patterns:**
+1. **Clavier par defaut** — Forcer QWERTY sur 1.3" au lieu de proposer la voix
+2. **Conversation entiere** — Charger 100 messages au lieu des 10 derniers
+3. **Pas de smart reply** — Obliger l'utilisateur a taper chaque reponse
+
+**Source:** [Wear OS Input](https://developer.android.com/training/wearables/user-input), [watchOS Text Input](https://developer.apple.com/design/human-interface-guidelines/text-fields), [NNGroup Watch Input](https://www.nngroup.com/articles/smartwatch-interactions/)
+
+---
+
+## AN. Fall Detection & Emergency SOS
+
+> Patterns UX pour la detection de chute, crash, et activation SOS.
+> Sources: [Apple Fall Detection](https://support.apple.com/en-us/108896), [Google Pixel Watch Safety](https://support.google.com/googlepixelwatch/answer/7633578), [Samsung Galaxy Watch Emergency](https://www.samsung.com/us/support/answer/ANS00082540/)
+
+### 65. Fall Detection Flow
+
+**Sequence UX apres detection de chute:**
+
+| Etape | Temps | UX |
+|-------|-------|----|
+| 1. Detection | T+0 | Haptic forte (vibration continue 1s) + ecran allume |
+| 2. Alerte | T+0s | "Chute detectee. Vous allez bien?" + timer 30s |
+| 3. Countdown | T+0 → T+30s | Cercle progressif 30s, decroissant, rouge |
+| 4a. Reponse OK | T+X (user tap) | "Je vais bien" → dismiss, log l'evenement |
+| 4b. Pas de reponse | T+30s | Appel automatique urgences + notification contacts |
+| 5. Appel urgences | T+30s | Sirene sonore 5s avant appel (alerte entourage) |
+| 6. Partage position | T+30s | GPS envoye aux contacts d'urgence + services |
+
+**Layout ecran fall detection:**
+```
+┌──────────────────┐
+│                  │
+│  ⚠️ Fall         │
+│  Detected        │  ← Titre (20sp bold, couleur alerte)
+│                  │
+│    ⏱️ 23s        │  ← Timer countdown (40sp bold, rouge)
+│                  │
+│  [I'm OK]        │  ← Bouton large vert (52dp height)
+│                  │
+│  [Emergency SOS] │  ← Bouton rouge (appel immediat)
+│                  │
+│  Calling in 23s  │  ← Info (14sp)
+└──────────────────┘
+```
+
+### 65b. Crash Detection (Car Accident)
+
+**Specifique Apple Watch Ultra/S8+ et Pixel Watch 2+:**
+- Accelerometre haute frequence (jusqu'a 256g)
+- Detection impact severe → meme flow que fall avec timer 10s (plus court)
+- Appel automatique au 112/911 si pas de reponse
+- GPS haute precision envoye aux secours
+
+### 65c. SOS Activation (Manual)
+
+| Plateforme | Geste | Delai |
+|-----------|-------|-------|
+| watchOS | Long press side button (3s) | Slider "Emergency SOS" |
+| Wear OS (Pixel Watch) | 5 pressions rapides bouton | Countdown 5s |
+| Galaxy Watch | Long press Home + Back | Countdown 5s |
+
+**Regle UX critique:** Le geste SOS ne doit JAMAIS etre accidentellement declenchable en usage normal. D'ou le long press ou multi-press.
+
+### 65d. Emergency Contact Notification
+
+**Contenu du message automatique:**
+```
+"[Nom] a declenche un appel d'urgence depuis sa montre.
+Position: [GPS coords + adresse si disponible]
+Heure: [timestamp]
+Appel aux services d'urgence en cours."
+```
+
+- Envoye par SMS (fonctionne sans data)
+- Mis a jour avec nouvelle position toutes les 10 minutes pendant 1h
+- Contacts configures dans Health app (iPhone) ou Safety app (Pixel)
+
+### 65e. Medical ID Display
+
+**Accessible depuis le cadran (swipe ou long press power):**
+- Nom, age, groupe sanguin
+- Allergies, medicaments
+- Conditions medicales
+- Contacts d'urgence
+- Pas de deverrouillage requis (information vitale)
+
+### Platform Comparison
+
+| Aspect | watchOS | Wear OS (Pixel) | Galaxy Watch |
+|--------|---------|-----------------|-------------|
+| Fall detection | Series 4+ | Pixel Watch 2+ | Watch 4+ |
+| Crash detection | Series 8+/Ultra | Pixel Watch 2+ | ❌ |
+| SOS geste | Long press side (3s) | 5x press | Long press Home+Back |
+| Timer avant appel | 30s (fall), 10s (crash) | 30s | 30s |
+| Medical ID | ✅ (Health app) | ✅ (Safety app) | ✅ (Samsung Health) |
+| Sirene sonore | ✅ (Ultra) | ❌ | ❌ |
+| Partage position | ✅ Auto | ✅ Auto | ✅ Auto |
+
+### Checklist Emergency
+
+- ✅ Timer visible et large (40sp min) avec countdown
+- ✅ Bouton "I'm OK" accessible d'un seul tap (52dp)
+- ✅ Appel automatique si pas de reponse (30s)
+- ✅ GPS partage aux contacts d'urgence
+- ✅ Medical ID accessible sans deverrouillage
+- ✅ SOS fonctionne meme sans eSIM (appel urgences obligation legale)
+- ❌ Ne jamais rendre le SOS plus difficile a activer que le geste standard
+- ❌ Ne pas demander de confirmation supplementaire apres le timer
+- ❌ Ne pas desactiver SOS pendant le mode avion
+
+**Anti-patterns:**
+1. **Timer trop court** — 10s pour une chute normale (faux positifs, appels inutiles au 112)
+2. **Bouton cancel trop petit** — Utilisateur conscient mais ne trouve pas comment annuler
+3. **Pas de feedback pre-appel** — L'appel part sans que l'utilisateur realise
+
+**Source:** [Apple Fall Detection](https://support.apple.com/en-us/108896), [Pixel Watch Emergency](https://support.google.com/googlepixelwatch/answer/7633578), [Samsung Emergency SOS](https://www.samsung.com/us/support/answer/ANS00082540/)
+
+---
+
+## AO. watchOS 10+ Architectural Changes
+
+> Changements architecturaux majeurs introduits dans watchOS 10 et implications UX.
+> Sources: [Apple watchOS 10 Release Notes](https://developer.apple.com/documentation/watchos-release-notes/watchos-10-release-notes), [Apple HIG watchOS](https://developer.apple.com/design/human-interface-guidelines/designing-for-watchos), [WWDC23 Sessions](https://developer.apple.com/wwdc23/)
+
+### 66. NavigationStack (remplacement de NavigationLink)
+
+**Avant (watchOS 9 et avant):**
+```swift
+// DEPRECATED - NavigationLink avec destination directe
+NavigationLink(destination: DetailView()) {
+    Text("Go to Detail")
+}
+```
+
+**Apres (watchOS 10+):**
+```swift
+// RECOMMANDE - NavigationStack avec path
+struct ContentView: View {
+    @State private var path = NavigationPath()
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            List {
+                ForEach(items) { item in
+                    NavigationLink(value: item) {
+                        ItemRow(item: item)
+                    }
+                }
+            }
+            .navigationDestination(for: Item.self) { item in
+                DetailView(item: item)
+            }
+        }
+    }
+}
+```
+
+**Avantages:** Navigation programmatique, deep linking, state restoration, back stack gere automatiquement.
+
+### 66b. TabView Vertical Pagination
+
+**watchOS 10:** `TabView` utilise la pagination verticale (Digital Crown scroll) au lieu de swipe horizontal.
+
+```swift
+struct MainView: View {
+    var body: some View {
+        TabView {
+            SummaryView()
+                .containerBackground(.blue.gradient, for: .tabView)
+            DetailView()
+                .containerBackground(.green.gradient, for: .tabView)
+            SettingsView()
+                .containerBackground(.orange.gradient, for: .tabView)
+        }
+        .tabViewStyle(.verticalPage) // watchOS 10+
+    }
+}
+```
+
+**Implication:** Le swipe vertical entre pages est desormais le pattern principal de navigation de contenu. Le swipe horizontal est reserve a la navigation back.
+
+### 66c. Full-Screen Background (.containerBackground)
+
+**Nouveau pattern watchOS 10:** Chaque vue peut avoir un fond plein ecran colore.
+
+```swift
+.containerBackground(for: .tabView) {
+    LinearGradient(
+        colors: [.blue, .purple],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+}
+```
+
+**Regles:**
+- Fond couvre tout l'ecran (bords a bords, sous la barre de navigation)
+- Utiliser des gradients subtils (pas d'images lourdes)
+- Le contenu doit rester lisible sur le fond (contraste 4.5:1 minimum)
+
+### 66d. Smart Stack (Scroll Up)
+
+**watchOS 10:** Scroll vers le haut depuis le cadran → Smart Stack (widgets empiles).
+
+**Implications pour les developpeurs:**
+- Widgets utilisant `WidgetKit` (meme API que iPhone)
+- Taille unique: plein ecran de la montre
+- Contenu contextuel (heure, lieu, activite)
+- `TimelineProvider` pour mise a jour periodique (15-60 min)
+- `relevance` score pour priorite dans le stack
+
+### 66e. Toolbar & Force Touch Removal
+
+| Version | Interaction | Remplacement |
+|---------|-------------|-------------|
+| watchOS 6 et avant | Force Touch → menu contextuel | - |
+| watchOS 7+ | Force Touch supprime | `.toolbar` items |
+| watchOS 10+ | `.toolbar` dans NavigationStack | `.toolbar { ToolbarItem(placement:) }` |
+
+```swift
+.toolbar {
+    ToolbarItem(placement: .topBarLeading) {
+        Button(action: { /* settings */ }) {
+            Image(systemName: "gear")
+        }
+    }
+    ToolbarItem(placement: .topBarTrailing) {
+        Button(action: { /* add */ }) {
+            Image(systemName: "plus")
+        }
+    }
+}
+```
+
+### 66f. Digital Crown as Primary Nav
+
+**watchOS 10 hierarchy:**
+1. Digital Crown = scroll vertical principal (navigation entre pages, listes)
+2. Swipe horizontal gauche = back
+3. Tap = selection
+4. Side button = app switcher / Apple Pay
+5. Crown press = home / Siri
+
+### 66g. .navigationBarBackButtonHidden()
+
+**Usage:** Cacher le bouton back par defaut quand la navigation custom est geree.
+
+```swift
+DetailView()
+    .navigationBarBackButtonHidden(true)
+    .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+            Button("Cancel") { dismiss() }
+        }
+    }
+```
+
+**Attention:** Ne cacher le back button que si une action explicite (Cancel/Done) est fournie. L'utilisateur doit toujours pouvoir quitter.
+
+### Checklist watchOS 10+
+
+- ✅ Migrer `NavigationLink(destination:)` vers `NavigationStack` + `navigationDestination`
+- ✅ Utiliser `.tabViewStyle(.verticalPage)` pour pagination
+- ✅ Ajouter `.containerBackground()` pour fond plein ecran
+- ✅ Supporter Smart Stack widgets si pertinent
+- ✅ Remplacer Force Touch par toolbar items
+- ✅ Digital Crown comme navigation verticale principale
+- ❌ Ne pas utiliser swipe horizontal pour paginer (reserve au back)
+- ❌ Ne pas cacher le back button sans alternative explicite
+- ❌ Ne pas ignorer les changements de TabView (breaking change)
+
+**Source:** [watchOS 10 Release Notes](https://developer.apple.com/documentation/watchos-release-notes/watchos-10-release-notes), [WWDC23 Design for watchOS 10](https://developer.apple.com/videos/play/wwdc2023/10138/), [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/designing-for-watchos)
+
+---
+
+## AP. Wear OS 4/5 Material 3 Migration
+
+> Differences entre Wear OS 4 (API 33) et Wear OS 5 (API 34+), migration Material 2 vers Material 3.
+> Sources: [Wear OS Release Notes](https://developer.android.com/wear/versions), [Compose for Wear OS M3](https://developer.android.com/training/wearables/compose), [Material 3 Wear](https://developer.android.com/design/ui/wear)
+
+### 67. Wear OS 4 vs 5 Key Changes
+
+| Aspect | Wear OS 4 (API 33) | Wear OS 5 (API 34+) |
+|--------|--------------------|--------------------|
+| Chipset minimum | Snapdragon W5/Exynos W920 | Idem |
+| Watch Face Format | WFF 1.0 | WFF 2.0 (plus de complications, animations) |
+| Permission model | Runtime permissions | Stricter background restrictions |
+| Health Services | 1.0 stable | 1.1+ (new data types: skin temp) |
+| Tiles API | Tiles 1.2 | Tiles 1.4 (layout amélioré) |
+| Background limits | 30 min max foreground service sans notification | Stricter: 10 min, doit utiliser Ongoing Activity |
+| Ambient mode | Always-On via `AmbientModeSupport` | Deprecated → use `AmbientLifecycleObserver` |
+
+### 67b. M2 → M3 Component Mapping
+
+| Material 2 (Wear Compose) | Material 3 (Wear Compose) | Notes |
+|---------------------------|--------------------------|-------|
+| `androidx.wear.compose.material.Button` | `androidx.wear.compose.material3.Button` | API quasi identique |
+| `Chip` | `Button` (filled) / `OutlinedButton` | Renomme |
+| `AppCard` / `TitleCard` | `Card` variants | Simplifie |
+| `ToggleChip` | `ToggleButton` | Renomme |
+| `ScalingLazyColumn` | `TransformingLazyColumn` | Nouveau! Animations integrées |
+| `TimeText` | `TimeText` (M3 version) | Edge-aware |
+| `SwipeToDismissBox` | `SwipeToDismissBox` (M3) | Meme pattern |
+| `PositionIndicator` | `ScrollIndicator` | Renomme |
+| `Picker` | `Picker` (M3) | Style mis a jour |
+| `Dialog` | `AlertDialog` / `ConfirmationDialog` | Separes |
+| `MaterialTheme` | `MaterialTheme` (M3) | Nouveau color scheme |
+
+### 67c. TransformingLazyColumn (Remplacement de ScalingLazyColumn)
+
+```kotlin
+// Material 3 - TransformingLazyColumn
+import androidx.wear.compose.material3.lazy.TransformingLazyColumn
+import androidx.wear.compose.material3.lazy.rememberTransformingLazyColumnState
+
+@Composable
+fun M3List() {
+    val state = rememberTransformingLazyColumnState()
+    TransformingLazyColumn(
+        state = state,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        items(20) { index ->
+            Button(
+                onClick = { /* action */ },
+                label = { Text("Item $index") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+```
+
+**Avantages vs ScalingLazyColumn:** Animations de morphing integrees (les items se transforment en entrant/sortant du viewport), meilleure performance de scroll.
+
+### 67d. Color Scheme M3
+
+```kotlin
+// Material 3 Wear OS color theme
+val WearColorScheme = ColorScheme(
+    primary = Color(0xFFD0BCFF),       // Violet clair
+    onPrimary = Color(0xFF381E72),
+    primaryContainer = Color(0xFF4F378B),
+    secondary = Color(0xFFCCC2DC),
+    onSecondary = Color(0xFF332D41),
+    surface = Color(0xFF1C1B1F),       // Presque noir
+    onSurface = Color(0xFFE6E1E5),
+    error = Color(0xFFF2B8B5),
+    onError = Color(0xFF601410),
+    background = Color(0xFF000000)     // Noir pur AMOLED
+)
+```
+
+### 67e. Permission Changes (Wear OS 5)
+
+| Permission | Wear OS 4 | Wear OS 5 |
+|-----------|-----------|-----------|
+| `BODY_SENSORS` | Runtime | Runtime + foreground-only par defaut |
+| `ACTIVITY_RECOGNITION` | Runtime | Runtime |
+| `ACCESS_FINE_LOCATION` | Runtime | Runtime + background location stricter |
+| `POST_NOTIFICATIONS` | Runtime (API 33+) | Runtime |
+| Foreground service type | Requis | Requis + type declaration obligatoire |
+
+```xml
+<!-- Wear OS 5: Declarer le type de foreground service -->
+<service
+    android:name=".ExerciseService"
+    android:foregroundServiceType="health|location"
+    android:exported="false" />
+```
+
+### 67f. Watch Face Format (WFF) 2.0
+
+**Nouveautes WFF 2.0 (Wear OS 5):**
+- Animations Lottie dans les complications
+- Plus de slots de complication (jusqu'a 8)
+- Support des themes dynamiques (couleur de la montre)
+- Interactivite: tap sur complications avec data binding
+
+### Checklist Migration M3
+
+- ✅ Remplacer imports `material` par `material3`
+- ✅ Migrer `ScalingLazyColumn` → `TransformingLazyColumn`
+- ✅ Migrer `Chip` → `Button` / `OutlinedButton`
+- ✅ Migrer `ToggleChip` → `ToggleButton`
+- ✅ Mettre a jour `ColorScheme` vers les tokens M3
+- ✅ Declarer `foregroundServiceType` pour tous les services
+- ✅ Utiliser `AmbientLifecycleObserver` au lieu de `AmbientModeSupport`
+- ❌ Ne pas mixer M2 et M3 dans la meme app (conflits de theme)
+- ❌ Ne pas ignorer les restrictions background Wear OS 5
+- ❌ Ne pas utiliser `ScalingLazyColumn` dans un nouveau projet
+
+**Source:** [Wear OS 5 Changes](https://developer.android.com/wear/versions), [Compose Material 3 Wear](https://developer.android.com/training/wearables/compose), [WFF 2.0](https://developer.android.com/training/wearables/watch-faces/format)
+
+---
+
+## AQ. Circular vs Rectangular Screen
+
+> Differences de layout entre les ecrans ronds (Wear OS) et rectangulaires arrondis (watchOS).
+> Sources: [Wear OS Layout](https://developer.android.com/training/wearables/compose/layouts), [Apple HIG Layout](https://developer.apple.com/design/human-interface-guidelines/layout), [Samsung One UI Watch](https://developer.samsung.com/one-ui-watch)
+
+### 68. Usable Area Comparison
+
+| Forme | Usable area vs total | Probleme principal |
+|-------|---------------------|--------------------|
+| Rond (Wear OS) | ~78% (cercle inscrit dans carre) | Coins perdus (~22%) |
+| Rect arrondi (watchOS) | ~92% (petits coins arrondis) | Plus de contenu, mais plus etroit |
+| Carre arrondi (Fitbit) | ~88% | Compromis |
+
+**Zone safe pour rond (ecran 450x450 px):**
+- Cercle inscrit: 318x318 px de contenu sans clipping
+- Avec marges 5.2%: zone utile ~280x280 px au centre
+- Texte long: max ~18-20 caracteres avant troncature
+
+### 68b. Content Reflow Rules
+
+| Element | Ecran rond | Ecran rectangulaire |
+|---------|-----------|-------------------|
+| Titre centre | ✅ (naturel) | ✅ |
+| Texte multi-lignes | ⚠️ Lignes courtes au bord, longues au centre | ✅ Largeur constante |
+| Liste | Items plus courts en haut/bas (ScalingLazyColumn) | Items largeur constante |
+| Boutons pleine largeur | Arrondir les bords pour suivre le cercle | Rectangle pleine largeur |
+| Image plein ecran | Crop circulaire ou vignette | Plein ecran rectangle |
+| Barre de progression | Arc circulaire (CircularProgressIndicator) | Lineaire en bas |
+
+### 68c. Layout Comparison Side-by-Side
+
+**Ecran rond (Wear OS):**
+```
+       ╭──────────╮
+      ╱            ╲
+    ╱   12:45 PM     ╲      ← TimeText en arc
+   │                   │
+   │    Main Content   │    ← Centre: contenu principal
+   │                   │
+    ╲   [Button]     ╱      ← Bouton adapt au cercle
+      ╲            ╱
+       ╰──────────╯
+```
+
+**Ecran rectangulaire (watchOS):**
+```
+┌──────────────────┐
+│ 12:45 PM         │    ← TimeText lineaire haut-gauche
+│                  │
+│  Main Content    │    ← Contenu avec marges 16px
+│                  │
+│  [Button]        │    ← Bouton pleine largeur
+│                  │
+└──────────────────┘
+```
+
+### 68d. List Item Differences
+
+**Rond:** `ScalingLazyColumn` / `TransformingLazyColumn` — les items sont reduits et decales pres des bords (haut/bas). Padding dynamique selon la position Y.
+
+**Rectangulaire:** `List` standard — tous les items ont la meme largeur et taille. Pas de scaling.
+
+```kotlin
+// Wear OS rond - marges automatiques
+TransformingLazyColumn(
+    contentPadding = PaddingValues(
+        top = 40.dp,    // espace pour TimeText + bord rond
+        bottom = 40.dp, // espace bord rond bas
+        start = 10.dp,
+        end = 10.dp
+    )
+)
+```
+
+```swift
+// watchOS rectangulaire - marges standard
+List {
+    ForEach(items) { item in
+        ItemRow(item: item)
+    }
+}
+.listStyle(.carousel) // ou .plain
+```
+
+### 68e. Complication Slot Positioning
+
+| Position | Rond | Rectangulaire |
+|----------|------|--------------|
+| Top | Centre-haut du cercle | Haut-centre |
+| Bottom | Centre-bas du cercle | Bas-centre |
+| Left/Right | Flancs du cercle (souvent petit) | Cotes (plus d'espace) |
+| Center | Centre (grand) | Centre (grand) |
+| Corners | ❌ Zone perdue | ✅ 4 coins utilisables |
+| Max slots (watch face) | 4-6 typique, 8 max | 4-8 selon design |
+
+### 68f. Asset Preparation
+
+| Approche | Avantage | Inconvenient |
+|----------|----------|------------|
+| Asset unique + masque circulaire | Un seul fichier | Perte de contenu dans les coins |
+| Assets par forme (round/rect) | Optimise pour chaque ecran | Double travail de design |
+| Assets vectoriels (SVG/VectorDrawable) | Scale parfait, un fichier | Pas pour les photos |
+
+**Regle:** Pour les icones et illustrations, utiliser des assets vectoriels. Pour les photos et pochettes album, utiliser un asset carre et laisser le systeme cropper (circulaire ou rectangulaire).
+
+### Checklist Screen Shape
+
+- ✅ Tester sur ecran rond ET rectangulaire
+- ✅ Marges en pourcentage (pas dp fixes) pour les ecrans ronds
+- ✅ `ScalingLazyColumn` / `TransformingLazyColumn` pour les listes rondes
+- ✅ Contenu centre sur ecran rond (pas aligne a gauche)
+- ✅ Assets vectoriels quand possible
+- ❌ Ne pas placer de contenu critique dans les coins (ecran rond)
+- ❌ Ne pas supposer une largeur constante pour le texte (rond = variable)
+- ❌ Ne pas utiliser le meme layout pixel-perfect pour les deux formes
+
+**Anti-patterns:**
+1. **Layout rectangulaire force sur rond** — Texte coupe dans les coins, boutons caches
+2. **Ignorer le scaling** — Listes sans scaling = items hauts coupes en haut/bas rond
+3. **Assets raster non-adaptees** — Photo carree avec coins noirs sur ecran rond
+
+**Source:** [Wear OS Screens](https://developer.android.com/training/wearables/compose/layouts), [Apple HIG Layout](https://developer.apple.com/design/human-interface-guidelines/layout)
+
+---
+
+## AR. Animation Constraints on Watch
+
+> Limites d'animation sur montre connectee (performance, batterie, accessibilite).
+> Sources: [Wear OS Performance](https://developer.android.com/training/wearables/performance), [Apple HIG Motion](https://developer.apple.com/design/human-interface-guidelines/motion), [Lottie](https://airbnb.io/lottie/)
+
+### 69. Performance Budget
+
+| Contrainte | Valeur | Notes |
+|------------|--------|-------|
+| Frame rate interactif | 60 FPS (16.6ms/frame) | Objectif, rarement atteint sur Wear OS |
+| Frame rate realiste | 30 FPS (33.3ms/frame) | Acceptable pour la plupart des animations |
+| Frame rate low-power | 10-15 FPS | Mode ambiant / economie batterie |
+| Animations simultanees max | 2-3 | Au-dela: jank (frames dropped) |
+| GPU RAM | 128-256 MB partagee | Animations lourdes = OOM risk |
+| CPU budget animation | ~5-8ms par frame | Le reste pour layout + logic |
+
+### 69b. Duration Guidelines
+
+| Type d'animation | Duree recommandee | Max absolu |
+|-----------------|-------------------|-----------|
+| Micro-interaction (tap feedback) | 100-150ms | 200ms |
+| Transition entre ecrans | 200-300ms | 500ms |
+| Loading spinner | Continu, mais low-FPS (15fps) | - |
+| Success checkmark | 300-400ms | 600ms |
+| Page transition | 250-350ms | 500ms |
+| Morphing (FAB → screen) | 300-500ms | 500ms |
+| Ambient mode transition | 150ms | 200ms |
+
+**Easing recommande:**
+- Entree: `FastOutSlowInInterpolator` / `.easeOut`
+- Sortie: `FastOutLinearInInterpolator` / `.easeIn`
+- Standard: `FastOutSlowInInterpolator` (Material)
+
+### 69c. Lottie on Watch
+
+**Contraintes Lottie pour Tiles:**
+
+| Propriete | Limite |
+|-----------|--------|
+| Taille fichier JSON | < 50 KB |
+| Dimensions | ≤ 200x200 dp |
+| Frames | ≤ 60 frames |
+| Layers | ≤ 5 layers |
+| Effets (blur, shadow) | ❌ Non supportes |
+| Expressions | ❌ Non supportees |
+| Format | JSON (pas dotLottie) |
+
+**Wear OS Tiles Lottie:**
+```kotlin
+// Dans le layout de Tile
+Image.Builder()
+    .setResourceId("anim_success")
+    .setWidth(dp(48f))
+    .setHeight(dp(48f))
+    .build()
+
+// Dans le ResourcesProvider
+override fun onTileResourcesRequest(request: ResourcesRequest) =
+    Resources.Builder()
+        .addIdToImageMapping("anim_success",
+            ImageResource.Builder()
+                .setAndroidAnimatedImageResourceByResId(R.raw.success_anim)
+                .build()
+        )
+        .build()
+```
+
+### 69d. Ambient Mode — No Animation (Hard Rule)
+
+**Regle absolue:** En mode ambient (always-on display), ZERO animation. Raisons:
+1. Burn-in OLED (pixels statiques alternent, mais animation = pixels constants)
+2. Batterie: 1 FPS max en ambient
+3. Guidelines Google/Apple: ecran ambient = statique
+
+**Contenu ambient:**
+- Heure (mise a jour 1x/min)
+- Donnees statiques (pas de barre de progression animee)
+- Couleurs: blanc/gris sur noir, pas de couleurs vives
+- Anti burn-in: deplacer le contenu de 1-2px periodiquement
+
+### 69e. Reduce Motion Detection
+
+**Wear OS:**
+```kotlin
+val isReduceMotionEnabled = Settings.Global.getFloat(
+    contentResolver,
+    Settings.Global.ANIMATOR_DURATION_SCALE,
+    1f
+) == 0f
+
+// Si reduce motion: remplacer animations par des transitions instantanees
+```
+
+**watchOS:**
+```swift
+@Environment(\.accessibilityReduceMotion) var reduceMotion
+
+var body: some View {
+    if reduceMotion {
+        content.transition(.opacity) // fade simple
+    } else {
+        content.transition(.slide.combined(with: .opacity))
+    }
+}
+```
+
+**Regle:** Toujours respecter `Reduce Motion`. Remplacer les animations par des fades simples (150ms opacity) ou des transitions instantanees.
+
+### 69f. Animation Comparison
+
+| Aspect | Wear OS | watchOS |
+|--------|---------|---------|
+| Framework | Compose animations / Lottie | SwiftUI animations / Core Animation |
+| Lottie support | Tiles (limite) + Compose (full) | Lottie-iOS (full) |
+| Ambient mode | Aucune animation | Aucune animation |
+| Reduce Motion | `ANIMATOR_DURATION_SCALE` | `accessibilityReduceMotion` |
+| Transition par defaut | 300ms ease-in-out | 350ms spring |
+| Max simultanées | 2-3 recommande | 3-4 (hardware plus puissant) |
+
+### Checklist Animations
+
+- ✅ Micro-interactions: 100-150ms
+- ✅ Transitions: 200-300ms max
+- ✅ Max 2-3 animations simultanees
+- ✅ Lottie < 50KB, ≤ 5 layers pour Tiles
+- ✅ Zero animation en ambient mode
+- ✅ Respecter Reduce Motion
+- ✅ Tester sur device reel (emulateur masque les jank)
+- ❌ Ne pas depasser 500ms pour une transition
+- ❌ Ne pas utiliser de blur/shadow dans les animations watch
+- ❌ Ne pas animer en ambient (burn-in + batterie)
+
+**Anti-patterns:**
+1. **Animation 60fps constante** — Vide la batterie, chauffe le poignet
+2. **Lottie 500KB** — Crash memoire sur les montres d'entree de gamme
+3. **Animation en ambient** — Burn-in OLED garanti en quelques semaines
+
+**Source:** [Wear OS Performance](https://developer.android.com/training/wearables/performance), [Apple HIG Motion](https://developer.apple.com/design/human-interface-guidelines/motion), [Lottie for Android](https://airbnb.io/lottie/#/android)
+
+---
+
+## AS. Charging & Dock Mode
+
+> Comportement UX quand la montre est en charge ou en mode dock/nightstand.
+> Sources: [Apple Nightstand Mode](https://support.apple.com/guide/watch/charge-apple-watch-apdab4c27498/watchos), [Wear OS Charging](https://developer.android.com/training/wearables)
+
+### 70. Charging Screen Layout
+
+**Informations affichees pendant la charge:**
+
+| Element | Taille | Position |
+|---------|--------|----------|
+| Pourcentage batterie | 40-48 sp bold | Centre |
+| Heure actuelle | 20-24 sp | Haut |
+| Temps restant ("Full in ~45 min") | 14 sp, 60% opacite | Sous le pourcentage |
+| Animation charge | Arc circulaire vert progressif | Autour du pourcentage |
+| Prochaine alarme | 14 sp | Bas |
+
+**Layout:**
+```
+┌──────────────────┐
+│     10:45 PM     │  ← Heure
+│                  │
+│    ╭───────╮     │
+│    │  73%  │     │  ← Pourcentage dans arc
+│    ╰───────╯     │
+│  Full in ~45 min │  ← ETA
+│                  │
+│  ⏰ Alarm 7:00   │  ← Prochaine alarme
+└──────────────────┘
+```
+
+### 70b. Nightstand / Dock Mode
+
+**Apple Watch Nightstand Mode:**
+- Montre posee sur le cote sur le chargeur
+- Affiche: heure en grand, date, prochaine alarme
+- Ecran dim (luminosite niveau 1)
+- Tap ou Crown press = afficher l'heure brievement (5s)
+- Alarme: boutons Snooze (tap ecran) et Stop (side button ou crown)
+
+**Wear OS Dock/Bedside Mode:**
+- Moins standardise (depend du fabricant)
+- Samsung: Goodnight mode (DND + ecran eteint)
+- Pixel Watch: affiche heure + charge en mode always-on dim
+
+### 70c. Charging Brightness & Color
+
+| Aspect | Valeur |
+|--------|--------|
+| Luminosite ecran charge (nuit) | ≤ 10% / niveau 1 |
+| Couleur dominante | Gris fonce / rouge sombre (pas de bleu) |
+| AMOLED | Max 10% des pixels allumes |
+| Mise a jour ecran | 1x/min (heure) ou 1x/5min (batterie %) |
+| Timeout ecran | 10s apres interaction, puis dim/off |
+
+### 70d. Charging Animation
+
+**Pattern arc circulaire:**
+- Arc vert (#4CAF50) progressif de 0° a 360° selon le % batterie
+- Animation lente: l'arc "pulse" legerement (opacite 80-100%, 2s cycle)
+- A 100%: arc complet + checkmark vert + "Fully Charged"
+- Pas d'animation complexe (Lottie inutile, simple arc suffit)
+
+### 70e. "Ready to Use" at 80%
+
+**Pattern recommande:**
+- A 80%: notification haptic (si portee) ou ecran "Ready to go — 80%"
+- Raison: la charge 80-100% est lente (trickle charge), et 80% suffit pour une journee
+- Apple le fait deja avec "Optimized Battery Charging" (plafonne a 80% la nuit)
+
+### Platform Comparison
+
+| Aspect | watchOS | Wear OS |
+|--------|---------|---------|
+| Nightstand mode | ✅ Natif (orientation paysage) | ⚠️ Depend du fabricant |
+| Ecran pendant charge | Heure + % + alarme | Heure + % (variable) |
+| Snooze alarme dock | Tap ecran | ❌ Pas standardise |
+| Charge optimisee (80%) | ✅ Natif | ✅ (Pixel Watch, Samsung) |
+| Photo frame mode | ❌ | ❌ (pas de standard montre) |
+
+### Checklist Charge & Dock
+
+- ✅ Afficher % batterie en grand, lisible
+- ✅ ETA de charge complete
+- ✅ Luminosite minimale (nuit = dim)
+- ✅ Prochaine alarme visible
+- ✅ Animation charge subtile (arc progressif, pas de Lottie lourd)
+- ❌ Ne pas afficher l'ecran a pleine luminosite pendant la charge de nuit
+- ❌ Ne pas jouer des sons/haptics pendant la charge (sauf alarme)
+- ❌ Ne pas animer a plus de 1 FPS en mode dock
+
+**Anti-patterns:**
+1. **Ecran brillant la nuit** — Montre sur la table de nuit qui illumine la chambre
+2. **Pas d'ETA** — "73%" sans savoir quand ca sera pret
+3. **Animation gourmande pendant charge** — Ralentit la charge et chauffe l'appareil
+
+**Source:** [Apple Nightstand](https://support.apple.com/guide/watch/), [Wear OS Power](https://developer.android.com/training/wearables/performance)
+
+---
+
+## AT. Water Lock Mode
+
+> Activation, desactivation et UX du mode aquatique (protection ecran tactile).
+> Sources: [Apple Water Lock](https://support.apple.com/guide/watch/water-lock-apd4e3a8e9d0/watchos), [Samsung Water Lock](https://www.samsung.com/us/support/troubleshooting/TSG01203568/)
+
+### 71. Activation / Deactivation Flow
+
+**Activation:**
+
+| Plateforme | Methode | Automatique? |
+|------------|---------|-------------|
+| watchOS | Control Center → icone goutte d'eau | Auto pendant nage (Workout) |
+| Wear OS (Samsung) | Quick settings → Water Lock | Auto pendant nage (Samsung Health) |
+| Wear OS (Pixel) | Quick settings → Water Lock | Auto pendant nage |
+
+**Desactivation:**
+
+| Plateforme | Methode | Feedback |
+|------------|---------|----------|
+| watchOS | Tourner la Digital Crown (multi-tours) | Haptic + son d'ejection d'eau (speaker) |
+| Wear OS (Samsung) | Long press Home button (2s) | Haptic confirmation |
+| Wear OS (Pixel) | Long press crown | Haptic confirmation |
+
+### 71b. Water Ejection (Apple Watch)
+
+**Fonctionnement unique Apple Watch:**
+- Le speaker emet un son a frequence specifique (~165 Hz) qui expulse l'eau par vibration
+- L'utilisateur voit une animation d'onde sonore
+- Dure ~3 secondes
+- Patent Apple, non disponible sur Wear OS
+
+**Code watchOS (activation programmatique):**
+```swift
+import WatchKit
+
+WKInterfaceDevice.current().enableWaterLock()
+// L'ecran tactile est desactive
+// L'utilisateur doit tourner la Digital Crown pour deverrouiller
+```
+
+### 71c. Touchscreen Disabled Indicator
+
+**Ecran pendant Water Lock:**
+```
+┌──────────────────┐
+│                  │
+│     💧           │  ← Icone goutte d'eau (grande, centre)
+│                  │
+│  Water Lock On   │  ← Label (16sp)
+│                  │
+│  Turn Crown to   │  ← Instructions (14sp)
+│    unlock        │
+│                  │
+└──────────────────┘
+```
+
+**Regle:** L'ecran affiche clairement que le tactile est desactive et comment le reactiver. Les taps sur l'ecran ne font RIEN (pas meme allumer l'ecran).
+
+### 71d. Physical Button-Only Control Model
+
+**Pendant Water Lock, seuls les boutons physiques fonctionnent:**
+
+| Action | Bouton |
+|--------|--------|
+| Voir l'heure | Raise-to-wake (si active) ou press Crown |
+| Mettre en pause (workout) | Side button (watchOS) / Home button (Wear OS) |
+| Arreter le workout | ❌ Pas possible en Water Lock — deverrouiller d'abord |
+| Prendre un lap | Side button double-press (watchOS pendant workout) |
+| SOS | Long press side button fonctionne TOUJOURS |
+
+### 71e. Auto Water Lock During Swim
+
+**Comportement:**
+- Demarrer un workout "Natation" → Water Lock active automatiquement
+- Pause entre les sets: Water Lock reste actif
+- Fin du workout: Water Lock desactive automatiquement + ejection eau (Apple)
+- Samsung / Pixel: prompt "Desactiver Water Lock?"
+
+### Platform Comparison
+
+| Aspect | watchOS | Wear OS (Samsung) | Wear OS (Pixel) |
+|--------|---------|-------------------|-----------------|
+| Activation | Control Center / auto swim | Quick settings / auto | Quick settings / auto |
+| Desactivation | Crown rotation | Long press Home | Long press crown |
+| Ejection eau (speaker) | ✅ Son + vibration | ❌ | ❌ |
+| SOS pendant Water Lock | ✅ Toujours | ✅ Toujours | ✅ Toujours |
+| Resistance eau | WR50 (50m) | IP68 / 5ATM | 5ATM |
+| Bezel pendant lock | N/A (pas de bezel) | ❌ Desactive | N/A |
+
+### Checklist Water Lock
+
+- ✅ Icone goutte d'eau claire sur l'ecran
+- ✅ Instructions de devrouillage visibles
+- ✅ Auto-activation pendant les workouts aquatiques
+- ✅ Boutons physiques restent fonctionnels (sauf tactile/bezel)
+- ✅ SOS toujours accessible meme en Water Lock
+- ❌ Ne pas permettre des interactions tactiles accidentelles sous l'eau
+- ❌ Ne pas bloquer le SOS pendant Water Lock
+- ❌ Ne pas oublier le feedback de desactivation (haptic obligatoire)
+
+**Anti-patterns:**
+1. **Water Lock sans feedback** — L'utilisateur ne sait pas si c'est actif ou pas
+2. **Pas d'auto-lock nage** — L'utilisateur oublie d'activer et les touches d'eau changent les metriques
+3. **Deverrouillage accidentel** — Geste trop simple = deverrouille dans l'eau
+
+**Source:** [Apple Water Lock](https://support.apple.com/guide/watch/), [Samsung Water Lock](https://www.samsung.com/us/support/), [Water Resistance Ratings](https://www.iso.org/standard/83421.html)
+
+---
+
+## AU. Smart Home Control on Watch
+
+> Patterns UX pour le controle domotique depuis la montre connectee.
+> Sources: [Google Home Wear OS](https://developers.home.google.com/), [Apple HomeKit Watch](https://developer.apple.com/documentation/homekit), [Samsung SmartThings](https://developer.samsung.com/smartthings)
+
+### 72. Device List Layout
+
+**Organisation recommandee:**
+
+| Approche | Quand l'utiliser |
+|----------|-----------------|
+| Par piece (Room) | > 10 appareils, maison structuree |
+| Par categorie (Lights, Locks, Thermostat) | < 10 appareils ou categorie unique |
+| Favoris en premier | Toujours (max 4-6 favoris en haut) |
+
+**Layout liste:**
+```
+┌──────────────────┐
+│  🏠 Home         │  ← Titre
+├──────────────────┤
+│  ★ Quick Actions │  ← Section favoris
+│  💡 Living Room  │  On  ← Toggle inline
+│  🔒 Front Door  │  Locked ← Status
+├──────────────────┤
+│  📍 Living Room  │  ← Par piece
+│  💡 Lamp 1       │  Off
+│  💡 Lamp 2       │  On
+│  📍 Bedroom      │
+│  💡 Bedside      │  Off
+└──────────────────┘
+```
+
+### 72b. Toggle Patterns
+
+| Appareil | Interaction | Feedback | Latence attendue |
+|----------|-------------|----------|-----------------|
+| Lumiere on/off | Tap toggle | Haptic + icone change | 1-2s (cloud) |
+| Lumiere intensite | Crown/bezel rotation | Pourcentage en temps reel | 200-500ms (local) |
+| Serrure lock/unlock | Tap + confirmation | "Etes-vous sur?" dialog | 2-3s (cloud) |
+| Thermostat temp | Crown/bezel rotation | Temperature affichee | 1-3s |
+| Volet roulant | Tap up/stop/down | Animation position | 1-5s |
+| Camera | Tap → live preview (si supporte) | Preview stream | 3-5s |
+
+**Regle securite:** Les actions irreversibles ou de securite (deverrouiller porte, ouvrir garage) doivent TOUJOURS demander confirmation.
+
+### 72c. Scene Activation (One-Tap Presets)
+
+**Exemples de scenes:**
+- "Bonne nuit" → eteindre toutes les lumieres, verrouiller portes, thermostat 18°C
+- "Je pars" → tout eteindre, alarme on
+- "Film" → lumieres salon a 20%, TV on
+
+**Layout scene:**
+- Bouton large (pleine largeur, 52dp height)
+- Icone + nom de la scene
+- Tap → execution immediate + haptic confirmation
+- Pas de confirmation (la scene est reversible)
+
+### 72d. Status Indicators
+
+| Etat | Icone | Couleur |
+|------|-------|---------|
+| On / Allume | Icone plein | Jaune (#FFD54F) pour lumieres, Vert pour autres |
+## AV. Camera Remote Control
+
+> Patterns UX pour le controle de camera a distance depuis la montre.
+> Sources: [Apple Camera Remote](https://support.apple.com/guide/watch/take-photos-with-camera-remote-apd3a84e6e6d/watchos), [Wear OS Camera](https://developer.android.com/training/wearables)
+
+### 73. Viewfinder Preview
+
+**Contraintes du flux video:**
+
+| Aspect | Valeur |
+|--------|--------|
+| Resolution preview | 160x160 dp (rond) / 180x140 dp (rect) |
+| Frame rate stream | 10-15 FPS (suffisant pour cadrage) |
+| Latence BT | 100-300ms (acceptable) |
+| Latence WiFi | 50-150ms |
+| Qualite JPEG stream | 30-50% (economie bande passante) |
+
+**Layout:**
+```
+┌──────────────────┐
+│  ┌──────────┐    │
+│  │ Preview  │    │  ← Flux camera (centre, 70% largeur)
+│  │  Stream  │    │
+│  └──────────┘    │
+│                  │
+│     ⏱ 3s        │  ← Timer (optionnel, 14sp)
+│                  │
+│    ( 📷 )       │  ← Bouton shutter (64dp, centre-bas)
+│                  │
+│  🔄  💡         │  ← Front/back + Flash (petits, 32dp)
+└──────────────────┘
+```
+
+### 73b. Shutter Button
+
+| Aspect | Specification |
+|--------|--------------|
+| Taille | 64 dp diametre (tap target) |
+| Position | Centre-bas de l'ecran |
+| Icone | Cercle blanc avec bordure (pattern camera universel) |
+| Feedback tap | Haptic `CLICK` + flash blanc 100ms sur preview |
+| Feedback photo prise | Haptic `SUCCESS` + thumbnail 2s |
+| Etat desactive | Gris 50%, pendant processing |
+
+### 73c. Timer Countdown
+
+**Options:** Off / 3s / 10s
+
+**UX countdown:**
+1. Tap shutter avec timer active
+2. Ecran: gros chiffre centre (48sp bold), decompte 3...2...1
+3. Haptic chaque seconde (`CLICK`)
+4. Flash ecran blanc a 0 + photo prise
+5. Preview thumbnail 2s
+
+### 73d. Controls Secondaires
+
+| Controle | Icone | Position | Tap target |
+|----------|-------|----------|-----------|
+| Front/Back camera | 🔄 | Bas-gauche | 40dp |
+| Flash on/off/auto | ⚡ | Bas-droite | 40dp |
+| Timer | ⏱ | Haut-droite | 36dp |
+| Dernieres photos | Thumbnail | Haut-gauche | 36dp |
+
+### 73e. Video Recording
+
+**Indicateur enregistrement:**
+- Point rouge (●) clignotant (1Hz) en haut a gauche (8dp)
+- Timer d'enregistrement: "00:42" (16sp, rouge)
+- Bouton stop: carre rouge (52dp) remplace le shutter
+
+### 73f. Photo Review
+
+- Apres la prise: thumbnail apparait en bas-gauche (32dp rond)
+- Tap thumbnail → plein ecran (zoom non recommande sur montre)
+- Swipe pour voir les dernieres photos (max 5-10 en cache)
+- "Voir tout sur le telephone" en fin de liste
+
+### Platform Comparison
+
+| Aspect | watchOS | Wear OS |
+|--------|---------|---------|
+| App native | Camera Remote (native) | Pas d'app native universelle |
+| Preview stream | ✅ WiFi/BT | App tierce necessaire |
+| Shutter | ✅ + timer 3s/10s | Via app tierce |
+| Front/back toggle | ✅ | Via app tierce |
+| Flash control | ✅ | Via app tierce |
+| Video | ❌ (photo only, native) | Via app tierce |
+| Live Photo | ✅ | ❌ |
+
+### Checklist Camera Remote
+
+- ✅ Bouton shutter large et centre (64dp)
+- ✅ Preview basse resolution suffisante (10-15 FPS)
+- ✅ Haptic + flash visuel a la prise de photo
+- ✅ Timer countdown avec decompte haptic
+- ✅ Thumbnail review accessible rapidement
+- ❌ Ne pas streamer en haute resolution (batterie + bande passante)
+- ❌ Ne pas proposer d'edition photo sur la montre
+- ❌ Ne pas encombrer l'ecran avec trop de controles
+
+**Anti-patterns:**
+1. **Preview HD** — Stream 1080p sur une montre 1.3" = batterie morte en 15 min
+2. **Shutter minuscule** — Bouton 32dp pour la fonction principale
+3. **Pas de feedback** — Photo prise sans haptic ni flash, incertitude
+
+**Source:** [Apple Camera Remote](https://support.apple.com/guide/watch/), [Wear OS Data Layer](https://developer.android.com/training/wearables/data/data-layer)
+
+---
+
+## AW. Data Density Limits (Consolidated Reference)
+
+> Reference consolidee des limites de contenu par composant sur ecran de montre.
+> Sources: [Wear OS Complications](https://developer.android.com/training/wearables/watch-faces/complications), [Apple ClockKit](https://developer.apple.com/documentation/clockkit), [Wear OS Tiles](https://developer.android.com/training/wearables/tiles), [Material Design Wear](https://developer.android.com/design/ui/wear)
+
+### 74. Text Length Limits per Component
+
+| Composant | Max caracteres | Notes |
+|-----------|---------------|-------|
+| **Complication SHORT_TEXT** | 7 | Chiffres/acronymes ("12:45", "85bpm", "Mon") |
+| **Complication LONG_TEXT** | ~20-25 | Phrase courte ("Meeting at 3pm") |
+| **Complication RANGED_VALUE** | Label: 7, value text: 5 | Arc + texte court |
+| **Tile primary text** | ~20-25 | 1 ligne, 16sp |
+| **Tile secondary text** | ~30-35 | 1-2 lignes, 14sp |
+| **Notification title (collapsed)** | ~25-30 | Avant ellipsis dans le flux |
+| **Notification body (collapsed)** | ~40-50 | Preview 1-2 lignes |
+| **Notification body (expanded)** | ~200 | Scroll vertical |
+| **List item primary label** | ~18-22 (rond), ~25-30 (rect) | 1 ligne, 16sp |
+| **List item secondary label** | ~25-30 (rond), ~35-40 (rect) | 1 ligne, 14sp, dim |
+| **Button label** | ~12-15 | 1 ligne, 14sp |
+| **Chip label** | ~15-18 | 1 ligne, 14sp |
+| **Dialog title** | ~20 | 1-2 lignes, 18sp |
+| **Dialog body** | ~80-100 | Scrollable |
+| **TimeText** | ~10-12 | "12:45 PM" ou custom status |
+
+### 74b. Component Count Limits
+
+| Element | Maximum recommande | Hard limit |
+|---------|-------------------|-----------|
+| **Actions par ecran** | 3 | 5 (surcharge cognitive au-dela de 3) |
+| **Boutons par ecran** | 3 | 4 |
+| **Items de liste visibles** | 5-7 (sans scroll) | ~15-20 total (scroll) |
+| **Complications par watch face** | 4-6 (design typique) | 8 (max WFF) |
+| **Tiles installees** | 5-7 (recommande) | ~10 (systeme) |
+| **Quick settings toggles** | 6-8 visibles | ~12-15 (scroll) |
+| **Notification actions** | 2-3 | 3 (Wear OS) / 4 (watchOS) |
+| **Smart Reply suggestions** | 3 | 5 |
+| **Pages dans pager horizontal** | 3-5 | ~8 (au-dela, inaccessible) |
+| **Tab items (vertical, watchOS)** | 3-5 | ~10 |
+| **Menu items** | 5-7 | ~10 |
+
+### 74c. Visual Density Limits
+
+| Metrique | Minimum recommande | Raison |
+|----------|-------------------|--------|
+| **Font size minimum** | 12 sp | Lisibilite a distance bras (25-35cm) |
+| **Tap target minimum** | 48 dp (Google) / 44pt (Apple) | Precision doigt |
+| **Spacing entre elements** | 8 dp minimum | Eviter les taps accidentels |
+| **Icone minimum** | 24 dp (inline) / 32 dp (action) | Reconnaissance |
+| **Contraste texte/fond** | 4.5:1 (AA) | Accessibilite WCAG |
+| **Contraste grand texte** | 3:1 (AA) | Texte >= 18sp |
+| **Lignes de texte max par ecran** | 5-7 (sans scroll) | Lisibilite |
+| **Metriques de donnee par ecran** | 3-4 | Workout / sante |
+
+### 74d. Image & Media Limits
+
+| Type | Taille max recommandee | Format |
+|------|----------------------|--------|
+| Complication icon | 24x24 dp (tinted) | VectorDrawable / SF Symbol |
+| Complication image (full) | Taille slot | PNG/WebP |
+| Tile image | 200x200 dp max | WebP (compression) |
+| Notification large icon | 64x64 dp | PNG |
+| Notification big picture | 320x320 dp max | JPEG/WebP |
+| Album art (Now Playing) | 80-100 dp | JPEG (quality 70%) |
+| App icon | 48x48 dp (launcher) | Adaptive icon |
+| Lottie animation (Tile) | < 50 KB, 200x200 dp | JSON |
+
+### 74e. Temporal Limits
+
+| Element | Duree/Frequence | Notes |
+|---------|-----------------|-------|
+| Notification on-screen | 8-10s puis queue | Ne pas depasser |
+| Toast / confirmation | 2-3s auto-dismiss | `ConfirmationActivity` |
+| Loading timeout | 5s max puis fallback | Ne pas faire attendre plus |
+| Complication refresh | 15 min minimum (watchOS), ~10 min (Wear OS) | Limitation systeme |
+| Tile refresh | 15-60 min | `TimelineProvider` / `TileService` |
+| Animation max duration | 500ms transition | Voir section AR |
+| Haptic notification | < 1s | 1-3 taps, pas de continu |
+| Ambient screen update | 1x/min | Limitation systeme |
+
+### 74f. Platform-Specific Hard Limits Summary
+
+| Limite | Wear OS | watchOS |
+|--------|---------|---------|
+| Max Tiles | ~10 | N/A (widgets dans Smart Stack) |
+| Max complications | 8 per face (WFF) | 8 per face |
+| Max notification actions | 3 | 4 |
+| Complication refresh | ~10 min | 15 min (budget) |
+| Background runtime | 10 min (Wear OS 5) | 4-15 min (background tasks) |
+| App storage | 100-500 MB (pratique) | 50-500 MB (pratique) |
+| Tile layout depth | 10 niveaux max | N/A |
+
+### 74g. Quick Reference Decision Table
+
+| "Combien de X ?" | Reponse | Justification |
+|-------------------|---------|---------------|
+| Chars sur 1 ligne ? | 18-22 (rond), 25-30 (rect) | Largeur utile ecran |
+| Boutons par ecran ? | 2-3 | Loi de Hick (temps de choix) |
+| Items de liste ? | Max 15-20 | Au-dela, l'utilisateur abandonne |
+| Metriques de workout ? | 3-4 par page | Lisibilite en mouvement |
+| Couleurs distinctes ? | 5-6 max | Discrimination couleur poignet |
+| Niveaux de navigation ? | 2-3 max | Retour fastidieux au-dela |
+| Mots dans un label ? | 2-3 | Lecture rapide (glance) |
+| Secondes d'interaction ? | < 10s idealement | Session montre = 5-10s median |
+
+### Checklist Data Density
+
+- ✅ SHORT_TEXT complication: max 7 chars
+- ✅ Tap targets: 48dp minimum (44pt Apple)
+- ✅ Font: jamais en dessous de 12sp
+- ✅ Max 3 actions par ecran
+- ✅ Max 4 metriques de donnee par ecran
+- ✅ Tronquer texte avec ellipsis (pas de wrap multilignes pour les labels)
+- ✅ Interaction totale < 10s par session
+- ❌ Ne pas afficher un paragraphe de texte (renvoyer au phone)
+- ❌ Ne pas depasser 3 niveaux de navigation
+- ❌ Ne pas mettre 6+ boutons sur un ecran
+
+**Anti-patterns:**
+1. **Port du phone** — Copier l'UI mobile sur la montre (trop de contenu, trop petit)
+2. **Texte long non tronque** — Le texte deborde ou wrap sur 4 lignes
+3. **Dashboard de donnees** — 8 metriques, 3 graphes, 2 boutons sur 1.3"
+
+**Source:** [Wear OS Complications Data](https://developer.android.com/training/wearables/watch-faces/complications), [Apple ClockKit](https://developer.apple.com/documentation/clockkit), [Wear OS App Quality](https://developer.android.com/docs/quality-guidelines/wear-app-quality), [NNGroup Smartwatch](https://www.nngroup.com/articles/smartwatch-interactions/)
+
+---
+
+*Bible UX Wearable - Mise a jour mars 2026*
+*Sources: [Android Developers](https://developer.android.com/wear), [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/designing-for-watchos), [Samsung Developer](https://developer.samsung.com/one-ui-watch), [GSMArena](https://www.gsmarena.com), [Wear OS App Quality](https://developer.android.com/docs/quality-guidelines/wear-app-quality), [Color Roles M3](https://developer.android.com/design/ui/wear/guides/styles/color/roles-tokens), [NNGroup](https://www.nngroup.com/articles/smartwatch-interactions/), [Health Services API](https://developer.android.com/training/wearables/health-services), [Apple HealthKit](https://developer.apple.com/documentation/healthkit), [Matter Protocol](https://csa-iot.org/all-solutions/matter/)*

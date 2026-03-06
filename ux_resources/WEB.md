@@ -5173,3 +5173,3328 @@ async function share(content) {
 | Modal max-width | 640px (form), 960px (content) | - | Convention |
 | Sidebar | 240-280px expanded | 64-72px collapsed | Convention |
 | Toast/Snackbar | 288px min-width | - | Material Design |
+## AM. Design Tokens & Theming System
+
+### 176. Token Naming Architecture
+
+Design tokens follow a **three-tier hierarchy**: primitive → semantic → component. This separation enables theme switching without touching component code.
+
+| Tier | Purpose | Naming Convention | Example |
+|------|---------|-------------------|---------|
+| Primitive | Raw values, no meaning | `--color-blue-500`, `--space-4` | `#3b82f6`, `16px` |
+| Semantic | Intent-based aliases | `--color-primary`, `--color-surface` | References `--color-blue-500` |
+| Component | Scoped to a component | `--button-bg`, `--card-radius` | References `--color-primary` |
+
+**Token categories:**
+
+| Category | Primitives | Semantic Examples |
+|----------|-----------|-------------------|
+| Color | `--color-{hue}-{shade}` (50-950) | `--color-primary`, `--color-error`, `--color-text-secondary` |
+| Spacing | `--space-{scale}` (1-24) | `--space-inline`, `--space-stack`, `--space-section` |
+| Typography | `--font-size-{scale}`, `--font-weight-{name}` | `--text-body`, `--text-heading` |
+| Border radius | `--radius-{scale}` (none/sm/md/lg/full) | `--radius-card`, `--radius-button` |
+| Shadow | `--shadow-{scale}` (sm/md/lg/xl) | `--shadow-dropdown`, `--shadow-modal` |
+| Motion | `--duration-{name}`, `--ease-{name}` | `--duration-fast`, `--ease-enter` |
+| Z-index | `--z-{layer}` | `--z-dropdown`, `--z-modal`, `--z-toast` |
+
+### 177. CSS Custom Properties & Theme Switching
+
+```css
+/* Primitive tokens */
+:root {
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #2563eb;
+  --color-gray-50: #f9fafb;
+  --color-gray-900: #111827;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
+
+/* Semantic tokens — light theme (default) */
+:root, [data-theme="light"] {
+  --color-bg: var(--color-gray-50);
+  --color-text: var(--color-gray-900);
+  --color-primary: var(--color-blue-500);
+  --color-primary-hover: var(--color-blue-600);
+  --color-surface: #ffffff;
+  --color-border: #e5e7eb;
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Dark theme */
+[data-theme="dark"] {
+  --color-bg: #0f172a;
+  --color-text: #f1f5f9;
+  --color-primary: #60a5fa;
+  --color-primary-hover: #93bbfd;
+  --color-surface: #1e293b;
+  --color-border: #334155;
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+/* Brand override example */
+[data-theme="brand-acme"] {
+  --color-primary: #e11d48;
+  --color-primary-hover: #be123c;
+}
+```
+
+**Theme toggle implementation:**
+
+```javascript
+// Respect system preference, allow user override
+function initTheme() {
+  const stored = localStorage.getItem('theme');
+  if (stored) return applyTheme(stored);
+  const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  applyTheme(prefersDark ? 'dark' : 'light');
+}
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('theme', theme);
+}
+// Listen for system changes
+matchMedia('(prefers-color-scheme: dark)')
+  .addEventListener('change', e => {
+    if (!localStorage.getItem('theme')) applyTheme(e.matches ? 'dark' : 'light');
+  });
+```
+
+### 178. Style Dictionary Configuration
+
+```json
+{
+  "source": ["tokens/**/*.json"],
+  "platforms": {
+    "css": {
+      "transformGroup": "css",
+      "buildPath": "dist/css/",
+      "files": [{
+        "destination": "tokens.css",
+        "format": "css/variables",
+        "options": { "outputReferences": true }
+      }]
+    },
+    "js": {
+      "transformGroup": "js",
+      "buildPath": "dist/js/",
+      "files": [{
+        "destination": "tokens.mjs",
+        "format": "javascript/es6"
+      }]
+    }
+  }
+}
+```
+
+**Token file structure:**
+
+```
+tokens/
+├── primitive/
+│   ├── color.json       # Raw palette
+│   ├── spacing.json     # 4px scale
+│   └── typography.json  # Font sizes, weights
+├── semantic/
+│   ├── light.json       # Light theme aliases
+│   ├── dark.json        # Dark theme aliases
+│   └── motion.json      # Duration, easing
+└── component/
+    ├── button.json
+    ├── card.json
+    └── input.json
+```
+
+### 179. Figma Variables Sync
+
+| Figma Feature | Token Tier | Sync Direction |
+|---------------|-----------|----------------|
+| Color variables | Primitive + Semantic | Figma → Code (via Tokens Studio) |
+| Number variables | Spacing, radius, sizing | Figma → Code |
+| String variables | Font family | Figma → Code |
+| Modes (Light/Dark) | Semantic tier | Bidirectional |
+
+**Versioning strategy:**
+
+| Strategy | When | Example |
+|----------|------|---------|
+| SemVer for token packages | Published as npm | `@acme/tokens@2.1.0` |
+| Breaking change | Removing/renaming a semantic token | Major bump |
+| Non-breaking | Adding new tokens, changing primitives | Minor/patch |
+| Deprecation period | 2 minor versions before removal | `/* @deprecated use --color-primary */` |
+
+**Anti-patterns:**
+- ❌ Using primitive tokens directly in components (`var(--color-blue-500)` in a button)
+- ❌ Hardcoded hex values bypassing the token system
+- ❌ Mixing naming conventions (`camelCase` + `kebab-case`)
+- ❌ No dark theme fallback — only testing light mode
+- ❌ Theme flash on load (FART — Flash of inAccurate coloR Theme)
+
+**Checklist:**
+- [ ] Three-tier token architecture (primitive → semantic → component)
+- [ ] Dark mode tested with all semantic tokens
+- [ ] `prefers-color-scheme` respected as default
+- [ ] Theme persisted in `localStorage`, applied before paint (script in `<head>`)
+- [ ] Style Dictionary (or Tokens Studio) generates CSS + JS from single source
+- [ ] Token versioning with SemVer and deprecation notices
+- [ ] Figma variables synced with code tokens
+- [ ] No primitive tokens referenced directly in component CSS
+
+> **Sources:** [Style Dictionary docs](https://amzn.github.io/style-dictionary/), [Tokens Studio](https://tokens.studio/), [Material Design Tokens](https://m3.material.io/foundations/design-tokens), [W3C Design Tokens Community Group](https://design-tokens.github.io/community-group/format/)
+
+---
+
+## AN. SEO & Structured Data UX
+
+### 180. Semantic HTML for SEO
+
+| Element | SEO Impact | Usage Rule |
+|---------|-----------|------------|
+| `<h1>` | High — defines page topic | Exactly 1 per page, contains primary keyword |
+| `<h2>`–`<h6>` | Medium — content structure | Hierarchical, no skipping levels (h2→h4) |
+| `<main>` | High — identifies primary content | Exactly 1 per page |
+| `<article>` | High — self-contained content | Blog posts, product cards, news |
+| `<nav>` | Medium — navigation identification | Label with `aria-label` if multiple |
+| `<header>` / `<footer>` | Low–Medium | Page or section level |
+| `<figure>` + `<figcaption>` | Medium — image context | Always pair with descriptive caption |
+| `<time datetime="">` | Medium — machine-readable dates | ISO 8601 format: `2025-03-06T14:00:00Z` |
+| `<address>` | Medium — contact info for nearest article/body | Business info, author contact |
+
+### 181. JSON-LD Structured Data Schemas
+
+```html
+<!-- Product -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "Premium Plan",
+  "description": "Full-featured smoking cessation tracking",
+  "offers": {
+    "@type": "Offer",
+    "price": "9.99",
+    "priceCurrency": "EUR",
+    "availability": "https://schema.org/InStock"
+  },
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.7",
+    "reviewCount": "1280"
+  }
+}
+</script>
+
+<!-- FAQPage -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [{
+    "@type": "Question",
+    "name": "How does cigarette tracking work?",
+    "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "The watch detects smoking gestures via motion sensors..."
+    }
+  }]
+}
+</script>
+
+<!-- BreadcrumbList -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://example.com/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://example.com/blog" },
+    { "@type": "ListItem", "position": 3, "name": "Quit Tips" }
+  ]
+}
+</script>
+
+<!-- HowTo -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to set up your watch",
+  "step": [
+    { "@type": "HowToStep", "name": "Install", "text": "Download from Play Store" },
+    { "@type": "HowToStep", "name": "Pair", "text": "Open the phone app and tap Pair Watch" }
+  ]
+}
+</script>
+```
+
+### 182. Meta Tags & Open Graph
+
+| Tag | Value | Spec |
+|-----|-------|------|
+| `<title>` | 50–60 chars, primary keyword first | Google truncates at ~60 chars |
+| `<meta name="description">` | 120–158 chars, action-oriented | Google may rewrite if poor |
+| `<link rel="canonical">` | Absolute URL, self-referencing | Prevents duplicate content |
+| `og:title` | Same as `<title>` or shorter | Max 60 chars |
+| `og:description` | 2-4 sentences, compelling | Max 200 chars |
+| `og:image` | **1200 × 630 px**, < 1 MB | Required for social sharing |
+| `og:type` | `website`, `article`, `product` | Per page type |
+| `twitter:card` | `summary_large_image` | Requires og:image |
+| `twitter:site` | `@handle` | Brand Twitter |
+
+```html
+<head>
+  <title>Quit Smoking Tracker — Infernal Wheel</title>
+  <meta name="description" content="Track your cigarettes, detect patterns, and quit for good. Watch + phone app with AI-powered insights.">
+  <link rel="canonical" href="https://infernal-wheel.app/features">
+  <meta property="og:title" content="Quit Smoking Tracker — Infernal Wheel">
+  <meta property="og:description" content="Track cigarettes with your smartwatch. AI-powered cessation.">
+  <meta property="og:image" content="https://infernal-wheel.app/og-features.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+```
+
+### 183. Core Web Vitals as Ranking Signal
+
+| CWV Metric | Good | Needs Improvement | Poor | SEO Impact |
+|-----------|------|-------------------|------|------------|
+| LCP | ≤ 2.5s | 2.5s–4.0s | > 4.0s | Direct ranking factor |
+| INP | ≤ 200ms | 200ms–500ms | > 500ms | Direct ranking factor |
+| CLS | ≤ 0.1 | 0.1–0.25 | > 0.25 | Direct ranking factor |
+
+**URL slug conventions:**
+
+| Rule | Good | Bad |
+|------|------|-----|
+| Lowercase, hyphenated | `/quit-smoking-tips` | `/Quit_Smoking_Tips` |
+| Short, keyword-rich | `/features/tracking` | `/page?id=42&cat=3` |
+| No trailing slash inconsistency | Pick one, 301 the other | Both `/blog` and `/blog/` live |
+| Transliterate accents | `/cessation-tabac` | `/cessation-tabàc` |
+| Max depth 3 levels | `/blog/category/post` | `/a/b/c/d/e/post` |
+
+**Internal linking rules:**
+
+| Rule | Detail |
+|------|--------|
+| Descriptive anchor text | "Read our quit guide" not "click here" |
+| Link to deep pages from high-authority pages | Home → Feature → Sub-feature |
+| Max ~100 links per page | Diminishing returns beyond |
+| Breadcrumbs count as internal links | Implement on all deep pages |
+| Broken link audit | Monthly, use Screaming Frog or similar |
+
+**Image alt text for SEO:**
+- Describe the image content concisely (5–15 words)
+- Include keyword naturally if relevant — no stuffing
+- Decorative images: `alt=""`
+- Complex images (charts): longer alt + `aria-describedby` for data table
+
+**Anti-patterns:**
+- ❌ Missing canonical URL → duplicate content penalties
+- ❌ `og:image` smaller than 1200×630 → poor social previews
+- ❌ Keyword stuffing in `<title>` or alt text
+- ❌ Client-rendered-only content with no SSR/SSG → not indexed
+- ❌ Blocking Googlebot with overly aggressive `robots.txt`
+- ❌ Multiple `<h1>` tags on one page
+
+**Checklist:**
+- [ ] One `<h1>` per page with primary keyword
+- [ ] Semantic HTML (`<main>`, `<article>`, `<nav>`, `<section>`)
+- [ ] JSON-LD for Product, FAQ, Breadcrumb, HowTo, Article as applicable
+- [ ] `og:image` at 1200×630px on every page
+- [ ] `<link rel="canonical">` on every page
+- [ ] `<title>` 50–60 chars, `<meta description>` 120–158 chars
+- [ ] URL slugs lowercase, hyphenated, max 3 levels deep
+- [ ] All images have descriptive `alt` (or `alt=""` for decorative)
+- [ ] Core Web Vitals in "Good" range
+- [ ] Internal links use descriptive anchor text
+
+> **Sources:** [Google Search Central](https://developers.google.com/search/docs), [Schema.org](https://schema.org/), [Open Graph Protocol](https://ogp.me/), [web.dev CWV](https://web.dev/articles/vitals), [Moz Beginner's Guide to SEO](https://moz.com/beginners-guide-to-seo)
+
+---
+
+## AO. AI & Conversational UI
+
+### 184. Prompt Input Patterns
+
+| Pattern | Spec | Usage |
+|---------|------|-------|
+| Auto-expanding `<textarea>` | Min 44px height, max 200px, then scroll | Chat input, AI prompt |
+| Placeholder copy | "Ask anything..." or "Describe what you need" | Guide first interaction |
+| Submit on Enter, Shift+Enter for newline | Desktop convention | Match ChatGPT/Gemini pattern |
+| Character count | Show at 80%+ of limit (e.g., `3200/4000`) | Long-form input |
+| File/image attachment | Icon button left of send, drag-and-drop | Multimodal prompts |
+| Suggested prompts | 2–4 pill buttons above empty input | Cold-start onboarding |
+
+```html
+<div class="prompt-input" role="search">
+  <label for="ai-prompt" class="sr-only">Ask the AI assistant</label>
+  <textarea id="ai-prompt"
+    placeholder="Ask anything..."
+    rows="1"
+    aria-label="Message"
+    style="min-height: 44px; max-height: 200px; resize: none;">
+  </textarea>
+  <button type="submit" aria-label="Send message">
+    <svg><!-- send icon --></svg>
+  </button>
+</div>
+```
+
+### 185. Streaming Response Rendering
+
+| Behavior | Spec | Source |
+|----------|------|--------|
+| Token-by-token display | Render each chunk as received via SSE/WebSocket | ChatGPT, Claude patterns |
+| Cursor/caret indicator | Blinking block or `▊` at end of stream | Visual "typing" signal |
+| Markdown rendering | Parse incrementally — headings, lists, code blocks | Avoid layout jumps on block completion |
+| Code blocks | Syntax-highlight after block closes (`` ``` ``) | Highlight.js or Prism |
+| Scroll behavior | Auto-scroll to bottom while streaming; stop if user scrolls up | User intent detection |
+| Stop generation button | Visible during streaming, `Escape` key shortcut | Allow cancellation |
+| Time to first token | Target < 500ms perceived (show typing indicator at 200ms) | Perceived performance |
+
+```css
+/* Streaming cursor */
+.ai-response.streaming::after {
+  content: '▊';
+  animation: blink 1s step-end infinite;
+  color: var(--color-primary);
+}
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* Smooth token appearance */
+.ai-response .token {
+  animation: fadeIn 80ms ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+```
+
+### 186. AI Response Affordances
+
+| Affordance | Placement | Icon |
+|------------|-----------|------|
+| Copy response | Top-right of response bubble | 📋 clipboard icon |
+| Regenerate | Below response | ↻ refresh icon + "Regenerate" label |
+| Edit prompt | On user message bubble | ✏️ pencil icon, click to edit + re-submit |
+| Thumbs up / down | Below response | 👍 👎 — opens feedback form on 👎 |
+| Share/export | Overflow menu (⋯) | Link, PDF, Markdown |
+| Citation/sources | Inline numbered references [1][2] | Click to expand source card |
+| Branch/fork | On specific response | Explore alternative from this point |
+
+**AI vs Human indicator:**
+
+| Signal | Implementation |
+|--------|---------------|
+| Avatar | Bot icon (sparkle ✦) vs user avatar |
+| Label | "AI" badge on bot messages |
+| Styling | Slightly different background (e.g., `--color-surface-alt`) |
+| Disclaimer | "AI-generated content may contain errors" — footer of chat |
+
+### 187. AI Loading & Error States
+
+| State | Visual | Duration |
+|-------|--------|----------|
+| Thinking | 3 animated dots or shimmer bar | 0–2s typical |
+| Searching/tool use | "Searching the web..." with spinner + tool name | 2–10s |
+| Streaming | Token-by-token + cursor (see §185) | 5–60s |
+| Error | Red inline message + retry button | Immediate |
+| Rate limited | "You've reached the limit. Resets in X:XX" + countdown | Show reset time |
+| Content filtered | "I can't help with that request" — neutral tone | Immediate |
+| Timeout | "This is taking longer than expected" + cancel/retry | After 30s |
+
+**Confidence indicators:**
+
+| Pattern | Usage | Visual |
+|---------|-------|--------|
+| High/Medium/Low badge | When model has calibrated confidence | Color-coded pill |
+| "I'm not sure, but..." | Hedging language in response | Text-based |
+| Source count | "Based on 5 sources" | Numbered citations |
+| Disclaimer banner | Legal/medical/financial topics | Yellow warning bar |
+
+**Safety disclaimer patterns:**
+
+```html
+<div class="ai-disclaimer" role="note" aria-label="AI disclaimer">
+  <p>⚠️ AI responses may be inaccurate. Verify important information.
+     <a href="/ai-policy">Learn more</a></p>
+</div>
+```
+
+**Anti-patterns:**
+- ❌ No way to stop a long generation
+- ❌ Streaming without auto-scroll management (user loses their place)
+- ❌ AI responses visually identical to user messages
+- ❌ No feedback mechanism (thumbs up/down)
+- ❌ Hiding that content is AI-generated
+- ❌ Claiming 100% accuracy — always include disclaimers
+- ❌ Losing conversation context on page refresh
+
+**Checklist:**
+- [ ] Streaming renders token-by-token with visible cursor
+- [ ] Stop/cancel button visible during generation
+- [ ] AI messages visually distinct from user messages (avatar, badge, bg color)
+- [ ] Regenerate + copy + feedback (👍👎) on every AI response
+- [ ] Edit-and-resubmit on user messages
+- [ ] Citations rendered as clickable inline references
+- [ ] Error states show retry with clear message
+- [ ] Safety disclaimer visible in chat interface
+- [ ] Suggested prompts for empty/cold-start state
+- [ ] Conversation persisted across page refresh
+- [ ] `prefers-reduced-motion` disables streaming animation
+
+> **Sources:** [OpenAI UX Guidelines](https://platform.openai.com/docs/guides), [Google Conversational Design](https://designguidelines.withgoogle.com/conversation/), [NN/g AI UX](https://www.nngroup.com/articles/ai-ux/), [Anthropic Usage Policy](https://www.anthropic.com/policies)
+
+---
+
+## AP. Typography Advanced (Font Pairing & Variable Fonts)
+
+### 188. System Font Stacks
+
+| Stack | CSS Value | Usage |
+|-------|-----------|-------|
+| Sans-serif system | `system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif` | Default body text |
+| Serif system | `'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif` | Editorial, long-form |
+| Monospace system | `ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace` | Code blocks |
+| Emoji | `'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'` | Append to any stack |
+
+**Zero-FOUT stack (0 layout shift, 0 download):**
+```css
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+```
+
+### 189. Variable Font Axes
+
+| Axis | Tag | Range (typical) | CSS Property |
+|------|-----|-----------------|-------------|
+| Weight | `wght` | 100–900 | `font-weight` |
+| Width | `wdth` | 75–125 (%) | `font-stretch` |
+| Italic | `ital` | 0–1 | `font-style` |
+| Slant | `slnt` | -12–0 (degrees) | `font-style: oblique Xdeg` |
+| Optical size | `opsz` | 8–144 (pt) | `font-optical-sizing: auto` |
+| Grade | `GRAD` | -200–150 | Custom axis (`font-variation-settings`) |
+
+```css
+/* Variable font loading */
+@font-face {
+  font-family: 'Inter Variable';
+  src: url('Inter-Variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153; /* Latin subset */
+}
+
+/* Usage with animation */
+.heading {
+  font-family: 'Inter Variable', system-ui, sans-serif;
+  font-weight: 700;
+  font-variation-settings: 'opsz' 32;
+}
+
+/* Dark mode: increase grade for consistent perceived weight */
+@media (prefers-color-scheme: dark) {
+  body { font-variation-settings: 'GRAD' 50; }
+}
+```
+
+### 190. Font Pairing Rules
+
+| Rule | Detail | Example Pair |
+|------|--------|-------------|
+| Contrast in classification | Sans + Serif, or Slab + Geometric | Inter + Lora |
+| Match x-height | Pair fonts with similar x-height ratios | Roboto (0.528) + Merriweather (0.500) |
+| Limit to 2 families | 3 max (heading + body + mono) | Poppins + Source Serif Pro + Fira Code |
+| Same designer/foundry | Fonts designed together pair naturally | IBM Plex Sans + IBM Plex Serif |
+| Avoid same category | Two geometric sans rarely work | ❌ Futura + Montserrat |
+| Weight contrast | Bold headings (700) + Regular body (400) | Weight delta ≥ 200 |
+
+**Proven pairings:**
+
+| Heading | Body | Vibe |
+|---------|------|------|
+| Inter (sans) | Merriweather (serif) | Professional, readable |
+| Poppins (geometric sans) | Lora (oldstyle serif) | Modern, warm |
+| Space Grotesk (sans) | Source Serif Pro (serif) | Technical, editorial |
+| Playfair Display (serif) | Raleway (sans) | Elegant, luxury |
+| DM Sans (sans) | DM Serif Display (serif) | Cohesive, matching family |
+
+### 191. Fallback Matching & CJK
+
+**Fallback size matching (prevent CLS on font load):**
+
+```css
+@font-face {
+  font-family: 'Inter';
+  src: url('inter.woff2') format('woff2');
+  font-display: swap;
+  /* Match system fallback to Inter metrics */
+  size-adjust: 107%;
+  ascent-override: 90%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+```
+
+| Property | Purpose | Typical Range |
+|----------|---------|---------------|
+| `size-adjust` | Scale fallback to match web font width | 90%–115% |
+| `ascent-override` | Match ascender height | 80%–110% |
+| `descent-override` | Match descender depth | 15%–30% |
+| `line-gap-override` | Match line gap | 0%–10% |
+
+**CJK (Chinese/Japanese/Korean) stacks:**
+
+| Language | Stack |
+|----------|-------|
+| Japanese | `'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif` |
+| Chinese (Simplified) | `'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif` |
+| Chinese (Traditional) | `'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif` |
+| Korean | `'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif` |
+
+**CJK subsetting:** Full CJK fonts are 2–20 MB. Use unicode-range splitting:
+```css
+/* Split into ~100KB chunks */
+@font-face {
+  font-family: 'Noto Sans JP';
+  src: url('noto-jp-subset1.woff2') format('woff2');
+  unicode-range: U+3000-30FF; /* Katakana + punctuation */
+  font-display: swap;
+}
+```
+
+**Google Fonts vs Self-hosted:**
+
+| Factor | Google Fonts | Self-hosted |
+|--------|-------------|-------------|
+| Setup | 1 line of CSS/HTML | Build step required |
+| Cache benefit | Shared cache (removed in 2020 by browsers) | Same-origin cache |
+| Privacy (GDPR) | Sends IP to Google — problematic in EU | No third-party requests ✅ |
+| Performance | Extra DNS + connection | Fewer requests ✅ |
+| Control | Limited subsetting | Full subsetting, `font-display` control ✅ |
+| **Recommendation** | Prototyping only | **Production — always self-host** |
+
+**Anti-patterns:**
+- ❌ More than 3 font families loaded
+- ❌ Loading full weight range (100–900) when only 400+700 needed
+- ❌ `font-display: block` causing invisible text (FOIT)
+- ❌ No fallback metrics — large CLS on font swap
+- ❌ Using Google Fonts CDN in EU without consent (GDPR violation — Landgericht München ruling)
+- ❌ Full CJK font file without subsetting (15 MB+ download)
+
+**Checklist:**
+- [ ] Max 2 font families (+ 1 mono if needed)
+- [ ] Variable fonts used to reduce total file count
+- [ ] `font-display: swap` on all `@font-face`
+- [ ] Fallback metrics set (`size-adjust`, `ascent-override`) to prevent CLS
+- [ ] Self-hosted in production (GDPR compliance)
+- [ ] `woff2` format only (97%+ browser support)
+- [ ] Subset to needed character ranges (`unicode-range`)
+- [ ] `<link rel="preload" as="font" crossorigin>` for critical fonts
+- [ ] Font pairs tested at body (16px) and heading (32px) sizes
+- [ ] Optical sizing enabled for variable fonts (`font-optical-sizing: auto`)
+
+> **Sources:** [Google Fonts Knowledge](https://fonts.google.com/knowledge), [MDN Variable Fonts](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_fonts/Variable_fonts_guide), [web.dev Font Best Practices](https://web.dev/articles/font-best-practices), [Fallback Font Generator](https://screenspan.net/fallback)
+
+---
+
+## AQ. Accessibility Testing Methodology
+
+### 192. Automated Testing Tools
+
+| Tool | Type | Coverage | Integration |
+|------|------|----------|-------------|
+| axe-core | Engine/library | ~57% of WCAG issues | Jest, Cypress, Playwright |
+| Lighthouse a11y | Browser audit | Score 0–100, maps to axe rules | CI/CD via lighthouse-ci |
+| Pa11y | CLI/CI tool | HTML_CodeSniffer rules | GitHub Actions, Jenkins |
+| eslint-plugin-jsx-a11y | Linter | React JSX static analysis | ESLint config |
+| Storybook a11y addon | Component-level | axe-core per story | Storybook |
+| WAVE | Browser extension | Visual overlay of issues | Manual review |
+
+**Cypress + axe-core example:**
+
+```javascript
+// cypress/e2e/a11y.cy.js
+import 'cypress-axe';
+
+describe('Accessibility', () => {
+  it('homepage has no critical violations', () => {
+    cy.visit('/');
+    cy.injectAxe();
+    cy.checkA11y(null, {
+      runOnly: {
+        type: 'tag',
+        values: ['wcag2a', 'wcag2aa', 'wcag21aa']
+      }
+    }, (violations) => {
+      violations.forEach(v =>
+        cy.log(`${v.impact}: ${v.description} (${v.nodes.length} nodes)`)
+      );
+    });
+  });
+});
+```
+
+**Playwright + axe-core:**
+
+```javascript
+import AxeBuilder from '@axe-core/playwright';
+
+test('page should pass axe', async ({ page }) => {
+  await page.goto('/');
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa'])
+    .analyze();
+  expect(results.violations).toEqual([]);
+});
+```
+
+### 193. Manual Testing Matrix
+
+| Screen Reader | Browser | OS | Priority |
+|--------------|---------|-----|----------|
+| NVDA | Chrome | Windows | **P0 — highest usage** |
+| JAWS | Chrome / Edge | Windows | **P0 — enterprise** |
+| VoiceOver | Safari | macOS | **P0 — Apple ecosystem** |
+| VoiceOver | Safari | iOS | **P1 — mobile** |
+| TalkBack | Chrome | Android | **P1 — mobile** |
+| Narrator | Edge | Windows | P2 |
+| Orca | Firefox | Linux | P3 |
+
+**Manual testing protocol (per page/component):**
+
+| Check | Method | Pass Criteria |
+|-------|--------|---------------|
+| Keyboard-only navigation | Tab through entire page | All interactive elements reachable, logical order |
+| Focus visibility | Tab through, observe focus ring | 2px+ outline, 3:1 contrast, never hidden |
+| Screen reader flow | NVDA + Chrome, read page | Landmarks, headings, alt text all announced correctly |
+| Zoom 200% | Ctrl+= to 200% | No content loss, no horizontal scroll |
+| Zoom 400% (reflow) | 1280px viewport at 400% → 320px equivalent | Content reflows, no overlap |
+| Color contrast | DevTools or Colour Contrast Analyser | 4.5:1 normal text, 3:1 large/UI |
+| Color-only info | Disable colors (grayscale extension) | Info conveyed via shape/text/pattern too |
+| Motion | Enable `prefers-reduced-motion` | No essential animation, no vestibular triggers |
+| Pointer independence | No hover-only interactions | Everything works via keyboard/touch |
+| Form errors | Submit invalid form | Errors described in text, focus moves to first error |
+
+### 194. Bug Severity Classification
+
+| Severity | WCAG Level | Definition | SLA |
+|----------|-----------|------------|-----|
+| **P0 — Blocker** | A violation | User cannot complete task (no keyboard access, missing alt on critical image, form not submittable) | Fix before release |
+| **P1 — Critical** | AA violation | Major barrier (contrast fail on primary text, missing labels, broken focus order) | Fix within 1 sprint |
+| **P2 — Major** | AA violation, partial | Workaround exists but degraded (poor error messaging, missing skip link) | Fix within 2 sprints |
+| **P3 — Minor** | AAA or best practice | Enhancement (insufficient touch target by 2px, decorative image with redundant alt) | Backlog, fix when nearby |
+
+**Testing cadence:**
+
+| Activity | Frequency | Tool |
+|----------|-----------|------|
+| Automated axe scan | Every PR (CI) | axe-core in Playwright/Cypress |
+| Lighthouse a11y audit | Weekly scheduled | lighthouse-ci |
+| Manual screen reader test | Each feature release | NVDA + VoiceOver |
+| Full manual audit | Quarterly | Internal or vendor |
+| User testing with disabled users | Twice per year | Recruited panel (6–8 users) |
+| VPAT/ACR update | Annually or after major release | Legal/compliance |
+
+**Compliance reporting:**
+
+| Document | Audience | Content |
+|----------|----------|---------|
+| VPAT (Voluntary Product Accessibility Template) | Enterprise buyers, procurement | WCAG 2.1 AA conformance per criterion |
+| ACR (Accessibility Conformance Report) | Same as VPAT | Completed VPAT with evaluation results |
+| Internal dashboard | Engineering team | axe violations over time, by severity |
+| Remediation roadmap | Product/engineering | P0-P3 issues, assignees, target dates |
+
+**Anti-patterns:**
+- ❌ Relying only on automated testing (catches ~30–57% of issues)
+- ❌ Testing only with one screen reader
+- ❌ No disabled users in testing
+- ❌ Treating a11y as a "phase" instead of continuous
+- ❌ P0 bugs shipped to production
+- ❌ No regression testing after fixes
+
+**Checklist:**
+- [ ] axe-core runs on every PR in CI, zero violations policy for P0
+- [ ] Manual screen reader testing on NVDA+Chrome, VoiceOver+Safari per feature
+- [ ] Keyboard-only test: all pages navigable without mouse
+- [ ] Zoom to 200% and 400% tested
+- [ ] Color contrast verified with tool (not eyeball)
+- [ ] Bug severity P0–P3 defined and enforced in triage
+- [ ] Quarterly full manual audit
+- [ ] User testing with disabled users at least twice/year
+- [ ] VPAT/ACR maintained and published
+- [ ] Accessibility regression tests for fixed issues
+
+> **Sources:** [axe-core](https://github.com/dequelabs/axe-core), [WebAIM Screen Reader Survey](https://webaim.org/projects/screenreadersurvey10/), [W3C WCAG-EM](https://www.w3.org/WAI/test-evaluate/conformance/wcag-em/), [Deque University](https://dequeuniversity.com/), [GOV.UK Accessibility Testing](https://www.gov.uk/service-manual/helping-people-to-use-your-service/testing-for-accessibility)
+
+---
+
+## AR-bis. Checkout Address & Payment UX Deep
+
+### 195. Address Autocomplete
+
+| Feature | Spec | Source |
+|---------|------|--------|
+| Provider | Google Places Autocomplete, Mapbox, Loqate | Coverage varies by region |
+| Trigger | Start after 3 characters typed | Reduce API calls |
+| Debounce | 300ms after keystroke | Performance |
+| Dropdown | Max 5 suggestions, keyboard navigable | UX + API cost |
+| Auto-fill fields | Street, city, state, postal code, country | Single selection fills all |
+| Fallback | Manual entry always available | If API fails or address not found |
+
+```html
+<label for="address-search">Address</label>
+<input id="address-search" type="text"
+  autocomplete="street-address"
+  placeholder="Start typing your address..."
+  aria-autocomplete="list"
+  aria-controls="address-suggestions"
+  role="combobox">
+<ul id="address-suggestions" role="listbox" aria-label="Address suggestions">
+  <!-- Populated dynamically -->
+</ul>
+```
+
+**Country-dependent field order:**
+
+| Country | Field Order | Notes |
+|---------|------------|-------|
+| US | Street → Apt → City → State → ZIP | State = dropdown (50 + territories) |
+| UK | Postcode → House number (lookup) → Street → City | Postcode-first lookup common |
+| Japan | Postal → Prefecture → City → Ward → Block → Building | Reverse order (large → small) |
+| Brazil | CEP → Street → Number → Complement → Neighborhood → City → State | CEP auto-fills city/state |
+| Germany | Street + Nr → PLZ → City | Nr on same line as street |
+
+### 196. Express Checkout & Payment Methods
+
+| Principle | Spec |
+|-----------|------|
+| Express checkout position | **Above the fold**, before form — reduces abandonment by 20–35% |
+| Button order | Apple Pay → Google Pay → PayPal (by platform detection) |
+| "OR" divider | `<hr>` with centered text "or continue with card" |
+| Saved payment methods | Radio list, last 4 digits + card brand icon, default pre-selected |
+| New card form | Number → Expiry → CVC → Name (single row for expiry + CVC) |
+| Card brand detection | Detect from first digits: 4=Visa, 5=MC, 34/37=Amex, 6=Discover |
+| Input masking | `4242 •••• •••• 1234` with auto-advance between groups |
+
+```html
+<!-- Express checkout placement -->
+<section class="express-checkout" aria-label="Express checkout">
+  <button class="apple-pay-button" aria-label="Pay with Apple Pay">
+    <!-- Apple Pay mark -->
+  </button>
+  <button class="google-pay-button" aria-label="Pay with Google Pay">
+    <!-- Google Pay mark -->
+  </button>
+</section>
+
+<div class="divider" role="separator">
+  <span>or pay with card</span>
+</div>
+
+<form class="card-form">
+  <!-- Card fields -->
+</form>
+```
+
+### 197. Promo Code & Order Summary
+
+**Promo code UX:**
+
+| Pattern | Spec |
+|---------|------|
+| Placement | Collapsible "Have a promo code?" link — not an open field |
+| Validation | Apply button, validate server-side, show result inline |
+| Success | Green checkmark, "SAVE20 applied — $10.00 off" |
+| Error | Red inline: "Code expired" or "Not valid for these items" |
+| Removal | "✕ Remove" link next to applied code |
+| Multiple codes | Support or clearly state "one code per order" |
+
+**Order summary (sticky sidebar):**
+
+| Element | Spec |
+|---------|------|
+| Position | Sticky sidebar on desktop (`position: sticky; top: 24px`) |
+| Mobile | Collapsible summary at top, expands on tap |
+| Items | Product image (64×64px), name, quantity, line price |
+| Subtotal | Clear label |
+| Discount | Shown in green with negative value (`-$10.00`) |
+| Shipping | "Free" in green or calculated amount |
+| Tax | Line item or "Calculated at next step" |
+| **Total** | Bold, largest text in summary, updated live |
+| CTA | "Place Order — $XX.XX" with total in button text |
+
+### 198. Subscription Billing UI
+
+| Element | Spec |
+|---------|------|
+| Plan selector | Toggle: Monthly / Annual ("Save 20%") — annual pre-selected |
+| Price display | Monthly: "$9.99/mo" · Annual: "$7.99/mo billed $95.88/year" |
+| Trial callout | "Start 14-day free trial — cancel anytime" above CTA |
+| Payment method | Saved card with update link |
+| Next billing date | "Next charge: April 6, 2026" |
+| Cancel flow | Settings → Cancel → reason survey → confirm → "Active until [date]" |
+| Downgrade | Show what features will be lost, allow grace period |
+| Dunning | Failed payment: email → in-app banner → 3 retry attempts over 14 days |
+
+**Anti-patterns:**
+- ❌ Express checkout buttons below the fold or after the form
+- ❌ Promo code field always visible and prominent (distracts, causes "coupon hunting")
+- ❌ Total not updating live when promo applied
+- ❌ No saved payment methods for returning users
+- ❌ Requiring account creation before checkout (guest checkout mandatory)
+- ❌ Hiding shipping cost until final step (top abandonment reason — Baymard 2024: 48%)
+- ❌ Subscription: no easy cancel → Dark pattern, violates FTC guidelines
+
+**Checklist:**
+- [ ] Address autocomplete with fallback to manual entry
+- [ ] Field order adapts to selected country
+- [ ] Express checkout (Apple Pay/Google Pay) above the fold
+- [ ] Card brand auto-detected from first digits
+- [ ] Promo code: collapsible, validates inline, removable
+- [ ] Order summary sticky on desktop, collapsible on mobile
+- [ ] Total in "Place Order" button text
+- [ ] Subscription: clear pricing, trial terms, easy cancel
+- [ ] Guest checkout available (no forced account creation)
+- [ ] `autocomplete` attributes on all payment/address fields
+
+> **Sources:** [Baymard Institute Checkout UX](https://baymard.com/blog/checkout-usability), [Stripe Checkout Best Practices](https://stripe.com/docs/payments/checkout), [Apple Pay Web Guidelines](https://developer.apple.com/apple-pay/), [Google Pay Web Integration](https://developers.google.com/pay/api/web)
+
+---
+
+## AS. Content Strategy & Information Architecture
+
+### 199. Scanning Patterns
+
+| Pattern | Layout Shape | Best For | Source |
+|---------|-------------|----------|--------|
+| F-pattern | Left-heavy horizontal scans | Text-heavy pages (articles, search results) | NN/g eye tracking |
+| Z-pattern | Diagonal across page | Landing pages, minimal content | NN/g |
+| Layer-cake | Headings scanned, body skipped | Long-form with clear headings | NN/g |
+| Spotted pattern | Fixation on specific elements | Dashboards, data-heavy pages | NN/g |
+
+**Content writing rules:**
+
+| Rule | Target | Source |
+|------|--------|--------|
+| Flesch-Kincaid grade level | 7–8 for consumer, 10–12 for professional | Readability research |
+| Line length | **45–75 characters** (optimal ~66 chars) | Bringhurst, *Elements of Typographic Style* |
+| Paragraph length | 3–4 sentences max for web | NN/g Scannable Content |
+| Sentence length | 15–20 words average | Plain language guidelines |
+| Front-loading | Key info in first 2 words of headings/bullets | Inverted pyramid |
+| Active voice | 80%+ sentences active | Clarity |
+
+### 200. Information Hierarchy & Microcopy
+
+**Inverted pyramid for web:**
+
+```
+┌──────────────────────────────┐
+│   Lead: Who/What/Why         │  ← Above fold, 25 words
+├──────────────────────────────┤
+│   Key details & evidence     │  ← Supporting info
+├──────────────────────────────┤
+│   Background & nice-to-know  │  ← For deep readers
+└──────────────────────────────┘
+```
+
+**Heading hierarchy rules:**
+
+| Rule | Detail |
+|------|--------|
+| Single `<h1>` | Page title, contains primary keyword |
+| No skipping | h2 → h3 → h4 (never h2 → h4) |
+| Scannable alone | Headings should tell the story without body text |
+| Max nesting | 3–4 levels (h1–h4) for most pages |
+| Heading length | 4–8 words ideal |
+
+**Microcopy character limits:**
+
+| Element | Max Chars | Example |
+|---------|-----------|---------|
+| Button label | 20 | "Start Free Trial" |
+| Tooltip | 80 | "Click to copy the share link" |
+| Toast/snackbar | 60 | "Changes saved successfully" |
+| Form helper text | 80 | "Must be at least 8 characters" |
+| Error message | 80 | "Email is already in use" |
+| Empty state title | 30 | "No results found" |
+| Empty state body | 80 | "Try adjusting your filters" |
+| Tab label | 15 | "Analytics" |
+| Badge | 10 | "New", "Beta" |
+| Placeholder | 40 | "Search by name or email..." |
+
+**Above-the-fold strategy:**
+
+| Element | Must Be Above Fold | Purpose |
+|---------|--------------------|---------|
+| Value proposition | ✅ | User decides in 3–5 seconds |
+| Primary CTA | ✅ | First action without scrolling |
+| Navigation | ✅ | Orientation |
+| Hero image/visual | ✅ if it supports value prop | Visual anchor |
+| Social proof (logos) | Preferred | Trust signal |
+| Long-form content | ❌ | Below fold is fine if above fold hooks |
+
+**Checklist:**
+- [ ] Flesch-Kincaid grade 7–8 for consumer content
+- [ ] Line length 45–75 characters
+- [ ] Inverted pyramid: key info first
+- [ ] Headings are scannable alone, no levels skipped
+- [ ] Microcopy within character limits per element type
+- [ ] Value proposition + CTA above the fold
+- [ ] Active voice in 80%+ of sentences
+- [ ] Paragraphs max 3–4 sentences
+
+> **Sources:** [NN/g F-Shaped Pattern](https://www.nngroup.com/articles/f-shaped-pattern-reading-web-content/), [NN/g How Users Read](https://www.nngroup.com/articles/how-users-read-on-the-web/), [Bringhurst, *Elements of Typographic Style*](https://en.wikipedia.org/wiki/The_Elements_of_Typographic_Style), [plainlanguage.gov](https://www.plainlanguage.gov/)
+
+---
+
+## AT. Voice UI on Web
+
+### 201. Web Speech API
+
+| API | Purpose | Browser Support |
+|-----|---------|----------------|
+| `SpeechRecognition` | Speech-to-text | Chrome, Edge, Safari 14.1+ (webkit prefix) |
+| `SpeechSynthesis` | Text-to-speech | All modern browsers |
+
+```javascript
+// Speech recognition
+const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+recognition.continuous = false;
+recognition.interimResults = true;
+recognition.lang = 'en-US';
+
+recognition.onresult = (event) => {
+  const transcript = event.results[0][0].transcript;
+  const confidence = event.results[0][0].confidence;
+  searchInput.value = transcript;
+  if (event.results[0].isFinal) submitSearch(transcript);
+};
+
+recognition.onerror = (event) => {
+  if (event.error === 'not-allowed') showPermissionDenied();
+  if (event.error === 'no-speech') showNoSpeechDetected();
+};
+```
+
+### 202. Voice Search Button & Feedback
+
+| Element | Spec |
+|---------|------|
+| Mic button | Inside search input, right side, 44×44px touch target |
+| Icon | Microphone outline (idle), filled (listening), waveform (processing) |
+| Listening visual | Pulsing ring animation (2s loop), red dot indicator |
+| Interim transcription | Gray italic text updating live in input field |
+| Final transcription | Black text, auto-submit or user confirms |
+| Timeout | Stop listening after 5s silence, show "No speech detected" |
+| Privacy notice | "Voice data is processed by [browser/service]" — first use only |
+
+```html
+<div class="search-with-voice">
+  <input type="search" id="search" placeholder="Search or try voice...">
+  <button id="voice-btn"
+    aria-label="Search by voice"
+    aria-pressed="false"
+    class="voice-btn">
+    <svg class="mic-icon"><!-- mic icon --></svg>
+  </button>
+</div>
+
+<!-- Listening state overlay -->
+<div class="voice-overlay" role="status" aria-live="assertive" hidden>
+  <div class="pulse-ring"></div>
+  <p class="transcript">Listening...</p>
+  <button class="voice-cancel">Cancel</button>
+</div>
+```
+
+```css
+.pulse-ring {
+  width: 80px; height: 80px;
+  border: 3px solid var(--color-primary);
+  border-radius: 50%;
+  animation: pulse 1.5s ease-out infinite;
+}
+@keyframes pulse {
+  0% { transform: scale(0.95); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse-ring { animation: none; border-width: 4px; }
+}
+```
+
+**Error states:**
+
+| Error | Message | Recovery |
+|-------|---------|----------|
+| `not-allowed` | "Microphone access denied" | Link to browser settings |
+| `no-speech` | "No speech detected. Try again." | Auto-dismiss after 3s |
+| `network` | "Voice search unavailable offline" | Fallback to text input |
+| `aborted` | (Silent) | User cancelled, no message |
+
+**Anti-patterns:**
+- ❌ Auto-starting microphone without user action (privacy violation, browser will block)
+- ❌ No visual feedback during listening
+- ❌ No cancel button during voice capture
+- ❌ Ignoring `prefers-reduced-motion` on pulse animation
+- ❌ No fallback when Speech API unsupported (check `'SpeechRecognition' in window`)
+
+**Checklist:**
+- [ ] Feature-detect `SpeechRecognition` before showing mic button
+- [ ] Clear visual feedback during listening (pulse, waveform)
+- [ ] Interim results shown live in input
+- [ ] Timeout after 5s silence
+- [ ] Cancel button during listening
+- [ ] Error messages for denied permission, no speech, network
+- [ ] Privacy notice on first use
+- [ ] `aria-live="assertive"` on transcript display
+- [ ] `prefers-reduced-motion` respected
+
+> **Sources:** [MDN Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API), [Google Voice Search UX](https://developers.google.com/search), [Can I Use SpeechRecognition](https://caniuse.com/speech-recognition)
+
+---
+
+## AU. Comparison Tables & Feature Matrix
+
+### 203. Table Structure & Responsiveness
+
+| Element | Spec | Source |
+|---------|------|--------|
+| Fixed first column | Product/feature name, sticky on scroll | Usability convention |
+| Fixed header row | Plan names, sticky on vertical scroll | `position: sticky; top: 0` |
+| Max columns | 3–4 plans visible (5 max with scroll) | Cognitive load |
+| Column width | Equal width or featured column 10% wider | Visual balance |
+| Row height | Min 48px, consistent per row | Readability |
+| Zebra striping | Alternating row bg (`odd: #f9fafb`) | Long table readability |
+
+```css
+.comparison-table {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.comparison-table th:first-child,
+.comparison-table td:first-child {
+  position: sticky;
+  left: 0;
+  background: var(--color-surface);
+  z-index: 1;
+  min-width: 180px;
+}
+.comparison-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--color-surface);
+  z-index: 2;
+}
+```
+
+### 204. Icons, Badges & CTA Row
+
+| Element | Spec |
+|---------|------|
+| Check icon | ✅ Green checkmark (`#22c55e`) — `aria-label="Included"` |
+| Cross icon | ❌ Gray or red cross (`#ef4444`) — `aria-label="Not included"` |
+| Partial | `◐` half-circle or "Limited" text with tooltip |
+| "Recommended" badge | Ribbon or highlighted column border, `aria-label="Recommended"` |
+| Sticky CTA row | Plan CTA buttons in last row, `position: sticky; bottom: 0` |
+| Color coding | Highlight recommended column with brand color bg (subtle, 5–10% opacity) |
+
+```html
+<table class="comparison-table" role="table" aria-label="Plan comparison">
+  <thead>
+    <tr>
+      <th scope="col">Feature</th>
+      <th scope="col">Free</th>
+      <th scope="col" class="recommended">
+        Pro <span class="badge">Recommended</span>
+      </th>
+      <th scope="col">Enterprise</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th scope="row">Cigarette tracking</th>
+      <td><span aria-label="Included">✓</span></td>
+      <td class="recommended"><span aria-label="Included">✓</span></td>
+      <td><span aria-label="Included">✓</span></td>
+    </tr>
+    <tr>
+      <th scope="row">AI insights</th>
+      <td><span aria-label="Not included">—</span></td>
+      <td class="recommended"><span aria-label="Included">✓</span></td>
+      <td><span aria-label="Included">✓</span></td>
+    </tr>
+  </tbody>
+  <tfoot class="sticky-cta">
+    <tr>
+      <td></td>
+      <td><a href="/signup/free" class="btn btn-secondary">Get Free</a></td>
+      <td class="recommended"><a href="/signup/pro" class="btn btn-primary">Start Pro Trial</a></td>
+      <td><a href="/contact" class="btn btn-secondary">Contact Sales</a></td>
+    </tr>
+  </tfoot>
+</table>
+```
+
+**Responsive collapse strategies:**
+
+| Strategy | When | Implementation |
+|----------|------|---------------|
+| Horizontal scroll | 3–5 columns | `overflow-x: auto` with sticky first column |
+| Stacked cards | Mobile < 640px | Each plan as a card with feature list |
+| Toggle/tabs | Mobile, 3+ plans | One plan visible at a time, swipe/tab |
+| Hide columns | Secondary plans | Show only Free + Recommended on mobile |
+
+**Anti-patterns:**
+- ❌ Check/cross icons without text alternatives (inaccessible)
+- ❌ More than 5 columns without scroll mechanism
+- ❌ No sticky header — user forgets which column is which
+- ❌ CTA buttons only at top of table (scrolled away)
+- ❌ Tooltip-only info without keyboard access
+
+**Checklist:**
+- [ ] First column and header row sticky
+- [ ] Max 4 visible columns, horizontal scroll beyond
+- [ ] ✓/— icons have `aria-label` ("Included"/"Not included")
+- [ ] "Recommended" column visually highlighted
+- [ ] CTA row sticky at bottom
+- [ ] Responsive: cards or tabs on mobile
+- [ ] Partial features explained with tooltip (keyboard accessible)
+- [ ] Zebra striping on rows > 8
+
+> **Sources:** [NN/g Comparison Tables](https://www.nngroup.com/articles/comparison-tables/), [Baymard Pricing Table UX](https://baymard.com/blog/pricing-table-design), [A11y: Tables](https://www.w3.org/WAI/tutorials/tables/)
+
+---
+
+## AV. FAQ & Help Center Patterns
+
+### 205. Accordion FAQ Design
+
+| Element | Spec |
+|---------|------|
+| Behavior | **One-open** (closing others) for short FAQs; **multi-open** for reference | 
+| Expand/collapse icon | Chevron `>` rotating 90° or `+`/`−` toggle, right-aligned |
+| Question text | 16–18px, font-weight 600, min-height 48px tap target |
+| Answer text | 14–16px, max-width 700px for readability |
+| Animation | `max-height` transition 200ms ease-out, or native `<details>` |
+| Default state | All collapsed, or first item open |
+| Keyboard | `Enter`/`Space` to toggle, `ArrowDown`/`ArrowUp` between questions |
+| ARIA | `role="region"` on answer, `aria-expanded`, `aria-controls` |
+
+```html
+<!-- Native HTML accordion -->
+<div class="faq-list">
+  <details>
+    <summary>How does cigarette detection work?</summary>
+    <div class="faq-answer">
+      <p>The watch uses accelerometer and gyroscope data to detect
+         the hand-to-mouth gesture pattern associated with smoking...</p>
+    </div>
+  </details>
+  <details>
+    <summary>Is my data private?</summary>
+    <div class="faq-answer">
+      <p>All data is stored locally on your device and synced
+         end-to-end encrypted to your phone...</p>
+    </div>
+  </details>
+</div>
+```
+
+### 206. FAQ Search & Schema Markup
+
+| Feature | Spec |
+|---------|------|
+| Search within FAQ | Filter questions in real-time as user types, min 10 questions to justify search |
+| No-results state | "No matching questions. [Contact support →]" |
+| Categories/tabs | Group by topic if > 15 questions |
+| Answer length | 50–150 words ideal; link to full article for complex topics |
+| "Was this helpful?" | Yes/No buttons below each answer, track per-question |
+| Contact escalation | "Still need help? [Contact us →]" at bottom of FAQ page |
+
+**schema.org FAQPage markup:**
+
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How does cigarette detection work?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The watch uses accelerometer and gyroscope data..."
+      }
+    }
+  ]
+}
+</script>
+```
+
+**Anti-patterns:**
+- ❌ Accordion with nested accordions (confusing hierarchy)
+- ❌ FAQ answers longer than 200 words without linking to full article
+- ❌ No search on FAQ pages with 20+ questions
+- ❌ "Was this helpful?" with no action on negative feedback
+- ❌ FAQ as a dumping ground for unstructured content
+
+**Checklist:**
+- [ ] Native `<details>`/`<summary>` or ARIA accordion pattern
+- [ ] `aria-expanded` toggled on question buttons
+- [ ] Keyboard navigation (Enter/Space, arrow keys)
+- [ ] Search filter if > 10 questions
+- [ ] FAQPage JSON-LD schema for rich results
+- [ ] Answers 50–150 words, links to full articles if longer
+- [ ] "Was this helpful?" feedback on each answer
+- [ ] Contact escalation CTA at page bottom
+- [ ] Categories/tabs for > 15 questions
+
+> **Sources:** [W3C Accordion Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/accordion/), [Google FAQ Rich Results](https://developers.google.com/search/docs/appearance/structured-data/faqpage), [NN/g Accordions](https://www.nngroup.com/articles/accordions-complex-content/)
+
+---
+
+## AW. Blog & Article Layout
+
+### 207. Content Width & Typography
+
+| Element | Spec | Source |
+|---------|------|--------|
+| Content max-width | **600–700px** (optimal: 680px / ~66 chars) | Bringhurst |
+| Body font size | 18–20px for long-form reading | Readability research |
+| Line height | 1.5–1.7 for body text | WCAG 1.4.12 |
+| Paragraph spacing | 1em–1.5em between paragraphs | Typography convention |
+| Heading spacing | 2em above, 0.5em below | Visual hierarchy |
+| Image max-width | 100% of content column, or breakout to ~900px | Editorial pattern |
+
+```css
+.article-body {
+  max-width: 680px;
+  margin: 0 auto;
+  font-size: clamp(1.125rem, 0.5vw + 1rem, 1.25rem);
+  line-height: 1.65;
+  color: var(--color-text);
+}
+.article-body > * + * { margin-top: 1.25em; }
+.article-body h2 { margin-top: 2.5em; }
+.article-body figure.breakout {
+  max-width: 900px;
+  margin-left: calc(50% - 450px);
+  margin-right: calc(50% - 450px);
+}
+```
+
+### 208. Sidebar, Progress & Meta
+
+| Element | Spec |
+|---------|------|
+| Sticky ToC sidebar | Left or right, `position: sticky; top: 80px`, highlights active section |
+| ToC visibility | Desktop only (> 1200px), collapses to dropdown on tablet |
+| Reading time | `Math.ceil(wordCount / 238)` min — display near title |
+| Scroll progress bar | Fixed top, 3px height, brand color, `width` tied to scroll % |
+| Author byline | Avatar (40×40px) + name + date + reading time — below title |
+| Share buttons | Fixed left sidebar or floating bottom on mobile |
+| Share options | Copy link, Twitter/X, LinkedIn, Email (4 max) |
+
+```javascript
+// Reading time calculation
+function readingTime(text) {
+  const words = text.trim().split(/\s+/).length;
+  return Math.ceil(words / 238); // 238 wpm average (Medium)
+}
+
+// Scroll progress bar
+window.addEventListener('scroll', () => {
+  const article = document.querySelector('.article-body');
+  const rect = article.getBoundingClientRect();
+  const progress = Math.min(1, Math.max(0,
+    -rect.top / (rect.height - window.innerHeight)
+  ));
+  progressBar.style.width = `${progress * 100}%`;
+});
+```
+
+### 209. Rich Content Elements
+
+| Element | HTML | Spec |
+|---------|------|------|
+| Figure + caption | `<figure><img><figcaption>` | Caption below image, muted color, 14px |
+| Code blocks | `<pre><code>` | Syntax highlighted, copy button, overflow-x scroll |
+| Block quotes | `<blockquote>` | Left border 3px, italic or indent, attribution |
+| Related articles | Section below article | 3 cards (image + title + date), grid layout |
+| Footnotes | Superscript link → bottom section | `<a href="#fn1">[1]</a>` + back link |
+| Table of contents | Ordered list of h2/h3 | Generated from heading IDs |
+
+```html
+<figure>
+  <img src="chart.png" alt="Monthly cigarette consumption declining over 6 months"
+       width="680" height="400" loading="lazy">
+  <figcaption>Fig. 1 — Average daily cigarettes per month, showing 60% reduction
+    after 6 months of tracking.</figcaption>
+</figure>
+```
+
+**Anti-patterns:**
+- ❌ Content wider than 75 characters per line (hard to track to next line)
+- ❌ Body font size < 16px
+- ❌ No heading IDs (can't link to sections)
+- ❌ Share buttons covering content on mobile
+- ❌ Auto-playing videos in article body
+- ❌ Reading time missing or calculated wrong (images add ~12s each)
+
+**Checklist:**
+- [ ] Content max-width 600–700px
+- [ ] Body font 18–20px, line-height 1.5–1.7
+- [ ] Reading time displayed (words/238 + image time)
+- [ ] Scroll progress bar (3px, fixed top)
+- [ ] Sticky ToC on desktop, highlights active section
+- [ ] Author byline with avatar, date, reading time
+- [ ] `<figure>` + `<figcaption>` for all images
+- [ ] Code blocks with syntax highlighting and copy button
+- [ ] Related articles section (3 cards)
+- [ ] Share buttons (max 4, including copy link)
+- [ ] All headings have `id` for deep linking
+
+> **Sources:** [Medium Typography](https://medium.design/), [Smashing Magazine Article Design](https://www.smashingmagazine.com/2020/09/readability-text-web/), [Bringhurst *Elements of Typographic Style*](https://en.wikipedia.org/wiki/The_Elements_of_Typographic_Style), [web.dev Content Width](https://web.dev/articles/responsive-web-design-basics)
+
+---
+
+## AX. Gallery & Portfolio Layout
+
+### 210. Layout Modes
+
+| Mode | Best For | CSS Method |
+|------|----------|-----------|
+| Masonry | Mixed aspect ratios, Pinterest-style | `columns: 3` + `break-inside: avoid`, or CSS Grid masonry (experimental) |
+| Justified grid | Photo gallery, equal row heights | Flexbox with calculated widths (Flickr-style) |
+| Fixed grid | Uniform thumbnails, products | `display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr))` |
+| Carousel | Featured/hero images | Scroll snap, navigation arrows |
+
+```css
+/* Masonry with CSS columns */
+.gallery-masonry {
+  columns: 3;
+  column-gap: 16px;
+}
+.gallery-masonry .item {
+  break-inside: avoid;
+  margin-bottom: 16px;
+}
+
+/* CSS aspect-ratio for fixed grid */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+}
+.gallery-grid .item {
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+}
+.gallery-grid .item img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+
+/* Responsive column count */
+@media (max-width: 768px) { .gallery-masonry { columns: 2; } }
+@media (max-width: 480px) { .gallery-masonry { columns: 1; } }
+```
+
+### 211. Lightbox & Interaction
+
+| Element | Spec |
+|---------|------|
+| Lightbox trigger | Click on thumbnail opens full-size in modal overlay |
+| Backdrop | Black 85% opacity (`rgba(0,0,0,0.85)`) |
+| Navigation | Left/right arrows (48×48px), keyboard ← →, swipe on mobile |
+| Close | `×` button top-right (48×48px) + `Escape` key + click backdrop |
+| Counter | "3 / 24" — current position |
+| Zoom | Double-click or pinch to zoom, pan when zoomed |
+| Preloading | Preload next and previous images |
+| ARIA | `role="dialog"`, `aria-label="Image viewer"`, focus trap |
+| Thumbnails | 64×64px strip below image, scrollable, current highlighted |
+
+**Lazy loading for galleries:**
+
+```html
+<img src="thumb-placeholder.jpg"
+     data-src="full-image.jpg"
+     alt="Sunset over the mountains"
+     width="400" height="300"
+     loading="lazy"
+     decoding="async">
+```
+
+| Strategy | Trigger | Performance |
+|----------|---------|-------------|
+| Native `loading="lazy"` | Browser viewport proximity | Simplest, 95%+ support |
+| Intersection Observer | Custom threshold (200px before viewport) | More control |
+| Blur-up placeholder | Low-res inline → full swap | Perceived performance |
+| LQIP (Low Quality Image Placeholder) | 20×15px inline base64 | Fastest initial paint |
+
+**Filtering & sorting:**
+
+| Control | Implementation |
+|---------|---------------|
+| Category filter | Pill buttons or dropdown, `aria-pressed` for active |
+| Sort | "Newest / Oldest / Most popular" dropdown |
+| Animation | CSS `transition: opacity 200ms, transform 200ms` on filter change |
+| URL state | Filter reflected in URL params (`?category=landscape&sort=newest`) |
+| Empty state | "No images match this filter" with reset link |
+
+**Anti-patterns:**
+- ❌ Images without explicit `width`/`height` → CLS
+- ❌ Lightbox without focus trap → keyboard users escape into background
+- ❌ No lazy loading on gallery pages (loads 50+ images at once)
+- ❌ Lightbox images served at thumbnail resolution
+- ❌ No keyboard navigation in lightbox
+
+**Checklist:**
+- [ ] `width` and `height` or `aspect-ratio` on all images
+- [ ] `loading="lazy"` on below-fold images
+- [ ] `object-fit: cover` for uniform grid thumbnails
+- [ ] Lightbox with keyboard nav (arrows, Escape), focus trap, swipe
+- [ ] Responsive column count (3 → 2 → 1)
+- [ ] Filter state reflected in URL
+- [ ] Image metadata (alt text, caption) displayed in lightbox
+- [ ] Preload adjacent images in lightbox
+
+> **Sources:** [CSS-Tricks Masonry Layout](https://css-tricks.com/piecing-together-approaches-for-a-css-masonry-layout/), [MDN aspect-ratio](https://developer.mozilla.org/en-US/docs/Web/CSS/aspect-ratio), [W3C Dialog Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/), [web.dev Lazy Loading](https://web.dev/articles/lazy-loading-images)
+
+---
+
+## AY. Notification Center Pattern
+
+### 212. Bell Icon & Badge
+
+| Element | Spec |
+|---------|------|
+| Icon | Bell outline (idle), filled bell (has unread) |
+| Badge | Red circle, 18–20px diameter, white text 11–12px |
+| Badge count | Show exact count up to 99, then "99+" |
+| Badge position | Top-right of bell icon, offset 25% overlap |
+| Zero unread | No badge shown (not "0") |
+| `aria-label` | `"Notifications, 5 unread"` — dynamic |
+| Click | Opens notification dropdown/panel |
+
+```html
+<button class="notification-bell"
+  aria-label="Notifications, 5 unread"
+  aria-expanded="false"
+  aria-controls="notification-panel">
+  <svg class="bell-icon"><!-- bell --></svg>
+  <span class="badge" aria-hidden="true">5</span>
+</button>
+```
+
+```css
+.notification-bell { position: relative; }
+.badge {
+  position: absolute;
+  top: -4px; right: -4px;
+  min-width: 18px; height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #ef4444;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+```
+
+### 213. Notification Panel
+
+| Element | Spec |
+|---------|------|
+| Panel width | 360–400px (desktop dropdown) |
+| Max height | 480px, scrollable |
+| Position | Anchored below bell icon, right-aligned |
+| Header | "Notifications" title + "Mark all as read" link |
+| Empty state | Illustration + "You're all caught up!" |
+| Tabs (optional) | "All" / "Unread" / "Mentions" |
+| Loading | Skeleton items (3–5) |
+| Pagination | "Load older" button at bottom or infinite scroll |
+
+**Notification item anatomy:**
+
+| Part | Spec |
+|------|------|
+| Avatar/icon | 40×40px, left side |
+| Title | 14–16px, bold if unread, normal if read |
+| Body | 13–14px, 2 lines max, muted color |
+| Timestamp | 12px, relative ("2m ago", "1h ago", "Yesterday") |
+| Unread indicator | Blue dot (8px) left of item, or light blue background |
+| Click target | Entire row is clickable, navigates to source |
+| Actions | "×" dismiss on hover, or swipe on mobile |
+
+```html
+<div id="notification-panel" role="region" aria-label="Notifications">
+  <div class="panel-header">
+    <h2>Notifications</h2>
+    <button class="mark-all-read">Mark all as read</button>
+  </div>
+  <ul class="notification-list" role="list">
+    <li class="notification-item unread" role="listitem">
+      <img src="avatar.jpg" alt="" width="40" height="40" class="notif-avatar">
+      <div class="notif-content">
+        <p class="notif-title"><strong>Marie D.</strong> reached 7 smoke-free days</p>
+        <time class="notif-time" datetime="2026-03-06T10:30:00Z">2h ago</time>
+      </div>
+      <span class="unread-dot" aria-label="Unread"></span>
+    </li>
+  </ul>
+</div>
+```
+
+### 214. Real-time Updates & Grouping
+
+| Feature | Implementation |
+|---------|---------------|
+| Real-time delivery | WebSocket or Server-Sent Events (SSE) |
+| New notification | Prepend to list + increment badge + optional sound |
+| Sound | Only if user opted in; respect system "Do Not Disturb" |
+| Grouping | "3 new followers" instead of 3 separate items |
+| Group threshold | Group after 3+ of same type within 1 hour |
+| Mark as read | Click = read; "Mark all as read" = batch |
+| Persistence | Store read/unread state server-side |
+| Browser notification | Only if granted via `Notification.requestPermission()` |
+
+**Anti-patterns:**
+- ❌ Badge showing "0" instead of hiding
+- ❌ Notifications that can't be dismissed
+- ❌ No "Mark all as read" when > 10 unread
+- ❌ Auto-playing notification sounds
+- ❌ Each notification is a separate toast (overwhelm)
+- ❌ No grouping — 50 individual "X liked your post" items
+
+**Checklist:**
+- [ ] Badge shows count up to 99, then "99+"
+- [ ] `aria-label` on bell includes unread count
+- [ ] Panel 360–400px, max-height 480px, scrollable
+- [ ] Unread indicator (blue dot or background)
+- [ ] "Mark all as read" in panel header
+- [ ] Relative timestamps ("2m ago")
+- [ ] Similar notifications grouped
+- [ ] Empty state: illustration + positive message
+- [ ] Real-time via WebSocket/SSE
+- [ ] Clicking notification navigates to source and marks as read
+
+> **Sources:** [Material Design Notifications](https://m3.material.io/), [NN/g Notifications](https://www.nngroup.com/articles/push-notification/), [W3C Notifications API](https://notifications.spec.whatwg.org/)
+
+---
+
+## AZ. Wizard/Stepper Visual Specs
+
+### 215. Step Indicator Anatomy
+
+| Part | Spec |
+|------|------|
+| Step circle | 32px diameter (desktop), 24px diameter (mobile) |
+| Step number/icon | 14px font inside circle, or ✓ checkmark for completed |
+| Step label | Below circle, 12–14px, max 2 lines, center-aligned |
+| Connector line | 2px height, connects circles, fills with brand color on completion |
+| Active step | Brand color fill on circle, bold label |
+| Completed step | Brand color fill + white ✓ icon, normal label |
+| Upcoming step | Gray border only (#d1d5db), muted label |
+| Error step | Red border + ⚠ icon, error label color |
+
+```css
+.stepper {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  position: relative;
+}
+.step-circle {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+.step.active .step-circle {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+.step.completed .step-circle {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+.step-connector {
+  position: absolute;
+  top: 16px; /* half of circle */
+  left: calc(50% + 16px);
+  right: calc(-50% + 16px);
+  height: 2px;
+  background: var(--color-border);
+}
+.step.completed + .step .step-connector,
+.step.completed .step-connector {
+  background: var(--color-primary);
+}
+.step-label {
+  margin-top: 8px;
+  font-size: 13px;
+  text-align: center;
+  max-width: 100px;
+}
+```
+
+### 216. Stepper Variants & Behavior
+
+| Variant | Usage | Spec |
+|---------|-------|------|
+| Horizontal linear | Short forms (3–5 steps) | Default — must complete in order |
+| Horizontal non-linear | Settings, profile setup | Clickable completed + upcoming steps |
+| Vertical | Mobile, complex forms (6+ steps) | Label + optional description right of circle |
+| Compact / dots | Mobile when labels aren't needed | 8px dots, no labels, progress bar alternative |
+
+**Vertical stepper (mobile-friendly):**
+
+```html
+<ol class="stepper vertical" aria-label="Setup progress">
+  <li class="step completed" aria-current="false">
+    <div class="step-circle" aria-hidden="true">✓</div>
+    <div class="step-content">
+      <span class="step-label">Account</span>
+      <span class="step-description">Email and password</span>
+    </div>
+  </li>
+  <li class="step active" aria-current="step">
+    <div class="step-circle" aria-hidden="true">2</div>
+    <div class="step-content">
+      <span class="step-label">Profile</span>
+      <span class="step-description">Name and preferences</span>
+    </div>
+  </li>
+  <li class="step upcoming">
+    <div class="step-circle" aria-hidden="true">3</div>
+    <div class="step-content">
+      <span class="step-label">Connect Watch</span>
+    </div>
+  </li>
+</ol>
+```
+
+**ARIA for stepper:**
+
+| Attribute | Element | Value |
+|-----------|---------|-------|
+| `role="list"` / `<ol>` | Stepper container | Ordered step list |
+| `aria-current="step"` | Active step `<li>` | Identifies current step |
+| `aria-label` | Container | "Setup progress, step 2 of 3" |
+| `aria-disabled="true"` | Upcoming step links (non-linear) | Not yet available |
+
+**Anti-patterns:**
+- ❌ More than 7 steps in a wizard (split into sections)
+- ❌ No way to go back to previous steps
+- ❌ Losing form data when navigating between steps
+- ❌ Step labels that don't fit (truncated)
+- ❌ Horizontal stepper on mobile without scrolling or adaptation
+
+**Checklist:**
+- [ ] Step circle 32px desktop, 24px mobile
+- [ ] Connector line 2px, fills on completion
+- [ ] Clear visual states: completed (✓), active (filled), upcoming (outline), error (red)
+- [ ] `aria-current="step"` on active step
+- [ ] Back navigation preserves entered data
+- [ ] Max 5–7 steps (split if more)
+- [ ] Vertical layout on mobile or compact dots
+- [ ] Non-linear variant allows clicking completed steps
+
+> **Sources:** [Material Design Stepper](https://m2.material.io/components/steppers), [W3C APG](https://www.w3.org/WAI/ARIA/apg/), [NN/g Wizard Pattern](https://www.nngroup.com/articles/wizards/)
+
+---
+
+## BA. Date & Time Pickers
+
+### 217. Native vs Custom Picker
+
+| Approach | Pros | Cons | When |
+|----------|------|------|------|
+| `<input type="date">` | Free, accessible, OS-native | Inconsistent styling, limited features | Simple forms, date of birth |
+| Custom calendar picker | Full control, date ranges, presets | Complex to build accessibly | Date ranges, booking, dashboards |
+| `<input type="time">` | Native, keyboard friendly | No time range, no timezone | Simple time input |
+| Custom time picker | 12h/24h toggle, timezone selector | Accessibility burden | Scheduling, multi-timezone |
+
+**Native input limitations:**
+
+| Issue | Detail |
+|-------|--------|
+| `min`/`max` support | Supported but no visual indication of disabled dates |
+| Styling | Cannot style the calendar dropdown (browser chrome) |
+| Date range | No native date range input — need 2 inputs |
+| Locale | Follows `navigator.language`, not controllable |
+| Mobile | Good UX (native date wheel) |
+| Desktop | Poor UX in some browsers (text input, no calendar popup before Chrome 99+) |
+
+### 218. Custom Calendar Picker Specs
+
+| Element | Spec |
+|---------|------|
+| Trigger | Input field + calendar icon button (24×24px) |
+| Calendar popup | 280–320px width, 7-column grid |
+| Month/year nav | `<` `>` arrows (48px touch target) + month/year label (clickable for jump) |
+| Day cell | 40×40px, 14px text, border-radius 50% |
+| Today | Outlined circle (no fill) |
+| Selected | Brand color fill, white text |
+| Disabled dates | Gray text, `pointer-events: none`, `aria-disabled="true"` |
+| Hover | Light brand tint background |
+| Range selection | Start + end highlighted, range cells with tinted background |
+| Keyboard | Arrow keys navigate days, Enter selects, Escape closes |
+
+```css
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 40px);
+  gap: 2px;
+}
+.day-cell {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+.day-cell.today { border: 2px solid var(--color-primary); }
+.day-cell.selected {
+  background: var(--color-primary);
+  color: white;
+}
+.day-cell.in-range {
+  background: var(--color-primary-10);
+  border-radius: 0;
+}
+.day-cell.range-start { border-radius: 50% 0 0 50%; }
+.day-cell.range-end { border-radius: 0 50% 50% 0; }
+.day-cell:disabled { color: var(--color-text-muted); opacity: 0.4; }
+```
+
+### 219. Time Picker & Relative Shortcuts
+
+**12h vs 24h by locale:**
+
+| Locale | Format | Example |
+|--------|--------|---------|
+| en-US | 12h | `2:30 PM` |
+| en-GB, fr-FR, de-DE | 24h | `14:30` |
+| ja-JP | 24h | `14:30` or `午後2:30` |
+
+Detect from locale: `new Intl.DateTimeFormat(navigator.language, { hour: 'numeric' }).resolvedOptions().hour12`
+
+**Relative date shortcuts (for dashboards/analytics):**
+
+| Shortcut | Value |
+|----------|-------|
+| Today | Current day |
+| Yesterday | Previous day |
+| Last 7 days | -7d to today |
+| Last 30 days | -30d to today |
+| This month | 1st to today |
+| Last month | Previous month full |
+| Custom range | Opens calendar range picker |
+
+**Timezone UX:**
+
+| Pattern | Spec |
+|---------|------|
+| Display | Always show timezone abbreviation: "2:30 PM EST" |
+| User timezone | Auto-detect via `Intl.DateTimeFormat().resolvedOptions().timeZone` |
+| Multi-timezone | Dropdown to select, show equivalent in user's tz |
+| Relative display | "in 2 hours" or "3 hours ago" for < 24h |
+
+**Anti-patterns:**
+- ❌ Custom date picker without keyboard navigation
+- ❌ Scrolling through months/years one at a time (for birth dates — use year dropdown)
+- ❌ No timezone indicator on times
+- ❌ Forcing 12h format on European users (or vice versa)
+- ❌ Date input requiring specific format without mask/example
+
+**Checklist:**
+- [ ] Native `<input type="date">` for simple single dates
+- [ ] Custom picker for date ranges, presets, disabled dates
+- [ ] Calendar popup 280–320px, 40×40px day cells
+- [ ] Keyboard nav: arrows, Enter, Escape
+- [ ] 12h/24h auto-detected from locale
+- [ ] Relative shortcuts for dashboards ("Last 7 days")
+- [ ] Timezone displayed and auto-detected
+- [ ] `role="grid"` on calendar, `aria-selected` on chosen date
+- [ ] Birth date: year dropdown (not month-by-month scroll)
+- [ ] Date range: visual indication of selected range
+
+> **Sources:** [W3C Date Picker APG](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/examples/datepicker-dialog/), [Material Design Date Pickers](https://m3.material.io/components/date-pickers), [Intl.DateTimeFormat MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat)
+
+---
+
+## BB. Conditional Forms & Multi-step Logic
+
+### 220. Show/Hide Fields
+
+| Technique | When | Implementation |
+|-----------|------|----------------|
+| CSS `display: none` | Simple toggle, no layout shift risk | `hidden` attribute or `.hidden` class |
+| CSS `visibility: hidden` + height collapse | Animated show/hide | `max-height` + `overflow: hidden` transition |
+| DOM insertion | Complex branching with many variants | Render conditionally (React/Vue) |
+| `<fieldset>` + `disabled` | Group of fields, prevent submission of hidden | Native form behavior |
+
+```html
+<!-- Toggle shipping address -->
+<label>
+  <input type="checkbox" id="diff-address"
+    aria-controls="shipping-fields"
+    aria-expanded="false">
+  Ship to a different address
+</label>
+
+<fieldset id="shipping-fields" hidden disabled>
+  <legend>Shipping Address</legend>
+  <label for="ship-street">Street</label>
+  <input id="ship-street" type="text" autocomplete="shipping street-address">
+  <!-- more fields -->
+</fieldset>
+```
+
+```javascript
+diffAddress.addEventListener('change', (e) => {
+  const show = e.target.checked;
+  shippingFields.hidden = !show;
+  shippingFields.disabled = !show;
+  e.target.setAttribute('aria-expanded', show);
+  if (show) shippingFields.querySelector('input').focus();
+});
+```
+
+### 221. Branching & Skip Logic
+
+| Pattern | Implementation |
+|---------|---------------|
+| Binary branch | Radio "Yes"/"No" → show/hide follow-up fields |
+| Multi-branch | Select/radio → different field sets based on value |
+| Skip logic | If answer = X, skip step 3 entirely in wizard |
+| Dependent dropdowns | Country → State → City (each loads from previous) |
+
+**Validation rules for conditional forms:**
+
+| Rule | Detail |
+|------|--------|
+| Validate visible only | Never validate `hidden` or `disabled` fields |
+| Clear hidden values | When hiding fields, clear their values (avoid ghost data) |
+| Re-validate on show | When showing previously hidden fields, run validation |
+| Required conditionally | `required` attribute added/removed dynamically |
+
+```javascript
+// Clear values when hiding fields
+function hideFieldset(fieldset) {
+  fieldset.hidden = true;
+  fieldset.disabled = true;
+  fieldset.querySelectorAll('input, select, textarea').forEach(input => {
+    input.value = '';
+    input.removeAttribute('required');
+    input.setCustomValidity('');
+  });
+}
+```
+
+### 222. Progress Indicator for Branching
+
+| Scenario | Progress Behavior |
+|----------|-------------------|
+| Linear (no branching) | "Step 2 of 5" — fixed total |
+| With skip logic | "Step 2 of 4" — total adjusts dynamically |
+| Complex branching | Percentage bar (no step count) — avoids confusion |
+| Unknown length | "Almost done..." qualitative indicator |
+
+**`aria-live` for dynamic fields:**
+
+```html
+<!-- Announce new fields to screen readers -->
+<div aria-live="polite" aria-atomic="false" class="sr-only" id="form-announcer">
+  <!-- Populated via JS when fields appear/disappear -->
+</div>
+```
+
+```javascript
+function announceFieldChange(message) {
+  const announcer = document.getElementById('form-announcer');
+  announcer.textContent = message; // e.g., "Shipping address fields added"
+}
+```
+
+**Anti-patterns:**
+- ❌ Validating hidden/disabled fields → confusing errors for invisible fields
+- ❌ Not clearing hidden field values → submitting ghost data
+- ❌ Progress saying "Step 2 of 5" then jumping to "Step 2 of 3" on branch
+- ❌ No `aria-expanded` on triggering control
+- ❌ Focus not moved to new fields after reveal
+- ❌ Dependent dropdown not resetting when parent changes
+
+**Checklist:**
+- [ ] Hidden fields use `hidden` + `disabled` (not just CSS)
+- [ ] Only visible fields are validated
+- [ ] Hidden field values cleared on hide
+- [ ] `aria-expanded` on trigger, `aria-controls` pointing to target
+- [ ] `aria-live="polite"` announces new fields to screen readers
+- [ ] Focus moved to first new field on reveal
+- [ ] Progress indicator adjusts to branch path
+- [ ] Dependent dropdowns reset when parent changes
+- [ ] Required attributes added/removed dynamically
+
+> **Sources:** [W3C Forms Tutorial](https://www.w3.org/WAI/tutorials/forms/), [NN/g Conditional Form Fields](https://www.nngroup.com/articles/conditional-form-fields/), [MDN aria-expanded](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Attributes/aria-expanded)
+
+---
+
+## BC. Scroll Animations & Scroll-linked Experiences
+
+### 223. CSS Scroll-driven Animations
+
+```css
+/* Scroll progress bar (pure CSS, no JS) */
+.progress-bar {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--color-primary);
+  transform-origin: left;
+  animation: scaleX linear;
+  animation-timeline: scroll();
+}
+@keyframes scaleX {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Element reveal on scroll (CSS animation-timeline: view()) */
+.reveal {
+  animation: fadeSlideUp linear both;
+  animation-timeline: view();
+  animation-range: entry 0% entry 100%;
+}
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+```
+
+**Browser support (2026):** `animation-timeline: scroll()` — Chrome 115+, Edge 115+. Firefox behind flag. Safari: not yet. Use `@supports` for progressive enhancement.
+
+### 224. Intersection Observer Patterns
+
+```javascript
+// Fade-in on scroll
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+      observer.unobserve(entry.target); // Fire once
+    }
+  });
+}, {
+  threshold: 0.15,      // 15% visible
+  rootMargin: '0px 0px -50px 0px' // Trigger 50px before entering
+});
+
+document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el));
+```
+
+```css
+.animate-on-scroll {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 400ms ease-out, transform 400ms ease-out;
+}
+.animate-on-scroll.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+```
+
+### 225. Scroll Snap & Parallax
+
+```css
+/* Scroll snap for sections */
+.snap-container {
+  scroll-snap-type: y mandatory;
+  overflow-y: scroll;
+  height: 100vh;
+}
+.snap-section {
+  scroll-snap-align: start;
+  height: 100vh;
+}
+
+/* Smooth scrolling (anchor links) */
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* CSS parallax (GPU-accelerated, no JS) */
+.parallax-container {
+  perspective: 1px;
+  height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.parallax-bg {
+  transform: translateZ(-1px) scale(2);
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+```
+
+**Performance rules:**
+
+| Rule | Detail | Source |
+|------|--------|--------|
+| Only animate `transform` and `opacity` | Avoids layout/paint | Chrome DevTools |
+| Use `will-change` sparingly | `will-change: transform` on animated elements only | MDN |
+| Debounce scroll handlers | 16ms (requestAnimationFrame) if using JS | Performance |
+| Avoid layout thrashing | Batch reads before writes | Paul Irish |
+| Test on low-end devices | Target 60fps on mid-range Android | web.dev |
+
+**`prefers-reduced-motion` handling:**
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  .animate-on-scroll,
+  .parallax-bg,
+  .reveal {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  .snap-container {
+    scroll-snap-type: none;
+  }
+}
+```
+
+**Anti-patterns:**
+- ❌ Animating `width`, `height`, `top`, `left` on scroll (layout thrashing)
+- ❌ Parallax with JS `scroll` event without `requestAnimationFrame`
+- ❌ Scroll-jacking (overriding native scroll behavior)
+- ❌ Mandatory scroll-snap without escape hatch
+- ❌ Animations that prevent content from being read/used
+- ❌ Ignoring `prefers-reduced-motion`
+
+**Checklist:**
+- [ ] Scroll animations use `transform` + `opacity` only
+- [ ] Intersection Observer for reveal animations (not scroll event)
+- [ ] CSS `animation-timeline: scroll()` with `@supports` fallback
+- [ ] `prefers-reduced-motion: reduce` removes all scroll animations
+- [ ] Parallax uses CSS `perspective` method (not JS)
+- [ ] `scroll-behavior: smooth` with reduced-motion override
+- [ ] 60fps on mid-range devices tested
+- [ ] Content accessible without animations (progressive enhancement)
+
+> **Sources:** [web.dev Scroll-driven Animations](https://developer.chrome.com/docs/css-ui/scroll-driven-animations), [MDN Intersection Observer](https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API), [web.dev CSS Scroll Snap](https://web.dev/articles/css-scroll-snap), [Paul Lewis Rendering Performance](https://web.dev/articles/rendering-performance)
+
+---
+
+## BD. Print Styles
+
+### 226. Page Setup & Layout
+
+```css
+@media print {
+  @page {
+    size: A4;
+    margin: 20mm 15mm 25mm 15mm; /* top right bottom left */
+  }
+  @page :first {
+    margin-top: 30mm; /* Extra space on first page for header */
+  }
+
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 12pt;
+    line-height: 1.5;
+    color: #000;
+    background: #fff;
+  }
+}
+```
+
+### 227. Hiding & Showing Elements
+
+| Action | CSS | What |
+|--------|-----|------|
+| Hide interactive elements | `display: none !important` | Nav, footer, sidebar, buttons, forms |
+| Hide decorative | `display: none !important` | Background images, icons, ads |
+| Show URLs for links | `a[href]::after { content: " (" attr(href) ")"; }` | External links |
+| Show abbreviations | `abbr[title]::after { content: " (" attr(title) ")"; }` | Acronyms |
+| Force backgrounds | `color-adjust: exact; -webkit-print-color-adjust: exact;` | Charts, badges |
+
+```css
+@media print {
+  /* Hide non-printable elements */
+  nav, footer, .sidebar, .cookie-banner, .fab,
+  button:not(.print-btn), .share-buttons,
+  video, iframe, .scroll-to-top,
+  .notification-bell, .chat-widget {
+    display: none !important;
+  }
+
+  /* Show link URLs */
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 10pt;
+    color: #555;
+    word-break: break-all;
+  }
+  /* Don't show for internal/anchor links */
+  a[href^="#"]::after,
+  a[href^="/"]::after,
+  a[href^="javascript"]::after {
+    content: none;
+  }
+
+  /* Page break control */
+  h1, h2, h3 {
+    break-after: avoid;    /* Don't leave heading at bottom of page */
+    page-break-after: avoid;
+  }
+  table, figure, blockquote {
+    break-inside: avoid;   /* Don't split across pages */
+    page-break-inside: avoid;
+  }
+  p {
+    orphans: 3;  /* Min lines at bottom of page */
+    widows: 3;   /* Min lines at top of next page */
+  }
+}
+```
+
+### 228. Invoice / Document Template
+
+```css
+@media print {
+  .invoice {
+    max-width: 100%;
+    padding: 0;
+  }
+  .invoice-header {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 2pt solid #000;
+    padding-bottom: 10mm;
+    margin-bottom: 10mm;
+  }
+  .invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .invoice-table th,
+  .invoice-table td {
+    border: 0.5pt solid #ccc;
+    padding: 4mm 3mm;
+    text-align: left;
+    font-size: 10pt;
+  }
+  .invoice-total {
+    font-size: 14pt;
+    font-weight: bold;
+    text-align: right;
+  }
+}
+```
+
+**Anti-patterns:**
+- ❌ Not providing print styles at all
+- ❌ Printing interactive elements (buttons, inputs, nav)
+- ❌ Background images printing as blank areas
+- ❌ Headers/footers orphaned from their content
+- ❌ Tables splitting mid-row across pages
+- ❌ Links showing as colored text with no URL
+
+**Checklist:**
+- [ ] `@page` margins set (20mm typical)
+- [ ] Body in serif font, 12pt, black on white
+- [ ] Nav, footer, buttons, ads hidden
+- [ ] Link URLs shown via `::after` pseudo-element
+- [ ] `break-inside: avoid` on tables, figures, blockquotes
+- [ ] `break-after: avoid` on headings
+- [ ] `orphans: 3; widows: 3` on paragraphs
+- [ ] `color-adjust: exact` for charts/badges that need backgrounds
+- [ ] Test in Chrome Print Preview + actual print
+
+> **Sources:** [MDN @page](https://developer.mozilla.org/en-US/docs/Web/CSS/@page), [MDN break-inside](https://developer.mozilla.org/en-US/docs/Web/CSS/break-inside), [Smashing Magazine Print CSS](https://www.smashingmagazine.com/2018/05/print-stylesheets-in-2018/), [A List Apart CSS for Print](https://alistapart.com/article/goingtoprint/)
+
+---
+
+## BE. Email Design Patterns
+
+### 229. Email Layout Fundamentals
+
+| Spec | Value | Source |
+|------|-------|--------|
+| Max width | **600px** (some go 640px) | Email client rendering |
+| Layout method | **Table-based** (`<table>`) — not div/flex/grid | Outlook, Gmail compatibility |
+| CSS | **Inline** (`style=""`) — Gmail strips `<style>` in some contexts | Gmail, Yahoo |
+| Images | Host externally, `display: block`, always include `alt` | Images often blocked by default |
+| Font stack | System fonts: `Arial, Helvetica, sans-serif` or `Georgia, serif` | Web fonts unreliable |
+| Background color | Set on `<body>` AND outer `<table>` | Outlook fallback |
+
+```html
+<!-- Email boilerplate structure -->
+<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>Your Subject Line</title>
+  <!--[if mso]>
+  <style>table { border-collapse: collapse; }</style>
+  <![endif]-->
+</head>
+<body style="margin:0; padding:0; background:#f4f4f4;">
+  <!-- Preheader text (hidden, shown in inbox preview) -->
+  <div style="display:none; max-height:0; overflow:hidden;">
+    Preview text goes here (40-130 chars)...
+    &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj; <!-- padding -->
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+    style="background:#f4f4f4;">
+    <tr><td align="center" style="padding: 20px 10px;">
+      <!-- Inner container -->
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0"
+        style="background:#ffffff; border-radius:8px;">
+        <!-- Header, Body, Footer rows -->
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+```
+
+### 230. CTA Button & Responsive Email
+
+**Bulletproof button (works in Outlook):**
+
+```html
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+  <tr>
+    <td style="border-radius:6px; background:#3b82f6;" align="center">
+      <a href="https://example.com/cta"
+        target="_blank"
+        style="display:inline-block;
+          padding: 14px 32px;
+          font-family: Arial, sans-serif;
+          font-size: 16px;
+          font-weight: bold;
+          color: #ffffff;
+          text-decoration: none;
+          border-radius: 6px;
+          min-height: 44px;
+          line-height: 44px;">
+        Start Your Free Trial
+      </a>
+    </td>
+  </tr>
+</table>
+```
+
+**Responsive email (fluid hybrid method):**
+
+```html
+<!-- Fluid column that stacks on mobile -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td>
+      <!--[if mso]><table role="presentation"><tr><td width="280"><![endif]-->
+      <div style="display:inline-block; width:100%; max-width:280px;
+        vertical-align:top;">
+        <!-- Column 1 content -->
+      </div>
+      <!--[if mso]></td><td width="280"><![endif]-->
+      <div style="display:inline-block; width:100%; max-width:280px;
+        vertical-align:top;">
+        <!-- Column 2 content -->
+      </div>
+      <!--[if mso]></td></tr></table><![endif]-->
+    </td>
+  </tr>
+</table>
+```
+
+### 231. Dark Mode & Compliance
+
+**Email dark mode:**
+
+```css
+/* In <style> block (supported clients) */
+@media (prefers-color-scheme: dark) {
+  .email-body { background-color: #1a1a2e !important; }
+  .email-text { color: #e0e0e0 !important; }
+  .email-card { background-color: #16213e !important; }
+  /* Use transparent PNGs with dark-friendly colors */
+}
+```
+
+| Dark Mode Behavior | Email Client |
+|-------------------|-------------|
+| Respects `color-scheme` meta | Apple Mail, Outlook.com |
+| Auto-inverts colors | Outlook (Windows), Gmail (Android) |
+| No dark mode | Some older clients |
+
+**Compliance requirements:**
+
+| Requirement | Law | Implementation |
+|-------------|-----|----------------|
+| Unsubscribe link | CAN-SPAM (US), GDPR (EU) | Footer, clearly visible, one-click |
+| `List-Unsubscribe` header | RFC 8058 | `List-Unsubscribe-Post: List-Unsubscribe=One-Click` |
+| Physical address | CAN-SPAM | Footer of every marketing email |
+| Consent | GDPR | Double opt-in for EU subscribers |
+| Preheader text | Best practice | 40–130 chars, complements subject line |
+
+**Anti-patterns:**
+- ❌ `<div>` layout (breaks Outlook)
+- ❌ CSS in `<style>` only (Gmail strips it in some contexts)
+- ❌ Images without `alt` text (images blocked by default)
+- ❌ CTA button as image (not clickable if images blocked)
+- ❌ No unsubscribe link (CAN-SPAM violation: $51,744 per email)
+- ❌ Width > 600px (horizontal scroll in many clients)
+- ❌ Web fonts in email (inconsistent rendering)
+
+**Checklist:**
+- [ ] Max width 600px, table-based layout
+- [ ] All CSS inline (use inliner tool in build step)
+- [ ] CTA button: bulletproof (table+td+a), 44px min-height, 14px+ padding
+- [ ] All images have `alt` text, `display: block`
+- [ ] Preheader text 40–130 chars
+- [ ] System fonts only (Arial, Georgia)
+- [ ] Dark mode support via `color-scheme` meta + `@media`
+- [ ] Unsubscribe link in footer + `List-Unsubscribe` header
+- [ ] Physical address in footer (CAN-SPAM)
+- [ ] Tested in Litmus or Email on Acid (Outlook, Gmail, Apple Mail)
+
+> **Sources:** [Litmus Email Design Guide](https://www.litmus.com/resources), [Can I Email](https://www.caniemail.com/), [Email on Acid](https://www.emailonacid.com/), [CAN-SPAM Act](https://www.ftc.gov/business-guidance/resources/can-spam-act-compliance-guide-business), [RFC 8058](https://www.rfc-editor.org/rfc/rfc8058)
+
+---
+
+## BF. Testimonial & Review Display
+
+### 232. Star Rating Component
+
+| Element | Spec |
+|---------|------|
+| Star size | 16–20px inline, 24–32px for focal ratings |
+| Fill color | `#f59e0b` (amber/gold) for filled, `#d1d5db` (gray) for empty |
+| Half stars | Clip-path or overlay technique for 0.5 increments |
+| Numeric display | "4.7" next to stars + "(1,280 reviews)" |
+| Accessible | `aria-label="Rated 4.7 out of 5 stars"` |
+| Interactive (input) | Hover preview, click to set, keyboard 1-5, `role="radiogroup"` |
+
+```html
+<!-- Display rating (read-only) -->
+<div class="rating" aria-label="Rated 4.7 out of 5 stars" role="img">
+  <span class="stars" style="--rating: 4.7;" aria-hidden="true">★★★★★</span>
+  <span class="rating-number">4.7</span>
+  <span class="review-count">(1,280 reviews)</span>
+</div>
+```
+
+```css
+.stars {
+  --percent: calc(var(--rating) / 5 * 100%);
+  display: inline-block;
+  font-size: 20px;
+  letter-spacing: 2px;
+  background: linear-gradient(90deg, #f59e0b var(--percent), #d1d5db var(--percent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+```
+
+### 233. Review Card & Summary
+
+**Review card anatomy:**
+
+| Part | Spec |
+|------|------|
+| Stars | 5-star display, top of card |
+| Title | 16px bold, optional review title |
+| Body | 14px, max 4 lines then "Read more" |
+| Author | Name + "Verified Purchase" badge if applicable |
+| Date | Relative or absolute date |
+| Helpful votes | "Was this helpful? Yes (12) · No (2)" |
+| Photo(s) | Thumbnails 64×64px below body, clickable to enlarge |
+| Merchant response | Indented reply below review, labeled "Response from [Brand]" |
+
+**Review summary histogram:**
+
+```
+5 ★ ████████████████████ 68%   (870)
+4 ★ ████████             22%   (282)
+3 ★ ██                    5%   (64)
+2 ★ █                     3%   (38)
+1 ★ ▌                     2%   (26)
+```
+
+| Element | Spec |
+|---------|------|
+| Bars | Brand color, proportional width |
+| Clickable | Each bar filters reviews to that rating |
+| Average | Large display: "4.5" with star icon |
+| Total | "Based on 1,280 reviews" |
+
+### 234. Filtering, Schema & Social Proof
+
+**Filtering & sorting:**
+
+| Control | Options |
+|---------|---------|
+| Sort | "Most Recent", "Most Helpful", "Highest Rated", "Lowest Rated" |
+| Filter by rating | Click histogram bar, or dropdown |
+| Filter by type | "With Photos", "Verified Purchase" |
+| Search reviews | Text search within reviews (> 50 reviews) |
+
+**Schema.org Review markup:**
+
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "Infernal Wheel Premium",
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.7",
+    "bestRating": "5",
+    "worstRating": "1",
+    "ratingCount": "1280"
+  },
+  "review": [{
+    "@type": "Review",
+    "author": { "@type": "Person", "name": "Marie D." },
+    "datePublished": "2026-02-15",
+    "reviewRating": { "@type": "Rating", "ratingValue": "5" },
+    "reviewBody": "I quit smoking after 15 years..."
+  }]
+}
+</script>
+```
+
+**Anti-patterns:**
+- ❌ Only showing 5-star reviews (trust destruction)
+- ❌ No "Verified Purchase" distinction
+- ❌ Stars without numeric value or count (ambiguous)
+- ❌ "Was this helpful?" with no visible vote count
+- ❌ Reviews not sortable (only "most recent")
+- ❌ Fake review indicators (identical language, same date)
+
+**Checklist:**
+- [ ] Star rating with numeric value + review count
+- [ ] Rating histogram with clickable filtering
+- [ ] Review cards: stars + body + author + date + helpful votes
+- [ ] "Verified Purchase" badge for authenticated buyers
+- [ ] Sort: Recent, Helpful, Highest, Lowest
+- [ ] Filter by rating, photos, verified
+- [ ] Merchant response capability
+- [ ] Schema.org AggregateRating + Review markup
+- [ ] `aria-label` on star display with rating text
+- [ ] "Write a Review" CTA for authenticated users
+
+> **Sources:** [Baymard Institute Reviews UX](https://baymard.com/blog/user-reviews-usability), [Google Review Rich Results](https://developers.google.com/search/docs/appearance/structured-data/review-snippet), [NN/g Social Proof](https://www.nngroup.com/articles/social-proof-ux/)
+
+---
+
+## BG. User Profile & Account Pages
+
+### 235. Profile Layout
+
+| Element | Spec |
+|---------|------|
+| Banner/cover | 100% width × 200–250px height, `object-fit: cover` |
+| Avatar | 96–128px circle, overlapping banner by 50%, 3px white border |
+| Name | 24–28px, bold, below avatar |
+| Bio/subtitle | 14–16px, muted color, max 160 chars |
+| Stats row | "Smoke-free: 42 days · Saved: €630" — horizontal pills |
+| Action buttons | "Edit Profile" (primary), "Settings" (secondary) |
+| Tabs | "Overview", "Activity", "Achievements", "Settings" — underline active |
+
+```css
+.profile-header {
+  position: relative;
+}
+.profile-banner {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+}
+.profile-avatar {
+  width: 128px; height: 128px;
+  border-radius: 50%;
+  border: 4px solid var(--color-surface);
+  position: absolute;
+  bottom: -64px; /* Half overlapping */
+  left: 24px;
+  object-fit: cover;
+}
+```
+
+### 236. Avatar Upload & Editing
+
+| Step | Spec |
+|------|------|
+| Trigger | Click avatar → file picker OR "Upload Photo" button |
+| Accepted formats | JPEG, PNG, WebP; max 5 MB |
+| Crop modal | Square crop with circular preview, zoom slider (1–3×) |
+| Output size | 256×256px (stored), displayed at various sizes |
+| Placeholder | Initials on brand-color circle (computed from name) |
+| Loading | Spinner overlay on avatar during upload |
+| Error | "File too large (max 5 MB)" or "Unsupported format" inline |
+
+```html
+<label for="avatar-upload" class="avatar-upload-trigger">
+  <img src="current-avatar.jpg" alt="Your profile photo" class="avatar">
+  <span class="avatar-overlay" aria-hidden="true">📷 Change</span>
+</label>
+<input type="file" id="avatar-upload" accept="image/jpeg,image/png,image/webp"
+  class="sr-only" aria-label="Upload profile photo">
+```
+
+### 237. Account Security & Data
+
+**Account security section:**
+
+| Element | Spec |
+|---------|------|
+| Password change | Current password + new password + confirm, strength meter |
+| Email change | New email → verification email → confirm — show pending state |
+| 2FA/MFA | Toggle + QR code setup + recovery codes download |
+| Active sessions | List: device + location + last active + "Sign out" per row |
+| Connected accounts | Google, Apple, etc. — connect/disconnect + linked email shown |
+
+**Email change flow:**
+
+```
+[Enter new email] → [Send verification] → [Check inbox banner]
+→ [Click email link] → [Success: "Email updated to new@email.com"]
+// Old email also receives notification of change (security)
+```
+
+**Data export & account deletion:**
+
+| Action | Spec |
+|--------|------|
+| Data export | "Download My Data" → background job → email with download link |
+| Format | JSON + CSV in ZIP archive |
+| Timeline | "Ready within 48 hours" (GDPR: max 30 days) |
+| Account deletion | "Delete Account" → confirm email + type "DELETE" → 30-day grace period |
+| Grace period | "Your account will be permanently deleted on [date]. Sign in to cancel." |
+
+**Subscription/billing section:**
+
+| Element | Spec |
+|---------|------|
+| Current plan | Plan name + price + next billing date |
+| Payment method | Card last 4 + expiry + "Update" link |
+| Billing history | Table: date, description, amount, status, invoice PDF link |
+| Upgrade/downgrade | Link to pricing page with current plan highlighted |
+| Cancel | "Cancel Subscription" → reason survey → confirmation |
+
+**Anti-patterns:**
+- ❌ No confirmation email when email/password changed (security risk)
+- ❌ Instant account deletion with no grace period
+- ❌ Profile photo upload with no crop tool (aspect ratio issues)
+- ❌ Hiding security settings behind multiple clicks
+- ❌ No active session management
+- ❌ Data export in proprietary format
+
+**Checklist:**
+- [ ] Profile: banner + avatar (overlapping) + name + bio + stats
+- [ ] Avatar upload with crop to 256×256px, 5 MB max
+- [ ] Initials placeholder when no avatar uploaded
+- [ ] Email change: verification required, old email notified
+- [ ] Password change: require current password, show strength meter
+- [ ] 2FA setup with QR code + recovery codes
+- [ ] Active sessions list with remote sign-out
+- [ ] Data export in JSON/CSV (GDPR compliance)
+- [ ] Account deletion: type confirmation + 30-day grace period
+- [ ] Billing history with downloadable invoices
+
+> **Sources:** [GDPR Art. 15, 17, 20](https://gdpr-info.eu/), [NIST Digital Identity Guidelines](https://pages.nist.gov/800-63-3/), [NN/g Account Settings](https://www.nngroup.com/articles/account-settings/), [Apple HIG Settings](https://developer.apple.com/design/human-interface-guidelines/settings)
+
+---
+
+## BH. Pricing Page Patterns (Extended)
+
+### 238. Pricing Table Layout
+
+| Element | Spec |
+|---------|------|
+| Number of plans | 3 optimal (anchor pricing), 4 max visible |
+| Column width | Equal width, or featured plan 10–15% wider |
+| Featured plan | Elevated card (shadow/border), "Most Popular" badge, brand color header |
+| Price display | Large (32–40px), bold, with period ("/mo") smaller (16px) |
+| Annual/monthly toggle | Pill toggle centered above table, "Save 20%" badge on annual |
+| Feature list | 8–12 key features, ✓/— icons, grouped by category |
+| CTA per plan | Aligned vertically across all columns |
+
+**Annual vs monthly toggle:**
+
+```html
+<div class="billing-toggle" role="radiogroup" aria-label="Billing period">
+  <button role="radio" aria-checked="false" data-period="monthly">
+    Monthly
+  </button>
+  <button role="radio" aria-checked="true" data-period="annual">
+    Annual <span class="save-badge">Save 20%</span>
+  </button>
+</div>
+```
+
+**Price display patterns:**
+
+| Type | Display | Example |
+|------|---------|---------|
+| Flat monthly | `$9
+## BI. Tooltip & Popover Specs
+
+### 241. Tooltip vs Popover
+
+| Property | Tooltip | Popover |
+|----------|---------|---------|
+| Purpose | Brief label/description | Rich content, interactive |
+| Trigger | Hover + focus (auto) | Click/tap (manual) |
+| Content | Text only, 1–2 lines | Text, links, buttons, images |
+| Dismiss | Mouse leave / blur | Click outside, close button, Escape |
+| ARIA role | `role="tooltip"` | `role="dialog"` or none |
+| Association | `aria-describedby` | `aria-expanded` + `aria-controls` |
+| Max width | 240px | 320px |
+| Interactive | No — disappears on leave | Yes — user can interact with content |
+
+### 242. Tooltip Specs
+
+| Spec | Value |
+|------|-------|
+| Show delay | **300ms** hover, **0ms** focus | 
+| Hide delay | **200ms** (prevents flicker when moving between trigger and tooltip) |
+| Max width | 240px |
+| Padding | 8px 12px |
+| Font size | 13–14px |
+| Background | Dark (`#1e293b`, 95% opacity) or light depending on theme |
+| Text color | White on dark bg |
+| Border radius | 6px |
+| Arrow | 6×6px rotated square, centered on trigger edge |
+| Z-index | 600 (above modals if needed) |
+| Placement | Auto-flip: prefer top, flip to bottom/left/right if clipped |
+| Animation | `opacity 0→1`, `translateY(4px→0)`, 150ms ease-out |
+
+```css
+[role="tooltip"] {
+  position: absolute;
+  max-width: 240px;
+  padding: 8px 12px;
+  background: #1e293b;
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.4;
+  border-radius: 6px;
+  z-index: 600;
+  pointer-events: none; /* Tooltip is non-interactive */
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 150ms ease-out, transform 150ms ease-out;
+}
+[role="tooltip"].visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+/* Arrow */
+[role="tooltip"]::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 10px; height: 10px;
+  background: #1e293b;
+}
+```
+
+```html
+<button aria-describedby="tip-export" class="icon-btn">
+  <svg><!-- download icon --></svg>
+</button>
+<div role="tooltip" id="tip-export">Export data as CSV</div>
+```
+
+### 243. Mobile Tooltip Behavior
+
+| Platform | Behavior |
+|----------|----------|
+| Desktop | Hover (300ms delay) + keyboard focus |
+| Touch (mobile) | **Tap to show, tap elsewhere to dismiss** |
+| Long-press alternative | Long press (500ms) to show, release to dismiss |
+| Alternative | Replace tooltip with inline helper text on mobile |
+
+**Popover placement algorithm:**
+
+1. Preferred position (e.g., `top`)
+2. Check viewport boundaries (12px margin from edge)
+3. Flip to opposite side if clipped
+4. If still clipped, try perpendicular axes
+5. Last resort: shift along axis to fit
+
+**Anti-patterns:**
+- ❌ Tooltip on touch-only element with no focus (inaccessible)
+- ❌ Interactive content inside tooltip (use popover instead)
+- ❌ Tooltip covering the trigger element
+- ❌ No delay — flickering on mouse movement
+- ❌ Tooltip text > 80 characters (use popover)
+- ❌ `title` attribute as tooltip (inconsistent, no styling, 2s delay)
+
+**Checklist:**
+- [ ] `role="tooltip"` + `aria-describedby` on trigger
+- [ ] 300ms show delay, 200ms hide delay
+- [ ] Max width 240px, 13–14px text
+- [ ] Auto-flip placement when clipped by viewport
+- [ ] Non-interactive content only (text, no links/buttons)
+- [ ] Keyboard accessible (shows on focus)
+- [ ] Mobile: tap to show or replaced with inline text
+- [ ] Animation: 150ms fade + translate
+- [ ] Popovers use `aria-expanded` + click dismiss + close button
+
+> **Sources:** [W3C Tooltip APG](https://www.w3.org/WAI/ARIA/apg/patterns/tooltip/), [Floating UI](https://floating-ui.com/), [Reach UI Tooltip](https://reach.tech/tooltip/), [Inclusive Components: Tooltips](https://inclusive-components.design/tooltips-toggletips/)
+
+---
+
+## BJ. Keyboard Shortcuts System
+
+### 244. Shortcut Discovery
+
+| Pattern | Spec |
+|---------|------|
+| Help shortcut | `?` (question mark) opens shortcut cheatsheet |
+| Cheatsheet overlay | Modal/dialog, grouped by category, 480–640px width |
+| Inline hints | Show shortcut next to menu item (e.g., "Save Ctrl+S") |
+| First-use hint | Subtle banner: "Pro tip: Press ? to see keyboard shortcuts" |
+| Settings page | Full list + ability to customize (power users) |
+
+```html
+<dialog id="shortcuts-dialog" aria-label="Keyboard shortcuts">
+  <h2>Keyboard Shortcuts</h2>
+  <section>
+    <h3>General</h3>
+    <dl class="shortcut-list">
+      <div class="shortcut-item">
+        <dt><kbd>?</kbd></dt>
+        <dd>Show shortcuts</dd>
+      </div>
+      <div class="shortcut-item">
+        <dt><kbd>Ctrl</kbd> + <kbd>K</kbd></dt>
+        <dd>Open command palette</dd>
+      </div>
+      <div class="shortcut-item">
+        <dt><kbd>/</kbd></dt>
+        <dd>Focus search</dd>
+      </div>
+    </dl>
+  </section>
+  <button class="close-btn" aria-label="Close">×</button>
+</dialog>
+```
+
+```css
+kbd {
+  display: inline-block;
+  padding: 2px 8px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  box-shadow: 0 1px 0 var(--color-border);
+  min-width: 24px;
+  text-align: center;
+}
+```
+
+### 245. Shortcut Implementation
+
+**Modifier key display by OS:**
+
+| Action | macOS | Windows/Linux |
+|--------|-------|---------------|
+| Save | `⌘ S` | `Ctrl+S` |
+| Undo | `⌘ Z` | `Ctrl+Z` |
+| Search | `⌘ K` | `Ctrl+K` |
+| Bold | `⌘ B` | `Ctrl+B` |
+
+```javascript
+// Detect OS for display
+const isMac = navigator.platform.includes('Mac');
+const modKey = isMac ? '⌘' : 'Ctrl';
+
+// Shortcut handler with scope awareness
+document.addEventListener('keydown', (e) => {
+  // Don't trigger in inputs/textareas
+  if (e.target.matches('input, textarea, select, [contenteditable]')) return;
+
+  // Don't conflict with browser shortcuts
+  const mod = isMac ? e.metaKey : e.ctrlKey;
+
+  if (e.key === '?' && !mod) openShortcutsDialog();
+  if (e.key === '/' && !mod) { e.preventDefault(); focusSearch(); }
+  if (e.key === 'k' && mod) { e.preventDefault(); openCommandPalette(); }
+});
+```
+
+**Conflict avoidance:**
+
+| Reserved (never override) | Browser/OS Function |
+|---------------------------|-------------------|
+| `Ctrl+T` | New tab |
+| `Ctrl+W` | Close tab |
+| `Ctrl+N` | New window |
+| `Ctrl+L` | Address bar |
+| `Ctrl+F` | Find in page |
+| `Ctrl+P` | Print |
+| `F5` / `Ctrl+R` | Refresh |
+| `Alt+F4` | Close window (Windows) |
+
+**Sequential shortcuts** (e.g., Gmail: `g` then `i` = go to Inbox):
+
+```javascript
+let pendingKey = null;
+let pendingTimeout = null;
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.matches('input, textarea')) return;
+  if (pendingKey === 'g') {
+    clearTimeout(pendingTimeout);
+    pendingKey = null;
+    if (e.key === 'i') navigateTo('/inbox');
+    if (e.key === 's') navigateTo('/sent');
+    return;
+  }
+  if (e.key === 'g') {
+    pendingKey = 'g';
+    pendingTimeout = setTimeout(() => { pendingKey = null; }, 1500);
+  }
+});
+```
+
+**Anti-patterns:**
+- ❌ Overriding browser-reserved shortcuts
+- ❌ No way to discover shortcuts exist
+- ❌ Shortcuts firing inside text inputs
+- ❌ Different shortcuts on same app across pages (inconsistent)
+- ❌ No visual feedback when shortcut fires
+- ❌ macOS showing "Ctrl" instead of "⌘"
+
+**Checklist:**
+- [ ] `?` opens shortcut cheatsheet
+- [ ] Shortcuts grouped by category in overlay
+- [ ] Modifier key displayed per OS (⌘ vs Ctrl)
+- [ ] Shortcuts disabled inside `input`, `textarea`, `[contenteditable]`
+- [ ] No conflicts with browser/OS reserved keys
+- [ ] `<kbd>` elements for accessible shortcut display
+- [ ] Visual feedback when shortcut triggers (focus, toast, etc.)
+- [ ] Sequential shortcuts timeout after 1.5s
+- [ ] Customizable shortcuts for power-user apps
+- [ ] Shortcut hints shown in menus and tooltips
+
+> **Sources:** [GitHub Keyboard Shortcuts](https://docs.github.com/en/get-started/accessibility/keyboard-shortcuts), [Gmail Keyboard Shortcuts](https://support.google.com/mail/answer/6594), [MDN KeyboardEvent](https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent), [Mousetrap.js](https://craig.is/killing/mice)
+
+---
+
+## BK. High Contrast & Forced Colors
+
+### 246. Forced Colors Mode
+
+Windows High Contrast Mode (now "Contrast Themes") overrides all colors with system-defined values. CSS must adapt.
+
+| System Color Keyword | Maps To | Usage |
+|---------------------|---------|-------|
+| `Canvas` | Background | Page/component backgrounds |
+| `CanvasText` | Foreground text | Body text, headings |
+| `LinkText` | Links | Anchor elements |
+| `ButtonFace` | Button background | Button, input backgrounds |
+| `ButtonText` | Button text | Button labels |
+| `Highlight` | Selection/focus background | Selected items, focus rings |
+| `HighlightText` | Selection text | Text on highlighted bg |
+| `GrayText` | Disabled text | Disabled elements |
+
+```css
+@media (forced-colors: active) {
+  /* Borders become critical — they're the only visible boundaries */
+  .card {
+    border: 1px solid ButtonText;
+    /* box-shadow is stripped, background-color overridden */
+  }
+
+  /* Custom focus ring using system colors */
+  :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  /* Icons need forced-color-adjust or explicit color */
+  .icon svg {
+    fill: ButtonText;
+  }
+
+  /* Preserve important decorative colors (use sparingly) */
+  .status-badge {
+    forced-color-adjust: none;
+    /* Retains original colors — use only when color IS the information */
+  }
+
+  /* Images and custom graphics */
+  img {
+    /* Images render normally by default — no action needed */
+  }
+
+  /* Disabled states must use GrayText */
+  button:disabled {
+    color: GrayText;
+    border-color: GrayText;
+  }
+}
+```
+
+### 247. Design Strategies for Forced Colors
+
+| Strategy | Detail |
+|----------|--------|
+| **Border-based design** | Use visible borders (not just shadows/background) for all containers |
+| **Transparent borders** | Add `border: 2px solid transparent` to elements that rely on bg color for boundaries — becomes visible in forced colors |
+| **Icon visibility** | SVG icons: `fill: currentColor` works; CSS background icons: may disappear |
+| **Focus indicators** | Use `outline` (not `box-shadow`) — shadows are stripped |
+| **Form controls** | Ensure all inputs have visible borders |
+| **Selected state** | Use `Highlight`/`HighlightText` or `border` — not just background color change |
+
+```css
+/* Transparent border trick — invisible normally, visible in forced colors */
+.chip {
+  background: var(--color-primary-10);
+  border: 2px solid transparent; /* Becomes system color in forced-colors */
+  border-radius: 16px;
+  padding: 4px 12px;
+}
+
+/* Selected tab — ensure visible without color */
+.tab[aria-selected="true"] {
+  border-bottom: 3px solid var(--color-primary);
+  /* In forced-colors, border-bottom becomes Highlight */
+}
+
+/* Toggle/switch — don't rely on background alone */
+.toggle-track {
+  border: 2px solid ButtonText;
+  border-radius: 12px;
+}
+.toggle-thumb {
+  background: ButtonText; /* System color */
+  border: 2px solid Canvas;
+}
+```
+
+### 248. Testing Forced Colors
+
+| Method | Steps |
+|--------|-------|
+| Windows | Settings → Accessibility → Contrast Themes → select "Aquatic", "Desert", "Dusk", or "Night Sky" |
+| Chrome DevTools | Rendering tab → "Emulate CSS media feature forced-colors" → active |
+| Firefox | about:config → `ui.use_standins_for_native_colors` → true |
+| Edge | Same as Chrome DevTools |
+| Automated | `@media (forced-colors: active)` in Playwright: `page.emulateMedia({ forcedColors: 'active' })` |
+
+**Testing checklist for forced colors:**
+
+| Check | Pass Criteria |
+|-------|---------------|
+| Cards/containers | All have visible borders |
+| Buttons | Visible boundary + text legible |
+| Icons | All SVG icons visible (using currentColor or explicit system color) |
+| Focus rings | `outline` visible on all interactive elements |
+| Form inputs | Borders visible, checked state distinguishable |
+| Selected/active states | Distinguished by border/outline, not just bg color |
+| Disabled states | Use `GrayText` system color |
+| Images | Render without artifacts |
+
+**Anti-patterns:**
+- ❌ Relying on `box-shadow` for visual boundaries (stripped in forced colors)
+- ❌ Icons using CSS `background-image` with no fallback (may disappear)
+- ❌ Custom focus styles using only `box-shadow` (use `outline`)
+- ❌ States distinguished only by background color (invisible)
+- ❌ Overusing `forced-color-adjust: none` (defeats the purpose)
+- ❌ Never testing in Windows High Contrast Mode
+
+**Checklist:**
+- [ ] All containers have borders (or transparent-border trick)
+- [ ] SVG icons use `fill: currentColor` or explicit system color keywords
+- [ ] Focus indicators use `outline`, not `box-shadow`
+- [ ] Selected/active states use border or outline — not just bg color
+- [ ] Disabled elements use `GrayText`
+- [ ] `forced-color-adjust: none` used sparingly and only when color is essential information
+- [ ] Tested in at least 2 Windows Contrast Themes (Aquatic + Night Sky)
+- [ ] Tested via Chrome DevTools forced-colors emulation
+- [ ] All 4 contrast themes produce usable UI
+
+> **Sources:** [MDN forced-colors](https://developer.mozilla.org/en-US/docs/Web/CSS/@media/forced-colors), [WCAG 1.4.11 Non-text Contrast](https://www.w3.org/WAI/WCAG21/Understanding/non-text-contrast.html), [Microsoft High Contrast](https://learn.microsoft.com/en-us/windows/apps/design/accessibility/high-contrast-themes), [Smashing Magazine Forced Colors](https://www.smashingmagazine.com/2022/06/guide-windows-high-contrast-mode/), [a]
+
+---
+
+## BL. Drag & Drop Patterns
+
+### 249. Drag Handle & Visual Feedback
+
+| Element | Spec |
+|---------|------|
+| Drag handle | 6-dot grip icon (`⠿`), 24×24px, `cursor: grab` |
+| Dragging cursor | `cursor: grabbing` on active drag |
+| Drag preview | Semi-transparent clone (50–70% opacity) following cursor |
+| Drop zone | Highlighted border (2px dashed brand color) + background tint |
+| Placeholder | Empty space or line indicator where item will land |
+| Animation | Items shift with 200ms ease transition to make room |
+
+```css
+.drag-item {
+  cursor: grab;
+  transition: box-shadow 200ms ease, opacity 200ms ease;
+}
+.drag-item.dragging {
+  cursor: grabbing;
+  opacity: 0.5;
+  box-shadow: var(--shadow-lg);
+}
+.drop-zone.active {
+  border: 2px dashed var(--color-primary);
+  background: var(--color-primary-5);
+}
+.drag-placeholder {
+  height: 2px;
+  background: var(--color-primary);
+  border-radius: 1px;
+  margin: -1px 0;
+}
+```
+
+### 250. Accessible Drag & Drop
+
+| Requirement | Implementation |
+|-------------|---------------|
+| Keyboard alternative | Select item → arrow keys to move → Enter to confirm |
+| Screen reader | `aria-grabbed`, `aria-dropeffect` (deprecated) → use `aria-roledescription="sortable"` + live announcements |
+| Touch | Long press (500ms) to initiate, visual + haptic feedback |
+| Cancel | `Escape` key returns item to original position |
+| Announcements | "Grabbed item 3. Use arrow keys to move. Press Enter to drop." |
+
+```html
+<ul role="listbox" aria-label="Sortable task list" aria-roledescription="sortable list">
+  <li role="option" tabindex="0" aria-roledescription="sortable item"
+    aria-label="Task: Buy groceries, position 1 of 5">
+    <span class="drag-handle" aria-hidden="true">⠿</span>
+    Buy groceries
+  </li>
+</ul>
+<div aria-live="assertive" class="sr-only" id="drag-announcer"></div>
+```
+
+**Anti-patterns:**
+- ❌ Drag & drop as the ONLY way to reorder (must have keyboard alternative)
+- ❌ No visual feedback during drag (item disappears)
+- ❌ Drop zones not clearly indicated
+- ❌ No cancel mechanism (Escape)
+- ❌ Small drag handle without adequate touch target (min 44×44px)
+
+**Checklist:**
+- [ ] Drag handle with grip icon, `cursor: grab`/`grabbing`
+- [ ] Semi-transparent preview during drag
+- [ ] Drop zone highlighted with dashed border
+- [ ] Smooth 200ms shift animation for sibling items
+- [ ] Keyboard alternative: select + arrow keys + Enter
+- [ ] `aria-live` announcements for screen readers
+- [ ] Touch: long-press to initiate
+- [ ] Escape cancels and restores original position
+- [ ] Works with mouse, touch, and keyboard
+
+> **Sources:** [W3C Drag and Drop APG](https://www.w3.org/WAI/ARIA/apg/patterns/), [Atlassian Pragmatic Drag and Drop](https://atlassian.design/components/pragmatic-drag-and-drop), [dnd kit](https://dndkit.com/), [Dragon Drop (accessible)](https://github.com/schne324/dragon-drop)
+
+---
+
+## BM. Command Palette / Omnibar
+
+### 251. Command Palette Anatomy
+
+| Element | Spec |
+|---------|------|
+| Trigger | `Ctrl+K` (Windows/Linux) / `⌘K` (macOS) |
+| Overlay | Centered modal, 560–640px width, top 20% of viewport |
+| Backdrop | Dark overlay 50% opacity, click to dismiss |
+| Search input | Autofocused, 48px height, magnifying glass icon, placeholder "Type a command..." |
+| Results list | Max 8–10 visible items, scrollable, keyboard navigable |
+| Result item | Icon (20px) + label + optional description + shortcut hint (right-aligned) |
+| Categories | Grouped: "Pages", "Actions", "Recent", with section headers |
+| Empty state | "No results for '[query]'" |
+| Dismiss | `Escape`, click backdrop, or select a result |
+
+```html
+<dialog id="command-palette" aria-label="Command palette" class="palette">
+  <div class="palette-input-wrapper">
+    <svg class="search-icon" aria-hidden="true"><!-- search --></svg>
+    <input type="text" id="palette-search"
+      placeholder="Type a command or search..."
+      aria-autocomplete="list"
+      aria-controls="palette-results"
+      role="combobox"
+      aria-expanded="true">
+  </div>
+  <ul id="palette-results" role="listbox" aria-label="Results">
+    <li role="option" aria-selected="true" class="result active">
+      <svg class="result-icon"><!-- page icon --></svg>
+      <span class="result-label">Dashboard</span>
+      <kbd class="result-shortcut">G D</kbd>
+    </li>
+    <li role="option" aria-selected="false" class="result">
+      <svg class="result-icon"><!-- settings icon --></svg>
+      <span class="result-label">Settings</span>
+    </li>
+  </ul>
+</dialog>
+```
+
+```css
+.palette {
+  width: min(640px, 90vw);
+  max-height: 480px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-xl);
+  padding: 0;
+  position: fixed;
+  top: 20vh;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.palette-input-wrapper {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+.palette-input-wrapper input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  background: transparent;
+}
+.result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+.result.active, .result:hover {
+  background: var(--color-primary-5);
+}
+.result-shortcut {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+```
+
+### 252. Behavior & Fuzzy Search
+
+| Behavior | Spec |
+|----------|------|
+| Fuzzy matching | Tolerate typos: "setings" → "Settings" (Levenshtein or fuse.js) |
+| Ranking | Recent items first, then exact match, then fuzzy |
+| Highlight matches | Bold matched characters in result label |
+| Keyboard nav | `↓`/`↑` to navigate, `Enter` to select, `Escape` to close |
+| Debounce | 100–150ms debounce on input |
+| Recent commands | Show last 5 used commands when input is empty |
+| Nested commands | Select "Theme" → sub-list: "Light / Dark / System" |
+| Loading | Spinner for server-side search results |
+
+```javascript
+// Fuzzy search with Fuse.js
+import Fuse from 'fuse.js';
+
+const commands = [
+  { label: 'Dashboard', category: 'Pages', shortcut: 'G D', action: () => navigate('/') },
+  { label: 'Settings', category: 'Pages', shortcut: 'G S', action: () => navigate('/settings') },
+  { label: 'Toggle Dark Mode', category: 'Actions', action: () => toggleTheme() },
+  { label: 'Sign Out', category: 'Actions', action: () => signOut() },
+];
+
+const fuse = new Fuse(commands, {
+  keys: ['label', 'category'],
+  threshold: 0.4,         // Fuzzy tolerance
+  includeMatches: true,    // For highlight
+});
+
+paletteInput.addEventListener('input', debounce((e) => {
+  const query = e.target.value;
+  const results = query ? fuse.search(query) : recentCommands;
+  renderResults(results);
+}, 100));
+```
+
+**Anti-patterns:**
+- ❌ Command palette only works with mouse (no keyboard nav)
+- ❌ No fuzzy matching — exact match only
+- ❌ Palette not dismissable with Escape
+- ❌ Results not grouped or categorized (overwhelming)
+- ❌ No recent commands when input is empty
+- ❌ Conflicting with browser `Ctrl+K` (address bar in Firefox — consider `Ctrl+/` alternative)
+
+**Checklist:**
+- [ ] `Ctrl+K` / `⌘K` trigger (with awareness of Firefox address bar conflict)
+- [ ] Centered modal, 560–640px width, autofocused input
+- [ ] Fuzzy search with match highlighting
+- [ ] Keyboard navigation: ↑↓ + Enter + Escape
+- [ ] Results grouped by category with section headers
+- [ ] Recent commands shown on empty input
+- [ ] Max 8–10 visible results, scrollable
+- [ ] Shortcut hints right-aligned in results
+- [ ] `role="combobox"` + `role="listbox"` + `aria-selected`
+- [ ] 100ms debounce on search input
+
+> **Sources:** [GitHub Command Palette](https://docs.github.com/en/get-started/accessibility/github-command-palette), [VS Code Command Palette](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette), [kbar (React)](https://kbar.vercel.app/), [Fuse.js](https://www.fusejs.io/), [cmdk (React)](https://cmdk.paco.me/)

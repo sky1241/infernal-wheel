@@ -648,9 +648,9 @@ start  guide   seulement
 PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MOBILE/WEARABLE
      |
      v
-  Mobile?    → MOBILE.md sections A-AR (5573 lignes, 119 subsections)
-  Web?       → WEB.md sections A-AL (5174 lignes, 175 subsections)
-  Wearable?  → WEARABLE.md sections A-AC (5634 lignes, 120+ subsections)
+  Mobile?    → MOBILE.md sections A-BX (10333 lignes, 77 sections majeures)
+  Web?       → WEB.md sections A-BM (8499 lignes, 71 sections majeures)
+  Wearable?  → WEARABLE.md sections A-AW (8269 lignes, 49 sections majeures)
   Les deux+  → Croiser les fichiers concernes
 ```
 
@@ -761,6 +761,54 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | Animation timings, WCAG reference | AL. Valeurs Cles | 169-170 |
 | Media queries, autocomplete, HTTP codes | AL. Valeurs Cles | 171-174 |
 | Minimum dimensions reference | AL. Valeurs Cles | 175 |
+| **Design tokens, CSS variables, theming** | **AM. Design Tokens** | **176-178** |
+| Token naming (primitive/semantic/component) | AM. Design Tokens | 176 |
+| Theme switching (light/dark/brand) | AM. Design Tokens | 177 |
+| Style Dictionary, Figma variables sync | AM. Design Tokens | 178 |
+| **SEO, structured data, JSON-LD** | **AN. SEO** | **179-181** |
+| Semantic HTML, meta tags, og:image | AN. SEO | 179 |
+| Schema.org (Product, FAQ, Breadcrumb) | AN. SEO | 180 |
+| Core Web Vitals as ranking signal | AN. SEO | 181 |
+| **AI chat UI, conversational interfaces** | **AO. AI & Chat** | **182-184** |
+| Prompt input, streaming response | AO. AI & Chat | 182 |
+| Citations, confidence, regenerate | AO. AI & Chat | 183 |
+| AI loading states, feedback (thumbs) | AO. AI & Chat | 184 |
+| **Font pairing, variable fonts, system stacks** | **AP. Typography Advanced** | **185-187** |
+| Variable font axes (wght/wdth/opsz) | AP. Typography Advanced | 185 |
+| CJK font stacks, subsetting | AP. Typography Advanced | 186 |
+| Google Fonts vs self-hosted, fallback | AP. Typography Advanced | 187 |
+| **Accessibility testing methodology** | **AQ. A11y Testing** | **188-190** |
+| axe-core, Lighthouse, Pa11y, NVDA | AQ. A11y Testing | 188 |
+| Screen reader matrix, test cadence | AQ. A11y Testing | 189 |
+| Bug severity P0-P3, compliance | AQ. A11y Testing | 190 |
+| **Checkout address, payment deep** | **AR-bis. Checkout Deep** | **191-193** |
+| Address autocomplete, Google Places | AR-bis. Checkout Deep | 191 |
+| Express checkout (Apple Pay/Google Pay) | AR-bis. Checkout Deep | 192 |
+| Subscription billing, promo code UX | AR-bis. Checkout Deep | 193 |
+| **Content strategy, info architecture** | **AS. Content Strategy** | **194-196** |
+| F-pattern, Z-pattern, inverted pyramid | AS. Content Strategy | 194 |
+| Flesch-Kincaid, line length 45-75 chars | AS. Content Strategy | 195 |
+| Heading hierarchy, above-the-fold | AS. Content Strategy | 196 |
+| **Voice UI, Web Speech API** | **AT. Voice UI** | **197** |
+| **Comparison tables, feature matrix** | **AU. Comparison Tables** | **198** |
+| **FAQ, help center, accordion** | **AV. FAQ Patterns** | **199** |
+| **Blog/article layout, reading time** | **AW. Blog Layout** | **200** |
+| **Gallery, masonry, lightbox** | **AX. Gallery** | **201** |
+| **Notification center, bell badge** | **AY. Notifications** | **202** |
+| **Wizard/stepper visual specs** | **AZ. Wizard Specs** | **203** |
+| **Date/time pickers, calendar** | **BA. Date Pickers** | **204** |
+| **Conditional forms, branching logic** | **BB. Conditional Forms** | **205** |
+| **Scroll animations, CSS scroll-timeline** | **BC. Scroll Animations** | **206** |
+| **Print CSS, @page, invoice template** | **BD. Print Styles** | **207** |
+| **Email design, table layout, dark mode** | **BE. Email Design** | **208** |
+| **Reviews, star rating, testimonials** | **BF. Reviews** | **209** |
+| **User profile, avatar, account pages** | **BG. Profile Pages** | **210** |
+| **Pricing page extended, downgrade flow** | **BH. Pricing Extended** | **211** |
+| **Tooltips, popovers, placement** | **BI. Tooltip Specs** | **212** |
+| **Keyboard shortcuts, cheatsheet, Cmd+K** | **BJ. Keyboard Shortcuts** | **213** |
+| **High contrast, forced-colors mode** | **BK. Forced Colors** | **214** |
+| **Drag & drop, sortable lists, kanban** | **BL. Drag & Drop** | **215** |
+| **Command palette, omnibar, fuzzy search** | **BM. Command Palette** | **216** |
 
 ---
 
@@ -861,6 +909,47 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | Component size comparison iOS/Android | AR. Valeurs Cles | 122 |
 | Platform-specific values (status bar, etc) | AR. Valeurs Cles | 123 |
 | Checklist rapide universel mobile | AR. Valeurs Cles | 124 |
+| **Color system, Material You, tint colors** | **AS. Color System** | **125-127** |
+| Dynamic color (dynamicColorScheme) | AS. Color System | 125 |
+| Design token naming (color.surface.elevated) | AS. Color System | 126 |
+| Brand color mapping to M3 scheme | AS. Color System | 127 |
+| **SF Symbols, Material Symbols, icon sizing** | **AT. Iconography** | **128-130** |
+| Rendering modes (monochrome/hierarchical) | AT. Iconography | 128 |
+| Icon sizing table (16/20/24/40/48dp) | AT. Iconography | 129 |
+| Custom icon grid (24dp, 2dp padding) | AT. Iconography | 130 |
+| **Gesture vocabulary complete** | **AU. Gestures** | **131-133** |
+| Gesture conflict resolution hierarchy | AU. Gestures | 131 |
+| Swipe-to-dismiss thresholds | AU. Gestures | 132 |
+| Gesture discoverability (coach marks) | AU. Gestures | 133 |
+| **Context menus, long press, peek** | **AV. Context Menus** | **134** |
+| **Swipe actions on list items** | **AW. Swipe Actions** | **135** |
+| **In-app messaging, banners, tooltips** | **AX. In-App Messaging** | **136** |
+| **Onboarding patterns (carousel, progressive)** | **AY. Onboarding** | **137** |
+| **Skeleton screens, shimmer specs** | **AZ. Skeletons** | **138** |
+| **Infinite scroll vs pagination** | **BA. Infinite Scroll** | **139** |
+| **Sticky headers, section indexing** | **BB. Sticky Headers** | **140** |
+| **Crash recovery, state restoration** | **BC. Crash Recovery** | **141** |
+| **Force update, soft update patterns** | **BD. Force Update** | **142** |
+| **Bottom sheet detents, drag handle** | **BE. Bottom Sheets** | **143** |
+| **Parallax, collapsing toolbar** | **BF. Parallax** | **144** |
+| **Split view, multi-window, WindowSizeClass** | **BG. Split View** | **145** |
+| **Picture-in-Picture** | **BH. PiP** | **146** |
+| **Clipboard, paste permission iOS 16+** | **BI. Clipboard** | **147** |
+| **Audio/video player, mini player** | **BJ. Media Player** | **148** |
+| **Chat/messaging UI, bubbles, typing** | **BK. Chat UI** | **149** |
+| **Social features, feeds, likes, double-tap** | **BL. Social** | **150** |
+| **E-commerce mobile, product grid, cart** | **BM. E-Commerce** | **151** |
+| **Financial app, balance, transactions** | **BN. Finance** | **152** |
+| **Calendar, scheduling, time slots** | **BO. Calendar** | **153** |
+| **Fitness/health tracking, rings, streaks** | **BP. Fitness** | **154** |
+| **Push notification strategy, channels** | **BQ. Push Notifications** | **155** |
+| **Voice interaction, Siri/Assistant** | **BR. Voice** | **156** |
+| **QR code scanning, NFC UX** | **BS. QR/NFC** | **157** |
+| **Bluetooth UX, pairing, connection** | **BT. Bluetooth** | **158** |
+| **User profiles, avatars, upload** | **BU. Profiles** | **159** |
+| **Design handoff, Figma to code, tokens** | **BV. Design Handoff** | **160** |
+| **App rating prompt strategy** | **BW. App Rating** | **161** |
+| **Error handling UX (comprehensive)** | **BX. Error Handling** | **162** |
 
 ---
 
@@ -990,6 +1079,46 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | Decision tree handoff vs local | AC. UX Cross-Device | 52f |
 | Standalone manifest + Horologist helpers | AC. Standalone Config | 53 |
 | Checklist implementateur cross-device (14 items) | AC. Checklist | 54 |
+| **Workout/exercise tracking UI** | **AD. Workout** | **55-57** |
+| Real-time metrics layout (HR, pace, distance) | AD. Workout | 55 |
+| Auto-pause/resume, GPS lock, multi-sport | AD. Workout | 56 |
+| Post-workout summary, HR zone colors | AD. Workout | 57 |
+| **Heart rate, SpO2, health data display** | **AE. Health Data** | **58-60** |
+| HR zones (5 zones, color coding) | AE. Health Data | 58 |
+| ECG recording flow, blood oxygen | AE. Health Data | 59 |
+| Abnormal HR alerts, resting HR trend | AE. Health Data | 60 |
+| **Sleep tracking UI, sleep stages** | **AF. Sleep** | **61-63** |
+| Sleep stage visualization (REM/light/deep) | AF. Sleep | 61 |
+| Sleep score, bedtime reminder | AF. Sleep | 62 |
+| Night mode (dim, no haptics) | AF. Sleep | 63 |
+| **Maps, turn-by-turn navigation on watch** | **AG. Maps Watch** | **64-66** |
+| Map rendering constraints, haptic directions | AG. Maps Watch | 64 |
+| Turn-by-turn layout (arrow + street + distance) | AG. Maps Watch | 65 |
+| Compass, breadcrumb trail, route deviation | AG. Maps Watch | 66 |
+| **Cellular vs Bluetooth-only UX** | **AH. Connectivity** | **67-68** |
+| Connection state indicators, feature matrix | AH. Connectivity | 67 |
+| LTE power, streaming vs offline | AH. Connectivity | 68 |
+| **Music/media control on watch** | **AI. Media Control** | **69-70** |
+| Now Playing layout, volume via crown | AI. Media Control | 69 |
+| Offline sync, BT audio output selection | AI. Media Control | 70 |
+| **Phone calls on watch** | **AJ. Phone Calls** | **71** |
+| **Notification grouping, stacking** | **AK. Notif Grouping** | **72** |
+| **Payment on watch (Apple Pay/Google Wallet)** | **AL. Payment** | **73** |
+| **Messaging on watch** | **AM. Messaging** | **74** |
+| **Fall detection, emergency SOS** | **AN. Emergency** | **75** |
+| **watchOS 10+ changes (NavigationStack, Smart Stack)** | **AO. watchOS 10+** | **76** |
+| **Wear OS 4/5 Material 3 migration** | **AP. Wear OS 4/5** | **77** |
+| **Circular vs rectangular screen adaptation** | **AQ. Screen Shape** | **78** |
+| **Animation constraints on watch** | **AR. Animation Limits** | **79** |
+| Max simultaneous (2-3), duration limits | AR. Animation Limits | 79 |
+| Lottie size limits tiles (<50KB), ambient rule | AR. Animation Limits | 79 |
+| **Charging screen, dock/nightstand mode** | **AS. Charging** | **80** |
+| **Water lock mode** | **AT. Water Lock** | **81** |
+| **Smart home control on watch** | **AU. Smart Home** | **82** |
+| **Camera remote control** | **AV. Camera Remote** | **83** |
+| **Data density limits (consolidated reference)** | **AW. Data Density** | **84-85** |
+| Max text chars per component table | AW. Data Density | 84 |
+| Component count limits, visual density | AW. Data Density | 85 |
 
 ---
 
