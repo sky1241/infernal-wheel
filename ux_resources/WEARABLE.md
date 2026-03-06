@@ -8268,3 +8268,233 @@ WKInterfaceDevice.current().enableWaterLock()
 
 *Bible UX Wearable - Mise a jour mars 2026*
 *Sources: [Android Developers](https://developer.android.com/wear), [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/designing-for-watchos), [Samsung Developer](https://developer.samsung.com/one-ui-watch), [GSMArena](https://www.gsmarena.com), [Wear OS App Quality](https://developer.android.com/docs/quality-guidelines/wear-app-quality), [Color Roles M3](https://developer.android.com/design/ui/wear/guides/styles/color/roles-tokens), [NNGroup](https://www.nngroup.com/articles/smartwatch-interactions/), [Health Services API](https://developer.android.com/training/wearables/health-services), [Apple HealthKit](https://developer.apple.com/documentation/healthkit), [Matter Protocol](https://csa-iot.org/all-solutions/matter/)*
+## AX. Medication Reminder UI
+
+Medication reminders are a high-value wearable use case — the watch is always on the wrist at dosing time, and glanceability matters more than information density.
+
+### Dose Scheduling Notification
+
+```
+┌──────────────────────┐
+│      💊 10:00 AM     │
+│                      │
+│    Metformin 500mg   │
+│                      │
+│  [Take]  [Skip]     │
+│       [Snooze]      │
+└──────────────────────┘
+```
+
+Notification displays medication name, dose, and scheduled time. Three action buttons are the maximum for watch notifications — `Take` confirms adherence, `Skip` logs a missed dose with optional reason, `Snooze` reschedules +15 min (configurable, max 3 snoozes to prevent indefinite deferral). Use the `NotificationCompat.Action` (Wear OS) or `UNNotificationAction` (watchOS) APIs. Set category to alarm/reminder priority so it surfaces even in Do Not Disturb.
+
+### Multi-Medication List
+
+On screens 1.2–1.9 inches, display at most 3–4 medications per screen using a vertical scrolling list. Each row shows:
+
+```
+┌──────────────────────┐
+│ ● Metformin  500mg   │  ← colored dot = category
+│   10:00 AM  ✓ taken  │
+├──────────────────────┤
+│ ○ Lisinopril 10mg   │
+│   10:00 AM  pending  │
+├──────────────────────┤
+│ ● Aspirin    81mg    │
+│   12:00 PM  upcoming │
+└──────────────────────┘
+```
+
+Group medications by time slot. Use color-coded dots (category), bold name, and a status badge (taken/pending/upcoming). Tapping a row opens the confirmation flow for that specific dose.
+
+### Confirmation Flow
+
+1. User taps `Take` → haptic confirmation (single strong tap) → brief "Taken ✓" overlay (1.5 s auto-dismiss).
+2. User taps `Skip` → half-screen prompt "Reason?" with 3 canned responses (Forgot, Side effects, Doctor advised) + free-text via voice. Logged for adherence report.
+3. Snooze → brief toast "+15 min" → notification reschedules silently.
+
+### Adherence Tracking Visualization (Streak Calendar)
+
+Display a 7-day strip on the watch (current week), full month view on phone:
+
+```
+┌──────────────────────┐
+│   This Week           │
+│ M  T  W  T  F  S  S │
+│ ●  ●  ●  ◐  ○  ·  · │
+│                      │
+│ ● all taken  ◐ partial│
+│ ○ missed     · future │
+│ Streak: 3 days 🔥    │
+└──────────────────────┘
+```
+
+Keep the visualization binary at the day level on-watch. Detailed per-dose breakdown lives on the phone companion.
+
+### Platform APIs
+
+- **Android (Health Connect):** `MedicationRecord` via `androidx.health.connect.client` — write adherence events with timestamp, dose, and medication reference.
+- **watchOS (HealthKit):** As of watchOS 10+, no first-party medication API on-watch; sync adherence data to iPhone via `WCSession` and write to `HKClinicalRecord` or use custom `HKCategorySample` types. Apple Health medication tracking (iOS 16+) is read-only from third-party apps.
+
+### Caregiver Notification Pattern
+
+When a dose is missed (skip or no response within snooze window), optionally notify a designated caregiver via the phone companion app. Never send caregiver alerts directly from the watch — route through the phone to respect connectivity constraints and allow the phone app to batch/throttle notifications (max 1 alert per missed time-slot, not per medication).
+
+---
+
+## AY. Theater Mode UX
+
+Theater mode (also called Cinema mode or Silent mode) suppresses all screen wake and sound output, intended for environments where any light or noise from the watch is disruptive.
+
+### Behavior When Active
+
+- **Raise-to-wake:** Disabled. Screen stays off on wrist raise.
+- **Always-on display (AOD):** Disabled. Screen is fully off.
+- **Notifications:** Delivered silently — no haptic, no sound, no screen wake. They queue in the notification shade for later review.
+- **Touch:** Screen responds to deliberate touch (tap or button press) but remains off otherwise.
+- **Alarms:** Platform-dependent. Wear OS silences alarms; watchOS still fires alarms with haptic only (user-configurable).
+
+### Entry and Exit
+
+- **Wear OS:** Swipe down to Quick Settings → tap the theater mode icon (mask/screen icon). Also available via `Settings > Display > Theater mode`. Exit by pressing the hardware button (crown or side button).
+- **watchOS:** Swipe up to Control Center → tap the theater masks icon. Exit by tapping the screen then turning the Digital Crown, or by pressing the side button.
+
+Provide a subtle visual indicator on the watch face when theater mode is active (small icon in status bar or complication slot) so the user remembers the mode is on.
+
+### App Awareness
+
+Apps should detect theater mode and suppress any custom wake or vibration logic:
+
+- **Wear OS:** Check `NotificationManager.getCurrentInterruptionFilter()` — returns `INTERRUPTION_FILTER_NONE` or `INTERRUPTION_FILTER_ALARMS` during theater mode. Register a `NotificationManager.OnInterruptionFilterChangedListener` to react dynamically.
+- **watchOS:** There is no public API to directly query theater mode. Use `WKApplicationDelegate.applicationWillResignActive()` as a proxy — theater mode triggers a resign-active event. Avoid scheduling `WKHapticType` feedback when the app is inactive.
+
+Apps must NOT attempt to override theater mode by forcing screen wake (e.g., `FLAG_KEEP_SCREEN_ON`). Respect the user's explicit choice. If your app has a critical alert use case (e.g., medical alarm), use the platform's critical alert channel which operates independently of theater mode.
+
+---
+
+## AZ. Watch-to-Watch Communication
+
+Direct communication between two smartwatches is heavily constrained by platform architecture. Both Wear OS and watchOS treat the watch as a peripheral to a phone, not as a peer-to-peer device.
+
+### Platform Capabilities
+
+| Capability | watchOS | Wear OS |
+|---|---|---|
+| Direct watch-to-watch API | No public API | No API |
+| Walkie-Talkie | Apple-only, system app, not extensible by 3rd parties | N/A |
+| Shared workouts | `HKWorkoutSession` with mirroring (watchOS 10+, same user only) | No equivalent |
+| Relay via phone | `WCSession` → phone → internet → other phone → other watch | `MessageClient`/`DataClient` → phone → cloud → other phone → other watch |
+| Relay via cloud | Watch → phone → server → push notification → other watch | Same |
+| Bluetooth direct | No API for watch-to-watch BT | No API for watch-to-watch BT |
+| Wi-Fi direct / NFC | Not available watch-to-watch | Not available watch-to-watch |
+
+### Architectural Reality
+
+All watch-to-watch communication must be relayed. The path is always:
+
+`Watch A → Phone A → Cloud/Server → Phone B → Watch B`
+
+Latency is typically 1–5 seconds end-to-end. This rules out real-time multiplayer gaming but works for messaging, status sharing, location pings, and async interactions.
+
+### Family Setup (Managed Watches)
+
+- **Apple Family Setup:** Child's Apple Watch paired to parent's iPhone. The child has no iPhone. Communication happens via Messages and FaceTime audio (system-level, not extensible).
+- **Wear OS Family Setup (limited):** Some OEMs (Samsung) support child watch pairing to parent phone via Family Link. Third-party apps have limited access.
+
+In both cases, the "watch-to-watch" communication between parent and child is mediated entirely by the parent's phone and cloud services.
+
+### Design Guidance for Developers
+
+1. **Do not attempt direct watch-to-watch protocols.** There is no supported API on any platform.
+2. **Design for async.** Assume 2–5 s latency minimum. Show "sending..." states.
+3. **Use push notifications** as the delivery mechanism to the remote watch. Keep payloads small (<4 KB).
+4. **Degrade gracefully** when the relay phone is unreachable (e.g., phone is off). Queue messages and deliver when connectivity resumes.
+
+---
+
+## BA. Explicit N/A: Multi-Window and PiP on Watch
+
+**Multi-window, picture-in-picture (PiP), split-screen, and floating window modes are not supported on any wearable platform — Wear OS, watchOS, or Samsung Tizen/One UI Watch.**
+
+This is not an oversight; it is a deliberate platform constraint:
+
+- **Screen size:** Watch displays range from 1.2" to 1.9" (368–466 px width). Splitting this area yields regions too small for any meaningful interaction or readability.
+- **Interaction model:** Wearable sessions average under 10 seconds. The cognitive overhead of managing multiple windows exceeds the entire session duration.
+- **Hardware constraints:** Wearable SoCs (e.g., Snapdragon W5, Apple S9) have limited GPU/memory budgets optimized for single full-screen rendering. Compositing multiple surfaces would degrade frame rate and battery life.
+- **Platform enforcement:** Both `WindowManager` on Wear OS and `WKInterfaceController` on watchOS enforce single-activity, full-screen presentation. There is no API to request PiP or split modes.
+
+**One app, one screen, always full-screen.** If your use case requires showing two data sources simultaneously (e.g., map + heart rate), composite them into a single unified layout within your app rather than attempting multi-window patterns. Use complications on the watch face for at-a-glance secondary data.
+
+Do not spend engineering time exploring workarounds. This limitation is architectural and will not change for the foreseeable hardware generation.
+
+---
+
+## BB. Voice Interaction on Watch (Extended)
+
+Voice is the highest-bandwidth input method on wearables — faster than tiny keyboards, more expressive than taps, and usable eyes-free during physical activity.
+
+### Voice Dictation
+
+**Wear OS — RemoteInput:**
+```kotlin
+// Launch system dictation for text input
+val remoteInput = RemoteInput.Builder("reply_text")
+    .setLabel("Speak your message")
+    .setAllowFreeFormInput(true)
+    .build()
+
+val intent = RemoteActivityHelper.buildRemoteInputIntent(
+    context, arrayOf(remoteInput)
+)
+startActivityForResult(intent, REQUEST_DICTATION)
+
+// In onActivityResult:
+val results = RemoteInput.getResultsFromIntent(data)
+val spokenText = results?.getCharSequence("reply_text")
+```
+
+**watchOS — Dictation via TextField or presentTextInputController:**
+```swift
+// watchOS 9+ SwiftUI — system dictation is automatic with TextField
+TextField("Message", text: $messageText)
+
+// watchOS <9 or custom trigger
+presentTextInputController(
+    withSuggestions: ["On my way", "Running late", "Call me"],
+    allowedInputMode: .allowEmoji
+) { results in
+    guard let results, let text = results.first as? String else { return }
+    self.handleDictatedText(text)
+}
+```
+
+### Voice Assistant Integration
+
+- **Wear OS (Google Assistant):** Register custom App Actions via `shortcuts.xml` to handle domain-specific voice commands. Example: "Hey Google, log a cigarette in [AppName]" triggers an intent routed to your app.
+- **watchOS (Siri):** Donate `INIntent` subclasses or use App Intents (iOS 16+ / watchOS 9+) for Siri Shortcuts. Example: `LogCigaretteIntent` registered as a Siri Shortcut, invocable by "Hey Siri, log a cigarette."
+
+### Voice-First Design Principles
+
+1. **Design for no-look interaction.** During running, cycling, or driving, the user cannot glance at the screen. Voice commands must work without visual confirmation — use haptic confirmation (double tap = success, long buzz = error).
+2. **Keep utterances short.** Dictation accuracy drops significantly after 8–10 words. Design prompts that expect 1–4 word responses.
+3. **Offer canned responses as fallback.** When dictation fails (noisy environment, accent issues, offline), present 3–5 pre-written quick replies. Let users customize these in the phone companion app.
+4. **Confirm destructive actions.** Voice-triggered deletes or sends require a second confirmation step (tap or second voice "yes").
+
+### Dictation Accuracy Tips
+
+- Activate the microphone only after a clear trigger (button press or wake word) to avoid capturing ambient noise.
+- Use on-device speech recognition when available (Wear OS on-device model, watchOS on-device dictation in watchOS 10+) to reduce latency and work offline.
+- For domain-specific vocabulary (medication names, exercise types), post-process dictation results with a local dictionary/fuzzy matcher rather than expecting perfect transcription.
+
+### Voice Feedback Pattern
+
+After a voice command is processed:
+1. **Haptic:** Immediate — single tap for acknowledged, double for success, long for error.
+2. **Visual:** Brief — checkmark or X icon, 1.5 s, auto-dismiss. Do not require the user to look at the screen.
+3. **Audio:** Optional — a subtle chime only if the user is not in silent/theater mode. Check `AudioManager.getRingerMode()` (Wear OS) or respect `WKInterfaceDevice` silent state before playing audio feedback.
+
+### When Voice Fails — Fallback Hierarchy
+
+1. **Canned responses:** Pre-populated list (e.g., "Yes", "No", "On my way", "5 minutes").
+2. **Emoji picker:** Grid of 12–16 most-used emoji, one tap to send.
+3. **Tiny keyboard:** T9-style or QWERTY (Wear OS Gboard, watchOS Scribble/QuickPath). Last resort — slow and error-prone on small screens.
+4. **Defer to phone:** "Open on phone" button hands the interaction to the companion app where full text input is available.

@@ -8498,3 +8498,1051 @@ paletteInput.addEventListener('input', debounce((e) => {
 - [ ] 100ms debounce on search input
 
 > **Sources:** [GitHub Command Palette](https://docs.github.com/en/get-started/accessibility/github-command-palette), [VS Code Command Palette](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette), [kbar (React)](https://kbar.vercel.app/), [Fuse.js](https://www.fusejs.io/), [cmdk (React)](https://cmdk.paco.me/)
+## BN. Tab & Accordion Component Specs
+
+### ARIA Tab Pattern
+
+```html
+<div role="tablist" aria-label="Account settings">
+  <button role="tab" id="tab-1" aria-selected="true"
+          aria-controls="panel-1" tabindex="0">Profile</button>
+  <button role="tab" id="tab-2" aria-selected="false"
+          aria-controls="panel-2" tabindex="-1">Security</button>
+  <button role="tab" id="tab-3" aria-selected="false"
+          aria-controls="panel-3" tabindex="-1">Billing</button>
+</div>
+<div role="tabpanel" id="panel-1" aria-labelledby="tab-1" tabindex="0">
+  <!-- Panel content -->
+</div>
+<div role="tabpanel" id="panel-2" aria-labelledby="tab-2" tabindex="0" hidden>
+  <!-- Panel content -->
+</div>
+```
+
+### Keyboard Interaction
+
+| Key | Behavior |
+|-----|----------|
+| `ArrowRight` / `ArrowLeft` | Move focus between tabs (wrap at ends) |
+| `ArrowDown` / `ArrowUp` | Move focus in vertical tablist |
+| `Tab` | Move focus from active tab into its panel |
+| `Home` / `End` | Jump to first / last tab |
+| `Enter` / `Space` | Activate tab (manual activation mode only) |
+
+**Automatic vs Manual Activation.** Automatic: focus follows selection (simpler for ≤5 tabs). Manual: `Enter`/`Space` required (use when panel load is expensive or >300 ms).
+
+### Tab Overflow
+
+```css
+.tablist-scroll {
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;          /* Firefox */
+  -ms-overflow-style: none;       /* IE/Edge */
+}
+.tablist-scroll::-webkit-scrollbar { display: none; }
+```
+
+Show gradient fade (24 px wide, `rgba(255,255,255,0)` → `rgba(255,255,255,1)`) on the overflow edge. Alternative: "More ▾" dropdown collecting hidden tabs when >6 tabs exist.
+
+### Vertical Tabs
+
+Use `aria-orientation="vertical"` on the tablist. Arrow keys switch to Up/Down. Minimum tab target: 44 × 36 px. Place vertical tablist on the **left** (LTR) with a 1 px border-right separator; panel gets `padding-left: 24px`.
+
+### Accordion ARIA
+
+```html
+<div class="accordion">
+  <h3>
+    <button aria-expanded="true" aria-controls="sect-1" id="hdr-1">
+      Shipping info
+    </button>
+  </h3>
+  <div role="region" aria-labelledby="hdr-1" id="sect-1">
+    <!-- Content -->
+  </div>
+</div>
+```
+
+**Single-open:** Set all other `aria-expanded="false"` on open. Appropriate for FAQ (reduces cognitive load).
+**Multi-open:** Each item toggles independently. Better for reference/settings where users compare sections.
+
+### Accordion Animation
+
+```css
+.accordion-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 250ms ease-out;
+}
+.accordion-body.open {
+  grid-template-rows: 1fr;
+}
+.accordion-body > .inner {
+  overflow: hidden;
+}
+```
+
+Duration: **200–300 ms** (`ease-out`). Avoid `max-height` hacks — the `grid-template-rows` technique yields accurate height without JS measurement.
+
+### Responsive Collapse: Tabs → Accordion
+
+Below **768 px**, convert horizontal tabs to an accordion. Preserve the same `id` relationships. Use a single source of state; only the visual wrapper changes.
+
+### Checklist
+
+- [ ] `role="tablist"`, `role="tab"`, `role="tabpanel"` all present
+- [ ] Only the active tab has `tabindex="0"`; others `tabindex="-1"`
+- [ ] Arrow key navigation wraps cyclically
+- [ ] Accordion buttons are inside heading elements (`h2`–`h6`)
+- [ ] Animation respects `prefers-reduced-motion` (set `transition-duration: 0ms`)
+
+> **Sources:** WAI-ARIA Authoring Practices 1.2 — Tabs Pattern; MDN — ARIA `tablist` role; Adrian Roselli, "Don't Use ARIA Menu for Nav" (2023).
+
+---
+
+## BO. Form Field Types Deep-Dive
+
+### International Phone Input
+
+```html
+<div class="phone-input">
+  <select aria-label="Country code" class="country-picker">
+    <option value="+33" data-flag="🇫🇷">🇫🇷 +33</option>
+    <option value="+1"  data-flag="🇺🇸">🇺🇸 +1</option>
+  </select>
+  <input type="tel" inputmode="tel" aria-label="Phone number"
+         placeholder="6 12 34 56 78" autocomplete="tel-national">
+</div>
+```
+
+Validate with **libphonenumber** (Google) — it handles per-country length rules, mobile vs landline, and formatting. Display flag + dial code in the picker; auto-detect country from browser locale or IP as default. Width: country picker ~80 px, number field fills remaining space.
+
+### Currency Input
+
+```js
+const fmt = new Intl.NumberFormat('de-DE', {
+  style: 'currency', currency: 'EUR',
+  minimumFractionDigits: 2
+});
+// → "1.234,56 €"   (symbol after, comma decimal)
+```
+
+| Locale | Symbol Position | Decimal | Thousands |
+|--------|----------------|---------|-----------|
+| en-US  | $1,234.56      | `.`     | `,`       |
+| fr-FR  | 1 234,56 €     | `,`     | ` `       |
+| ja-JP  | ¥1,234         | —       | `,`       |
+
+Store raw integer **cents** internally. Format on display only. Use `inputmode="decimal"` to get numeric keyboard with decimal point on mobile.
+
+### Tag / Chip Input
+
+- Commit tag on `Enter`, `,`, or `Tab`.
+- `Backspace` on empty input → highlight last chip → second `Backspace` deletes it.
+- Max chip width: `180px` with `text-overflow: ellipsis`.
+- Autocomplete dropdown: max 6 suggestions, `role="listbox"`.
+- "Create new" option at dropdown bottom when no match: `+ Add "user-input"`.
+
+### Masked Inputs
+
+```js
+// Credit card: space every 4 digits
+input.addEventListener('input', (e) => {
+  let v = e.target.value.replace(/\D/g, '').substring(0, 16);
+  e.target.value = v.replace(/(.{4})/g, '$1 ').trim();
+});
+```
+
+| Type | Mask | `inputmode` | `autocomplete` |
+|------|------|-------------|----------------|
+| Credit card | `•••• •••• •••• 1234` | `numeric` | `cc-number` |
+| IBAN | `FR76 •••• •••• ••••` (groups of 4) | `text` | — |
+| Date | `DD / MM / YYYY` | `numeric` | `bday` |
+| SSN (US) | `•••-••-1234` | `numeric` | — |
+
+Always use `aria-describedby` pointing to a format hint: "Format: DD / MM / YYYY".
+
+### Quantity Stepper
+
+Min touch target: **44 × 44 px** per button. `−` and `+` flanking a centered `<input type="number">` (width ~64 px). Disable `−` at min, `+` at max, with `aria-disabled="true"` and 40 % opacity. Long-press acceleration: increment every **120 ms** after an initial **400 ms** hold.
+
+### Slider / Range
+
+```css
+input[type="range"] {
+  --track-h: 6px;
+  --thumb-d: 24px;
+  accent-color: var(--brand-primary);
+}
+```
+
+Show current value in a tooltip above the thumb or in a linked `<output>` element. For dual-handle ranges, use two `<input>` elements with overlapping tracks (or a library like **noUiSlider**). Step granularity: price filters → step `10`; percentage → step `1`.
+
+### Anti-Patterns
+
+- Masking input **while user types** causing cursor jumps — always format on `blur` or use a battle-tested library.
+- Using `type="number"` for phone/credit card (allows `e`, `+`, `-`; use `type="text"` + `inputmode`).
+- Slider with no visible value readout.
+
+> **Sources:** Google libphonenumber docs; MDN — `Intl.NumberFormat`; WAI — Custom Form Components; Baymard Institute — Phone Field UX (2023).
+
+---
+
+## BP. Urgency & Scarcity Patterns (Ethical)
+
+### Ethical vs Dark Pattern Boundary
+
+The line is simple: **display real data or face legal consequences**.
+
+| Regulation | Key Rule | Penalty |
+|-----------|----------|---------|
+| FTC Click-to-Cancel Rule (2024) | Cancellation must be as easy as sign-up; no fake urgency | Up to $50,120 per violation |
+| EU Consumer Rights Directive (2022 amend.) | Ban on fake countdown timers, fabricated reviews | Up to 4 % annual turnover |
+| California ACPRA (2024) | Dark patterns void consent | Enforcement via CA AG |
+
+### Countdown Timers
+
+**Only for genuine deadlines:** flash sale with a real server-side end time, auction closing, registration cutoff.
+
+```html
+<div role="timer" aria-live="polite" aria-atomic="true"
+     aria-label="Offer ends in">
+  <span class="hours">02</span>:<span class="mins">14</span>:<span class="secs">37</span>
+</div>
+```
+
+- Sync with server time (fetch `/api/deadline`), not client `Date.now()`.
+- When timer reaches 0, remove the offer — never silently restart.
+- `aria-live="polite"` announces changes without interrupt; update the live region every **60 s** (not every second — that's screen reader noise).
+
+### Stock Indicators
+
+"Only 3 left in stock" — acceptable **only** if inventory is real-time accurate. Thresholds:
+
+| Stock Level | Display | Styling |
+|-------------|---------|---------|
+| > 10 | "In stock" (green) | `color: #2e7d32` |
+| 3–10 | "Only X left" (amber) | `color: #e65100` |
+| 0 | "Out of stock" (red, disable Add to Cart) | `color: #c62828` |
+
+Never show "Only X left" if stock > 10. Never fabricate low numbers.
+
+### Social Proof Urgency
+
+"12 people viewing this right now" — must reflect **actual concurrent sessions** within a reasonable window (5 min). Round down, never up. Do not show below a threshold of 3 (feels artificial).
+
+### Limited-Time Offers
+
+Always state:
+1. **Start date** and **end date** (with timezone).
+2. **Original price** must have been charged for ≥30 consecutive days in the prior 90 days (EU Omnibus Directive 2022).
+3. Discount percentage computed from that genuine prior price.
+
+### GDPR Considerations
+
+Urgency-driven data collection ("Sign up in the next 5 min for a bonus") must still provide clear consent mechanism. Time pressure does not exempt you from freely-given consent (GDPR Art. 7, Recital 42).
+
+### A/B Testing Ethical Limits
+
+- Never A/B test a **more aggressive** fake urgency variant against a truthful one.
+- If an urgency experiment loses, **remove it** — don't just tweak wording.
+- Document your test hypothesis and ensure the control is the user-favorable condition.
+
+### Checklist
+
+- [ ] Every countdown timer is synced to a real server-side deadline
+- [ ] Stock numbers come from real inventory API, cached ≤60 s
+- [ ] "People viewing" count is from real analytics, not random
+- [ ] Prior price complies with Omnibus Directive 30-day rule
+- [ ] Timer at zero removes the offer (no silent reset)
+- [ ] Cancellation flow has same number of steps as signup flow
+
+### Anti-Patterns
+
+- Timer that resets on page reload (instant credibility loss + FTC violation).
+- "Only 1 left!" shown to every user regardless of stock.
+- "Offer expires soon" with no actual date.
+
+> **Sources:** FTC Click-to-Cancel Rule, 16 CFR 425 (2024); EU Directive 2019/2161 (Omnibus); Brignull, H. — Deceptive Patterns typology (2023); CMA Online Choice Architecture report (2022).
+
+---
+
+## BQ. A/B Testing & Experimentation UX
+
+### Anti-Flicker Snippet
+
+```html
+<script>
+  // Place in <head> BEFORE any render-blocking CSS
+  document.documentElement.style.opacity = '0';
+  setTimeout(function() {
+    document.documentElement.style.opacity = '';
+  }, 4000); // hard cap: 4s
+</script>
+```
+
+Your experimentation SDK unhides the page once the variant is applied. The `setTimeout` is a safety net — never let users stare at a blank page beyond **4 000 ms**. Typical resolution: 50–200 ms.
+
+### Sticky Assignment
+
+```js
+// Deterministic hash: userId + experimentId → bucket
+function assignBucket(userId, experimentId, buckets = 100) {
+  const hash = cyrb53(userId + experimentId);
+  return hash % buckets; // 0-99
+}
+// Store in cookie with 90-day expiry for anonymous users
+document.cookie = `exp_${id}=${bucket}; max-age=7776000; path=/; SameSite=Lax`;
+```
+
+Rules: same user always sees the same variant within an experiment. On logout/login transition, re-assign by authenticated userId (not anonymous cookie) to avoid SRM.
+
+### Experiment Scope
+
+| Scope | Use When | Example |
+|-------|----------|---------|
+| Page-level | Entire layout change | New checkout flow |
+| Component-level | Isolated widget | CTA button color |
+| Feature flag | Backend logic change | New recommendation algo |
+| Session-level | Multi-page journey | Onboarding funnel variant |
+
+### Minimum Sample Size & Duration
+
+Use **power analysis**: for a 5 % baseline conversion rate and a minimum detectable effect (MDE) of 10 % relative lift, you need ~**31,000 users per variant** (α = 0.05, β = 0.2). Calculators: Evan Miller's, Optimizely's Stats Engine.
+
+| Platform | Minimum Duration |
+|----------|-----------------|
+| Desktop web | 7–14 days (capture weekly cycle) |
+| Mobile web | 14+ days (higher variance, weekend spikes) |
+| Low-traffic site (<1K/day) | 28+ days or use Bayesian approach |
+
+**Never** call an experiment early because p < 0.05 showed up on day 2 — peeking inflates false positive rate to ~25 %.
+
+### Avoiding SRM (Sample Ratio Mismatch)
+
+SRM = variant group sizes differ from expected split by a statistically significant amount. Common causes:
+- Bot filtering applied unevenly.
+- Redirect experiments losing users on slow variants.
+- Assignment happening after a lossy step (e.g., after page load, not at edge).
+
+Check SRM with a chi-squared test: `p < 0.001` → investigate before trusting results. Tools: **SRM Checker** (lukasvermeer.nl).
+
+### Metrics Hierarchy
+
+| Tier | Role | Example |
+|------|------|---------|
+| Primary | Decision metric (1–2 only) | Conversion rate, revenue/user |
+| Guardrail | Must not degrade | Page load time, error rate, bounce rate |
+| Secondary | Directional insight | Click-through rate, engagement time |
+
+### Feature Flag Cleanup
+
+Stale flags are tech debt. Policy: remove the losing variant's code within **14 days** of experiment conclusion. Track flag age in your feature flag dashboard; alert at 30 days.
+
+### Platform Patterns
+
+- **Statsig:** Auto-exposure logging, warehouse-native analysis.
+- **LaunchDarkly:** Strong server-side flags, targeting rules.
+- **Optimizely:** Visual editor for non-eng, Stats Engine (sequential testing).
+
+### Anti-Patterns
+
+- No anti-flicker → variant "flash" erodes user trust and contaminates data.
+- Running 15 experiments simultaneously on the same page (interaction effects).
+- Using experiment results from desktop to ship on mobile (different populations).
+
+> **Sources:** Kohavi, Tang & Xu, "Trustworthy Online Controlled Experiments" (2020); Optimizely Stats Engine whitepaper; Google — A/B testing at scale (2023); Lukas Vermeer — SRM (2019).
+
+---
+
+## BR. Cognitive Accessibility (WCAG 2.2+)
+
+### WCAG 2.2 Cognitive Success Criteria
+
+| SC | Name | Level | Requirement |
+|----|------|-------|-------------|
+| 3.3.7 | Redundant Entry | A | Don't re-ask info the user already provided in the same process |
+| 3.3.8 | Accessible Authentication (Minimum) | AA | No cognitive function test (memorize, transcribe, calculate) for login — allow passkeys, password managers, copy-paste |
+| 3.3.9 | Accessible Authentication (Enhanced) | AAA | No object/image recognition tests (no CAPTCHAs requiring image ID) |
+| 3.2.6 | Consistent Help | A | Help mechanism (chat, phone, FAQ link) in same relative location on every page |
+
+### 3.3.7 Redundant Entry Implementation
+
+```html
+<!-- Billing address same as shipping -->
+<label>
+  <input type="checkbox" checked id="same-address"
+         aria-controls="billing-section">
+  Billing address same as shipping
+</label>
+<!-- Pre-fill from prior step; user can edit -->
+```
+
+Auto-populate from session data. If a multi-step form collects name on step 1, do not ask again on step 3 — carry it forward and display it read-only or pre-filled.
+
+### 3.3.8 Accessible Authentication
+
+- Allow **paste** into password fields (`user-select: text`, no `onpaste` blockers).
+- Support **password managers** via correct `autocomplete` attributes (`username`, `current-password`, `new-password`).
+- Offer **passkey / WebAuthn** as primary login (no memorization needed).
+- If CAPTCHA required, provide an **accessible alternative** (audio CAPTCHA, email verification).
+
+### Plain Language
+
+Target **Flesch-Kincaid Grade Level 7–8** for general audiences (roughly 12–13-year-old reading level).
+
+| Metric | Target | Tool |
+|--------|--------|------|
+| Flesch Reading Ease | 60–70 | Hemingway Editor |
+| Sentence length | ≤20 words average | readable.com |
+| Paragraph length | ≤4 sentences | Manual review |
+| Passive voice | <10 % | Grammarly, Hemingway |
+
+### Predictable Navigation
+
+- Main navigation in the **same position** on every page.
+- Consistent ordering of nav items (don't rearrange based on "AI personalization" without user opt-in).
+- No context changes on focus alone (WCAG 3.2.1).
+
+### Chunked Content
+
+Break long content into sections of **5 ± 2 items** (Miller's Law). Use:
+- Clear headings every 300–400 words.
+- Bulleted lists for 3+ related items.
+- Progressive disclosure (show summary → expand for details).
+
+### Timeout Extensions
+
+WCAG 2.2.1: if a timeout exists, either warn the user **20 seconds** before and allow extension, or set the timeout to **20 hours minimum** for data-entry tasks. Banking/security exceptions exist but must be documented.
+
+```js
+// Warn 120s before session expiry
+const WARNING_BEFORE = 120_000; // 2 min
+setTimeout(() => {
+  showModal('Your session expires in 2 minutes. Extend?', {
+    extend: () => fetch('/api/session/extend'),
+    save:   () => saveDraft()
+  });
+}, SESSION_DURATION - WARNING_BEFORE);
+```
+
+### ADHD Accommodations
+
+- Respect `prefers-reduced-motion: reduce` — disable autoplay, parallax, carousels.
+- Offer a **focused/reading mode** that strips sidebar, ads, and secondary content.
+- Avoid notification badges with counts that induce anxiety (show dot, not "99+").
+- Allow users to **pause** any auto-advancing content.
+
+### Dyslexia-Friendly Typography
+
+| Property | Recommendation |
+|----------|---------------|
+| Font | Atkinson Hyperlegible, OpenDyslexic, or system sans-serif |
+| Size | ≥16 px body, user-scalable |
+| Line height | 1.5–1.8 |
+| Letter spacing | 0.05–0.12 em |
+| Word spacing | ≥0.16 em |
+| Line length | 50–75 characters |
+| Justification | `text-align: left` (never `justify`) |
+
+### Checklist
+
+- [ ] No information re-asked in multi-step forms
+- [ ] Password fields allow paste and autocomplete
+- [ ] Help link in consistent position on all pages
+- [ ] Body text at Flesch-Kincaid grade ≤8
+- [ ] Session timeouts ≥20 h or offer extension dialog
+- [ ] `prefers-reduced-motion` respected globally
+- [ ] Line length constrained to 75ch max
+
+> **Sources:** W3C WCAG 2.2 (2023); W3C Cognitive Accessibility Guidance (COGA); Brewer, J. — Making Content Usable for People with Cognitive Disabilities (W3C Note 2021); Rello & Baeza-Yates — Reading and Dyslexia (2016).
+
+---
+
+## BS. Content Security & XSS Prevention UX
+
+### Content-Security-Policy Header
+
+```
+Content-Security-Policy:
+  default-src 'self';
+  script-src 'self' 'nonce-{random}';
+  style-src 'self' 'nonce-{random}';
+  img-src 'self' data: https://cdn.example.com;
+  font-src 'self' https://fonts.gstatic.com;
+  connect-src 'self' https://api.example.com;
+  frame-ancestors 'none';
+  base-uri 'self';
+  form-action 'self';
+```
+
+**UX Impact:** `style-src 'self'` blocks inline styles — breaks many WYSIWYG editors, charting libraries (they inject `<style>` tags), and CSS-in-JS with runtime injection. Solutions:
+1. Use **nonces**: `<style nonce="abc123">` — your server generates a random nonce per request.
+2. Use **hashes**: `style-src 'sha256-...'` for known static inline styles.
+
+### DOMPurify for User HTML
+
+```js
+import DOMPurify from 'dompurify';
+
+const clean = DOMPurify.sanitize(userHTML, {
+  ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li'],
+  ALLOWED_ATTR: ['href', 'title'],
+  ALLOW_DATA_ATTR: false
+});
+```
+
+Always sanitize on **both** server and client. Server-side is the authority; client-side is defense-in-depth.
+
+### Markdown Rendering Safety
+
+Libraries like `marked` or `markdown-it` can output raw HTML if configured to do so. Always:
+- Set `sanitize: true` or pipe output through DOMPurify.
+- Disable `html: true` option unless you explicitly need embedded HTML.
+- Escape user-supplied link `href` values — reject `javascript:` protocol.
+
+### Iframe Sandboxing
+
+```html
+<iframe src="https://embed.example.com"
+        sandbox="allow-scripts allow-same-origin allow-popups"
+        loading="lazy"
+        referrerpolicy="no-referrer">
+</iframe>
+```
+
+| `sandbox` value | Effect |
+|-----------------|--------|
+| (empty) | Maximum restriction: no scripts, no forms, no popups |
+| `allow-scripts` | JS runs but no same-origin access |
+| `allow-same-origin` | Treats content as same origin (combine with `allow-scripts` carefully) |
+| `allow-popups` | Permits `window.open`, `target="_blank"` |
+| `allow-forms` | Permits form submission |
+
+**Never** combine `allow-scripts` + `allow-same-origin` for untrusted content — the iframe can remove its own sandbox.
+
+### External Links
+
+```html
+<a href="https://external.com" target="_blank"
+   rel="noopener noreferrer">External Link</a>
+```
+
+`noopener` prevents the opened page from accessing `window.opener`. Modern browsers apply this by default for `target="_blank"` (since Chrome 88, Firefox 79), but include it explicitly for older browser support.
+
+### SVG Sanitization
+
+SVGs can contain `<script>`, `<foreignObject>`, event handlers (`onload`), and `<use xlink:href="javascript:...">`. If accepting user SVGs:
+- Strip all `<script>` and event attributes.
+- Use DOMPurify with `{USE_PROFILES: {svg: true}}`.
+- Serve user SVGs with `Content-Type: image/svg+xml` and `Content-Disposition: attachment` to prevent XSS on direct access.
+
+### Trusted Types API
+
+```js
+// Enforce Trusted Types via CSP
+// Content-Security-Policy: trusted-types myPolicy;
+
+const policy = trustedTypes.createPolicy('myPolicy', {
+  createHTML: (input) => DOMPurify.sanitize(input),
+  createScriptURL: (input) => {
+    if (new URL(input).origin === location.origin) return input;
+    throw new Error('Blocked external script URL');
+  }
+});
+```
+
+Trusted Types prevent DOM XSS sinks (`innerHTML`, `eval`, `document.write`) from accepting raw strings. Supported in Chromium; polyfill available for Firefox/Safari.
+
+### Gradual Rollout: Report-Only
+
+```
+Content-Security-Policy-Report-Only:
+  default-src 'self';
+  report-uri /csp-report;
+  report-to csp-endpoint;
+```
+
+Deploy in `Report-Only` mode first. Monitor violations for 2–4 weeks. Fix third-party breakages. Then switch to enforcing mode.
+
+### Anti-Patterns
+
+- Using `unsafe-inline` and `unsafe-eval` just to make things work — defeats the entire purpose of CSP.
+- Sanitizing only on the client (attacker bypasses JS entirely via API).
+- Allowing user-uploaded `.svg` files to be served inline without sanitization.
+
+> **Sources:** MDN — Content-Security-Policy; OWASP XSS Prevention Cheat Sheet (2024); DOMPurify GitHub docs; W3C Trusted Types spec; Google Web Security guidelines.
+
+---
+
+## BT. Web Components & Shadow DOM UX
+
+### Custom Element Naming
+
+Custom elements **must** contain a hyphen: `my-button`, `app-header`, `user-card`. Single-word names are reserved for future HTML elements.
+
+```js
+class MyButton extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+  }
+  connectedCallback() {
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host { display: inline-flex; align-items: center; }
+        :host([disabled]) { opacity: 0.4; pointer-events: none; }
+        button { all: unset; padding: 8px 16px; border-radius: 4px;
+                 background: var(--btn-bg, #0066cc); color: var(--btn-color, #fff);
+                 font: inherit; cursor: pointer; }
+        button:focus-visible { outline: 2px solid var(--focus-ring, #005fcc);
+                               outline-offset: 2px; }
+      </style>
+      <button><slot></slot></button>
+    `;
+  }
+}
+customElements.define('my-button', MyButton);
+```
+
+### Slot Pattern for Composition
+
+```html
+<my-card>
+  <img slot="avatar" src="user.jpg" alt="Profile photo">
+  <span slot="title">Jane Doe</span>
+  <p>Card body content goes into the default slot.</p>
+</my-card>
+```
+
+Named slots (`slot="avatar"`) project specific child elements into designated locations. The default `<slot></slot>` catches all un-slotted children.
+
+### Form-Associated Custom Elements
+
+```js
+class MyInput extends HTMLElement {
+  static formAssociated = true;
+  #internals;
+  constructor() {
+    super();
+    this.#internals = this.attachInternals();
+  }
+  set value(v) {
+    this.#internals.setFormValue(v);
+  }
+  get validity() { return this.#internals.validity; }
+}
+```
+
+This lets `<my-input name="email">` participate in `<form>` submission, validation, and `FormData`. Essential for custom elements that replace native `<input>`.
+
+### Accessibility in Shadow DOM
+
+| Technique | Purpose |
+|-----------|---------|
+| `delegatesFocus: true` | `this.attachShadow({ mode: 'open', delegatesFocus: true })` — focus automatically moves to the first focusable element inside shadow DOM |
+| `ElementInternals` ARIA | `this.#internals.role = 'slider'`; `this.#internals.ariaValueNow = '50'` — sets ARIA without polluting host attributes |
+| `aria-label` on host | `<my-slider aria-label="Volume">` — works across shadow boundary |
+
+**Key rule:** Screen readers can traverse shadow DOM, but `aria-labelledby` and `aria-describedby` references **cannot** cross shadow boundaries. Use `ElementInternals` or `aria-label` instead.
+
+### CSS Custom Properties Crossing Shadow Boundary
+
+CSS custom properties (`--var`) are the **only** CSS values that inherit into shadow DOM. Use them as your theming API:
+
+```css
+/* Light DOM (consumer) */
+my-button {
+  --btn-bg: #e91e63;
+  --btn-color: #fff;
+}
+```
+
+### `::part()` Selector
+
+```js
+// Inside shadow DOM:
+// <button part="base">Click</button>
+
+/* Outside — consumer styles */
+my-button::part(base) {
+  border-radius: 24px;
+  font-weight: 600;
+}
+```
+
+Expose `part` attributes on internal elements you want consumers to style. This is a controlled escape hatch — only explicitly exported parts are styleable.
+
+### Event Propagation
+
+Events dispatched inside shadow DOM are **retargeted**: outside listeners see the host element as `event.target`. To let events escape shadow DOM:
+
+```js
+this.shadowRoot.querySelector('button').dispatchEvent(
+  new CustomEvent('my-click', { bubbles: true, composed: true })
+);
+```
+
+`composed: true` is required for the event to cross the shadow boundary. Native events like `click` and `focus` are already composed.
+
+### Anti-Patterns
+
+- Shadow DOM for everything — don't wrap a simple `<div>` in shadow DOM; use it only when encapsulation is genuinely needed.
+- Forgetting `delegatesFocus` — Tab key skips your component entirely.
+- Using `::slotted()` with deep selectors (only direct children of the slot match).
+
+> **Sources:** MDN — Web Components; W3C — Shadow DOM spec; Google Web Fundamentals — Custom Elements Best Practices; Nolan Lawson — "Shadow DOM and accessibility" (2023).
+
+---
+
+## BU. Multi-Device Continuity
+
+### Cross-Device Session Handoff (QR Transfer)
+
+```
+Flow: Phone → Desktop
+1. Desktop shows QR code containing a one-time token URL
+   (e.g., https://app.com/handoff?token=abc123&exp=300)
+2. Phone scans QR → server validates token, creates desktop session
+3. Desktop polls /api/handoff/status every 2s (or uses WebSocket)
+4. On confirmation, desktop redirects to authenticated state
+5. Token expires in 300s; single-use only
+```
+
+Security: token is single-use, time-limited (5 min), and tied to the originating device's session. Show a **spinner with "Waiting for scan…"** on desktop, timeout after 5 min with a "Refresh code" button.
+
+### Push-to-Device Notifications
+
+"Continue on your phone" or "Send link to your device" — requires the user to have registered at least one other device.
+
+```html
+<button aria-label="Send this article to your phone">
+  📲 Continue on phone
+</button>
+<!-- On click: POST /api/push-link { url, targetDeviceId } -->
+```
+
+Notification payload should deep-link to the exact scroll position or step. Use `ScrollRestoration` state or a fragment identifier (`#section-3`).
+
+### Clipboard Sync UX
+
+Browser-native clipboard sync (e.g., Apple Universal Clipboard, Windows clipboard history) is OS-level. For in-app clipboard sync:
+- On copy: `POST /api/clipboard { text, timestamp, deviceId }`.
+- On paste (other device): fetch latest clip from API, inject into focused field.
+- Encrypt clipboard contents in transit and at rest (AES-256).
+- Auto-expire clips after **5 minutes** for security.
+
+### Responsive Deep Links
+
+```
+https://app.com/product/123
+```
+
+A single URL should work everywhere. On mobile, detect via `User-Agent` or feature detection and either:
+1. **Redirect to app** via Universal Links (iOS) / App Links (Android).
+2. **Serve responsive web** if app is not installed.
+3. Show a **smart banner**: `<meta name="apple-itunes-app" content="app-id=123456">`.
+
+### PWA Install Prompts
+
+```js
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  showInstallButton(); // Show custom UI, not browser's default
+});
+
+installBtn.addEventListener('click', async () => {
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  // outcome: 'accepted' | 'dismissed'
+  deferredPrompt = null;
+});
+```
+
+Best practice: defer the prompt until a moment of high engagement (after 3rd visit, after completing a task) — not on first page load. Conversion rates improve **2–3×** with contextual prompts.
+
+### Reading / Form Progress Sync
+
+```js
+// Save reading position every 10s
+setInterval(() => {
+  const progress = {
+    scrollY: window.scrollY,
+    maxScroll: document.body.scrollHeight,
+    percentage: Math.round((scrollY / (document.body.scrollHeight - innerHeight)) * 100),
+    timestamp: Date.now()
+  };
+  localStorage.setItem('reading_progress', JSON.stringify(progress));
+  if (navigator.onLine) fetch('/api/sync/progress', {
+    method: 'POST', body: JSON.stringify(progress)
+  });
+}, 10000);
+```
+
+On new device load: fetch `/api/sync/progress`, offer "Continue where you left off?" (don't auto-scroll without consent — it disorients users).
+
+### Universal Login State (SSO)
+
+- Use **OpenID Connect** for cross-device SSO with refresh tokens.
+- Token refresh: access token TTL **15 min**, refresh token **30 days** (revocable).
+- Show "Signed in on 3 devices" in account settings; allow remote sign-out.
+- On new device login, send a push notification to existing devices: "New sign-in from Windows desktop. Was this you?"
+
+### Anti-Patterns
+
+- Auto-syncing clipboard without user awareness (massive privacy violation).
+- QR handoff without token expiry (replay attack vector).
+- Auto-scrolling to synced position without asking.
+
+> **Sources:** Google — Web App Manifest & `beforeinstallprompt`; Apple — Universal Links docs; FIDO Alliance — Passkeys cross-device (2023); OWASP — Session Management Cheat Sheet.
+
+---
+
+## BV. Micro-Frontends UX Consistency
+
+### Shared Design Token Distribution
+
+```
+Option A: npm package
+  @org/design-tokens → exports CSS variables, JS constants, JSON
+  Versioned (semver) → teams opt in to updates
+
+Option B: CDN
+  https://cdn.example.com/tokens/v2/tokens.css
+  All micro-frontends link the same URL → instant global update
+  Risk: breaking change affects everyone simultaneously
+```
+
+Recommended hybrid: **CDN for stable tokens** (colors, spacing scale), **npm for component library** (versioned, opt-in upgrades).
+
+### Cross-Team Component Library Governance
+
+| Role | Responsibility |
+|------|---------------|
+| Design System Team (2–4 people) | Maintains core components, reviews PRs, publishes releases |
+| Consumer Teams | Submit component proposals via RFC, adopt within 2 sprints of release |
+| UX Review Board | Monthly audit of visual consistency across micro-frontends |
+
+Component promotion path: **Team-local → Shared proposal (RFC) → Design system core** (minimum 3 consumers before promoting).
+
+### Consistent Loading States
+
+All micro-frontends must use the **same skeleton/spinner** pattern from the shared library.
+
+```css
+/* Shared skeleton token */
+.skeleton {
+  background: linear-gradient(90deg,
+    var(--skeleton-base, #e0e0e0) 25%,
+    var(--skeleton-shine, #f5f5f5) 50%,
+    var(--skeleton-base, #e0e0e0) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+```
+
+The **app shell** renders immediately; each micro-frontend shows its own skeleton inside its container until loaded.
+
+### Shared Authentication Shell
+
+The **shell application** owns authentication state. Micro-frontends receive a user context object (via custom event, shared state, or module federation's shared scope):
+
+```js
+// Shell broadcasts auth state
+window.dispatchEvent(new CustomEvent('auth-state', {
+  detail: { userId: '123', roles: ['admin'], token: 'jwt...' }
+}));
+// Micro-frontend listens
+window.addEventListener('auth-state', (e) => {
+  setUser(e.detail);
+});
+```
+
+Never let individual micro-frontends manage their own login flows.
+
+### Navigation Consistency
+
+The **shell manages routing**. Micro-frontends register their routes at mount:
+
+```js
+// Micro-frontend registers
+shellRouter.register('/dashboard/*', () => import('dashboard/App'));
+shellRouter.register('/settings/*', () => import('settings/App'));
+```
+
+Shared top-nav and breadcrumbs live in the shell. Active state highlighting is shell-controlled. Micro-frontends handle sub-routing internally.
+
+### Error Boundaries
+
+Each micro-frontend is wrapped in an error boundary. If one crashes, the shell shows a localized error message **without** taking down adjacent micro-frontends:
+
+```html
+<div class="mfe-container" data-app="dashboard">
+  <!-- If dashboard crashes: -->
+  <div class="mfe-error" role="alert">
+    This section couldn't load. <button>Retry</button>
+  </div>
+</div>
+```
+
+### Performance Budgets
+
+| Metric | Budget per Micro-Frontend |
+|--------|--------------------------|
+| JS bundle (compressed) | ≤170 KB |
+| CSS | ≤30 KB |
+| LCP contribution | ≤1.5 s |
+| Total shared deps (React, etc.) | Loaded once via Module Federation `shared` |
+
+Enforce via CI: `bundlesize` or `size-limit` checks on every PR.
+
+### Module Federation / Import Maps
+
+```js
+// webpack.config.js — Module Federation
+new ModuleFederationPlugin({
+  name: 'dashboard',
+  filename: 'remoteEntry.js',
+  exposes: { './App': './src/App' },
+  shared: { react: { singleton: true }, 'react-dom': { singleton: true } }
+});
+```
+
+Alternative (native): **Import Maps** for ESM-based micro-frontends (no bundler required for the shell).
+
+### Anti-Patterns
+
+- Each micro-frontend shipping its own copy of React (50 KB × N).
+- No shared loading pattern — one app uses a spinner, another a skeleton, a third a blank screen.
+- Micro-frontends with their own `<header>` and `<nav>` competing with the shell.
+
+> **Sources:** Cam Jackson — "Micro Frontends" (martinfowler.com, 2019); Webpack Module Federation docs; Luca Mezzalira — "Building Micro-Frontends" (O'Reilly, 2021); ThoughtWorks Technology Radar.
+
+---
+
+## BW. Drag & Drop Advanced Patterns
+
+### Kanban Board UX
+
+```
+┌─ To Do (3) ──────┐  ┌─ In Progress (2/3) ┐  ┌─ Done ────────────┐
+│ ┌──────────────┐  │  │ ┌──────────────┐   │  │ ┌──────────────┐  │
+│ │ Task A       │  │  │ │ Task C       │   │  │ │ Task E       │  │
+│ │ 👤 @alice    │  │  │ │ 👤 @bob      │   │  │ └──────────────┘  │
+│ └──────────────┘  │  │ └──────────────┘   │  └───────────────────┘
+```
+
+- **WIP limits:** If a column has a max (e.g., 3), gray out the column header and show a warning on drop: "Column limit reached. Move an item out first." Visually: column header turns amber at limit, red when exceeded.
+- **Card preview on drag:** Show a semi-transparent ghost (`opacity: 0.7`) at the card's original size. Placeholder in the source column: dashed border, same height as the card.
+- **Drop indicator:** 2 px solid line (`#0066cc`) between cards at the target position.
+
+### File Tree Drag
+
+- **Indent levels:** Each nesting level indents `24px`. Drag ghost shows the file/folder name only (not the entire subtree).
+- **Expand-on-hover:** When dragging over a collapsed folder, expand it after **500 ms** hover. Collapse it back if the user drags away before dropping.
+- **Drop targets:** Highlight the target folder with a `2px` border and light background (`rgba(0, 102, 204, 0.08)`).
+- **Invalid drops:** Files cannot be dropped onto themselves or their own descendants. Show `cursor: not-allowed`.
+
+### Sortable List
+
+```css
+.drop-indicator {
+  height: 2px;
+  background: var(--brand-primary, #0066cc);
+  border-radius: 1px;
+  margin: -1px 0;
+  transition: opacity 150ms;
+}
+```
+
+- **Insertion line:** Horizontal 2 px bar spanning the list width, positioned between items at the nearest drop point.
+- **Auto-scroll:** When the dragged item is within **40 px** of the container edge, scroll at **8 px/frame** (~480 px/s). Accelerate to **16 px/frame** within 20 px of the edge.
+- **Keyboard alternative:** `Space` to pick up, `ArrowUp`/`ArrowDown` to move, `Space` to drop, `Escape` to cancel. Announce position via `aria-live`: "Item 3 of 7, moved to position 2."
+
+### Multi-Select Drag
+
+1. User selects multiple items (Ctrl+Click or Shift+Click).
+2. On drag start, the ghost shows a **stack effect** (3 cards slightly offset) with a **badge count** (e.g., "4 items").
+3. All selected items move together on drop.
+4. `aria-live` announcement: "Dragging 4 items."
+
+```css
+.drag-ghost-stack {
+  position: relative;
+}
+.drag-ghost-stack::before,
+.drag-ghost-stack::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.drag-ghost-stack::before { transform: rotate(-2deg) translate(-3px, 3px); }
+.drag-ghost-stack::after  { transform: rotate(1deg) translate(2px, -2px); }
+.drag-badge {
+  position: absolute; top: -8px; right: -8px;
+  background: var(--brand-primary); color: #fff;
+  border-radius: 50%; min-width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600;
+}
+```
+
+### Cross-Container Drag
+
+Items draggable between different parent containers (e.g., two separate lists, or list → calendar). Implementation:
+- Use a shared drag context (React DnD backend, or a global `dragData` store).
+- Validate compatibility on `dragover`: does this container accept this item type?
+- On drop in a new container: `POST /api/move { itemId, fromContainer, toContainer, position }`.
+
+### Drag Constraints
+
+```js
+// Horizontal only (e.g., timeline slider)
+onDrag(e) {
+  const x = clamp(e.clientX - offset.x, minX, maxX);
+  element.style.transform = `translateX(${x}px)`;
+  // Y stays fixed
+}
+```
+
+Use `cursor: ew-resize` for horizontal-only, `cursor: ns-resize` for vertical-only. Visual rails (subtle 1 px line along the axis) reinforce the constraint.
+
+### Touch Drag
+
+- **Activation:** Long-press **300 ms** to enter drag mode (avoids conflict with scrolling). Provide haptic feedback (`navigator.vibrate(50)`) on activation.
+- **Visual cue:** Item scales to `1.05` and elevates (`box-shadow: 0 8px 24px rgba(0,0,0,0.15)`) on lift.
+- **Scroll while dragging:** Same 40 px edge zone, but use `touch-action: none` on the drag container to prevent browser scroll interference.
+- **Drop:** Release finger. If outside any valid target, animate item back to original position (200 ms `ease-out`).
+
+### Undo After Drop
+
+Every drag-and-drop action should be reversible:
+
+```js
+function onDrop(item, from, to) {
+  applyMove(item, to);
+  showToast(`Moved "${item.name}" to ${to.name}`, {
+    action: { label: 'Undo', onClick: () => applyMove(item, from) },
+    duration: 8000 // 8s to undo
+  });
+}
+```
+
+Toast with **"Undo"** action, visible for **8 seconds**. Also support `Ctrl+Z` to undo the last drag operation.
+
+### Anti-Patterns
+
+- No keyboard alternative for drag-and-drop (WCAG 2.1.1 failure).
+- Drag ghost that obscures the drop target (keep ghost offset or semi-transparent).
+- Touch drag activating instantly (conflicts with scroll — must use long-press).
+- No undo mechanism (especially dangerous for cross-container moves).
+
+> **Sources:** WAI-ARIA Authoring Practices — Drag & Drop; Atlassian — `@atlaskit/pragmatic-drag-and-drop` docs; React DnD documentation; Shopify Polaris — Drag & Drop guidelines; Apple HIG — Drag and Drop (adapted for web touch).

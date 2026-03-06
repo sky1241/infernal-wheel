@@ -10332,3 +10332,117 @@ struct ContentView: View {
 - Apple HIG — Alerts: developer.apple.com/design/human-interface-guidelines/alerts
 - NNG — Error Message Guidelines: nngroup.com/articles/error-message-guidelines
 - HTTP Status Codes: developer.mozilla.org/en-US/docs/Web/HTTP/Status
+## BY. Accessibility Automation Testing
+
+Automated accessibility testing integrated into CI pipelines catches regressions before they reach users. Both platforms provide first-party tooling that can be wired into pull-request checks.
+
+### iOS — XCTest Accessibility Audit (Xcode 15+)
+
+```swift
+// UITests/AccessibilityAuditTests.swift
+import XCTest
+
+final class AccessibilityAuditTests: XCTestCase {
+    func testHomeScreenAccessibility() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        // Runs all audit categories by default (contrast, hit region, traits, labels)
+        try app.performAccessibilityAudit()
+    }
+
+    func testSettingsScreenIgnoringDynamicType() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.tabBars.buttons["Settings"].tap()
+
+        // Exclude specific audit categories when justified
+        try app.performAccessibilityAudit(for: [
+            .contrast,
+            .hitRegion,
+            .sufficientElementDescription
+        ]) { issue in
+            // Filter known false positives by element identifier
+            return issue.element?.identifier != "decorativeIcon"
+        }
+    }
+}
+```
+
+Key audit categories: `.contrast` (WCAG AA 4.5:1 / 3:1 large), `.hitRegion` (44×44 pt minimum), `.sufficientElementDescription` (missing labels), `.dynamicType` (text responds to size settings).
+
+Run headless in CI: `xcodebuild test -scheme App -destination 'platform=iOS Simulator,name=iPhone 15' -testPlan AccessibilityAudits`
+
+### Android — Espresso + Accessibility Test Framework (ATF)
+
+```kotlin
+// app/src/androidTest/java/com/app/a11y/AccessibilityTests.kt
+import androidx.test.espresso.accessibility.AccessibilityChecks
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.BeforeClass
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class AccessibilityTests {
+
+    companion object {
+        @JvmStatic
+        @BeforeClass
+        fun setup() {
+            // Enable ATF checks on every Espresso ViewAction
+            AccessibilityChecks.enable()
+                .setRunChecksFromRootView(true)  // check entire hierarchy
+                .setThrowExceptionFor(
+                    AccessibilityCheckResultType.ERROR  // fail on errors, warn on others
+                )
+        }
+    }
+
+    @Test
+    fun homeScreen_passesAccessibilityChecks() {
+        // Any Espresso interaction now automatically triggers ATF
+        onView(withId(R.id.trackButton)).perform(click())
+        // ATF checks: touch target ≥48dp, contrast, missing contentDescription,
+        // duplicate clickable ancestors, traversal order
+    }
+}
+```
+
+Complement with Google Accessibility Scanner for manual sweeps during QA; it produces JSON reports importable into issue trackers.
+
+### CI Pipeline Integration
+
+```yaml
+# .github/workflows/a11y.yml (relevant job excerpt)
+a11y-gate:
+  runs-on: macos-14
+  steps:
+    - uses: actions/checkout@v4
+    - name: iOS Accessibility Audit
+      run: |
+        xcodebuild test -scheme App \
+          -destination 'platform=iOS Simulator,name=iPhone 15' \
+          -testPlan AccessibilityAudits \
+          -resultBundlePath a11y-results.xcresult
+    - name: Android ATF Checks
+      run: ./gradlew connectedAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.app.a11y.AccessibilityTests
+```
+
+**Severity tiers and build policy:**
+| Tier | Examples | Build gate |
+|------|----------|------------|
+| P0 — Blocker | Missing label on primary action, 0 contrast, no focus target | Fail PR |
+| P1 — Major | Touch target 42dp (below 48dp), contrast 4.0:1 (below 4.5) | Warn, block release |
+| P2 — Minor | Redundant contentDescription, suboptimal traversal order | Track in backlog |
+
+### Accessibility Tree Regression Testing
+
+Capture and diff the accessibility hierarchy between builds to detect unintentional changes:
+
+- **iOS:** `xcrun simctl accessibility <device> -json > a11y-tree.json` — diff against baseline.
+- **Android:** `adb shell uiautomator dump /sdcard/a11y-tree.xml` — parse and compare node labels, roles, states.
+
+Store baseline snapshots in the repo under `tests/a11y-baselines/`. On each PR, generate a fresh dump and diff against baseline. Flag any removed labels, changed roles, or deleted nodes as potential regressions. Update baselines intentionally via a dedicated `update-a11y-baseline` CI job requiring explicit reviewer approval.
+
+---

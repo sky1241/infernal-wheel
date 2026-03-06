@@ -648,9 +648,9 @@ start  guide   seulement
 PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MOBILE/WEARABLE
      |
      v
-  Mobile?    → MOBILE.md sections A-BX (10333 lignes, 77 sections majeures)
-  Web?       → WEB.md sections A-BM (8499 lignes, 71 sections majeures)
-  Wearable?  → WEARABLE.md sections A-AW (8269 lignes, 49 sections majeures)
+  Mobile?    → MOBILE.md sections A-BY (10447 lignes, 78 sections majeures)
+  Web?       → WEB.md sections A-BW (9547 lignes, 81 sections majeures)
+  Wearable?  → WEARABLE.md sections A-BB (8499 lignes, 54 sections majeures)
   Les deux+  → Croiser les fichiers concernes
 ```
 
@@ -809,6 +809,16 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | **High contrast, forced-colors mode** | **BK. Forced Colors** | **214** |
 | **Drag & drop, sortable lists, kanban** | **BL. Drag & Drop** | **215** |
 | **Command palette, omnibar, fuzzy search** | **BM. Command Palette** | **216** |
+| **Tab & accordion specs, ARIA pattern** | **BN. Tab & Accordion** | **217** |
+| **Phone/currency/tag input, masked fields** | **BO. Form Fields Deep** | **218** |
+| **Urgency/scarcity ethical patterns, FTC** | **BP. Urgency Ethical** | **219** |
+| **A/B testing, anti-flicker, sample size** | **BQ. A/B Testing** | **220** |
+| **Cognitive accessibility, WCAG 2.2, ADHD** | **BR. Cognitive A11y** | **221** |
+| **CSP, XSS prevention, DOMPurify, Trusted Types** | **BS. Content Security** | **222** |
+| **Web components, shadow DOM, slots** | **BT. Web Components** | **223** |
+| **Multi-device continuity, QR handoff, PWA** | **BU. Multi-Device** | **224** |
+| **Micro-frontends UX, module federation** | **BV. Micro-Frontends** | **225** |
+| **Drag & drop advanced: kanban, file tree, multi-select** | **BW. DnD Advanced** | **226** |
 
 ---
 
@@ -950,6 +960,7 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | **Design handoff, Figma to code, tokens** | **BV. Design Handoff** | **160** |
 | **App rating prompt strategy** | **BW. App Rating** | **161** |
 | **Error handling UX (comprehensive)** | **BX. Error Handling** | **162** |
+| **Accessibility automation testing (CI)** | **BY. A11y Automation** | **163** |
 
 ---
 
@@ -1119,6 +1130,11 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | **Data density limits (consolidated reference)** | **AW. Data Density** | **84-85** |
 | Max text chars per component table | AW. Data Density | 84 |
 | Component count limits, visual density | AW. Data Density | 85 |
+| **Medication reminder UI, adherence tracking** | **AX. Medication** | **86** |
+| **Theater mode UX, wake suppression** | **AY. Theater Mode** | **87** |
+| **Watch-to-watch communication, limitations** | **AZ. Watch-to-Watch** | **88** |
+| **Multi-window/PiP: N/A on wearable (explicit)** | **BA. N/A Multi-Window** | **89** |
+| **Voice interaction extended, dictation, assistant** | **BB. Voice Extended** | **90** |
 
 ---
 
