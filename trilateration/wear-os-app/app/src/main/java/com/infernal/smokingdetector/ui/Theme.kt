@@ -51,7 +51,6 @@ val InfernalColorScheme = ColorScheme(
     onBackground = TextPrimary,
     surface = SurfaceBlack,
     onSurface = TextPrimary,
-    surfaceContainer = SurfaceDark,
     onSurfaceVariant = TextSecondary,
     error = StatusError,
     onError = Color.White,

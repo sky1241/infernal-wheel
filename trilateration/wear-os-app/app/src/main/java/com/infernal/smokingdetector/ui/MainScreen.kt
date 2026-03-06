@@ -19,7 +19,7 @@ import androidx.wear.compose.material3.*
  * 2. Status indicator (monitoring on/off)
  * 3. Primary CTA: "+1 Cigarette" (manual log)
  * 4. Secondary: Start/Stop Monitor toggle
- * 5. Tertiary: Settings (gear icon, navigates to settings)
+ * 5. Tertiary: Open on Phone + Settings
  *
  * Rules applied:
  * - 1 CTA primary per screen (WEARABLE B, MOBILE CS)
@@ -40,6 +40,7 @@ fun MainScreen(
     onLogCigarette: () -> Unit,
     onToggleMonitor: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenOnPhone: () -> Unit,
 ) {
     val listState = rememberScalingLazyListState()
 
@@ -50,12 +51,12 @@ fun MainScreen(
             .background(SurfaceBlack),
         horizontalAlignment = Alignment.CenterHorizontally,
         contentPadding = PaddingValues(
-            start = 26.dp,   // Horologist padding for round screen
+            start = 26.dp,
             end = 26.dp,
-            top = 40.dp,     // Clear status bar area
-            bottom = 40.dp   // Clear bottom of round screen
+            top = 40.dp,
+            bottom = 40.dp
         ),
-        verticalArrangement = Arrangement.spacedBy(8.dp) // 8dp gap between items
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // -- Counter: today's count (primary info, glanceable) --
         item {
@@ -156,7 +157,7 @@ fun MainScreen(
                 onClick = onLogCigarette,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp), // Touch target 48dp (WEARABLE B)
+                    .height(48.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = InfernalRed,
                     contentColor = androidx.compose.ui.graphics.Color.White,
@@ -185,7 +186,23 @@ fun MainScreen(
             }
         }
 
-        // -- TERTIARY: Settings (text button = lowest hierarchy) --
+        // -- TERTIARY: Open on phone via Bluetooth --
+        item {
+            TextButton(
+                onClick = onOpenOnPhone,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+            ) {
+                Text(
+                    text = "Voir sur le tel",
+                    style = InfernalTypography.labelLarge,
+                    color = TextSecondary,
+                )
+            }
+        }
+
+        // -- TERTIARY: Settings --
         item {
             TextButton(
                 onClick = onOpenSettings,

@@ -1,6 +1,7 @@
 package com.infernal.smokingdetector
 
 import android.Manifest
+import android.app.ActivityManager
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
@@ -11,13 +12,14 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.wear.remote.interactions.RemoteActivityHelper
 import com.infernal.smokingdetector.ui.InfernalWearTheme
 import com.infernal.smokingdetector.ui.MainScreen
 import com.infernal.smokingdetector.ui.SettingsScreen
+import kotlinx.coroutines.*
 
 /**
  * Main Activity for Wear OS Smoking Detection App
- * Refactored: Compose M3 Wear UI with proper UX hierarchy
  *
  * Design rules applied (WEARABLE.md):
  * - Single primary CTA per screen (section B)
@@ -32,33 +34,20 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val PERMISSION_REQUEST_CODE = 100
-        private const val THRESHOLD_DIRECT = 0.7f
-        private const val THRESHOLD_INDIRECT = 0.5f
+        private const val PHONE_APP_URL = "https://infernal-wheel.web.app"
     }
 
-    private lateinit var detector: SmokingDetector
-    private lateinit var sensorCollector: SensorDataCollector
-    private lateinit var featureExtractor: FeatureExtractor
     private lateinit var database: DatabaseManager
-    private lateinit var boostManager: BoostSamplingManager
     private lateinit var prefs: SharedPreferences
+    private lateinit var remoteActivityHelper: RemoteActivityHelper
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Initialize backend
-        prefs = getSharedPreferences("smoking_detector_prefs", Context.MODE_PRIVATE)
-        detector = SmokingDetector(this)
-        sensorCollector = SensorDataCollector(this)
-        featureExtractor = FeatureExtractor()
         database = DatabaseManager(this)
-        boostManager = BoostSamplingManager(this)
+        prefs = getSharedPreferences("smoking_detector_prefs", Context.MODE_PRIVATE)
+        remoteActivityHelper = RemoteActivityHelper(this, Dispatchers.IO.asExecutor())
 
-        // Load model
-        val modelLoaded = detector.loadModel()
-        Log.d(TAG, "Model loaded: $modelLoaded")
-
-        // Check permissions
         if (!hasPermissions()) {
             requestPermissions()
         }
@@ -72,9 +61,8 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun WearApp() {
-        // State
         var currentScreen by remember { mutableStateOf("main") }
-        var isMonitoring by remember { mutableStateOf(false) }
+        var isMonitoring by remember { mutableStateOf(isServiceRunning()) }
         var todayCount by remember { mutableIntStateOf(database.getCountLastNDays(1)) }
         var totalCount by remember { mutableIntStateOf(database.getTotalCount()) }
         var avgPerDay by remember { mutableFloatStateOf(database.getAvgCigarettesPerDay()) }
@@ -86,10 +74,26 @@ class MainActivity : ComponentActivity() {
             mutableStateOf(prefs.getString("smoking_hand", "auto") ?: "auto")
         }
 
-        // Setup boost listener
-        LaunchedEffect(Unit) {
-            boostManager.setOnModeChangedListener { mode ->
-                Log.d(TAG, "Sampling mode changed: $mode")
+        // Refresh counters and service state when returning to main screen
+        LaunchedEffect(currentScreen) {
+            if (currentScreen == "main") {
+                todayCount = database.getCountLastNDays(1)
+                totalCount = database.getTotalCount()
+                avgPerDay = database.getAvgCigarettesPerDay()
+                isMonitoring = isServiceRunning()
+            }
+        }
+
+        // Periodic refresh while on main screen (service may detect cigarettes in background)
+        LaunchedEffect(currentScreen) {
+            if (currentScreen == "main") {
+                while (true) {
+                    delay(10_000)
+                    todayCount = database.getCountLastNDays(1)
+                    totalCount = database.getTotalCount()
+                    avgPerDay = database.getAvgCigarettesPerDay()
+                    isMonitoring = isServiceRunning()
+                }
             }
         }
 
@@ -101,7 +105,6 @@ class MainActivity : ComponentActivity() {
                 isMonitoring = isMonitoring,
                 lastDetection = lastDetection,
                 onLogCigarette = {
-                    // Manual cigarette log
                     database.insertDetection(
                         confidence = 1.0f,
                         gpsCluster = -1,
@@ -122,20 +125,20 @@ class MainActivity : ComponentActivity() {
                         requestPermissions()
                         return@MainScreen
                     }
-                    isMonitoring = if (isMonitoring) {
+                    if (isMonitoring) {
                         DetectionService.stop(this@MainActivity)
-                        sensorCollector.stop()
-                        boostManager.stop()
-                        false
+                        isMonitoring = false
                     } else {
                         DetectionService.start(this@MainActivity)
-                        sensorCollector.start()
-                        true
+                        isMonitoring = true
                     }
                     Log.d(TAG, "Monitoring: $isMonitoring")
                 },
                 onOpenSettings = {
                     currentScreen = "settings"
+                },
+                onOpenOnPhone = {
+                    openOnPhone()
                 },
             )
 
@@ -163,6 +166,36 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Check if DetectionService is currently running
+     */
+    private fun isServiceRunning(): Boolean {
+        val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        @Suppress("DEPRECATION")
+        for (service in manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (DetectionService::class.java.name == service.service.className) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /**
+     * Open companion website on phone via Bluetooth (RemoteIntent)
+     */
+    private fun openOnPhone() {
+        try {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
+                .addCategory(android.content.Intent.CATEGORY_BROWSABLE)
+                .setData(android.net.Uri.parse(PHONE_APP_URL))
+
+            remoteActivityHelper.startRemoteActivity(intent)
+            Log.d(TAG, "Opening on phone: $PHONE_APP_URL")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to open on phone", e)
+        }
+    }
+
     private fun hasPermissions(): Boolean {
         val permissions = arrayOf(
             Manifest.permission.BODY_SENSORS,
@@ -181,12 +214,5 @@ class MainActivity : ComponentActivity() {
             Manifest.permission.ACCESS_FINE_LOCATION
         )
         ActivityCompat.requestPermissions(this, permissions, PERMISSION_REQUEST_CODE)
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        sensorCollector.stop()
-        boostManager.stop()
-        detector.close()
     }
 }
