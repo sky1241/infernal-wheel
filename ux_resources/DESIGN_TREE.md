@@ -648,9 +648,9 @@ start  guide   seulement
 PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MOBILE/WEARABLE
      |
      v
-  Mobile?    → MOBILE.md sections A-CQ (13597 lignes, 96 sections majeures)
-  Web?       → WEB.md sections A-CL (12320 lignes, 96 sections majeures)
-  Wearable?  → WEARABLE.md sections A-BS (12176 lignes, 71 sections majeures)
+  Mobile?    → MOBILE.md sections A-CW (14723 lignes, 102 sections majeures)
+  Web?       → WEB.md sections A-CT (14290 lignes, 104 sections majeures)
+  Wearable?  → WEARABLE.md sections A-BV (12695 lignes, 74 sections majeures)
   Les deux+  → Croiser les fichiers concernes
 ```
 
@@ -834,6 +834,14 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | **Third-party script performance, Partytown** | **CJ. 3P Scripts** | **239** |
 | **Permissions Policy headers, feature control** | **CK. Permissions Policy** | **240** |
 | **Web Vitals RUM, CrUX, performance monitoring** | **CL. Web Vitals RUM** | **241** |
+| **Flexbox patterns, centering, sticky footer, grid** | **CM. Flexbox & Layout** | **242** |
+| **Input field states (hover/focus/error/disabled)** | **CN. Input States** | **243** |
+| **Border radius system (0-2-4-6-8-12-16-full)** | **CO. Border Radius** | **244** |
+| **Color palette 60-30-10, neutral scale, semantic** | **CP. Color Palette** | **245** |
+| **Spacing rules (margin vs padding vs gap)** | **CQ. Spacing Rules** | **246** |
+| **Button hierarchy (primary/secondary/ghost/destructive)** | **CR. Button Hierarchy** | **247** |
+| **Shadow & elevation system (6 levels + CSS values)** | **CS. Shadow System** | **248** |
+| **Card component anatomy (header/media/body/actions)** | **CT. Card Anatomy** | **249** |
 
 ---
 
@@ -994,6 +1002,12 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | **Per-app language (Android 13+ / iOS)** | **CO. Per-App Language** | **179** |
 | **iOS 18 Control Center widgets** | **CP. Control Center** | **180** |
 | **Baymard mobile checkout research data** | **CQ. Checkout Research** | **181** |
+| **Color palette 60-30-10, brand-to-system, semantic** | **CR. Color Palette** | **182** |
+| **Button hierarchy (filled/tonal/outlined/text/FAB)** | **CS. Button Hierarchy** | **183** |
+| **Shadow & elevation (M3 tonal + iOS shadow + Flutter)** | **CT. Shadow System** | **184** |
+| **Border radius system (0-4-8-12-16-20-28)** | **CU. Border Radius** | **185** |
+| **Input field states (default/focus/error/disabled)** | **CV. Input States** | **186** |
+| **Spacing decision framework (padding/margin/gap)** | **CW. Spacing Framework** | **187** |
 
 ---
 
@@ -1185,6 +1199,9 @@ PHOTO/DEMANDE → Identifier le pattern → Arbre de decision → Section WEB/MO
 | **Health data confidence & quality indicators** | **BQ. Data Quality** | **105** |
 | **Menstrual cycle tracking UX** | **BR. Cycle Tracking** | **106** |
 | **Productivity app patterns on watch** | **BS. Productivity** | **107** |
+| **Data sync indicator UI (syncing/synced/failed)** | **BT. Sync Indicator** | **108** |
+| **Complication-to-instant-action (tap→action→confirm)** | **BU. Complication Action** | **109** |
+| **Watch app icon specs (safe zone, sizes, adaptive)** | **BV. App Icon Specs** | **110** |
 
 ---
 

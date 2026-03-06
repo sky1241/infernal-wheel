@@ -13596,3 +13596,1128 @@ autocompleteFragment.setOnPlaceSelectedListener(object : PlaceSelectionListener 
 **Sources:** Baymard Institute "Cart & Checkout UX" research study (2020-2024, based on 220+ checkout evaluations), Baymard Institute cart abandonment statistics (49-study aggregate, 2024 update), Baymard Institute mobile checkout benchmark data, Baymard Institute address form usability study, Baymard Institute payment form usability study.
 
 ---
+
+## CR. Color Palette Construction & 60-30-10 Rule
+
+Building a complete mobile color system from scratch, applicable to both iOS and Android, using systematic palette generation from a single brand color.
+
+### The 60-30-10 Rule Adapted to Mobile
+
+The classic interior-design proportion translates directly to mobile surfaces:
+
+| Proportion | Role | Mobile Examples |
+|---|---|---|
+| **60% — Dominant** | Surface / background | `Surface`, `Background`, scaffold bg, list bg, empty states |
+| **30% — Secondary** | Supporting surfaces | Cards, bottom sheets, nav bars, section headers, input field fills |
+| **10% — Accent** | Key interactions | Primary CTA buttons, FAB, active tab indicator, toggle on-state, links |
+
+Why it works on mobile: the 60% calm surface prevents visual fatigue during extended use. The 30% secondary creates visual grouping without competing for attention. The 10% accent preserves scannability — users instantly find the one tappable action on screen.
+
+Common mistake: using accent color at 20–30% (e.g., colored headers + colored buttons + colored icons). This dilutes the signal-to-noise ratio and makes CTAs harder to spot.
+
+### Generating a Full Palette from ONE Brand Color
+
+Start with a single hex value (your brand color). All other colors derive from it using HSL manipulation.
+
+#### Step 1: Primary Color Family
+
+```
+Brand color (example):  #6750A4  →  HSL(265, 35%, 48%)
+
+Primary:                HSL(265, 35%, 48%)  →  #6750A4
+OnPrimary:              #FFFFFF (white text on primary)
+PrimaryContainer:       HSL(265, 60%, 90%)  →  light tint for backgrounds
+OnPrimaryContainer:     HSL(265, 50%, 20%)  →  dark shade for text on container
+```
+
+#### Step 2: Secondary — Analogous Hue (±30°)
+
+```
+Secondary:              HSL(235, 30%, 48%)  →  shift hue -30°
+SecondaryContainer:     HSL(235, 50%, 90%)
+OnSecondaryContainer:   HSL(235, 40%, 20%)
+```
+
+Alternative: use complementary hue (±180°) for high-contrast palettes, or split-complementary (±150°) for balanced variety.
+
+#### Step 3: Tertiary — Triadic Hue (+120°)
+
+```
+Tertiary:               HSL(25, 40%, 48%)  →  shift hue +120°
+TertiaryContainer:      HSL(25, 55%, 90%)
+OnTertiaryContainer:    HSL(25, 45%, 20%)
+```
+
+#### Step 4: Neutral Scale (10 Steps)
+
+Desaturate the primary hue and generate a lightness ramp:
+
+```
+Hue: 265 (same as primary)
+Saturation: 5-10% (barely tinted gray)
+
+Neutral-50:   HSL(265, 8%, 97%)   →  lightest surface
+Neutral-100:  HSL(265, 8%, 95%)
+Neutral-200:  HSL(265, 8%, 88%)
+Neutral-300:  HSL(265, 8%, 78%)
+Neutral-400:  HSL(265, 7%, 65%)
+Neutral-500:  HSL(265, 6%, 50%)
+Neutral-600:  HSL(265, 6%, 40%)
+Neutral-700:  HSL(265, 7%, 30%)
+Neutral-800:  HSL(265, 8%, 20%)
+Neutral-900:  HSL(265, 8%, 12%)
+Neutral-950:  HSL(265, 8%, 6%)    →  darkest surface (dark mode bg)
+```
+
+#### Step 5: Semantic Colors (Platform Defaults)
+
+| Role | iOS Default | Android M3 Default | Usage |
+|---|---|---|---|
+| Success | `#34C759` | `#4CAF50` | Confirmations, completed states, positive trends |
+| Warning | `#FF9500` | `#FFC107` | Non-blocking alerts, approaching limits, caution states |
+| Error | `#FF3B30` | `#F44336` | Validation errors, destructive confirmations, failures |
+| Info | `#007AFF` | `#2196F3` | Informational banners, help indicators, neutral status |
+
+Keep semantic colors independent from brand palette — users have ingrained associations (red = error, green = success).
+
+### Material Theme Builder Workflow
+
+1. Open [Material Theme Builder](https://m3.material.io/theme-builder)
+2. Paste brand hex into "Primary" source color
+3. Builder auto-generates Secondary, Tertiary, Neutral, NeutralVariant, Error
+4. Review light and dark schemes in the preview
+5. Export: **Jetpack Compose** (Theme.kt), **Flutter** (color_schemes.dart), **CSS** (tokens.css), or **DSP** (design token package)
+6. The exported code includes all 29 color roles (surface, surfaceVariant, outline, outlineVariant, inverseSurface, etc.)
+
+### iOS Dynamic Colors
+
+Creating custom color sets in the asset catalog:
+
+1. In Xcode → Assets.xcassets → New Color Set
+2. Set **Appearances**: Any, Dark (optionally: Any, Dark, Tinted for visionOS)
+3. Set **High Contrast** variants: check "High Contrast" in Attributes Inspector
+4. In code: `Color("BrandPrimary")` or `UIColor(named: "BrandPrimary")`
+5. SwiftUI: use `Color.accentColor` for system-integrated tinting
+
+For programmatic generation:
+
+```swift
+// SwiftUI dynamic color
+extension Color {
+    static let brandPrimary = Color("BrandPrimary")     // from asset catalog
+    static let brandSurface = Color(.systemBackground)   // system-adapting
+    static let brandOnSurface = Color(.label)            // adapts to dark mode
+}
+```
+
+### Contrast Requirements (WCAG 2.1)
+
+| Element | Minimum Ratio | Test Tool |
+|---|---|---|
+| Body text (< 18pt) | **4.5:1** | Accessibility Inspector (Xcode), Accessibility Scanner (Android) |
+| Large text (≥ 18pt bold / 24pt regular) | **3:1** | Same tools |
+| UI components (icons, borders, controls) | **3:1** | Manual contrast checker |
+| Decorative / disabled elements | No requirement | — |
+
+Test workflow: Xcode → Accessibility Inspector → Color Contrast Calculator. Android Studio → Accessibility Scanner plugin or Lint warnings.
+
+### Dark Mode Remapping
+
+Never invert colors. Remap them:
+
+| Light Mode | Dark Mode | Rationale |
+|---|---|---|
+| `#FFFFFF` (background) | `#121212` | Pure black (#000000) causes halation on OLED |
+| `#F5F5F5` (surface) | `#1E1E1E` | Slight elevation above background |
+| `#6750A4` (primary) | `#D0BCFF` | Desaturated + lightened for dark bg contrast |
+| `#1C1B1F` (onSurface) | `#E6E1E5` | High-contrast text on dark surfaces |
+| `#FFFBFE` (surfaceVariant) | `#49454F` | Cards / grouped content |
+
+Key rules:
+- Desaturate vibrant colors by 10–20% for dark mode (reduces eye strain)
+- Surface color differentiation replaces shadow-based elevation in dark mode
+- Error red: use `#F2B8B5` (light on dark) instead of `#F44336` (too harsh)
+- Never use pure white `#FFFFFF` text — use `#E6E1E5` or 87% opacity white
+
+**Sources:** Material Design 3 Color System documentation (m3.material.io/styles/color), Apple Human Interface Guidelines — Color (developer.apple.com/design/human-interface-guidelines/color), WCAG 2.1 Success Criterion 1.4.3 Contrast (Minimum), Material Theme Builder tool documentation.
+
+---
+
+## CS. Button Hierarchy Complete Specs
+
+Every button variant with exact platform-specific values, states, and usage rules. Buttons are the primary interactive element — their hierarchy determines scannability and action clarity.
+
+### Primary Button (Filled)
+
+The highest-emphasis button. Use for the single most important action per screen.
+
+**Android (Material 3):**
+```
+Background:       colorPrimary (#6750A4 default)
+Text color:       colorOnPrimary (#FFFFFF)
+Height:           40dp
+Corner radius:    20dp (full pill shape = height / 2)
+Horizontal padding: 24dp
+Vertical padding: 10dp
+Text style:       labelLarge (14sp, medium weight, 0.1sp tracking)
+Min width:        none (content-sized)
+Elevation:        0dp (M3 filled buttons are flat)
+```
+
+**iOS (SwiftUI):**
+```swift
+.buttonStyle(.borderedProminent)
+.tint(.accentColor)
+// System renders:
+Height:           ~50pt (system default, varies by context)
+Corner radius:    10pt (system default)
+Horizontal padding: ~20pt
+Font:             .body.bold() (17pt semibold)
+```
+
+**States:**
+| State | Android M3 | iOS |
+|---|---|---|
+| Default | bg `colorPrimary` | bg `accentColor` |
+| Hovered | +8% white overlay on bg | subtle brightness increase |
+| Pressed | +12% black overlay on bg (ripple) | opacity 0.7 momentarily |
+| Focused | +12% white overlay + focus ring | system focus ring |
+| Disabled | bg 12% `colorOnSurface`, text 38% `colorOnSurface` | `.disabled()` → dimmed 38% |
+| Loading | `CircularProgressIndicator` replaces text, button same size | `ProgressView()` replaces label |
+
+### Secondary Button (Outlined / Tonal)
+
+Medium emphasis. Use for alternative or supporting actions alongside a primary button.
+
+**Android M3 — Tonal variant:**
+```
+Background:       colorSecondaryContainer (#E8DEF8)
+Text color:       colorOnSecondaryContainer (#1D192B)
+Height:           40dp
+Corner radius:    20dp
+Horizontal padding: 24dp
+Elevation:        0dp
+```
+
+**Android M3 — Outlined variant:**
+```
+Background:       transparent
+Border:           1dp solid colorOutline (#79747E)
+Text color:       colorPrimary (#6750A4)
+Height:           40dp
+Corner radius:    20dp
+Horizontal padding: 24dp
+```
+
+**iOS:**
+```swift
+.buttonStyle(.bordered)
+.tint(.secondary)       // or custom tint
+// System renders bordered capsule with tinted background
+```
+
+**States:** hover +8% container color overlay, pressed +12%, disabled 38% opacity on all elements.
+
+### Tertiary Button (Text / Ghost)
+
+Lowest emphasis. Use for dismissive actions ("Cancel", "Skip"), navigation links, or when space is tight.
+
+**Android M3:**
+```
+Background:       transparent (no fill)
+Text color:       colorPrimary (#6750A4)
+Height:           40dp
+Horizontal padding: 12dp (tighter than filled)
+Ripple:           colorPrimary at 12% on press
+No border, no elevation
+```
+
+**iOS:**
+```swift
+.buttonStyle(.borderless)
+// or
+.buttonStyle(.plain)
+// Renders as tinted text, no background
+```
+
+**States:** hover shows subtle bg tint at 8% opacity, pressed 12% bg tint. No visible border ever.
+
+### Destructive Button
+
+For irreversible actions ONLY: permanent deletion, account removal, data wipe.
+
+**Android M3:**
+```
+Background:       colorError (#F44336) — filled variant
+Text color:       colorOnError (#FFFFFF)
+OR outlined:      border 1dp colorError, text colorError, bg transparent
+Height:           40dp
+Corner radius:    20dp
+```
+
+**iOS:**
+```swift
+Button("Delete", role: .destructive) { }
+.buttonStyle(.borderedProminent)
+// System renders red-tinted button
+// In alerts: .destructive role auto-styles red
+```
+
+**Rules:**
+- ALWAYS confirm before executing: show Alert (iOS) or Dialog (Android)
+- Never make destructive buttons more visually prominent than the primary safe action
+- In confirmation dialogs, make the safe option ("Cancel") the default/prominent button
+- Use outlined/text style for destructive buttons in lists (e.g., "Remove" in a row) — reserve filled destructive for final confirmation
+
+### Floating Action Button (FAB)
+
+**Android M3 sizes:**
+
+| Variant | Size | Icon | Corner Radius | Elevation |
+|---|---|---|---|---|
+| Small FAB | 40dp × 40dp | 24dp | 12dp | 3dp |
+| Standard FAB | 56dp × 56dp | 24dp | 16dp | 3dp |
+| Large FAB | 96dp × 96dp | 36dp | 28dp | 3dp |
+| Extended FAB | 56dp height × wrap | 24dp + label | 16dp | 3dp |
+
+```
+Background:       colorPrimaryContainer (#EADDFF)
+Icon color:       colorOnPrimaryContainer (#21005D)
+Position:         16dp from right edge, 16dp from bottom edge (above nav bar)
+```
+
+iOS equivalent: there is no native FAB. Implement as a custom overlay button, 56pt circle, with `.shadow(radius: 8)`. Place 16pt from trailing edge, above tab bar.
+
+### Icon Buttons
+
+```
+Touch target:     48dp × 48dp (Android) / 44pt × 44pt (iOS)
+Icon size:        24dp / 20pt
+Visual size:      40dp circle or square (smaller than touch target)
+Variants:         Standard (no bg), Filled, Tonal, Outlined
+```
+
+No label — icon must be universally recognizable (use tooltip / long-press label for accessibility).
+
+### Loading State Pattern
+
+When a button triggers an async action:
+
+1. Button stays the same width and height (prevents layout shift)
+2. Label text fades out, replaced by a centered spinner
+3. Button becomes non-interactive (disabled state without dimming)
+4. On completion: spinner fades out, label returns (or transitions to success icon briefly)
+
+```
+// Android Compose
+Button(
+    onClick = { },
+    enabled = !isLoading
+) {
+    if (isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+    else Text("Submit")
+}
+```
+
+```swift
+// SwiftUI
+Button {
+    // action
+} label: {
+    if isLoading { ProgressView().tint(.white) }
+    else { Text("Submit") }
+}
+.disabled(isLoading)
+```
+
+### Minimum Touch Targets
+
+| Platform | Minimum | Recommendation | Source |
+|---|---|---|---|
+| Android | 48 × 48 dp | 48dp for all interactive elements | Material Design 3 Accessibility |
+| iOS | 44 × 44 pt | 44pt minimum, Apple enforces in review | Apple HIG Hit Targets |
+| WCAG 2.2 | 24 × 24 CSS px | Target Size (Minimum) Level AA | WCAG 2.2 SC 2.5.8 |
+
+Even if the visual element is smaller (e.g., 24dp icon), the tappable area must extend to the minimum. Use `Modifier.padding()` or `contentShape(Rectangle())` to expand hit area.
+
+### Button Placement Conventions
+
+| Context | Primary position | Secondary position |
+|---|---|---|
+| Full-screen form | Bottom sticky bar, full width | Text button left of primary |
+| Dialog | Bottom-right (Android) / bottom stack (iOS) | Left of primary (Android), top of stack (iOS) |
+| Card action area | Bottom-right of card | Left of primary in same row |
+| Toolbar | Trailing edge | Leading edge |
+| Onboarding | Bottom center, full width | "Skip" as text button top-right |
+
+**Sources:** Material Design 3 Buttons documentation (m3.material.io/components/buttons), Apple Human Interface Guidelines — Buttons (developer.apple.com/design/human-interface-guidelines/buttons), Material Design 3 FAB documentation, WCAG 2.2 Success Criterion 2.5.8 Target Size.
+
+---
+
+## CT. Shadow & Elevation Practical System
+
+Cross-platform elevation system with exact values for Android (tonal elevation), iOS (drop shadows), and Flutter (BoxShadow). Elevation creates visual hierarchy by implying which surfaces sit "above" others.
+
+### Android M3: Tonal Elevation (Not Shadows)
+
+Material 3 moved away from drop shadows. Elevation is now communicated via **surface tint** — higher surfaces get a slight primary color overlay.
+
+| Level | Elevation | Surface Tint Opacity | Use Cases |
+|---|---|---|---|
+| Level 0 | 0dp | 0% | Flat background, scaffold |
+| Level 1 | 1dp | 5% primary | Cards at rest, top app bar (scrolled), bottom app bar |
+| Level 2 | 3dp | 8% primary | FAB at rest, elevated cards, bottom sheet (peek) |
+| Level 3 | 6dp | 11% primary | FAB pressed, navigation drawer, expanded bottom sheet |
+| Level 4 | 8dp | 12% primary | Menus, sub-menus |
+| Level 5 | 12dp | 14% primary | Dialogs, modals, full-screen bottom sheets |
+
+**How tonal elevation works in practice:**
+
+```kotlin
+// Jetpack Compose — M3 Surface with tonalElevation
+Surface(
+    tonalElevation = 3.dp,    // Level 2 — gets 8% primary tint
+    shape = RoundedCornerShape(12.dp)
+) {
+    // Card content
+}
+```
+
+The system automatically blends `colorPrimary` into `colorSurface` at the specified opacity. In dark mode, this is the primary way to distinguish layers (since shadows are barely visible on dark backgrounds).
+
+**When M3 still uses shadows:**
+- `shadowElevation` can be applied separately for legacy compatibility
+- Some components (FAB, dialogs) still render a subtle shadow alongside tonal elevation for extra depth
+- Shadows remain useful for elements that float over scrolling content (to separate layers clearly)
+
+### iOS: Shadow-Based Elevation
+
+iOS uses drop shadows exclusively. There is no tonal elevation system.
+
+#### Subtle — Cards, List Sections
+
+```swift
+.shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 1)
+```
+```
+UIKit: layer.shadowColor = UIColor.black.cgColor
+       layer.shadowOpacity = 0.1
+       layer.shadowRadius = 3
+       layer.shadowOffset = CGSize(width: 0, height: 1)
+```
+
+Use for: cards in a scrollable feed, grouped table sections, slightly raised containers.
+
+#### Medium — Popovers, Floating Elements
+
+```swift
+.shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 2)
+```
+```
+UIKit: layer.shadowOpacity = 0.15
+       layer.shadowRadius = 8
+       layer.shadowOffset = CGSize(width: 0, height: 2)
+```
+
+Use for: popovers, dropdown menus, floating action buttons, tooltips.
+
+#### Prominent — Modals, Sheets
+
+```swift
+.shadow(color: Color.black.opacity(0.2), radius: 24, x: 0, y: 8)
+```
+```
+UIKit: layer.shadowOpacity = 0.2
+       layer.shadowRadius = 24
+       layer.shadowOffset = CGSize(width: 0, height: 8)
+```
+
+Use for: modal sheets, full-screen overlays, photo viewers, dialogs.
+
+#### iOS Material Blur Effects
+
+iOS also uses blur materials for elevation, especially in system UI:
+
+```swift
+.background(.ultraThinMaterial)    // very subtle blur, most transparent
+.background(.thinMaterial)          // light blur
+.background(.regularMaterial)       // default system blur (nav bars, tab bars)
+.background(.thickMaterial)         // heavy blur
+.background(.ultraThickMaterial)   // most opaque blur
+```
+
+These adapt automatically to light/dark mode. Use for: overlays over scrolling content, navigation bars, tab bars, status bar backgrounds.
+
+### Flutter BoxShadow Equivalents
+
+```dart
+// Card (subtle)
+BoxShadow(
+  color: Colors.black.withOpacity(0.08),
+  blurRadius: 4,
+  offset: const Offset(0, 1),
+  spreadRadius: 0,
+)
+
+// Elevated component (medium)
+BoxShadow(
+  color: Colors.black.withOpacity(0.12),
+  blurRadius: 8,
+  offset: const Offset(0, 2),
+  spreadRadius: 0,
+)
+
+// Modal / dialog (prominent)
+BoxShadow(
+  color: Colors.black.withOpacity(0.16),
+  blurRadius: 24,
+  offset: const Offset(0, 8),
+  spreadRadius: 0,
+)
+
+// Flutter Card widget built-in
+Card(elevation: 1)   // subtle
+Card(elevation: 4)   // medium
+Card(elevation: 8)   // prominent
+```
+
+### Dark Mode Shadow Adjustments
+
+Shadows are barely perceptible on dark backgrounds. Adjust your strategy:
+
+| Technique | Light Mode | Dark Mode |
+|---|---|---|
+| Shadow opacity | 0.08–0.20 | Reduce by 50% → 0.04–0.10 |
+| Primary elevation cue | Shadow | Surface color differentiation |
+| Border separation | Not needed (shadow suffices) | Add 1dp border `rgba(255,255,255,0.08)` |
+| Blur backdrop | `.regularMaterial` | System auto-adapts material |
+| Android tonal elevation | Subtle effect | More visible (primary tint on dark surface) |
+
+**Dark mode surface color ladder (Android M3):**
+```
+Level 0:  #121212  (background)
+Level 1:  #1E1E1E  (cards, app bar)       — +5% white or primary tint
+Level 2:  #232323  (elevated cards)        — +8%
+Level 3:  #282828  (navigation drawer)     — +11%
+Level 4:  #2C2C2C  (menus)                — +12%
+Level 5:  #353535  (dialogs)               — +14%
+```
+
+### Performance Considerations
+
+- Shadows are GPU-rendered; excessive shadows on long lists cause jank
+- On iOS, always set `layer.shadowPath = UIBezierPath(roundedRect:cornerRadius:).cgPath` for cached shadow rendering
+- On Android Compose, `tonalElevation` has zero GPU cost (it's a color calculation, not a rendered shadow)
+- In Flutter, `PhysicalModel` is more performant than `BoxShadow` for simple rectangular shadows
+- Limit shadows to 3–5 elements visible at once; flat design for list items in feeds
+
+**Sources:** Material Design 3 Elevation documentation (m3.material.io/styles/elevation), Apple Human Interface Guidelines — Materials (developer.apple.com/design/human-interface-guidelines/materials), Flutter BoxShadow API documentation.
+
+---
+
+## CU. Border Radius Consolidated System
+
+A systematic radius scale for mobile, with platform-specific defaults, the nested radius rule, and guidance on picking a consistent set for your app.
+
+### The Radius Scale
+
+| Value | Name | Use Cases |
+|---|---|---|
+| **0dp/pt** | Sharp | Table cells, full-bleed images, dividers, edge-to-edge banners |
+| **4dp/pt** | XSmall | Small chips, badges, inline tags, progress bar corners, small avatars (square style) |
+| **8dp/pt** | Small | Buttons (Android M3 default for small components), input fields, small cards, toast/snackbar, thumbnails |
+| **12dp/pt** | Medium | Cards (M3 default), search bars, bottom sheet peek handle area, navigation bar items, segmented controls (Android) |
+| **16dp/pt** | Large | FAB, large cards, widget containers, image placeholders, dialog body (iOS default ~14pt) |
+| **20dp/pt** | XLarge / Pill | Full pill buttons (height/2 for 40dp button), pill-shaped chips, segmented controls (iOS), tags |
+| **28dp/pt** | XXLarge | Modal bottom sheet top corners (M3), dialog corners (M3), large modal containers |
+| **Full (50%)** | Circle | Avatars, icon button backgrounds, FAB (circular variant), status indicators |
+
+### Platform Default Mappings
+
+**Android M3 Shape System:**
+
+```kotlin
+// MaterialTheme.shapes (Compose defaults)
+val Shapes = Shapes(
+    extraSmall = RoundedCornerShape(4.dp),    // Chips, small badges
+    small = RoundedCornerShape(8.dp),          // Buttons, text fields
+    medium = RoundedCornerShape(12.dp),        // Cards, dialogs
+    large = RoundedCornerShape(16.dp),         // Large cards, FAB
+    extraLarge = RoundedCornerShape(28.dp),    // Bottom sheets, large dialogs
+)
+```
+
+**iOS System Defaults:**
+
+```swift
+// Common iOS corner radii (points)
+let buttonRadius: CGFloat = 10        // system buttons (.borderedProminent)
+let cardRadius: CGFloat = 12          // grouped table section
+let textFieldRadius: CGFloat = 10     // system text field
+let sheetRadius: CGFloat = 10         // modal sheet top corners
+let alertRadius: CGFloat = 14         // system alert dialog
+let notificationRadius: CGFloat = 20  // notification banner
+let appIconRadius: CGFloat = /*continuous*/ // ~22.37% of icon size
+```
+
+### iOS Continuous Corners (Squircle)
+
+iOS uses a **continuous** (superellipse) corner curve, not circular arcs. The difference is subtle but visible at larger radii:
+
+```swift
+// SwiftUI — continuous corner (matches system UI)
+RoundedRectangle(cornerRadius: 16, style: .continuous)
+
+// UIKit
+view.layer.cornerRadius = 16
+view.layer.cornerCurve = .continuous    // iOS 13+
+```
+
+Circular corners have a hard transition from flat edge to curve. Continuous corners have a gradual onset, appearing more natural. Always use `.continuous` on iOS for parity with system elements.
+
+Android does not have a native continuous corner — `RoundedCornerShape` uses circular arcs. For pixel-perfect cross-platform consistency, consider a custom `Shape` in Compose using a superellipse path.
+
+### The Nested Radius Rule
+
+When elements are nested (e.g., a button inside a card), the inner element's radius should be reduced by the padding between them:
+
+```
+Inner radius = Outer radius − Padding
+
+Card radius:     16dp
+Card padding:    12dp
+Button radius:   16 - 12 = 4dp  ✓
+
+Card radius:     12dp
+Card padding:    8dp
+Content radius:  12 - 8 = 4dp  ✓
+```
+
+**Why this matters:** If inner and outer radii are the same, the gap between the inner element and outer boundary appears uneven — wider at the corners, tighter on the straights. The nested rule makes the gap optically uniform.
+
+Visual validation: if the padding is greater than the outer radius, set inner radius to 0 (sharp corners). If negative, clamp to 0.
+
+```
+Example that breaks:
+Card radius:     8dp
+Card padding:    16dp
+Inner radius:    8 - 16 = -8 → clamp to 0dp (sharp)
+```
+
+### Choosing Your App's Radius Set
+
+Pick **3 to 4 values maximum** and use them everywhere for visual consistency:
+
+**Option A — Rounded Modern (most common):**
+```
+Small:   8dp/pt   → buttons, inputs, chips, toasts
+Medium: 12dp/pt   → cards, search bar, list sections
+Large:  20dp/pt   → pill buttons, FAB, prominent CTAs
+Sheet:  28dp/pt   → bottom sheet top corners, modals
+```
+
+**Option B — Soft / Friendly:**
+```
+Small:  12dp/pt   → buttons, inputs
+Medium: 16dp/pt   → cards, containers
+Large:  24dp/pt   → prominent elements
+Sheet:  32dp/pt   → modals
+```
+
+**Option C — Sharp / Professional:**
+```
+Small:   4dp/pt   → buttons, inputs
+Medium:  8dp/pt   → cards
+Large:  12dp/pt   → containers
+Sheet:  16dp/pt   → modals
+```
+
+### Per-Corner Radius
+
+Some elements need asymmetric radii:
+
+```kotlin
+// Android Compose — top corners only (bottom sheet)
+RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 0.dp, bottomEnd = 0.dp)
+```
+
+```swift
+// SwiftUI — custom UnevenRoundedRectangle (iOS 17+)
+UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28)
+
+// Pre-iOS 17: use Path with addArc
+```
+
+Common uses:
+- Bottom sheet: top corners rounded, bottom sharp (attached to screen edge)
+- Top app bar on scroll: bottom corners rounded for a floating effect
+- First/last card in a group: outer corners rounded, inner edges sharp (like iOS grouped table style)
+
+### Radius and Shadows Interaction
+
+Shadows follow the corner radius of the element. Ensure:
+- `clipToBounds` / `clipsToBounds` does NOT clip the shadow (shadow renders outside bounds)
+- On iOS, set `layer.masksToBounds = false` for shadow visibility with rounded corners
+- On Android Compose, `Modifier.shadow(elevation, shape)` automatically matches shape
+- Large radii with large shadows look best; small radii with large shadows look disproportionate
+
+**Sources:** Material Design 3 Shape documentation (m3.material.io/styles/shape), Apple Human Interface Guidelines — Layout (developer.apple.com/design/human-interface-guidelines/layout), iOS UIKit cornerCurve documentation, Material Design 3 ShapeDefaults reference.
+
+---
+
+## CV. Input Field States Complete Matrix
+
+Every input field state with platform-specific exact values, covering outlined and filled variants, validation patterns, and helper text anatomy.
+
+### Default State
+
+**Android M3 — Outlined TextField:**
+```
+Border:           1dp solid colorOutline (#79747E)
+Background:       transparent
+Corner radius:    4dp (top) — labeled variant uses 4dp so label can sit on border
+Label:            body-large (16sp), colorOnSurfaceVariant, positioned inside field
+Text:             body-large (16sp), colorOnSurface (#1C1B1F)
+Cursor:           colorPrimary (#6750A4)
+Height:           56dp (single-line, including label)
+Padding:          16dp horizontal
+```
+
+**Android M3 — Filled TextField:**
+```
+Background:       colorSurfaceVariant (#E7E0EC)
+Bottom border:    1dp solid colorOnSurfaceVariant (#49454F)
+Top corners:      4dp radius (bottom corners 0dp — flat base)
+Label:            body-large, colorOnSurfaceVariant, inside field
+Text:             body-large, colorOnSurface
+Height:           56dp
+Padding:          16dp horizontal, 8dp top (above text, below label)
+```
+
+**iOS:**
+```swift
+TextField("Placeholder", text: $value)
+    .textFieldStyle(.roundedBorder)
+// System renders:
+Background:       .secondarySystemGroupedBackground (light gray #F2F2F7 light / #1C1C1E dark)
+Border:           none visible (integrated into background)
+Corner radius:    10pt
+Text:             .body (17pt), Color(.label)
+Height:           ~44pt
+Padding:          8pt horizontal system default
+Placeholder:      Color(.placeholderText) — #C7C7CC light / #636366 dark
+```
+
+### Focused State
+
+**Android M3 — Outlined:**
+```
+Border:           2dp solid colorPrimary (#6750A4)  — doubles from 1dp to 2dp
+Label:            animates UP to sit on top border line, shrinks to body-small (12sp)
+Label color:      colorPrimary (#6750A4)
+Caret:            colorPrimary, blinking
+Active indicator: the 2dp border itself serves as active indicator
+```
+
+**Android M3 — Filled:**
+```
+Bottom border:    2dp solid colorPrimary (#6750A4)  — doubles from 1dp to 2dp
+Background:       slightly darker (opacity shift)
+Label:            animates up, shrinks to 12sp
+Label color:      colorPrimary
+```
+
+**iOS:**
+```
+Visual change:    minimal — cursor appears, keyboard slides up
+Ring:             no border change by default; custom implementations may add a tint
+Keyboard:         animates up, content scrolls/resizes to avoid occlusion
+Auto-scroll:      system automatically scrolls the focused field into view
+```
+
+### Error State
+
+**Android M3:**
+```
+Border/underline: colorError (#B3261E) — replaces primary color
+Border width:     2dp (same as focused, but error color)
+Label:            colorError
+Supporting text:  body-small (12sp), colorError, below field, 4dp gap
+Trailing icon:    error icon (24dp, colorError) — exclamation mark in circle
+```
+
+**iOS:**
+```swift
+TextField("Email", text: $email)
+    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.red, lineWidth: 1))
+
+Text("Please enter a valid email address")
+    .font(.caption)       // 12pt
+    .foregroundColor(.red)
+```
+
+**Error text formula — always include both what's wrong AND how to fix:**
+```
+Bad:   "Invalid input"
+Good:  "Email must include @ and a domain (e.g., name@example.com)"
+
+Bad:   "Password error"
+Good:  "Password must be at least 8 characters with one uppercase letter"
+
+Bad:   "Invalid phone"
+Good:  "Enter a 10-digit phone number (e.g., 514-555-0123)"
+```
+
+### Disabled State
+
+**Android M3:**
+```
+All elements:     38% opacity (border, label, text, icons)
+Background:       filled variant gets 4% colorOnSurface overlay
+No interaction:   no focus, no hover, no ripple
+Cursor:           hidden
+```
+
+**iOS:**
+```swift
+TextField("Field", text: $value)
+    .disabled(true)
+// System applies:
+//   - Dimmed appearance (reduced opacity)
+//   - Text color shifts to .secondaryLabel
+//   - No keyboard activation on tap
+```
+
+### Read-Only State (Distinct from Disabled)
+
+Shows a value the user cannot edit but should be able to copy:
+- Visual: looks like a default field but with no cursor and no keyboard activation
+- Interaction: long-press to copy (iOS), long-press to select and copy (Android)
+- Styling: slightly dimmed label, full-opacity text value, no underline/border animation
+
+### Helper / Supporting Text
+
+```
+Position:         below the field, 4dp gap (Android) / 4pt gap (iOS)
+Font:             body-small 12sp (Android) / .caption 11pt (iOS)
+Color:            colorOnSurfaceVariant / .secondaryLabel
+Max lines:        1-2 (keep brief; truncate with "..." if needed)
+```
+
+Use for: format hints ("MM/DD/YYYY"), character limits, input requirements visible before error.
+
+### Character Counter
+
+```
+Position:         right-aligned within the helper text row
+Format:           "23/100" (current / max)
+Default color:    colorOnSurfaceVariant
+Error color:      colorError — when count exceeds max
+```
+
+```kotlin
+// Compose
+OutlinedTextField(
+    value = text,
+    onValueChange = { if (it.length <= 100) text = it },
+    supportingText = {
+        Text("${text.length}/100",
+             modifier = Modifier.fillMaxWidth(),
+             textAlign = TextAlign.End)
+    },
+    isError = text.length > 100
+)
+```
+
+### Leading & Trailing Icons
+
+```
+Icon size:        24dp (Android) / 20pt (iOS)
+Leading icon:     padding-start 12dp from field edge, indicates field purpose (search, email, phone)
+Trailing icon:    padding-end 12dp, tappable for actions:
+                  - Clear (X): appears when field has text, taps clear text
+                  - Visibility toggle: eye icon, toggles password visibility
+                  - Info (i): shows tooltip or help sheet on tap
+                  - Error: exclamation, shown in error state (not tappable)
+Touch target:     48dp × 48dp for trailing tappable icons (even if icon is 24dp)
+```
+
+```swift
+// SwiftUI trailing clear button
+TextField("Search", text: $query)
+    .overlay(alignment: .trailing) {
+        if !query.isEmpty {
+            Button { query = "" } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.trailing, 8)
+        }
+    }
+```
+
+### Prefix & Suffix Text
+
+Inline text indicating format or unit:
+
+```
+Prefix:           "$", "+1", "https://"  — before user input
+Suffix:           "kg", "cm", ".com"     — after user input
+Color:            colorOnSurfaceVariant (#49454F) / .secondaryLabel
+Font:             same as input text (body-large 16sp / .body 17pt)
+Padding:          4dp gap between prefix/suffix and user text
+```
+
+```kotlin
+OutlinedTextField(
+    value = amount,
+    onValueChange = { amount = it },
+    prefix = { Text("$") },
+    suffix = { Text("USD") },
+    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+)
+```
+
+### Input Field Sizing
+
+| Variant | Height | Use Case |
+|---|---|---|
+| Single-line | 56dp / 44pt | Email, name, phone, search, short inputs |
+| Multi-line (expanding) | 56dp min, grows with content | Comments, notes, up to maxLines |
+| Text area (fixed) | 112dp+ (multiple rows visible) | Descriptions, long-form, feedback |
+
+### Complete State Transition Table
+
+```
+                DEFAULT  →  FOCUSED  →  TYPING  →  BLUR (validate)
+                                                     ↓
+                                              VALID (success) or ERROR
+                                                                  ↓
+                                              ERROR  →  FOCUSED (re-edit)  →  TYPING  →  BLUR
+                                                                                          ↓
+                                                                                    VALID ✓
+```
+
+Validate on blur (field exit), NOT on every keystroke. Exception: format-as-you-type fields (phone, credit card) can validate format live.
+
+**Sources:** Material Design 3 Text Fields documentation (m3.material.io/components/text-fields), Apple Human Interface Guidelines — Text Fields (developer.apple.com/design/human-interface-guidelines/text-fields), Material Design 3 component specifications, WCAG 2.1 SC 3.3.1 Error Identification.
+
+---
+
+## CW. Spacing Decision Framework
+
+When to use which spacing value, with exact platform-specific numbers. All spacing is based on a 4dp/pt base grid.
+
+### The 4dp/pt Base Grid
+
+Every spacing value should be a multiple of 4. The most common values:
+
+```
+4dp/pt    — tight: icon-to-label gap, badge offset, inline spacing
+8dp/pt    — standard: default gap between related elements
+12dp/pt   — comfortable: list item vertical padding, paragraph spacing
+16dp/pt   — spacious: screen edge padding, card internal padding, section separation
+24dp/pt   — section: major section breaks, dialog padding, generous card padding
+32dp/pt   — large: between major content groups, hero-to-content gap
+48dp/pt   — extra-large: between unrelated content blocks
+```
+
+Avoid: 5, 6, 7, 9, 10, 11, 13, 14, 15, 17, 18, 19... Non-grid values create visual inconsistency and make design tokens harder to maintain.
+
+### Padding (Space Inside a Container)
+
+#### Buttons
+
+| Platform | Vertical | Horizontal | Source |
+|---|---|---|---|
+| Android M3 (filled) | 10dp | 24dp | Material specs |
+| Android M3 (text) | 10dp | 12dp | Material specs |
+| iOS (.borderedProminent) | ~11pt | ~20pt | System default |
+| iOS (.bordered) | ~7pt | ~16pt | System default |
+
+#### Cards
+
+| Density | Padding | Use Case |
+|---|---|---|
+| Compact | 12dp/pt | Feed cards, high-density lists, dashboard widgets |
+| Standard | 16dp/pt | Default card padding, most use cases |
+| Spacious | 24dp/pt | Detail screens, hero cards, onboarding cards |
+
+#### List Items
+
+```
+Horizontal padding:     16dp (Android) / 20pt (iOS, system default inset)
+Vertical padding:
+  - Single-line:        8dp/pt top + 8dp/pt bottom = 48dp total height (M3)
+  - Two-line:           12dp top + 12dp bottom (with secondary text)
+  - Three-line:         16dp top + 16dp bottom
+Leading content gap:    16dp (icon/avatar to text)
+Trailing content gap:   16dp (text to trailing icon/action)
+```
+
+#### Screen Edges
+
+```
+Android:                16dp left/right standard margin
+iOS:                    20pt leading/trailing (matches system readableContentGuide)
+                        16pt in compact layouts
+Tablets:                24dp or dynamic max-width container (600dp max content width)
+```
+
+#### Section Content
+
+```
+Between sections:       24dp/pt vertical spacing (heading to next heading)
+Heading to content:     8dp/pt (tight relationship)
+Section header padding: 16dp horizontal, 12dp vertical
+```
+
+#### Modal / Dialog
+
+```
+Android M3 Dialog:      24dp all sides padding
+iOS Alert:              system-managed (≈16pt, non-customizable)
+iOS Sheet:              20pt horizontal, 24pt top
+Bottom sheet content:   16dp horizontal, 16dp vertical from handle
+```
+
+### Margin (Space Between Sibling Elements)
+
+#### Between Cards
+
+| Style | Gap | Visual Effect |
+|---|---|---|
+| Tight feed | 8dp/pt | Dense, content-heavy (social feeds, news) |
+| Default | 12dp/pt | Balanced, most card layouts |
+| Spacious | 16dp/pt | Breathing room, premium feel, portfolios |
+
+#### Between Form Fields
+
+```
+Vertical gap:           16dp/pt between fields (enough to visually separate)
+Grouped fields:         8dp/pt between related fields in same group (e.g., first name / last name)
+Group to group:         24dp/pt (visual section break)
+Label to field:         4dp (when label is external, above field)
+Field to helper text:   4dp
+Helper text to next field: 16dp (from baseline of helper to top of next field)
+```
+
+#### Typography Spacing
+
+```
+Heading to body:        8dp/pt (tight, clearly associated)
+Paragraph to paragraph: 12dp/pt
+Body to CTA:            24dp/pt (breathing room before action)
+```
+
+### Gap (Flex/Row/Column Spacing)
+
+#### Icon + Label Combinations
+
+```
+Standard (button):      8dp/pt icon-to-label gap
+Compact (tab bar item): 4dp/pt icon-to-label gap (vertical stack)
+List item leading:      16dp icon-to-text gap
+Navigation rail:        4dp icon-to-label (vertical)
+```
+
+#### Button Groups
+
+```
+Horizontal row:         8dp/pt between buttons
+Vertical stack:         8dp/pt between stacked full-width buttons
+Action bar (dialog):    8dp between text buttons
+```
+
+#### Lists and Grids
+
+```
+List items (divider):   0dp gap (use dividers for separation)
+List items (card):      8dp/pt gap (card-style list with visible gaps)
+Grid items compact:     8dp both axes
+Grid items spacious:    16dp both axes
+Staggered grid:         8dp (consistent gaps despite varying item heights)
+```
+
+### Critical Clearances
+
+#### Bottom Navigation Clearance
+
+```
+Content above nav bar:  80dp/pt minimum clearance
+Why: last scrollable item must be fully visible above the nav bar (56dp) + padding (24dp)
+Implementation:
+  - Android: Scaffold handles this with innerPadding
+  - iOS: TabView handles via safeAreaInsets
+  - Flutter: Scaffold.bottomNavigationBar handles it, OR add SizedBox(height: 80) at list end
+```
+
+#### Keyboard Avoidance
+
+```
+Android:                windowSoftInputMode="adjustResize" in manifest (content resizes)
+iOS:                    system auto-scrolls focused field above keyboard
+Flutter:                Scaffold.resizeToAvoidBottomInset = true (default)
+Best practice:          focused field should be 16dp above keyboard top edge
+Never:                  let keyboard cover the active field or submit button
+```
+
+#### Safe Area Respect
+
+```swift
+// SwiftUI — always use SafeArea
+var body: some View {
+    ScrollView {
+        content
+    }
+    .safeAreaInset(edge: .bottom) {
+        bottomBar  // pinned above home indicator
+    }
+}
+```
+
+```kotlin
+// Compose — use WindowInsets
+Scaffold(
+    modifier = Modifier.fillMaxSize(),
+    contentWindowInsets = WindowInsets.safeDrawing
+) { innerPadding ->
+    Content(modifier = Modifier.padding(innerPadding))
+}
+```
+
+```dart
+// Flutter
+SafeArea(
+  child: Scaffold(
+    body: content,
+  ),
+)
+```
+
+**Never hardcode** notch height (44pt), home indicator height (34pt), or status bar height (20/44pt). These vary by device. Always use system-provided safe area insets.
+
+### Spacing Decision Cheat Sheet
+
+When you're unsure which value to use, ask:
+
+| Question | Answer → Value |
+|---|---|
+| Are these elements part of the same component? | Yes → 4–8dp |
+| Are they related but distinct? | Yes → 12–16dp |
+| Are they in different sections? | Yes → 24–32dp |
+| Are they unrelated content blocks? | Yes → 32–48dp |
+| Is this screen edge padding? | → 16dp (Android) / 20pt (iOS) |
+| Is this inside a dialog/modal? | → 24dp all sides |
+| Is this a touch target gap? | → min 8dp between targets (to prevent mis-taps) |
+
+### Common Spacing Anti-Patterns
+
+- **Inconsistent margins**: 12dp here, 15dp there, 18dp elsewhere — pick from the 4dp grid and stick to it
+- **No breathing room before CTA**: text crammed right against the submit button — add 24dp minimum
+- **Ignoring safe areas**: content hidden behind notch or home indicator
+- **Hardcoded bottom padding**: using fixed 34pt for home indicator — breaks on devices without one
+- **Zero spacing between tap targets**: adjacent buttons/links touching — minimum 8dp gap between interactive elements
+- **Over-spacing on mobile**: desktop-like 48dp margins waste precious vertical space on mobile
+
+**Sources:** Material Design 3 Layout documentation (m3.material.io/foundations/layout), Apple Human Interface Guidelines — Layout (developer.apple.com/design/human-interface-guidelines/layout), Material Design 3 spacing and component specs, Flutter SafeArea documentation, Android WindowInsets documentation.

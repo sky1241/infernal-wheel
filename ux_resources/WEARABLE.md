@@ -12173,5 +12173,524 @@ The guiding principle for all watch productivity apps:
 
 ---
 
-*Bible UX Wearable - Sections BC-BS added March 2026*
+---
+
+## BT. Data Sync Indicator UI
+
+> Visual patterns for showing data synchronisation status between watch and phone.
+> Users must always know whether their data is current, syncing, or stale.
+> Sources: [Wear OS Data Layer](https://developer.android.com/training/wearables/data/data-layer), [WatchConnectivity](https://developer.apple.com/documentation/watchconnectivity), [Material 3 Progress Indicators](https://m3.material.io/components/progress-indicators)
+
+### Syncing State (Active Transfer)
+
+Display a small circular progress indicator while data is actively transferring over Bluetooth or WiFi.
+
+**Wear OS implementation:**
+- Use `CircularProgressIndicator` composable from Wear Compose
+- Size: 16dp diameter, `strokeWidth = 2.dp`
+- Color: `MaterialTheme.colorScheme.primary`
+- Placement: top-right corner of the screen, overlaid on content, or inline next to a "Last synced" label
+- Animation: indeterminate spin (no progress value), `alpha = 0.8f` to keep it subtle
+- Do not block user interaction while syncing — the indicator is informational only
+
+```kotlin
+CircularProgressIndicator(
+    modifier = Modifier.size(16.dp).alpha(0.8f),
+    strokeWidth = 2.dp,
+    color = MaterialTheme.colorScheme.primary
+)
+```
+
+**watchOS implementation:**
+- Use `ProgressView()` with `.scaleEffect(0.6)` to shrink to appropriate watch size
+- Place in `.toolbar` trailing position or inline in a list row
+- SwiftUI automatically handles the indeterminate spin animation
+
+```swift
+ProgressView()
+    .scaleEffect(0.6)
+    .frame(width: 16, height: 16)
+```
+
+**Duration:** Show only during active transfer. If sync completes in under 300ms, skip the indicator entirely to avoid flash. Use a 300ms delay before showing the spinner (debounce).
+
+### Synced State (Success)
+
+After a successful sync, briefly show a confirmation before returning to neutral.
+
+**Wear OS implementation:**
+- Show `Icon(Icons.Rounded.Check, tint = MaterialTheme.colorScheme.primary)` at 16dp
+- Use `AnimatedVisibility` with `fadeIn(animationSpec = tween(300))` + `fadeOut(animationSpec = tween(2000))`
+- Auto-dismiss after 2 seconds — no user action required
+- Optional: display "Last synced: just now" as secondary text below the icon
+
+```kotlin
+AnimatedVisibility(
+    visible = showSyncSuccess,
+    exit = fadeOut(animationSpec = tween(2000))
+) {
+    Icon(
+        Icons.Rounded.Check,
+        contentDescription = "Synced",
+        modifier = Modifier.size(16.dp),
+        tint = MaterialTheme.colorScheme.primary
+    )
+}
+```
+
+**watchOS implementation:**
+- Show `Image(systemName: "checkmark.circle.fill").foregroundColor(.green)` at 16pt
+- Animate out with `.opacity(showCheck ? 1 : 0).animation(.easeOut(duration: 2))` after 2 seconds
+- Haptic: `WKInterfaceDevice.current().play(.success)` on sync completion (optional, only if user-initiated)
+
+### Failed State (Error)
+
+Persistent error indicator that remains visible until the user acknowledges or retries.
+
+**Wear OS implementation:**
+- Show `Icon(Icons.Rounded.Warning, tint = MaterialTheme.colorScheme.error)` at 16dp
+- Do NOT auto-dismiss — persist until retry succeeds or user taps
+- Tap action on the icon: trigger manual retry via `DataClient.putDataItem()` or `MessageClient.sendMessage()`
+- If 3+ consecutive failures: show a `BottomSheet` or `AlertDialog` with message "Sync failed. Check phone connection." and a Retry button
+- Include a "Dismiss" option so users are not permanently blocked by the warning
+
+```kotlin
+Icon(
+    Icons.Rounded.Warning,
+    contentDescription = "Sync failed",
+    modifier = Modifier.size(16.dp).clickable { retrySyncAction() },
+    tint = MaterialTheme.colorScheme.error
+)
+```
+
+**watchOS implementation:**
+- Show `Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.red)` at 16pt
+- Tap triggers retry via `WCSession.default.transferUserInfo()` or `sendMessage()`
+- On repeated failures: present `.sheet` with explanation and retry button
+- Haptic: `WKInterfaceDevice.current().play(.failure)` on error
+
+### Last-Sync Timestamp
+
+Always show when data was last successfully synced. Users need confidence their data is current.
+
+**Formatting rules:**
+- Use relative time, never absolute: "Just now", "2 min ago", "1h ago", "Yesterday"
+- Update the displayed relative time every 60 seconds (use a timer or `TimelineView`)
+- Thresholds: <60s → "Just now", 1-59 min → "X min ago", 1-23h → "Xh ago", 24h+ → "Yesterday" or date
+
+**Placement:**
+- Primary: settings screen, under a "Sync" or "Data" section heading
+- Secondary: long-press context menu on main data display
+- Optional: inline below the sync status icon as a caption-size label
+
+**Wear OS:** Use `DateUtils.getRelativeTimeSpanString()` for locale-aware formatting.
+
+**watchOS:** Use `RelativeDateTimeFormatter()` for automatic relative string generation.
+
+### Manual Sync Trigger
+
+Always provide a way for users to force a sync, even if automatic sync is working.
+
+**Wear OS:**
+- Pull-to-refresh on main scrollable content using `SwipeDismissableNavHost` with `ScalingLazyColumn` and pull-down refresh pattern
+- Alternative: explicit "Sync now" button in Settings screen
+- Debounce: ignore manual sync requests if last sync was <10 seconds ago
+
+**watchOS:**
+- Use `.refreshable { await syncNow() }` modifier on `List` or `ScrollView`
+- Alternative: "Sync Now" button in Settings
+- Show the syncing indicator immediately on pull-to-refresh to confirm the gesture was recognized
+
+### Offline Badge
+
+When the watch has no connection to the phone for more than 30 seconds, show a persistent but subtle offline indicator.
+
+- Icon: cloud with diagonal line through it (cloud-off), 12dp/12pt
+- Placement: top bar, leading or trailing position, alongside other status indicators
+- Color: `colorOnSurfaceVariant` (muted, not alarming — offline is normal for watches)
+- Wear OS: `Icon(painterResource(R.drawable.ic_cloud_off), modifier = Modifier.size(12.dp))`
+- watchOS: `Image(systemName: "icloud.slash").font(.system(size: 12))`
+- Remove immediately when connection is re-established (no fade delay)
+- Do NOT show a toast or alert for offline state — it is too common on watches to warrant interruption
+
+### Checklist
+
+- ✅ Syncing spinner appears only during active transfer, debounced 300ms
+- ✅ Success checkmark auto-dismisses after 2 seconds
+- ✅ Error indicator persists until retry or dismiss
+- ✅ Relative timestamps updated every 60 seconds
+- ✅ Manual sync available via pull-to-refresh or settings button
+- ✅ Offline badge shown after 30s disconnection, removed immediately on reconnect
+- ✅ Haptic feedback on user-initiated sync completion (success or failure)
+- ❌ Do not show absolute timestamps (users cannot quickly parse "14:32:07")
+- ❌ Do not block UI during sync — all sync is asynchronous
+- ❌ Do not show sync errors as full-screen alerts (use inline indicators)
+- ❌ Do not auto-retry more than 3 times without user consent
+
+**Sources:** [Wear OS Data Layer API](https://developer.android.com/training/wearables/data/data-layer), [WatchConnectivity](https://developer.apple.com/documentation/watchconnectivity), [Material 3 Progress Indicators](https://m3.material.io/components/progress-indicators), [NNGroup Status Visibility](https://www.nngroup.com/articles/ten-usability-heuristics/)
+
+---
+
+## BU. Complication-to-Instant-Action Pattern
+
+> Tap a complication on the watch face, execute a background action, show confirmation, return to watch face.
+> Total interaction time: under 3 seconds. No app launch, no navigation, no screen transition.
+> Sources: [Wear OS Complications](https://developer.android.com/training/wearables/complications), [ClockKit](https://developer.apple.com/documentation/clockkit), [WidgetKit AppIntent](https://developer.apple.com/documentation/widgetkit)
+
+### Use Cases
+
+This pattern is ideal for:
+- **One-tap cigarette logging** — tap complication, event is logged, count increments on watch face
+- **Quick water intake** — tap to add one glass, complication updates total
+- **Start/stop timer** — tap to toggle, complication shows running/paused state
+- **Quick mood check-in** — tap to log current mood with predefined value
+
+The key requirement: the action must be **unambiguous** — one tap always means one specific thing. If the action needs parameters or confirmation, use a different pattern (launch app).
+
+### Architecture Flow
+
+```
+1. User taps complication on watch face
+2. System delivers tap intent to ComplicationDataSource
+3. BroadcastReceiver executes background action (log event, write data)
+4. ConfirmationActivity shows success overlay (2s auto-dismiss)
+5. User returns to watch face — complication shows updated data
+```
+
+Total elapsed time: 1.5–3 seconds. Zero navigation. Zero scrolling.
+
+### Wear OS Implementation
+
+**Step 1 — Complication tap target:**
+- In your `ComplicationDataSource.onComplicationRequest()`, set the tap action to a `PendingIntent` targeting a `BroadcastReceiver`, NOT an Activity
+- Using a BroadcastReceiver avoids launching any visible UI until you explicitly show confirmation
+
+```kotlin
+val tapIntent = PendingIntent.getBroadcast(
+    context,
+    COMPLICATION_REQUEST_CODE,
+    Intent(context, LogCigaretteReceiver::class.java),
+    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+)
+```
+
+**Step 2 — BroadcastReceiver handles action:**
+- `LogCigaretteReceiver.onReceive()`: write event to local database, queue sync to phone
+- Then launch `ConfirmationActivity` with `SUCCESS_ANIMATION`
+
+```kotlin
+class LogCigaretteReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        // Execute action
+        CigaretteRepository.logEvent(timestamp = System.currentTimeMillis())
+
+        // Show confirmation overlay
+        val confirmIntent = Intent(context, ConfirmationActivity::class.java).apply {
+            putExtra(ConfirmationActivity.EXTRA_ANIMATION_TYPE, ConfirmationActivity.SUCCESS_ANIMATION)
+            putExtra(ConfirmationActivity.EXTRA_MESSAGE, "Logged")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(confirmIntent)
+
+        // Force complication update
+        ProviderUpdateRequester(context, ComponentName(context, CigaretteComplication::class.java))
+            .requestUpdateAll()
+    }
+}
+```
+
+**Step 3 — ConfirmationActivity:**
+- Built-in Wear OS component: shows animated checkmark (success) or X (failure)
+- Auto-dismisses after ~2000ms, returns user to watch face
+- No user interaction needed — it is purely visual confirmation
+
+**Step 4 — Complication update:**
+- `ProviderUpdateRequester.requestUpdateAll()` forces the system to re-query your `ComplicationDataSource`
+- Your data source returns the updated count/value
+- The complication on the watch face reflects the new data immediately
+
+**Horologist alternative:**
+- Use `ConfirmationOverlay` composable from Horologist library for a Compose-based confirmation
+- Shows icon + message text, auto-hides after specified duration
+
+### watchOS Implementation
+
+**Step 1 — Complication tap target:**
+- Set `widgetURL` or use deep link in your `CLKComplicationDataSource` timeline entries
+- With WidgetKit (watchOS 9+): use `AppIntent` framework for direct action execution
+
+**Step 2 — AppIntent handles action:**
+
+```swift
+struct LogCigaretteIntent: AppIntent {
+    static var title: LocalizedStringResource = "Log Cigarette"
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        CigaretteStore.shared.logEvent(date: .now)
+        return .result(dialog: "Logged ✓")
+    }
+}
+```
+
+**Step 3 — Widget/Complication update:**
+- Call `WidgetCenter.shared.reloadTimelines(ofKind: "CigaretteComplication")` inside the intent
+- The complication re-renders with updated data from the shared data store
+- For `CLKComplicationServer`: call `reloadTimeline(for:)` on active complications
+
+**Step 4 — Haptic confirmation:**
+- Always fire haptic on action completion — the user may not be looking at the screen
+- `WKInterfaceDevice.current().play(.success)` for successful action
+- `WKInterfaceDevice.current().play(.failure)` if action fails
+
+### Haptic Feedback (Both Platforms)
+
+Haptic confirmation is **mandatory** for complication-to-action, not optional. The user taps a tiny target on the watch face — they need physical confirmation that it registered.
+
+**Wear OS:**
+```kotlin
+val vibrator = context.getSystemService(Vibrator::class.java)
+vibrator.vibrate(VibrationEffect.createOneShot(50, 180))
+```
+- Duration: 50ms (short, crisp)
+- Amplitude: 180 (firm but not jarring, scale 1-255)
+
+**watchOS:**
+- Success: `WKHapticType.success` (double tap feeling)
+- Failure: `WKHapticType.failure` (three quick taps)
+- Retry prompt: `WKHapticType.retry` (single firm tap)
+
+### Error Handling
+
+When the background action fails (database error, storage full, etc.):
+
+**Wear OS:**
+- Launch `ConfirmationActivity` with `FAILURE_ANIMATION` instead of `SUCCESS_ANIMATION`
+- Add a "Retry?" button by launching a minimal activity after the failure animation
+- Log the failure for debugging; do not silently swallow errors
+
+**watchOS:**
+- Return `.result(dialog: "Failed")` from the AppIntent
+- Fire `.failure` haptic
+- If the intent supports it, provide a "Retry" action in the dialog
+
+### Offline Queueing
+
+The phone may be unreachable when the user taps the complication. The action must still succeed locally.
+
+**Strategy:**
+1. Always write the action to local storage first (Room DB on Wear OS, Core Data/SwiftData on watchOS)
+2. Queue a sync task for when the phone becomes reachable
+3. Show the success confirmation to the user (the local action succeeded)
+4. Display a small "pending sync" badge on the complication (e.g., tiny dot or cloud icon)
+5. When the phone reconnects, flush the queue and remove the pending badge
+6. If the queue grows beyond 50 items, warn the user to check phone connection
+
+**Wear OS pending badge:**
+- Use `SmallImage` type complication with an overlay dot
+- Or use `ShortText` with a trailing "•" character when items are pending
+
+**watchOS pending badge:**
+- Add a small indicator in the complication's `CLKComplicationTemplate` or WidgetKit view
+- Use SF Symbol `arrow.triangle.2.circlepath` (sync pending) as a small overlay
+
+### Performance Requirements
+
+| Metric | Target | Rationale |
+|--------|--------|-----------|
+| Tap-to-haptic latency | < 200ms | User must feel response instantly |
+| Action execution | < 500ms | Database write + queue sync |
+| Confirmation display | 1.5–2s | Long enough to read, short enough to not annoy |
+| Complication update | < 1s after action | User sees new count immediately |
+| Total interaction | < 3s | Faster than pulling out phone |
+
+### Checklist
+
+- ✅ Tap targets a BroadcastReceiver (Wear OS) or AppIntent (watchOS), not a full Activity
+- ✅ Haptic fires within 200ms of tap
+- ✅ ConfirmationActivity/dialog auto-dismisses in 2 seconds
+- ✅ Complication data updates immediately after action
+- ✅ Action writes to local storage first, syncs to phone second
+- ✅ Offline queue with pending badge on complication
+- ✅ Failure shows error animation + retry option
+- ❌ Do not launch the full app for single-action operations
+- ❌ Do not require network connectivity for the action to succeed locally
+- ❌ Do not skip haptic feedback (user may not be looking at screen)
+- ❌ Do not show confirmation for longer than 3 seconds (blocks watch face)
+
+**Sources:** [Wear OS Complications Data Source](https://developer.android.com/training/wearables/complications/data-source), [ConfirmationActivity](https://developer.android.com/reference/androidx/wear/activity/ConfirmationActivity), [ClockKit](https://developer.apple.com/documentation/clockkit), [WidgetKit AppIntent](https://developer.apple.com/documentation/widgetkit/adding-interactivity-to-widgets-and-live-activities), [Horologist ConfirmationOverlay](https://google.github.io/horologist/)
+
+---
+
+## BV. Watch App Icon Specifications
+
+> Detailed icon specifications for watch app launchers, complications, and app stores.
+> A watch app icon is viewed at approximately 48dp on a 1.2–1.9" screen — clarity and simplicity are paramount.
+> Sources: [Wear OS Icon Guidelines](https://developer.android.com/training/wearables/design/app-icons), [Apple HIG App Icons](https://developer.apple.com/design/human-interface-guidelines/app-icons), [Adaptive Icons](https://developer.android.com/develop/ui/views/launch/icon_design_adaptive)
+
+### Wear OS Launcher Icon
+
+**Dimensions and format:**
+- Master size: 300×300px (xxxhdpi), system scales down to 48dp for display
+- Provide all density buckets: mdpi (48×48), hdpi (72×72), xhdpi (96×96), xxhdpi (144×144), xxxhdpi (192×192 or 300×300)
+- Format: WebP (preferred) or PNG
+- File location: `res/mipmap-xxxhdpi/ic_launcher.webp` and `ic_launcher_round.webp`
+
+**Shape and masking:**
+- The system applies a **circular mask** automatically on Wear OS
+- Design your icon as a full-bleed square; the system will crop to circle
+- Safe zone: keep all meaningful content within the **center 75%** (225×225px area at 300px master)
+- Content outside the safe zone will be clipped by the circular mask — use it only for background color/pattern
+
+**Adaptive icon layers:**
+- Provide two layers: foreground (symbol/logo) and background (solid color or gradient)
+- Foreground layer: PNG with transparency, centered symbol
+- Background layer: opaque color or simple gradient
+- The system applies subtle parallax motion between layers on tilt — design for it
+- Declare in `AndroidManifest.xml` via `<adaptive-icon>` or in `ic_launcher.xml` resource
+
+**Design guidelines:**
+- Symbol: centered, occupying maximum **60% of total area** (180×180px at 300px master)
+- Use high contrast between symbol and background — test on OLED black watch face
+- Background: use brand primary color or simple gradient; **avoid pure black** (#000000) as it blends with the OLED display and makes the icon invisible on dark watch faces
+- Minimum recommended background luminance: #1A1A1A or brighter
+- No text in the icon — at 48dp displayed size, text is illegible
+- No photographs or screenshots — they become muddy noise at small sizes
+- Line weight: minimum 2dp strokes at displayed size (approximately 12px at 300px master)
+
+**Testing your icon:**
+- View at actual 48dp size on a real watch or emulator
+- Place on a dark watch face AND a light watch face — both must work
+- Compare visual weight against system icons (Settings gear, Play Store icon)
+- Walk 3 steps back from the watch on your wrist — can you still identify the icon?
+
+### watchOS App Icon
+
+**Dimensions and full size set:**
+- Master design: **1024×1024px** (used for App Store listing)
+- Device sizes required (all @2x):
+  - 38mm: 80×80px
+  - 40mm: 88×88px (172×172px @2x)
+  - 41mm: 92×92px (181×181px @2x)
+  - 42mm: 80×80px
+  - 44mm: 100×100px (196×196px @2x)
+  - 45mm: 102×102px (204×204px @2x)
+  - 49mm Ultra: 108×108px (215×215px @2x)
+- Notification icon sizes: 24×24px, 27.5×27.5px, 29×29px, 33×33px (@2x variants)
+- Companion Settings icon: 58×58px (@2x), 87×87px (@3x)
+
+**Shape and masking:**
+- The system applies a **squircle** (continuous corner radius / superellipse) mask automatically
+- Design as a full-bleed square — the OS handles the corner rounding
+- Safe zone: keep all meaningful content within the **center 80%** (820×820px area at 1024px master)
+- Corners get rounded aggressively — never place important content near edges
+
+**Design guidelines:**
+- Background: **MUST be opaque** — transparency is not allowed (unlike iOS app icons, watchOS requires a solid background since watchOS 6)
+- Symbol: simple, recognizable silhouette, centered, occupying maximum **65% of total area**
+- Color: use brand primary color, but consider **increasing saturation by 5-10%** compared to the phone icon — small icons benefit from slightly more vivid colors
+- No text, no photographs, no screenshots — same rules as Wear OS
+- Ensure the icon is identifiable at 40px physical display size
+- Stroke weight: minimum 2pt at the smallest display size
+
+**Dark and tinted mode (watchOS 10+):**
+- watchOS 10 introduced automatic icon tinting for certain watch face styles
+- Provide an alternate dark-mode icon variant in your asset catalog
+- The system may desaturate or tint your icon — test with multiple watch face color themes
+- Recommended: provide a monochrome "template" version alongside the full-color icon
+
+**Asset catalog setup:**
+- Create `AppIcon` set in `Assets.xcassets` with watchOS target
+- Xcode will show slots for each required size
+- Use a single 1024×1024 master and let Xcode auto-generate sizes, OR provide hand-optimized versions for each size (recommended for complex icons)
+
+**Testing your icon:**
+- Preview in Xcode's asset catalog at all sizes simultaneously
+- Test on physical device with both light and dark watch faces
+- Test alongside native Apple apps — your icon should feel native in weight and style
+- Check the App Store listing on an iPhone — the 1024px version must also look good at phone-screen sizes
+
+### Complication Icons (Separate from App Icon)
+
+Complication icons appear on the watch face itself, alongside time and other data. They have different requirements from the app launcher icon.
+
+**Wear OS complication icon:**
+- Size: 24dp (approximately 72px at xxxhdpi)
+- Style: single-color silhouette — the system tints it to match the watch face theme
+- Weight: match Material Icon weight (outlined, 2dp stroke)
+- Format: vector drawable (XML) preferred, PNG acceptable
+- Keep it simple: the icon is displayed at approximately 7mm physical size
+- No background shape — the icon floats on the watch face
+- File: `res/drawable/ic_complication.xml`
+
+**watchOS complication icon:**
+- Style: SF Symbol aesthetic — consistent stroke weight, geometric precision
+- Rendering mode: template (single color, tinted by the system based on watch face)
+- Provide as PDF or SVG in the asset catalog with "Render As: Template Image"
+- Sizes: match the complication family (graphic circular, graphic corner, etc.)
+- Must be legible in both light and dark tint colors — test with white and black tinting
+
+### General Icon Design Tips
+
+**The "3-step test":**
+1. Display the icon on a real watch, on your wrist
+2. Walk 3 steps away from a mirror
+3. If you can identify the icon at that distance, it passes — if not, simplify further
+
+**Visual consistency:**
+- Compare your icon against platform system icons (Settings, Workout, Timer)
+- Match the visual weight: if system icons use 2dp strokes, yours should too
+- Use the platform's icon grid template for alignment:
+  - Wear OS: [Adaptive Icon Grid](https://developer.android.com/develop/ui/views/launch/icon_design_adaptive)
+  - watchOS: Apple's icon grid in the HIG resources
+
+**Color for small sizes:**
+- Darker colors lose detail on OLED — keep primary background above #2A2A2A
+- Highly saturated colors pop better at small sizes than muted tones
+- Test with protanopia and deuteranopia filters — icon must be distinguishable by shape, not just color
+
+**Common mistakes to avoid:**
+- Putting the company name or app name as text in the icon
+- Using a photo or screenshot as the icon background
+- Designing at 1024px without checking how it looks at 48dp
+- Using pure black background on Wear OS (invisible on OLED watch faces)
+- Ignoring the safe zone and losing content to circular/squircle masking
+- Making the symbol too detailed — features smaller than 2dp disappear at displayed size
+
+### Icon Specifications Quick Reference
+
+| Property | Wear OS | watchOS |
+|----------|---------|---------|
+| Master size | 300×300px (xxxhdpi) | 1024×1024px |
+| Display size | 48dp | ~40-54pt (varies by model) |
+| Shape mask | Circle (automatic) | Squircle (automatic) |
+| Safe zone | Center 75% | Center 80% |
+| Max symbol area | 60% | 65% |
+| Background | Opaque, avoid #000000 | Opaque required, no transparency |
+| Text allowed | No | No |
+| Format | WebP/PNG, adaptive icon XML | PNG in asset catalog |
+| Complication icon | 24dp, single-color vector | SF Symbol style, template render |
+| Dark mode variant | N/A (system handles) | Yes (watchOS 10+) |
+
+### Checklist
+
+- ✅ Master icon designed at platform-specified master resolution
+- ✅ All meaningful content within safe zone (75% Wear OS, 80% watchOS)
+- ✅ Symbol is recognizable at 48dp / 40pt actual display size
+- ✅ Background is not pure black (#000000) on Wear OS
+- ✅ Background is fully opaque on watchOS (no transparency)
+- ✅ No text, no photographs, no screenshots in the icon
+- ✅ Adaptive icon layers provided for Wear OS (foreground + background)
+- ✅ All required sizes provided in watchOS asset catalog
+- ✅ Complication icon is single-color, template-rendered, separate from app icon
+- ✅ Tested on real device at arm's length with both light and dark watch faces
+- ✅ Dark/tinted mode variant provided for watchOS 10+
+- ❌ Do not use gradients with more than 2 stops (becomes mud at small size)
+- ❌ Do not exceed 65% symbol area (icon feels cramped)
+- ❌ Do not hand-pick icon sizes — use the platform's density system
+
+**Sources:** [Wear OS App Icon Guidelines](https://developer.android.com/training/wearables/design/app-icons), [Adaptive Icons](https://developer.android.com/develop/ui/views/launch/icon_design_adaptive), [Apple HIG App Icons](https://developer.apple.com/design/human-interface-guidelines/app-icons), [Apple watchOS Icon Sizes](https://developer.apple.com/design/human-interface-guidelines/app-icons#watchOS-app-icon-sizes), [SF Symbols](https://developer.apple.com/sf-symbols/)
+
+---
+
+*Bible UX Wearable - Sections BC-BV added March 2026*
 *Sources include: Apple Developer Documentation, Android Developer Documentation, Garmin Connect IQ SDK, FDA regulatory guidance, NEJM, Nature Medicine, AHA standards, FiRa Consortium, NNGroup, WHO guidance*
