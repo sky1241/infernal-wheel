@@ -1232,11 +1232,11 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
   backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
   border-radius:24px !important;
   padding:28px 28px 18px !important;
-  position:relative;overflow:visible !important;
+  position:relative;overflow:hidden !important;
 }
 .acBox::before{
-  content:'';position:absolute;top:-40%;right:-10%;width:120%;height:100%;
-  background:radial-gradient(ellipse at 25% 0%,var(--curr-glow, rgba(102,126,234,.07)) 0%,transparent 50%);
+  content:'';position:absolute;top:-20%;right:0;width:100%;height:80%;
+  background:radial-gradient(ellipse at 30% 0%,var(--curr-glow, rgba(102,126,234,.04)) 0%,transparent 45%);
   pointer-events:none;z-index:0;
 }
 .acBox::after{
@@ -1251,22 +1251,29 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
   margin-bottom:18px;position:relative;z-index:1;
 }
 
-/* --- Elapsed ring (mirrors WORK ring) --- */
+/* --- Elapsed halo (pure CSS glow, no SVG) --- */
 .ac-ring-wrap{
   position:relative;width:150px;height:150px;flex-shrink:0;
 }
-.ac-ring{width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
-.ac-ring-track{fill:none;stroke:rgba(255,255,255,.07);stroke-width:9}
-.ac-ring-fill{
-  fill:none;stroke:url(#acRingGrad);stroke-width:9;
-  stroke-linecap:round;
-  transition:stroke-dashoffset .8s cubic-bezier(.4,0,.2,1);
-  filter:drop-shadow(0 0 10px var(--curr-glow, rgba(102,126,234,.5)));
-}
+.ac-ring{display:none}
+/* Pulsating ring border — breathes in/out */
 .ac-ring-wrap::before{
-  content:'';position:absolute;inset:-8px;border-radius:50%;
-  background:radial-gradient(circle,var(--curr-glow, rgba(102,126,234,.05)) 60%,transparent 70%);
+  content:'';position:absolute;inset:6px;border-radius:50%;
+  border:2px solid var(--curr-border, rgba(102,126,234,.2));
+  box-shadow:
+    0 0 10px var(--curr-glow, rgba(102,126,234,.12)),
+    inset 0 0 10px var(--curr-glow, rgba(102,126,234,.04));
   pointer-events:none;
+  animation:acHaloBreathe 3s ease-in-out infinite;
+}
+/* Orbiting light arc — "time is passing" indicator */
+.ac-ring-wrap::after{
+  content:'';position:absolute;inset:4px;border-radius:50%;
+  border:2px solid transparent;
+  border-top-color:var(--curr-border, rgba(102,126,234,.4));
+  box-shadow:0 0 8px var(--curr-glow, rgba(102,126,234,.15));
+  pointer-events:none;
+  animation:acOrbit 4s linear infinite;
 }
 .ac-ring-center{
   position:absolute;inset:0;display:flex;flex-direction:column;
@@ -1282,12 +1289,21 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
   font-size:.55rem;text-transform:uppercase;letter-spacing:1.5px;
   color:rgba(255,255,255,.3);margin-top:3px;font-weight:500;
 }
-/* Ring breathe */
-@keyframes acRingBreathe{
-  0%,100%{filter:drop-shadow(0 0 8px var(--curr-glow, rgba(102,126,234,.4)))}
-  50%{filter:drop-shadow(0 0 18px var(--curr-glow, rgba(102,126,234,.7)))}
+/* Action halo animations */
+@keyframes acHaloBreathe{
+  0%,100%{
+    box-shadow:0 0 8px var(--curr-glow, rgba(102,126,234,.1)),inset 0 0 8px var(--curr-glow, rgba(102,126,234,.03));
+    border-color:var(--curr-border, rgba(102,126,234,.15));
+  }
+  50%{
+    box-shadow:0 0 16px var(--curr-glow, rgba(102,126,234,.2)),inset 0 0 14px var(--curr-glow, rgba(102,126,234,.06));
+    border-color:var(--curr-border, rgba(102,126,234,.3));
+  }
 }
-.ac-ring-fill{animation:acRingBreathe 3s ease-in-out infinite}
+@keyframes acOrbit{
+  from{transform:rotate(0deg)}
+  to{transform:rotate(360deg)}
+}
 
 /* --- Right data column --- */
 .ac-data{flex:1;min-width:0;display:flex;flex-direction:column;gap:14px;position:relative;z-index:1}
@@ -1397,7 +1413,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 @media(prefers-reduced-motion:reduce){
   .acBox .ac-particle{display:none}
   .ac-ring-wrap,.ac-hero,.ac-info-row,.ac-bar,.ac-note{animation:none !important;opacity:1}
-  .ac-ring-fill{animation:none !important}
+  .ac-ring-wrap::before,.ac-ring-wrap::after{animation:none !important}
   .acBox{animation:none !important}
 }
 /* Mobile */
@@ -2784,10 +2800,6 @@ body{
       <stop offset="0%" stop-color="var(--accent,#35d99a)"/>
       <stop offset="100%" stop-color="#6bbcff"/>
     </linearGradient>
-    <linearGradient id="acRingGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#667eea"/>
-      <stop offset="100%" stop-color="#a78bfa"/>
-    </linearGradient>
   </defs>
 </svg>
 <!-- [skip_link_wcag_2_4_1] -->
@@ -2886,10 +2898,7 @@ body{
         <!-- Mirror layout: elapsed ring left + data right -->
         <div class="ac-top">
           <div class="ac-ring-wrap" id="kTimerWrap">
-            <svg class="ac-ring" viewBox="0 0 200 200" style="overflow:visible" aria-hidden="true">
-              <circle class="ac-ring-track" cx="100" cy="100" r="85" />
-              <circle class="ac-ring-fill" id="acRingFill" cx="100" cy="100" r="85" stroke-dasharray="534.07" stroke-dashoffset="0" />
-            </svg>
+            <!-- Ring is pure CSS halo now, no SVG needed -->
             <div class="ac-ring-center">
               <div class="ac-ring-val" id="kTimerElapsed">-</div>
               <div class="ac-ring-lbl">elapsed</div>
@@ -4598,14 +4607,7 @@ async function refreshLive(){
         document.getElementById("liveCard").classList.remove("alert");
       }
     }
-    // Elapsed ring gauge
-    const acRing = document.getElementById("acRingFill");
-    if(acRing){
-      const total = (j.elapsedSec||0) + (j.remainSec||0);
-      const acPct = total > 0 ? Math.min(100, ((j.elapsedSec||0)/total)*100) : (j.overtimeSec > 0 ? 100 : 0);
-      const circ = 2 * Math.PI * 85;
-      acRing.style.strokeDashoffset = (circ - (circ * acPct / 100)).toFixed(1);
-    }
+    // Elapsed ring is now halo-only (no fill arc to update)
     // Action bar fill
     const acBar = document.getElementById("acBarFill");
     if(acBar){
