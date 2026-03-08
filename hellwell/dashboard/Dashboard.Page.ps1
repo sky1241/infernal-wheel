@@ -1225,6 +1225,124 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .currentBox.action-meditation{--curr-border:rgba(79,107,255,.7); --curr-bg:rgba(79,107,255,.12); --curr-glow:rgba(79,107,255,.45)}
 .currentBox.action-glandouille{--curr-border:rgba(155,92,255,.7); --curr-bg:rgba(155,92,255,.12); --curr-glow:rgba(155,92,255,.45)}
 .currentBox.action-chier{--curr-border:rgba(255,153,85,.7); --curr-bg:rgba(255,153,85,.12); --curr-glow:rgba(255,153,85,.45)}
+
+/* ========== Action en cours — Glass Cockpit ========== */
+.acBox{
+  background:linear-gradient(165deg,rgba(14,20,30,.95),rgba(8,12,20,.98)) !important;
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-radius:24px !important;
+  padding:24px 24px 16px !important;
+  position:relative;overflow:visible !important;
+}
+/* Ambient glow (uses action color via --curr-glow) */
+.acBox::before{
+  content:'';position:absolute;top:-40%;left:-10%;width:120%;height:100%;
+  background:radial-gradient(ellipse at 70% 0%,var(--curr-glow, rgba(102,126,234,.06)) 0%,transparent 50%);
+  pointer-events:none;z-index:0;opacity:.4;
+}
+/* Bottom light line */
+.acBox::after{
+  content:'';position:absolute;bottom:0;left:10%;right:10%;height:1px;
+  background:linear-gradient(90deg,transparent,var(--curr-border, rgba(102,126,234,.2)),transparent);
+  pointer-events:none;
+}
+/* Header */
+.ac-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding-bottom:8px;position:relative;z-index:1;
+}
+.ac-title{
+  font-size:.75rem;font-weight:600;color:rgba(255,255,255,.5);
+  letter-spacing:.5px;display:flex;align-items:center;gap:8px;
+}
+.ac-title-icon{font-size:1rem}
+/* Action name — hero style with action color */
+.ac-name{
+  font-size:2.2rem;font-weight:900;letter-spacing:-1px;line-height:1.1;
+  color:#fff;position:relative;z-index:1;
+  padding:8px 0 16px;
+  text-shadow:0 0 30px var(--curr-glow, rgba(102,126,234,.3));
+}
+/* Timers — side by side with separator */
+.ac-timers{
+  display:flex;align-items:center;gap:20px;
+  padding:12px 16px;border-radius:12px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.06);
+  position:relative;z-index:1;
+}
+.ac-timer{display:flex;flex-direction:column;align-items:center;flex:1}
+.ac-timer-val{
+  font-size:1.5rem;font-weight:800;color:#e6edf3;
+  font-variant-numeric:tabular-nums;letter-spacing:-1px;
+  text-shadow:0 0 15px var(--curr-glow, rgba(102,126,234,.2));
+}
+.ac-timer-val.overtime{color:var(--danger);animation:overtimePulse 1s ease-in-out infinite}
+.ac-timer-lbl{
+  font-size:.6rem;text-transform:uppercase;letter-spacing:1px;
+  color:rgba(255,255,255,.35);margin-top:4px;font-weight:500;
+}
+.ac-timer-sep{
+  width:1px;height:32px;
+  background:linear-gradient(180deg,transparent,rgba(255,255,255,.15),transparent);
+  flex-shrink:0;
+}
+/* Note */
+.ac-note{
+  margin-top:14px;border:1px solid rgba(255,255,255,.04);
+  border-radius:10px;background:rgba(255,255,255,.02);
+  transition:all .2s;position:relative;z-index:1;
+}
+.ac-note:focus-within{
+  border-color:rgba(91,178,255,.2);
+  box-shadow:0 0 0 3px rgba(91,178,255,.06);
+  background:rgba(255,255,255,.03);
+}
+.ac-note-input{
+  width:100%;min-height:36px;resize:vertical;
+  background:transparent;border:none;color:var(--text);
+  padding:8px 12px;outline:none;font-family:inherit;
+  font-size:.78rem;line-height:1.4;
+}
+.ac-note-input::placeholder{color:rgba(255,255,255,.15);font-style:italic}
+.ac-note-status{
+  display:block;font-size:.55rem;padding:0 12px 5px;
+  color:rgba(255,255,255,.2);transition:opacity .3s;
+}
+/* Particles (reuse action color) */
+.acBox .ac-particle{
+  position:absolute;border-radius:50%;pointer-events:none;z-index:0;
+  background:var(--curr-glow, rgba(102,126,234,.4));
+  animation:acFloat linear infinite;
+}
+.acBox .ac-particle:nth-child(1){left:20%;top:80%;width:3px;height:3px;animation-duration:8s;animation-delay:0s}
+.acBox .ac-particle:nth-child(2){left:65%;top:85%;width:2px;height:2px;animation-duration:10s;animation-delay:-3s}
+.acBox .ac-particle:nth-child(3){left:80%;top:70%;width:3px;height:3px;animation-duration:12s;animation-delay:-7s}
+@keyframes acFloat{
+  0%{transform:translateY(0) translateX(0);opacity:0}
+  8%{opacity:.7}
+  85%{opacity:.7}
+  100%{transform:translateY(-130px) translateX(-15px);opacity:0}
+}
+/* Stagger reveal */
+.ac-header{opacity:0;animation:wkSlideIn .3s ease-out forwards;animation-delay:.1s}
+.ac-name{opacity:0;animation:wkSlideIn .4s ease-out forwards;animation-delay:.15s}
+.ac-timers{opacity:0;animation:wkSlideIn .4s ease-out forwards;animation-delay:.25s}
+.ac-note{opacity:0;animation:wkSlideIn .3s ease-out forwards;animation-delay:.35s}
+/* Border shimmer synced with action color */
+@keyframes acBorderShimmer{
+  0%,100%{border-color:var(--curr-border, rgba(102,126,234,.4))}
+  50%{border-color:rgba(255,255,255,.12)}
+}
+.acBox{animation:acBorderShimmer 5s ease-in-out infinite, boxPulse 2.5s ease-in-out infinite}
+
+/* [UX §104] Reduced motion */
+@media(prefers-reduced-motion:reduce){
+  .acBox .ac-particle{display:none}
+  .ac-header,.ac-name,.ac-timers,.ac-note{animation:none !important;opacity:1}
+  .acBox{animation:none !important}
+}
+
 /* Box header + stats - minimal */
 .box-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;margin-bottom:0}
 .box-title{font-weight:500;font-size:.875rem;color:#8b949e;display:flex;align-items:center;gap:10px}
@@ -2693,21 +2811,30 @@ body{
           <small id="quickNoteStatus" class="wk-note-status" role="status" aria-live="polite">-</small>
         </div>
       </div>
-      <div class="box currentBox" id="currentBox" role="region" aria-label="Action en cours">
-        <div class="box-header">
-          <div class="box-title"><span class="box-title-icon" aria-hidden="true">&#9654;&#65039;</span><span>Action en cours</span></div>
+      <div class="box currentBox acBox" id="currentBox" role="region" aria-label="Action en cours">
+        <div class="ac-particle" aria-hidden="true"></div>
+        <div class="ac-particle" aria-hidden="true"></div>
+        <div class="ac-particle" aria-hidden="true"></div>
+        <div class="ac-header">
+          <div class="ac-title"><span class="ac-title-icon" aria-hidden="true">&#9654;&#65039;</span>Action en cours</div>
           <div class="box-action-flags" id="kSeg2"></div>
         </div>
-        <div class="box-action-row"><div class="box-action-main" id="kSeg">-</div></div>
-        <div class="box-timer" id="kTimerWrap">
-          <div class="box-timer-item"><div class="box-timer-value" id="kTimerElapsed">-</div><div class="box-timer-label">Elapsed</div></div>
-          <div class="box-timer-item"><div class="box-timer-value" id="kTimerRemain">-</div><div class="box-timer-label">Restant</div></div>
+        <div class="ac-name" id="kSeg">-</div>
+        <div class="ac-timers" id="kTimerWrap">
+          <div class="ac-timer">
+            <div class="ac-timer-val" id="kTimerElapsed">-</div>
+            <div class="ac-timer-lbl">Elapsed</div>
+          </div>
+          <div class="ac-timer-sep" aria-hidden="true"></div>
+          <div class="ac-timer">
+            <div class="ac-timer-val" id="kTimerRemain">-</div>
+            <div class="ac-timer-lbl">Restant</div>
+          </div>
         </div>
-        <div class="box-divider"></div>
-        <div class="miniNoteWrap">
+        <div class="ac-note">
           <label for="scratchNote" class="sr-only">Note action</label>
-          <textarea id="scratchNote" class="miniNote" placeholder="Note action..." aria-label="Note action"></textarea>
-          <small id="actionNoteStatus" class="muted" role="status" aria-live="polite">-</small>
+          <textarea id="scratchNote" class="ac-note-input" placeholder="Note action..." aria-label="Note action"></textarea>
+          <small id="actionNoteStatus" class="ac-note-status" role="status" aria-live="polite">-</small>
         </div>
       </div>
     <div class="box agendaBox" role="region" aria-label="Agenda du jour">
@@ -4588,13 +4715,13 @@ if(an){
     if(j && j.ok){
       an.value = j.content || "";
       aLast = an.value;
-      if(ans) ans.textContent = "loaded";
+      if(ans) ans.textContent = "\u2713";
     } else {
       if(ans) ans.textContent = "error";
       showToast("Impossible de charger la note action.", "error", "Notes");
     }
   });
-  an.addEventListener("input", ()=>{ aDirty = true; if(ans) ans.textContent = "saving..."; });
+  an.addEventListener("input", ()=>{ aDirty = true; if(ans) ans.textContent = "\u2022\u2022\u2022"; });
   setInterval(async ()=>{
     const current = an.value || "";
     if(!aDirty && current === aLast){ return; }
@@ -4602,7 +4729,7 @@ if(an){
     if(j && j.ok){
       aLast = current;
       aDirty = false;
-      if(ans) ans.textContent = "saved";
+      if(ans) ans.textContent = "\u2713";
     } else {
       if(ans) ans.textContent = "error";
       showToast("Erreur sauvegarde note action.", "error", "Notes");
