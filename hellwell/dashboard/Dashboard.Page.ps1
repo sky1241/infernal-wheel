@@ -1226,68 +1226,119 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .currentBox.action-glandouille{--curr-border:rgba(155,92,255,.7); --curr-bg:rgba(155,92,255,.12); --curr-glow:rgba(155,92,255,.45)}
 .currentBox.action-chier{--curr-border:rgba(255,153,85,.7); --curr-bg:rgba(255,153,85,.12); --curr-glow:rgba(255,153,85,.45)}
 
-/* ========== Action en cours — Glass Cockpit ========== */
+/* ========== Action en cours — Glass Cockpit (mirrored) ========== */
 .acBox{
   background:linear-gradient(165deg,rgba(14,20,30,.95),rgba(8,12,20,.98)) !important;
   backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
   border-radius:24px !important;
-  padding:24px 24px 16px !important;
+  padding:28px 28px 18px !important;
   position:relative;overflow:visible !important;
 }
-/* Ambient glow (uses action color via --curr-glow) */
 .acBox::before{
-  content:'';position:absolute;top:-40%;left:-10%;width:120%;height:100%;
-  background:radial-gradient(ellipse at 70% 0%,var(--curr-glow, rgba(102,126,234,.06)) 0%,transparent 50%);
-  pointer-events:none;z-index:0;opacity:.4;
+  content:'';position:absolute;top:-40%;right:-10%;width:120%;height:100%;
+  background:radial-gradient(ellipse at 25% 0%,var(--curr-glow, rgba(102,126,234,.07)) 0%,transparent 50%);
+  pointer-events:none;z-index:0;
 }
-/* Bottom light line */
 .acBox::after{
   content:'';position:absolute;bottom:0;left:10%;right:10%;height:1px;
-  background:linear-gradient(90deg,transparent,var(--curr-border, rgba(102,126,234,.2)),transparent);
+  background:linear-gradient(90deg,transparent,var(--curr-border, rgba(102,126,234,.25)),transparent);
   pointer-events:none;
 }
-/* Header */
-.ac-header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding-bottom:8px;position:relative;z-index:1;
+
+/* --- Mirror layout: ring left + data right --- */
+.ac-top{
+  display:flex;align-items:center;gap:28px;
+  margin-bottom:18px;position:relative;z-index:1;
 }
-.ac-title{
-  font-size:.75rem;font-weight:600;color:rgba(255,255,255,.5);
-  letter-spacing:.5px;display:flex;align-items:center;gap:8px;
+
+/* --- Elapsed ring (mirrors WORK ring) --- */
+.ac-ring-wrap{
+  position:relative;width:150px;height:150px;flex-shrink:0;
 }
-.ac-title-icon{font-size:1rem}
-/* Action name — hero style with action color */
+.ac-ring{width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
+.ac-ring-track{fill:none;stroke:rgba(255,255,255,.07);stroke-width:9}
+.ac-ring-fill{
+  fill:none;stroke:url(#acRingGrad);stroke-width:9;
+  stroke-linecap:round;
+  transition:stroke-dashoffset .8s cubic-bezier(.4,0,.2,1);
+  filter:drop-shadow(0 0 10px var(--curr-glow, rgba(102,126,234,.5)));
+}
+.ac-ring-wrap::before{
+  content:'';position:absolute;inset:-8px;border-radius:50%;
+  background:radial-gradient(circle,var(--curr-glow, rgba(102,126,234,.05)) 60%,transparent 70%);
+  pointer-events:none;
+}
+.ac-ring-center{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+}
+.ac-ring-val{
+  font-size:2.2rem;font-weight:800;letter-spacing:-1.5px;
+  color:#fff;line-height:1;font-variant-numeric:tabular-nums;
+  text-shadow:0 0 20px var(--curr-glow, rgba(102,126,234,.3));
+}
+.ac-ring-val.overtime{color:var(--danger);animation:overtimePulse 1s ease-in-out infinite}
+.ac-ring-lbl{
+  font-size:.55rem;text-transform:uppercase;letter-spacing:1.5px;
+  color:rgba(255,255,255,.3);margin-top:3px;font-weight:500;
+}
+/* Ring breathe */
+@keyframes acRingBreathe{
+  0%,100%{filter:drop-shadow(0 0 8px var(--curr-glow, rgba(102,126,234,.4)))}
+  50%{filter:drop-shadow(0 0 18px var(--curr-glow, rgba(102,126,234,.7)))}
+}
+.ac-ring-fill{animation:acRingBreathe 3s ease-in-out infinite}
+
+/* --- Right data column --- */
+.ac-data{flex:1;min-width:0;display:flex;flex-direction:column;gap:14px;position:relative;z-index:1}
+
+/* Hero action name */
+.ac-hero{padding:0}
 .ac-name{
-  font-size:2.2rem;font-weight:900;letter-spacing:-1px;line-height:1.1;
-  color:#fff;position:relative;z-index:1;
-  padding:8px 0 16px;
-  text-shadow:0 0 30px var(--curr-glow, rgba(102,126,234,.3));
+  font-size:2.2rem;font-weight:900;letter-spacing:-1px;line-height:1;
+  color:#fff;padding:0;
+  text-shadow:0 0 30px var(--curr-glow, rgba(102,126,234,.35));
 }
-/* Timers — side by side with separator */
-.ac-timers{
-  display:flex;align-items:center;gap:20px;
-  padding:12px 16px;border-radius:12px;
+.ac-subtitle{
+  font-size:.6rem;color:rgba(255,255,255,.3);margin-top:5px;
+  letter-spacing:.5px;font-weight:500;text-transform:uppercase;
+}
+
+/* Info rows (mirrors wk-stat-row) */
+.ac-info-rows{display:flex;flex-direction:column;gap:5px}
+.ac-info-row{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 12px;border-radius:10px;
   background:rgba(255,255,255,.04);
   border:1px solid rgba(255,255,255,.06);
-  position:relative;z-index:1;
+  transition:all .15s;
 }
-.ac-timer{display:flex;flex-direction:column;align-items:center;flex:1}
-.ac-timer-val{
-  font-size:1.5rem;font-weight:800;color:#e6edf3;
-  font-variant-numeric:tabular-nums;letter-spacing:-1px;
-  text-shadow:0 0 15px var(--curr-glow, rgba(102,126,234,.2));
+.ac-info-row:hover{
+  background:rgba(255,255,255,.08);
+  transform:translateX(2px);
 }
-.ac-timer-val.overtime{color:var(--danger);animation:overtimePulse 1s ease-in-out infinite}
-.ac-timer-lbl{
-  font-size:.6rem;text-transform:uppercase;letter-spacing:1px;
-  color:rgba(255,255,255,.35);margin-top:4px;font-weight:500;
+.ac-info-lbl{
+  font-size:.7rem;color:rgba(255,255,255,.45);font-weight:500;flex:1;
 }
-.ac-timer-sep{
-  width:1px;height:32px;
-  background:linear-gradient(180deg,transparent,rgba(255,255,255,.15),transparent);
-  flex-shrink:0;
+.ac-info-val{
+  font-size:.9rem;font-weight:700;color:#e6edf3;
+  font-variant-numeric:tabular-nums;text-align:right;
 }
-/* Note */
+.ac-info-val.overtime{color:var(--danger)}
+
+/* --- Bar (matches WORK bar) --- */
+.ac-bar{
+  height:5px;background:rgba(255,255,255,.06);border-radius:3px;
+  overflow:hidden;margin:0 4px;position:relative;z-index:1;
+}
+.ac-bar-fill{
+  height:100%;border-radius:3px;width:0%;
+  background:linear-gradient(90deg,var(--curr-border, rgba(102,126,234,.7)),var(--curr-glow, rgba(102,126,234,.4)));
+  box-shadow:0 0 12px var(--curr-glow, rgba(102,126,234,.3));
+  transition:width .6s cubic-bezier(.4,0,.2,1);
+}
+
+/* --- Note (same style as WORK) --- */
 .ac-note{
   margin-top:14px;border:1px solid rgba(255,255,255,.04);
   border-radius:10px;background:rgba(255,255,255,.02);
@@ -1309,38 +1360,51 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
   display:block;font-size:.55rem;padding:0 12px 5px;
   color:rgba(255,255,255,.2);transition:opacity .3s;
 }
-/* Particles (reuse action color) */
+
+/* --- Particles --- */
 .acBox .ac-particle{
   position:absolute;border-radius:50%;pointer-events:none;z-index:0;
   background:var(--curr-glow, rgba(102,126,234,.4));
   animation:acFloat linear infinite;
 }
-.acBox .ac-particle:nth-child(1){left:20%;top:80%;width:3px;height:3px;animation-duration:8s;animation-delay:0s}
-.acBox .ac-particle:nth-child(2){left:65%;top:85%;width:2px;height:2px;animation-duration:10s;animation-delay:-3s}
-.acBox .ac-particle:nth-child(3){left:80%;top:70%;width:3px;height:3px;animation-duration:12s;animation-delay:-7s}
+.acBox .ac-particle:nth-child(1){left:18%;top:78%;width:3px;height:3px;animation-duration:7s;animation-delay:0s}
+.acBox .ac-particle:nth-child(2){left:68%;top:82%;width:2px;height:2px;animation-duration:10s;animation-delay:-3s}
+.acBox .ac-particle:nth-child(3){left:82%;top:68%;width:3px;height:3px;animation-duration:11s;animation-delay:-6s}
 @keyframes acFloat{
   0%{transform:translateY(0) translateX(0);opacity:0}
   8%{opacity:.7}
   85%{opacity:.7}
   100%{transform:translateY(-130px) translateX(-15px);opacity:0}
 }
-/* Stagger reveal */
-.ac-header{opacity:0;animation:wkSlideIn .3s ease-out forwards;animation-delay:.1s}
-.ac-name{opacity:0;animation:wkSlideIn .4s ease-out forwards;animation-delay:.15s}
-.ac-timers{opacity:0;animation:wkSlideIn .4s ease-out forwards;animation-delay:.25s}
-.ac-note{opacity:0;animation:wkSlideIn .3s ease-out forwards;animation-delay:.35s}
-/* Border shimmer synced with action color */
+
+/* --- Stagger reveal --- */
+.ac-ring-wrap{opacity:0;animation:wkScaleIn .6s cubic-bezier(.175,.885,.32,1.275) forwards}
+.ac-hero{opacity:0;animation:wkSlideIn .5s ease-out forwards;animation-delay:.05s}
+.ac-info-row{opacity:0;animation:wkSlideIn .4s ease-out forwards}
+.ac-info-row:nth-child(1){animation-delay:.15s}
+.ac-info-row:nth-child(2){animation-delay:.25s}
+.ac-bar{opacity:0;animation:wkSlideIn .3s ease-out forwards;animation-delay:.35s}
+.ac-note{opacity:0;animation:wkSlideIn .3s ease-out forwards;animation-delay:.45s}
+
+/* --- Border shimmer --- */
 @keyframes acBorderShimmer{
   0%,100%{border-color:var(--curr-border, rgba(102,126,234,.4))}
-  50%{border-color:rgba(255,255,255,.12)}
+  50%{border-color:rgba(255,255,255,.1)}
 }
 .acBox{animation:acBorderShimmer 5s ease-in-out infinite, boxPulse 2.5s ease-in-out infinite}
 
 /* [UX §104] Reduced motion */
 @media(prefers-reduced-motion:reduce){
   .acBox .ac-particle{display:none}
-  .ac-header,.ac-name,.ac-timers,.ac-note{animation:none !important;opacity:1}
+  .ac-ring-wrap,.ac-hero,.ac-info-row,.ac-bar,.ac-note{animation:none !important;opacity:1}
+  .ac-ring-fill{animation:none !important}
   .acBox{animation:none !important}
+}
+/* Mobile */
+@media(max-width:400px){
+  .ac-top{flex-direction:column;gap:16px}
+  .ac-ring-wrap{width:120px;height:120px}
+  .ac-data{align-items:center;text-align:center}
 }
 
 /* Box header + stats - minimal */
@@ -2720,6 +2784,10 @@ body{
       <stop offset="0%" stop-color="var(--accent,#35d99a)"/>
       <stop offset="100%" stop-color="#6bbcff"/>
     </linearGradient>
+    <linearGradient id="acRingGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#667eea"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
   </defs>
 </svg>
 <!-- [skip_link_wcag_2_4_1] -->
@@ -2815,22 +2883,37 @@ body{
         <div class="ac-particle" aria-hidden="true"></div>
         <div class="ac-particle" aria-hidden="true"></div>
         <div class="ac-particle" aria-hidden="true"></div>
-        <div class="ac-header">
-          <div class="ac-title"><span class="ac-title-icon" aria-hidden="true">&#9654;&#65039;</span>Action en cours</div>
-          <div class="box-action-flags" id="kSeg2"></div>
-        </div>
-        <div class="ac-name" id="kSeg">-</div>
-        <div class="ac-timers" id="kTimerWrap">
-          <div class="ac-timer">
-            <div class="ac-timer-val" id="kTimerElapsed">-</div>
-            <div class="ac-timer-lbl">Elapsed</div>
+        <!-- Mirror layout: elapsed ring left + data right -->
+        <div class="ac-top">
+          <div class="ac-ring-wrap" id="kTimerWrap">
+            <svg class="ac-ring" viewBox="0 0 200 200" style="overflow:visible" aria-hidden="true">
+              <circle class="ac-ring-track" cx="100" cy="100" r="85" />
+              <circle class="ac-ring-fill" id="acRingFill" cx="100" cy="100" r="85" stroke-dasharray="534.07" stroke-dashoffset="0" />
+            </svg>
+            <div class="ac-ring-center">
+              <div class="ac-ring-val" id="kTimerElapsed">-</div>
+              <div class="ac-ring-lbl">elapsed</div>
+            </div>
           </div>
-          <div class="ac-timer-sep" aria-hidden="true"></div>
-          <div class="ac-timer">
-            <div class="ac-timer-val" id="kTimerRemain">-</div>
-            <div class="ac-timer-lbl">Restant</div>
+          <div class="ac-data">
+            <div class="ac-hero">
+              <div class="ac-name" id="kSeg">-</div>
+              <div class="ac-subtitle">action en cours</div>
+            </div>
+            <div class="ac-info-rows">
+              <div class="ac-info-row">
+                <span class="ac-info-lbl">Restant</span>
+                <span class="ac-info-val" id="kTimerRemain">-</span>
+              </div>
+              <div class="ac-info-row">
+                <span class="ac-info-lbl">Status</span>
+                <span class="box-action-flags" id="kSeg2"></span>
+              </div>
+            </div>
           </div>
         </div>
+        <!-- Bar + Note -->
+        <div class="ac-bar"><div class="ac-bar-fill" id="acBarFill"></div></div>
         <div class="ac-note">
           <label for="scratchNote" class="sr-only">Note action</label>
           <textarea id="scratchNote" class="ac-note-input" placeholder="Note action..." aria-label="Note action"></textarea>
@@ -4499,14 +4582,14 @@ async function refreshLive(){
     // Timer display
     const elapsedEl = document.getElementById("kTimerElapsed");
     const remainEl = document.getElementById("kTimerRemain");
-    if(elapsedEl) elapsedEl.textContent = fmtMin(j.elapsedSec) + "m";
+    if(elapsedEl) countUp(elapsedEl, fmtMin(j.elapsedSec), "m");
     if(remainEl){
       if(j.overtimeSec > 0){
         remainEl.textContent = "+" + fmtMin(j.overtimeSec) + "m";
         remainEl.classList.add("overtime");
         document.getElementById("liveCard").classList.add("alert");
       } else if(j.remainSec != null){
-        remainEl.textContent = fmtMin(j.remainSec) + "m";
+        countUp(remainEl, fmtMin(j.remainSec), "m");
         remainEl.classList.remove("overtime");
         document.getElementById("liveCard").classList.remove("alert");
       } else {
@@ -4514,6 +4597,21 @@ async function refreshLive(){
         remainEl.classList.remove("overtime");
         document.getElementById("liveCard").classList.remove("alert");
       }
+    }
+    // Elapsed ring gauge
+    const acRing = document.getElementById("acRingFill");
+    if(acRing){
+      const total = (j.elapsedSec||0) + (j.remainSec||0);
+      const acPct = total > 0 ? Math.min(100, ((j.elapsedSec||0)/total)*100) : (j.overtimeSec > 0 ? 100 : 0);
+      const circ = 2 * Math.PI * 85;
+      acRing.style.strokeDashoffset = (circ - (circ * acPct / 100)).toFixed(1);
+    }
+    // Action bar fill
+    const acBar = document.getElementById("acBarFill");
+    if(acBar){
+      const total2 = (j.elapsedSec||0) + (j.remainSec||0);
+      const acPct2 = total2 > 0 ? Math.min(100, ((j.elapsedSec||0)/total2)*100) : (j.overtimeSec > 0 ? 100 : 0);
+      acBar.style.width = acPct2.toFixed(1) + "%";
     }
 
     if(j.dailyAlcohol){
