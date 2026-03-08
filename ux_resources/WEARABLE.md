@@ -12173,5 +12173,961 @@ The guiding principle for all watch productivity apps:
 
 ---
 
-*Bible UX Wearable - Sections BC-BS added March 2026*
-*Sources include: Apple Developer Documentation, Android Developer Documentation, Garmin Connect IQ SDK, FDA regulatory guidance, NEJM, Nature Medicine, AHA standards, FiRa Consortium, NNGroup, WHO guidance*
+---
+
+## BT. Data Sync Indicator UI
+
+> Visual patterns for showing data synchronisation status between watch and phone.
+> Users must always know whether their data is current, syncing, or stale.
+> Sources: [Wear OS Data Layer](https://developer.android.com/training/wearables/data/data-layer), [WatchConnectivity](https://developer.apple.com/documentation/watchconnectivity), [Material 3 Progress Indicators](https://m3.material.io/components/progress-indicators)
+
+### Syncing State (Active Transfer)
+
+Display a small circular progress indicator while data is actively transferring over Bluetooth or WiFi.
+
+**Wear OS implementation:**
+- Use `CircularProgressIndicator` composable from Wear Compose
+- Size: 16dp diameter, `strokeWidth = 2.dp`
+- Color: `MaterialTheme.colorScheme.primary`
+- Placement: top-right corner of the screen, overlaid on content, or inline next to a "Last synced" label
+- Animation: indeterminate spin (no progress value), `alpha = 0.8f` to keep it subtle
+- Do not block user interaction while syncing — the indicator is informational only
+
+```kotlin
+CircularProgressIndicator(
+    modifier = Modifier.size(16.dp).alpha(0.8f),
+    strokeWidth = 2.dp,
+    color = MaterialTheme.colorScheme.primary
+)
+```
+
+**watchOS implementation:**
+- Use `ProgressView()` with `.scaleEffect(0.6)` to shrink to appropriate watch size
+- Place in `.toolbar` trailing position or inline in a list row
+- SwiftUI automatically handles the indeterminate spin animation
+
+```swift
+ProgressView()
+    .scaleEffect(0.6)
+    .frame(width: 16, height: 16)
+```
+
+**Duration:** Show only during active transfer. If sync completes in under 300ms, skip the indicator entirely to avoid flash. Use a 300ms delay before showing the spinner (debounce).
+
+### Synced State (Success)
+
+After a successful sync, briefly show a confirmation before returning to neutral.
+
+**Wear OS implementation:**
+- Show `Icon(Icons.Rounded.Check, tint = MaterialTheme.colorScheme.primary)` at 16dp
+- Use `AnimatedVisibility` with `fadeIn(animationSpec = tween(300))` + `fadeOut(animationSpec = tween(2000))`
+- Auto-dismiss after 2 seconds — no user action required
+- Optional: display "Last synced: just now" as secondary text below the icon
+
+```kotlin
+AnimatedVisibility(
+    visible = showSyncSuccess,
+    exit = fadeOut(animationSpec = tween(2000))
+) {
+    Icon(
+        Icons.Rounded.Check,
+        contentDescription = "Synced",
+        modifier = Modifier.size(16.dp),
+        tint = MaterialTheme.colorScheme.primary
+    )
+}
+```
+
+**watchOS implementation:**
+- Show `Image(systemName: "checkmark.circle.fill").foregroundColor(.green)` at 16pt
+- Animate out with `.opacity(showCheck ? 1 : 0).animation(.easeOut(duration: 2))` after 2 seconds
+- Haptic: `WKInterfaceDevice.current().play(.success)` on sync completion (optional, only if user-initiated)
+
+### Failed State (Error)
+
+Persistent error indicator that remains visible until the user acknowledges or retries.
+
+**Wear OS implementation:**
+- Show `Icon(Icons.Rounded.Warning, tint = MaterialTheme.colorScheme.error)` at 16dp
+- Do NOT auto-dismiss — persist until retry succeeds or user taps
+- Tap action on the icon: trigger manual retry via `DataClient.putDataItem()` or `MessageClient.sendMessage()`
+- If 3+ consecutive failures: show a `BottomSheet` or `AlertDialog` with message "Sync failed. Check phone connection." and a Retry button
+- Include a "Dismiss" option so users are not permanently blocked by the warning
+
+```kotlin
+Icon(
+    Icons.Rounded.Warning,
+    contentDescription = "Sync failed",
+    modifier = Modifier.size(16.dp).clickable { retrySyncAction() },
+    tint = MaterialTheme.colorScheme.error
+)
+```
+
+**watchOS implementation:**
+- Show `Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.red)` at 16pt
+- Tap triggers retry via `WCSession.default.transferUserInfo()` or `sendMessage()`
+- On repeated failures: present `.sheet` with explanation and retry button
+- Haptic: `WKInterfaceDevice.current().play(.failure)` on error
+
+### Last-Sync Timestamp
+
+Always show when data was last successfully synced. Users need confidence their data is current.
+
+**Formatting rules:**
+- Use relative time, never absolute: "Just now", "2 min ago", "1h ago", "Yesterday"
+- Update the displayed relative time every 60 seconds (use a timer or `TimelineView`)
+- Thresholds: <60s → "Just now", 1-59 min → "X min ago", 1-23h → "Xh ago", 24h+ → "Yesterday" or date
+
+**Placement:**
+- Primary: settings screen, under a "Sync" or "Data" section heading
+- Secondary: long-press context menu on main data display
+- Optional: inline below the sync status icon as a caption-size label
+
+**Wear OS:** Use `DateUtils.getRelativeTimeSpanString()` for locale-aware formatting.
+
+**watchOS:** Use `RelativeDateTimeFormatter()` for automatic relative string generation.
+
+### Manual Sync Trigger
+
+Always provide a way for users to force a sync, even if automatic sync is working.
+
+**Wear OS:**
+- Pull-to-refresh on main scrollable content using `SwipeDismissableNavHost` with `ScalingLazyColumn` and pull-down refresh pattern
+- Alternative: explicit "Sync now" button in Settings screen
+- Debounce: ignore manual sync requests if last sync was <10 seconds ago
+
+**watchOS:**
+- Use `.refreshable { await syncNow() }` modifier on `List` or `ScrollView`
+- Alternative: "Sync Now" button in Settings
+- Show the syncing indicator immediately on pull-to-refresh to confirm the gesture was recognized
+
+### Offline Badge
+
+When the watch has no connection to the phone for more than 30 seconds, show a persistent but subtle offline indicator.
+
+- Icon: cloud with diagonal line through it (cloud-off), 12dp/12pt
+- Placement: top bar, leading or trailing position, alongside other status indicators
+- Color: `colorOnSurfaceVariant` (muted, not alarming — offline is normal for watches)
+- Wear OS: `Icon(painterResource(R.drawable.ic_cloud_off), modifier = Modifier.size(12.dp))`
+- watchOS: `Image(systemName: "icloud.slash").font(.system(size: 12))`
+- Remove immediately when connection is re-established (no fade delay)
+- Do NOT show a toast or alert for offline state — it is too common on watches to warrant interruption
+
+### Checklist
+
+- ✅ Syncing spinner appears only during active transfer, debounced 300ms
+- ✅ Success checkmark auto-dismisses after 2 seconds
+- ✅ Error indicator persists until retry or dismiss
+- ✅ Relative timestamps updated every 60 seconds
+- ✅ Manual sync available via pull-to-refresh or settings button
+- ✅ Offline badge shown after 30s disconnection, removed immediately on reconnect
+- ✅ Haptic feedback on user-initiated sync completion (success or failure)
+- ❌ Do not show absolute timestamps (users cannot quickly parse "14:32:07")
+- ❌ Do not block UI during sync — all sync is asynchronous
+- ❌ Do not show sync errors as full-screen alerts (use inline indicators)
+- ❌ Do not auto-retry more than 3 times without user consent
+
+**Sources:** [Wear OS Data Layer API](https://developer.android.com/training/wearables/data/data-layer), [WatchConnectivity](https://developer.apple.com/documentation/watchconnectivity), [Material 3 Progress Indicators](https://m3.material.io/components/progress-indicators), [NNGroup Status Visibility](https://www.nngroup.com/articles/ten-usability-heuristics/)
+
+---
+
+## BU. Complication-to-Instant-Action Pattern
+
+> Tap a complication on the watch face, execute a background action, show confirmation, return to watch face.
+> Total interaction time: under 3 seconds. No app launch, no navigation, no screen transition.
+> Sources: [Wear OS Complications](https://developer.android.com/training/wearables/complications), [ClockKit](https://developer.apple.com/documentation/clockkit), [WidgetKit AppIntent](https://developer.apple.com/documentation/widgetkit)
+
+### Use Cases
+
+This pattern is ideal for:
+- **One-tap cigarette logging** — tap complication, event is logged, count increments on watch face
+- **Quick water intake** — tap to add one glass, complication updates total
+- **Start/stop timer** — tap to toggle, complication shows running/paused state
+- **Quick mood check-in** — tap to log current mood with predefined value
+
+The key requirement: the action must be **unambiguous** — one tap always means one specific thing. If the action needs parameters or confirmation, use a different pattern (launch app).
+
+### Architecture Flow
+
+```
+1. User taps complication on watch face
+2. System delivers tap intent to ComplicationDataSource
+3. BroadcastReceiver executes background action (log event, write data)
+4. ConfirmationActivity shows success overlay (2s auto-dismiss)
+5. User returns to watch face — complication shows updated data
+```
+
+Total elapsed time: 1.5–3 seconds. Zero navigation. Zero scrolling.
+
+### Wear OS Implementation
+
+**Step 1 — Complication tap target:**
+- In your `ComplicationDataSource.onComplicationRequest()`, set the tap action to a `PendingIntent` targeting a `BroadcastReceiver`, NOT an Activity
+- Using a BroadcastReceiver avoids launching any visible UI until you explicitly show confirmation
+
+```kotlin
+val tapIntent = PendingIntent.getBroadcast(
+    context,
+    COMPLICATION_REQUEST_CODE,
+    Intent(context, LogCigaretteReceiver::class.java),
+    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+)
+```
+
+**Step 2 — BroadcastReceiver handles action:**
+- `LogCigaretteReceiver.onReceive()`: write event to local database, queue sync to phone
+- Then launch `ConfirmationActivity` with `SUCCESS_ANIMATION`
+
+```kotlin
+class LogCigaretteReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        // Execute action
+        CigaretteRepository.logEvent(timestamp = System.currentTimeMillis())
+
+        // Show confirmation overlay
+        val confirmIntent = Intent(context, ConfirmationActivity::class.java).apply {
+            putExtra(ConfirmationActivity.EXTRA_ANIMATION_TYPE, ConfirmationActivity.SUCCESS_ANIMATION)
+            putExtra(ConfirmationActivity.EXTRA_MESSAGE, "Logged")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(confirmIntent)
+
+        // Force complication update
+        ProviderUpdateRequester(context, ComponentName(context, CigaretteComplication::class.java))
+            .requestUpdateAll()
+    }
+}
+```
+
+**Step 3 — ConfirmationActivity:**
+- Built-in Wear OS component: shows animated checkmark (success) or X (failure)
+- Auto-dismisses after ~2000ms, returns user to watch face
+- No user interaction needed — it is purely visual confirmation
+
+**Step 4 — Complication update:**
+- `ProviderUpdateRequester.requestUpdateAll()` forces the system to re-query your `ComplicationDataSource`
+- Your data source returns the updated count/value
+- The complication on the watch face reflects the new data immediately
+
+**Horologist alternative:**
+- Use `ConfirmationOverlay` composable from Horologist library for a Compose-based confirmation
+- Shows icon + message text, auto-hides after specified duration
+
+### watchOS Implementation
+
+**Step 1 — Complication tap target:**
+- Set `widgetURL` or use deep link in your `CLKComplicationDataSource` timeline entries
+- With WidgetKit (watchOS 9+): use `AppIntent` framework for direct action execution
+
+**Step 2 — AppIntent handles action:**
+
+```swift
+struct LogCigaretteIntent: AppIntent {
+    static var title: LocalizedStringResource = "Log Cigarette"
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        CigaretteStore.shared.logEvent(date: .now)
+        return .result(dialog: "Logged ✓")
+    }
+}
+```
+
+**Step 3 — Widget/Complication update:**
+- Call `WidgetCenter.shared.reloadTimelines(ofKind: "CigaretteComplication")` inside the intent
+- The complication re-renders with updated data from the shared data store
+- For `CLKComplicationServer`: call `reloadTimeline(for:)` on active complications
+
+**Step 4 — Haptic confirmation:**
+- Always fire haptic on action completion — the user may not be looking at the screen
+- `WKInterfaceDevice.current().play(.success)` for successful action
+- `WKInterfaceDevice.current().play(.failure)` if action fails
+
+### Haptic Feedback (Both Platforms)
+
+Haptic confirmation is **mandatory** for complication-to-action, not optional. The user taps a tiny target on the watch face — they need physical confirmation that it registered.
+
+**Wear OS:**
+```kotlin
+val vibrator = context.getSystemService(Vibrator::class.java)
+vibrator.vibrate(VibrationEffect.createOneShot(50, 180))
+```
+- Duration: 50ms (short, crisp)
+- Amplitude: 180 (firm but not jarring, scale 1-255)
+
+**watchOS:**
+- Success: `WKHapticType.success` (double tap feeling)
+- Failure: `WKHapticType.failure` (three quick taps)
+- Retry prompt: `WKHapticType.retry` (single firm tap)
+
+### Error Handling
+
+When the background action fails (database error, storage full, etc.):
+
+**Wear OS:**
+- Launch `ConfirmationActivity` with `FAILURE_ANIMATION` instead of `SUCCESS_ANIMATION`
+- Add a "Retry?" button by launching a minimal activity after the failure animation
+- Log the failure for debugging; do not silently swallow errors
+
+**watchOS:**
+- Return `.result(dialog: "Failed")` from the AppIntent
+- Fire `.failure` haptic
+- If the intent supports it, provide a "Retry" action in the dialog
+
+### Offline Queueing
+
+The phone may be unreachable when the user taps the complication. The action must still succeed locally.
+
+**Strategy:**
+1. Always write the action to local storage first (Room DB on Wear OS, Core Data/SwiftData on watchOS)
+2. Queue a sync task for when the phone becomes reachable
+3. Show the success confirmation to the user (the local action succeeded)
+4. Display a small "pending sync" badge on the complication (e.g., tiny dot or cloud icon)
+5. When the phone reconnects, flush the queue and remove the pending badge
+6. If the queue grows beyond 50 items, warn the user to check phone connection
+
+**Wear OS pending badge:**
+- Use `SmallImage` type complication with an overlay dot
+- Or use `ShortText` with a trailing "•" character when items are pending
+
+**watchOS pending badge:**
+- Add a small indicator in the complication's `CLKComplicationTemplate` or WidgetKit view
+- Use SF Symbol `arrow.triangle.2.circlepath` (sync pending) as a small overlay
+
+### Performance Requirements
+
+| Metric | Target | Rationale |
+|--------|--------|-----------|
+| Tap-to-haptic latency | < 200ms | User must feel response instantly |
+| Action execution | < 500ms | Database write + queue sync |
+| Confirmation display | 1.5–2s | Long enough to read, short enough to not annoy |
+| Complication update | < 1s after action | User sees new count immediately |
+| Total interaction | < 3s | Faster than pulling out phone |
+
+### Checklist
+
+- ✅ Tap targets a BroadcastReceiver (Wear OS) or AppIntent (watchOS), not a full Activity
+- ✅ Haptic fires within 200ms of tap
+- ✅ ConfirmationActivity/dialog auto-dismisses in 2 seconds
+- ✅ Complication data updates immediately after action
+- ✅ Action writes to local storage first, syncs to phone second
+- ✅ Offline queue with pending badge on complication
+- ✅ Failure shows error animation + retry option
+- ❌ Do not launch the full app for single-action operations
+- ❌ Do not require network connectivity for the action to succeed locally
+- ❌ Do not skip haptic feedback (user may not be looking at screen)
+- ❌ Do not show confirmation for longer than 3 seconds (blocks watch face)
+
+**Sources:** [Wear OS Complications Data Source](https://developer.android.com/training/wearables/complications/data-source), [ConfirmationActivity](https://developer.android.com/reference/androidx/wear/activity/ConfirmationActivity), [ClockKit](https://developer.apple.com/documentation/clockkit), [WidgetKit AppIntent](https://developer.apple.com/documentation/widgetkit/adding-interactivity-to-widgets-and-live-activities), [Horologist ConfirmationOverlay](https://google.github.io/horologist/)
+
+---
+
+## BV. Watch App Icon Specifications
+
+> Detailed icon specifications for watch app launchers, complications, and app stores.
+> A watch app icon is viewed at approximately 48dp on a 1.2–1.9" screen — clarity and simplicity are paramount.
+> Sources: [Wear OS Icon Guidelines](https://developer.android.com/training/wearables/design/app-icons), [Apple HIG App Icons](https://developer.apple.com/design/human-interface-guidelines/app-icons), [Adaptive Icons](https://developer.android.com/develop/ui/views/launch/icon_design_adaptive)
+
+### Wear OS Launcher Icon
+
+**Dimensions and format:**
+- Master size: 300×300px (xxxhdpi), system scales down to 48dp for display
+- Provide all density buckets: mdpi (48×48), hdpi (72×72), xhdpi (96×96), xxhdpi (144×144), xxxhdpi (192×192 or 300×300)
+- Format: WebP (preferred) or PNG
+- File location: `res/mipmap-xxxhdpi/ic_launcher.webp` and `ic_launcher_round.webp`
+
+**Shape and masking:**
+- The system applies a **circular mask** automatically on Wear OS
+- Design your icon as a full-bleed square; the system will crop to circle
+- Safe zone: keep all meaningful content within the **center 75%** (225×225px area at 300px master)
+- Content outside the safe zone will be clipped by the circular mask — use it only for background color/pattern
+
+**Adaptive icon layers:**
+- Provide two layers: foreground (symbol/logo) and background (solid color or gradient)
+- Foreground layer: PNG with transparency, centered symbol
+- Background layer: opaque color or simple gradient
+- The system applies subtle parallax motion between layers on tilt — design for it
+- Declare in `AndroidManifest.xml` via `<adaptive-icon>` or in `ic_launcher.xml` resource
+
+**Design guidelines:**
+- Symbol: centered, occupying maximum **60% of total area** (180×180px at 300px master)
+- Use high contrast between symbol and background — test on OLED black watch face
+- Background: use brand primary color or simple gradient; **avoid pure black** (#000000) as it blends with the OLED display and makes the icon invisible on dark watch faces
+- Minimum recommended background luminance: #1A1A1A or brighter
+- No text in the icon — at 48dp displayed size, text is illegible
+- No photographs or screenshots — they become muddy noise at small sizes
+- Line weight: minimum 2dp strokes at displayed size (approximately 12px at 300px master)
+
+**Testing your icon:**
+- View at actual 48dp size on a real watch or emulator
+- Place on a dark watch face AND a light watch face — both must work
+- Compare visual weight against system icons (Settings gear, Play Store icon)
+- Walk 3 steps back from the watch on your wrist — can you still identify the icon?
+
+### watchOS App Icon
+
+**Dimensions and full size set:**
+- Master design: **1024×1024px** (used for App Store listing)
+- Device sizes required (all @2x):
+  - 38mm: 80×80px
+  - 40mm: 88×88px (172×172px @2x)
+  - 41mm: 92×92px (181×181px @2x)
+  - 42mm: 80×80px
+  - 44mm: 100×100px (196×196px @2x)
+  - 45mm: 102×102px (204×204px @2x)
+  - 49mm Ultra: 108×108px (215×215px @2x)
+- Notification icon sizes: 24×24px, 27.5×27.5px, 29×29px, 33×33px (@2x variants)
+- Companion Settings icon: 58×58px (@2x), 87×87px (@3x)
+
+**Shape and masking:**
+- The system applies a **squircle** (continuous corner radius / superellipse) mask automatically
+- Design as a full-bleed square — the OS handles the corner rounding
+- Safe zone: keep all meaningful content within the **center 80%** (820×820px area at 1024px master)
+- Corners get rounded aggressively — never place important content near edges
+
+**Design guidelines:**
+- Background: **MUST be opaque** — transparency is not allowed (unlike iOS app icons, watchOS requires a solid background since watchOS 6)
+- Symbol: simple, recognizable silhouette, centered, occupying maximum **65% of total area**
+- Color: use brand primary color, but consider **increasing saturation by 5-10%** compared to the phone icon — small icons benefit from slightly more vivid colors
+- No text, no photographs, no screenshots — same rules as Wear OS
+- Ensure the icon is identifiable at 40px physical display size
+- Stroke weight: minimum 2pt at the smallest display size
+
+**Dark and tinted mode (watchOS 10+):**
+- watchOS 10 introduced automatic icon tinting for certain watch face styles
+- Provide an alternate dark-mode icon variant in your asset catalog
+- The system may desaturate or tint your icon — test with multiple watch face color themes
+- Recommended: provide a monochrome "template" version alongside the full-color icon
+
+**Asset catalog setup:**
+- Create `AppIcon` set in `Assets.xcassets` with watchOS target
+- Xcode will show slots for each required size
+- Use a single 1024×1024 master and let Xcode auto-generate sizes, OR provide hand-optimized versions for each size (recommended for complex icons)
+
+**Testing your icon:**
+- Preview in Xcode's asset catalog at all sizes simultaneously
+- Test on physical device with both light and dark watch faces
+- Test alongside native Apple apps — your icon should feel native in weight and style
+- Check the App Store listing on an iPhone — the 1024px version must also look good at phone-screen sizes
+
+### Complication Icons (Separate from App Icon)
+
+Complication icons appear on the watch face itself, alongside time and other data. They have different requirements from the app launcher icon.
+
+**Wear OS complication icon:**
+- Size: 24dp (approximately 72px at xxxhdpi)
+- Style: single-color silhouette — the system tints it to match the watch face theme
+- Weight: match Material Icon weight (outlined, 2dp stroke)
+- Format: vector drawable (XML) preferred, PNG acceptable
+- Keep it simple: the icon is displayed at approximately 7mm physical size
+- No background shape — the icon floats on the watch face
+- File: `res/drawable/ic_complication.xml`
+
+**watchOS complication icon:**
+- Style: SF Symbol aesthetic — consistent stroke weight, geometric precision
+- Rendering mode: template (single color, tinted by the system based on watch face)
+- Provide as PDF or SVG in the asset catalog with "Render As: Template Image"
+- Sizes: match the complication family (graphic circular, graphic corner, etc.)
+- Must be legible in both light and dark tint colors — test with white and black tinting
+
+### General Icon Design Tips
+
+**The "3-step test":**
+1. Display the icon on a real watch, on your wrist
+2. Walk 3 steps away from a mirror
+3. If you can identify the icon at that distance, it passes — if not, simplify further
+
+**Visual consistency:**
+- Compare your icon against platform system icons (Settings, Workout, Timer)
+- Match the visual weight: if system icons use 2dp strokes, yours should too
+- Use the platform's icon grid template for alignment:
+  - Wear OS: [Adaptive Icon Grid](https://developer.android.com/develop/ui/views/launch/icon_design_adaptive)
+  - watchOS: Apple's icon grid in the HIG resources
+
+**Color for small sizes:**
+- Darker colors lose detail on OLED — keep primary background above #2A2A2A
+- Highly saturated colors pop better at small sizes than muted tones
+- Test with protanopia and deuteranopia filters — icon must be distinguishable by shape, not just color
+
+**Common mistakes to avoid:**
+- Putting the company name or app name as text in the icon
+- Using a photo or screenshot as the icon background
+- Designing at 1024px without checking how it looks at 48dp
+- Using pure black background on Wear OS (invisible on OLED watch faces)
+- Ignoring the safe zone and losing content to circular/squircle masking
+- Making the symbol too detailed — features smaller than 2dp disappear at displayed size
+
+### Icon Specifications Quick Reference
+
+| Property | Wear OS | watchOS |
+|----------|---------|---------|
+| Master size | 300×300px (xxxhdpi) | 1024×1024px |
+| Display size | 48dp | ~40-54pt (varies by model) |
+| Shape mask | Circle (automatic) | Squircle (automatic) |
+| Safe zone | Center 75% | Center 80% |
+| Max symbol area | 60% | 65% |
+| Background | Opaque, avoid #000000 | Opaque required, no transparency |
+| Text allowed | No | No |
+| Format | WebP/PNG, adaptive icon XML | PNG in asset catalog |
+| Complication icon | 24dp, single-color vector | SF Symbol style, template render |
+| Dark mode variant | N/A (system handles) | Yes (watchOS 10+) |
+
+### Checklist
+
+- ✅ Master icon designed at platform-specified master resolution
+- ✅ All meaningful content within safe zone (75% Wear OS, 80% watchOS)
+- ✅ Symbol is recognizable at 48dp / 40pt actual display size
+- ✅ Background is not pure black (#000000) on Wear OS
+- ✅ Background is fully opaque on watchOS (no transparency)
+- ✅ No text, no photographs, no screenshots in the icon
+- ✅ Adaptive icon layers provided for Wear OS (foreground + background)
+- ✅ All required sizes provided in watchOS asset catalog
+- ✅ Complication icon is single-color, template-rendered, separate from app icon
+- ✅ Tested on real device at arm's length with both light and dark watch faces
+- ✅ Dark/tinted mode variant provided for watchOS 10+
+- ❌ Do not use gradients with more than 2 stops (becomes mud at small size)
+- ❌ Do not exceed 65% symbol area (icon feels cramped)
+- ❌ Do not hand-pick icon sizes — use the platform's density system
+
+**Sources:** [Wear OS App Icon Guidelines](https://developer.android.com/training/wearables/design/app-icons), [Adaptive Icons](https://developer.android.com/develop/ui/views/launch/icon_design_adaptive), [Apple HIG App Icons](https://developer.apple.com/design/human-interface-guidelines/app-icons), [Apple watchOS Icon Sizes](https://developer.apple.com/design/human-interface-guidelines/app-icons#watchOS-app-icon-sizes), [SF Symbols](https://developer.apple.com/sf-symbols/)
+
+---
+
+## BW. watchOS 12 & Apple Intelligence on Watch
+
+> Dernieres evolutions watchOS de WWDC 2025, Apple Intelligence sur poignet, Sleep Apnea, et fonctionnalites Ultra.
+> Sources: [Apple WWDC 2025](https://developer.apple.com/wwdc25/), [watchOS 12 Release Notes](https://developer.apple.com/documentation/watchos-release-notes/watchos-12-release-notes), [Apple Watch Ultra 2 User Guide](https://support.apple.com/guide/apple-watch-ultra-2/), [Apple Health Technologies](https://developer.apple.com/health-fitness/)
+
+---
+
+### 1. watchOS 12 Visual Changes
+
+Le design **Liquid Glass** introduit a WWDC 2025 s'applique a la montre:
+
+- **Navigation bar** : materiau translucide avec flou gaussien, s'adapte au contenu derriere
+- **Boutons systeme** : rendu verre avec reflets dynamiques selon l'angle du poignet
+- **Animations spring-based** : transitions utilisant des ressorts physiques (stiffness ~300, damping ~20), remplacant les eases cubiques
+- **Coins arrondis uniformes** : `continuous` corner style applique globalement, rayon proportionnel a la taille de l'element
+- **Elevation et profondeur** : ombres subtiles sous les cartes et boutons, renforce la hierarchie visuelle
+
+**Smart Stack revamped:**
+- Cartes en verre translucide avec bordure lumineuse subtile
+- Transitions plus fluides entre widgets (cross-dissolve avec spring animation)
+- Regroupement intelligent : widgets lies affiches en cluster (ex: Meteo + UV + Vent)
+- Long-press sur un widget → menu contextuel inline (plus besoin d'ouvrir l'app)
+
+**Cadrans et complications interactives:**
+- Nouveaux cadrans exploitant Liquid Glass (reflets reagissent au mouvement du poignet)
+- Tap direct sur une complication → action instantanee sans ouvrir l'app
+  - Exemple : tap sur complication "Eau" → ajoute 250ml, haptic confirmation
+- Complications animees : mini-graphiques en temps reel (sparkline, gauge circulaire)
+- Live Activities etendues : apps tierces peuvent afficher des donnees live sur le cadran
+  - Transport en commun, minuteurs cuisine, score sportif, suivi livraison
+  - Limite : 1 Live Activity visible a la fois sur le cadran, rotation automatique si multiples
+
+**Impact developpeur:**
+- Tester les vues custom avec le nouveau materiau : `Material.ultraThinMaterial` sur watchOS 12
+- Les anciens `NavigationStack` / `List` adoptent automatiquement le style Liquid Glass
+- Attention: texte sur fond verre necessite contraste eleve → utiliser `.foregroundStyle(.primary)` ou blanc pur
+
+---
+
+### 2. watchOS 12 Developer APIs
+
+**NavigationSplitView ameliore:**
+- Support elargi pour les plus grands ecrans Apple Watch (Ultra 49mm, Series 10 46mm)
+- Sidebar + Detail view sur grands ecrans, collapse automatique sur petits ecrans
+- `NavigationSplitView { sidebar } detail: { detail }` fonctionne nativement sur watchOS 12
+
+**WidgetKit etendu:**
+- Nouvelles familles de complications : `accessoryRectangularLarge` (2x la hauteur du rectangular standard)
+- Contenu plus riche : images, graphiques, texte multi-ligne dans les complications
+- Rechargement intelligent : le systeme apprend quand l'utilisateur consulte chaque widget
+- `AppIntentTimelineProvider` : les widgets peuvent declencher des App Intents directement
+
+**Gestes et raccourcis:**
+- `.handGestureShortcut(.primaryAction)` etendu : nouveaux types de gestes
+  - Double-pinch : action secondaire configurable
+  - Clench (poing ferme) : action tertiaire
+  - Chaque app peut enregistrer jusqu'a 3 gestes distincts
+- `DigitalCrownRotation` ameliore : retour haptique granulaire par cran
+
+**Background App Refresh:**
+- Planification intelligente basee sur les habitudes utilisateur
+- Si l'utilisateur consulte l'app chaque jour a 8h, le refresh se declenche a 7h55
+- Budget plus genereux pour les apps health/fitness : jusqu'a 4 refreshs/heure (vs 1 standard)
+- Nouveau `BGHealthMonitoringTaskRequest` pour monitoring continu en arriere-plan
+
+**Nouvelles donnees sante:**
+- Body temperature trends : acces aux tendances (pas seulement valeur brute)
+- Hydration estimation : basee sur activite + transpiration + conditions meteo
+- `HKQuantityType(.dietaryWater)` ameliore avec estimation passive
+- Readiness score : score composite basé sur HRV + sommeil + charge entrainement
+
+**CustomWorkoutComposition API:**
+- Construire des segments d'entrainement programmatiquement
+- `WorkoutComposition { WarmupStep(duration: .minutes(5)); IntervalStep(work: .minutes(4), rest: .minutes(1), repeats: 6); CooldownStep(duration: .minutes(5)) }`
+- Synchronisation avec Apple Fitness+ pour entrainements guides
+- Export vers le format `.workout` partageable entre utilisateurs
+
+---
+
+### 3. Apple Intelligence on Watch
+
+**Resumes de notifications:**
+- Meme moteur que sur iPhone, adapte au poignet
+- Groupement intelligent : toutes les notifications d'une conversation → 1 resume
+- Format : 2 lignes max, style telegraphique ("Jean: diner 20h ce soir? Marie: OK pour moi")
+- Le resume preserve le sentiment (urgence, ton positif/negatif)
+- Tap sur le resume → deploie toutes les notifications individuelles
+
+**Smart Replies:**
+- Suggestions de reponse contextuelles alimentees par ML on-device
+- 3 suggestions max, adaptees au contexte de la conversation
+- Support du ton : detecte si la conversation est formelle/informelle
+- Fonctionne sans iPhone a proximite (modele on-device sur S9+)
+- Personnalisation : apprend le style de reponse de l'utilisateur au fil du temps
+
+**Siri ameliore:**
+- Temps de reponse reduit : ~1s pour requetes on-device (vs ~2s watchOS 11)
+- Conscience du contenu a l'ecran : "Que dit cette notification?" → Siri lit le contenu
+- Enchainement de requetes sans re-invoquer : conversation multi-tour
+- Limites persistantes : pas d'Image Playground, pas de Writing Tools (ecran trop petit)
+- Pas de generation d'image ou d'edition de texte longue sur la montre
+
+**Health Insights IA:**
+- Resumes de tendances sante generes par IA dans l'app Vitals
+- Format narratif : "Votre frequence cardiaque au repos a baisse de 5% cette semaine, coherent avec votre augmentation d'activite"
+- Alertes proactives : detection d'anomalies dans les patterns (ex: HRV inhabituellement basse)
+- Donnees restent 100% on-device, aucun envoi cloud pour les insights sante
+
+**Impact developpeur:**
+- App Intents fonctionnent avec Siri sur la montre → exposer les actions de l'app
+- `@AssistantIntent` pour rendre les actions discoverables par Siri
+- Les actions IA lourdes sont offloadees sur l'iPhone appaire → la montre doit etre a proximite
+- Prevoir un fallback si l'iPhone n'est pas disponible (mode avion, batterie morte)
+
+---
+
+### 4. Sleep Apnea Detection (watchOS 11+)
+
+**Contexte reglementaire:**
+- FDA-authorized De Novo (septembre 2024), premier dispositif grand public pour le depistage
+- Disponible sur Apple Watch Series 9+, Ultra 2+ (accelerometre haute precision requis)
+- Classification : outil de depistage, pas de diagnostic (oriente vers consultation medicale)
+
+**Fonctionnement technique:**
+- Accelerometre detecte les perturbations respiratoires pendant le sommeil
+- Mesure les mouvements subtils du poignet lies aux micro-eveils respiratoires
+- Metrique : "Breathing Disturbances" affichee comme Elevated / Not Elevated
+- Necessite 10 nuits de donnees sur une periode de 30 jours pour l'evaluation initiale
+- Algorithme ML entraine sur des donnees polysomnographiques cliniques
+
+**Flow UX:**
+1. Activation : Reglages > Sommeil > "Perturbations respiratoires" → Activer
+2. Collecte silencieuse pendant 10 nuits (pas de feedback intermediaire)
+3. Notification Health : "Vos resultats de perturbations respiratoires sont prets"
+4. Tap → Health app → graphique de tendance sur 30 jours
+5. Statut binaire avec code couleur : vert (Not Elevated), jaune (Elevated)
+6. Si Elevated : bouton "Partager avec votre medecin" → genere un PDF medical
+7. Le PDF inclut : graphique 30 jours, nombre de nuits analysees, methodologie
+
+**Acces developpeur:**
+- HealthKit : `HKQuantityType.quantityType(forIdentifier: .appleBreathingDisturbances)`
+- Donnee hautement sensible → autorisation HealthKit explicite requise
+- Pas d'acces aux donnees brutes d'accelerometre nocturne (uniquement le resultat agrege)
+- Affichage recommande : statut binaire (pas un chiffre), couleur codee, tendance temporelle
+
+---
+
+### 5. Apple Watch Ultra Features UX
+
+**Jauge de profondeur:**
+- Activation automatique quand submerge >1m, desactivation en surface
+- Affichage : profondeur actuelle (centre, grande police), max profondeur (haut-gauche), temperature eau (haut-droite), duree (bas)
+- Arriere-plan : degrade bleu qui s'intensifie avec la profondeur
+- Limite : plongee recreative uniquement (max 40m, certifie EN 13319)
+- API : `CMWaterSubmersionManager` pour evenements d'immersion
+- Pas d'API de profondeur directe pour apps tierces (donnees proprietary)
+
+**Precision Finding (Ultra 2):**
+- UWB + guidance visuelle/haptique pour localiser iPhone ou AirTag
+- UI : fleche plein ecran pointant vers l'appareil, distance en metres
+- Animation pulsante, intensite haptique augmente a l'approche
+- Fonctionne a l'interieur grace au UWB (pas seulement GPS)
+
+**Action Button:**
+- Pression simple : configurable (Workout, Chronometre, Waypoint, Retour, Plongee, Lampe, Raccourci)
+- Pression longue (3s) : Sirene (86dB, son d'urgence)
+- Developpeur : mapper l'Action Button vers un App Intent → action custom dans l'app
+- Design UX : action immediate, aucun ecran de confirmation (vitesse > securite pour sports/outdoor)
+- Feedback : haptique fort + retour visuel instantane pour confirmer l'action
+
+**Mode Nuit:**
+- Teinte rouge sur toute l'UI, preserve l'adaptation a l'obscurite
+- Activation automatique en faible luminosite, ou toggle via Centre de Controle
+- Developpeur : surveiller `.preferredColorScheme` et adapter les vues custom
+- Tester les vues avec teinte rouge : verifier que le contraste reste lisible
+
+---
+
+### Checklist watchOS 12
+
+- ✅ Tester toutes les vues avec le materiau Liquid Glass (contraste texte)
+- ✅ Adopter les animations spring-based pour les transitions custom
+- ✅ Mettre a jour les complications pour les nouvelles familles WidgetKit
+- ✅ Exposer les actions cles via App Intents pour Siri
+- ✅ Prevoir un fallback si l'iPhone n'est pas a proximite pour les fonctions IA
+- ✅ Tester les gestes etendus (double-pinch, clench) si pertinent
+- ✅ Valider le flow Sleep Apnea si l'app touche au sommeil/sante
+- ✅ Adapter les vues pour le mode Nuit si l'app cible les utilisateurs Ultra
+- ❌ Ne pas afficher les donnees de perturbations respiratoires comme un nombre brut
+- ❌ Ne pas supposer que Apple Intelligence est disponible (Series 8 et avant : non)
+- ❌ Ne pas bloquer l'UX si le reseau est indisponible pour les fonctions IA
+
+**Sources:** [Apple WWDC 2025](https://developer.apple.com/wwdc25/), [watchOS 12 Release Notes](https://developer.apple.com/documentation/watchos-release-notes/watchos-12-release-notes), [Apple Watch Ultra 2 User Guide](https://support.apple.com/guide/apple-watch-ultra-2/), [Sleep Apnea Detection](https://support.apple.com/en-us/108091), [HealthKit Breathing Disturbances](https://developer.apple.com/documentation/healthkit), [Apple Intelligence](https://developer.apple.com/apple-intelligence/)
+
+---
+
+## BX. Wearable AI Assistants & Voice 2025
+
+> Capacites des assistants IA sur montres connectees en 2025 : Gemini sur Wear OS, Siri ameliore, bonnes pratiques voix.
+> Sources: [Google I/O 2025](https://io.google/2025/), [Apple WWDC 2025](https://developer.apple.com/wwdc25/), [Samsung Galaxy Watch Documentation](https://developer.samsung.com/one-ui-watch)
+
+---
+
+### 1. Gemini on Wear OS (2025)
+
+**Deploiement:**
+- Samsung Galaxy Watch 7+ (One UI Watch 6+) : Google Gemini comme assistant par defaut
+- Pixel Watch 3+ : Gemini Nano on-device pour taches legeres
+- Remplacement progressif de Google Assistant classique sur les montres compatibles
+
+**Activation:**
+- Pression longue du bouton home → overlay Gemini
+- "Hey Google" wake word (toujours actif, faible consommation via DSP dedie)
+- Geste raise-to-speak : lever le poignet + parler sans wake word
+
+**Capacites cloud (via phone relay):**
+- Requetes conversationnelles : meteo, directions, rappels, minuteurs
+- Actions contextuelles : "Commence un entrainement" → ouvre l'app Workout avec activite detectee
+- Controle maison connectee : "Eteins la lumiere du salon" → integration Google Home native
+- Interaction notifications : "Reponds a Jean" → dictee vocale ou smart reply
+- Multi-modal : peut lire et resumer le contenu des notifications groupees
+- Recherche web : resultats resumes affiches sur la montre (pas de page web complete)
+
+**UI pattern vocal:**
+- Overlay plein ecran avec fond sombre semi-transparent
+- Resultats partiels affiches en temps reel (streaming text)
+- Indicateur d'ecoute : icone micro animee (ondes pulsantes)
+- Si la reponse est longue : carte scrollable avec resume en haut
+- Boutons d'action rapide sous la reponse ("Ouvrir sur le telephone", "En savoir plus")
+- Timeout : 3s de silence → arret de l'ecoute, affichage de ce qui a ete compris
+
+**Gemini Nano on-device (Pixel Watch 3+):**
+- Modele 2B parametres, execute localement sur le NPU de la montre
+- Smart reply generation : suggestions de reponse sans cloud
+- Summarisation de notifications : resume en 1 phrase
+- Enhancement de la reconnaissance d'activite : inference locale plus rapide
+- Limitation : pas de capacite conversationnelle complete, pas de recherche web
+- Avantage : fonctionne sans telephone, sans WiFi, sans LTE
+- Latence : ~200ms pour smart reply, ~500ms pour summarisation
+
+**Integration developpeur:**
+- Pas d'API Gemini directe sur la montre (utiliser l'API cloud via phone relay)
+- App Actions : exposer les fonctionnalites de l'app via `<capability>` dans AndroidManifest
+  ```xml
+  <capability android:name="actions.intent.START_EXERCISE">
+    <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.app">
+      <parameter android:name="exercise.name" android:key="exerciseType"/>
+    </intent>
+  </capability>
+  ```
+- Voice shortcuts : enregistrer des patterns vocaux pour acces rapide a l'app
+- `RemoteActionCompat` → declencher Gemini cote telephone pour requetes complexes
+- BII (Built-in Intents) : catalogue d'intents standardises pour actions courantes
+
+---
+
+### 2. Siri on watchOS (2025 Improvements)
+
+**Traitement on-device:**
+- La plupart des requetes gerees sans iPhone pour Series 9+ (Neural Engine)
+- Requetes on-device : minuteurs, alarmes, rappels, controle musique, HomeKit basique
+- Requetes necessitant cloud : recherche web, requetes complexes, traduction
+- Temps de reponse on-device : ~1s (vs ~2-3s avec relay iPhone)
+
+**Integration Apple Intelligence:**
+- Siri peut lire et agir sur le contenu affiche a l'ecran
+- "Qu'est-ce que dit cette notification?" → Siri extrait et resume le contenu
+- Contexte personnel : Siri accede aux informations des apps compatibles via App Intents
+- Conversation multi-tour : enchainer des requetes sans re-invoquer "Hey Siri"
+- Suggestion proactive : Siri propose des actions basees sur l'heure, le lieu, la routine
+
+**App Intents pour developpeurs:**
+```swift
+struct LogCigaretteIntent: AppIntent {
+    static var title: LocalizedStringResource = "Log a Cigarette"
+    static var description = IntentDescription("Records a cigarette event")
+
+    func perform() async throws -> some IntentResult {
+        CigaretteTracker.shared.log()
+        return .result(dialog: "Logged. Stay strong!")
+    }
+}
+```
+- `@AssistantIntent` : rend l'intent discoverable par Siri sans configuration manuelle
+- `SiriTipView` sur la montre : enseigner les commandes vocales avec des tips in-app
+  - Placement recommande : en bas de l'ecran principal, disparait apres 3 utilisations
+- Parametres dynamiques : Siri peut demander des precisions ("Combien de cigarettes?")
+- Resultat enrichi : retourner un `IntentResult` avec dialogue + snippet visuel
+
+**Smart Stack & suggestions:**
+- Siri suggere les widgets pertinents selon le contexte temporel/spatial
+- Matin : widget sommeil + meteo + calendrier
+- Arrivee au bureau : widget transport + reunions
+- Fin de journee : widget activite + rappels
+- L'ordre du Smart Stack s'adapte automatiquement, l'utilisateur peut epingler des widgets
+
+**Type to Siri (watchOS 11+):**
+- Disponible via clavier scribble ou mini-clavier QWERTY
+- Utile dans les environnements bruyants ou les situations ou parler est inapproprie
+- Activer : Reglages > Siri > "Ecrire a Siri"
+- Le champ texte apparait a la place de l'interface vocale
+
+---
+
+### 3. Voice Input Best Practices 2025
+
+**Sensibilite au wake word:**
+- Ajuster pour les environnements bruyants (salle de sport, exterieur, transports)
+- Les deux plateformes utilisent le beamforming + reduction de bruit ML
+- Faux positifs plus rares avec les modeles 2025 (taux < 0.5% en environnement normal)
+- Conseil : proposer un mode "bouton uniquement" pour desactiver le wake word
+
+**Confirmation des actions vocales:**
+- Toujours confirmer avec haptique + feedback visuel bref (1.5s max)
+- Pattern : ecran de succes avec icone checkmark + texte court → auto-dismiss
+- Pour actions destructives : ajouter une etape de confirmation vocale ("Etes-vous sur?")
+- Pour actions reversibles : confirmer + montrer "Annuler" pendant 3s
+
+**Gestion des erreurs:**
+- Si mal compris : afficher ce qui a ete entendu + bouton "Reessayer"
+- Ne jamais executer une action ambigue sans confirmation
+- Proposer des alternatives : "Vouliez-vous dire X ou Y?"
+- Apres 2 echecs consecutifs : suggerer la saisie manuelle ("Essayez d'ecrire")
+
+**Fallback hors-ligne:**
+- Mettre en file les commandes vocales quand offline
+- Executer a la reconnexion avec notification de confirmation
+- Actions locales (minuteur, alarme) : executer immediatement sans reseau
+- Actions cloud (envoi message, recherche) : informer "Sera envoye des que connecte"
+
+**Multi-langue:**
+- Support du code-switching (l'utilisateur change de langue en pleine phrase)
+- Detecter automatiquement la langue sans forcer une selection manuelle
+- Les modeles 2025 gerent le melange francais-anglais courant ("Set un timer de 5 minutes")
+- Limites : les langues avec peu de donnees d'entrainement ont un taux d'erreur plus eleve
+
+**Indicateurs de confidentialite:**
+- watchOS : point vert dans la barre de statut quand le micro est actif
+- Wear OS : icone micro dans le panneau de notifications rapides
+- Obligation legale : informer visuellement l'utilisateur que l'ecoute est active
+- Les donnees vocales sur-device ne sont jamais transmises au cloud (on-device models)
+
+**Timeout et duree d'ecoute:**
+- 3 secondes de silence → arreter l'ecoute (ne pas attendre plus longtemps)
+- Feedback visuel du countdown : onde sonore qui diminue progressivement
+- Si l'utilisateur parle tres lentement : etendre a 5s avec indicateur "J'ecoute encore..."
+- Maximum absolu : 30s d'ecoute continue, puis couper avec "Message trop long pour la montre"
+
+**Annulation de bruit:**
+- Beamforming + ML noise reduction sur les deux plateformes
+- Wear OS (Pixel Watch 3) : 3 microphones, suppression active du bruit ambiant
+- watchOS (Series 9+) : dual microphones avec algorithme de separation de sources
+- En environnement tres bruyant (>85dB) : afficher "Environnement bruyant, rapprochez-vous"
+
+---
+
+### 4. Comparison Table: Gemini vs Siri on Watch
+
+| Feature | Gemini (Wear OS) | Siri (watchOS) |
+|---------|-----------------|-----------------|
+| On-device model | Nano 2B (Pixel Watch 3+) | Neural Engine (S9+ chip) |
+| Cloud fallback | Oui (phone relay) | Oui (iPhone relay) |
+| Smart home | Google Home natif | HomeKit natif |
+| App actions | App Actions / `<capability>` | App Intents / `@AssistantIntent` |
+| Langues supportees | 40+ | 21 |
+| Wake word | "Hey Google" | "Hey Siri" / Raise to speak |
+| Response speed (on-device) | ~1.2s | ~1.0s |
+| Response speed (cloud) | ~2.5s | ~2.0s |
+| Smart reply | Gemini Nano | Apple Intelligence |
+| Notification summary | Gemini Nano | Apple Intelligence |
+| Multi-turn conversation | Oui (cloud) | Oui (watchOS 12) |
+| Screen context awareness | Non | Oui (Apple Intelligence) |
+| Type-to-assistant | Oui (clavier Wear OS) | Oui (watchOS 11+) |
+| Offline capability | Partielle (Nano) | Partielle (Neural Engine) |
+
+---
+
+### 5. Integration Patterns for Smoking Cessation App
+
+**Gemini / Wear OS:**
+```xml
+<capability android:name="actions.intent.CREATE_THING">
+  <intent android:action="android.intent.action.VIEW"
+          android:targetPackage="com.infernalwheel.app">
+    <parameter android:name="thing.name" android:key="eventType"/>
+  </intent>
+</capability>
+```
+- "Hey Google, log a cigarette on Infernal Wheel" → declenche l'intent
+- Smart reply contextuelle quand la notification de rappel arrive
+
+**Siri / watchOS:**
+```swift
+struct QuickLogIntent: AppIntent {
+    static var title: LocalizedStringResource = "Quick Log"
+    @Parameter(title: "Count") var count: Int?
+
+    func perform() async throws -> some IntentResult {
+        let qty = count ?? 1
+        CigaretteTracker.shared.log(count: qty)
+        return .result(dialog: "Logged \(qty). You've had \(CigaretteTracker.shared.todayCount) today.")
+    }
+}
+```
+- "Hey Siri, quick log 2" → enregistre 2 cigarettes, feedback avec total du jour
+- SiriTipView sur l'ecran principal : "Dites 'Quick Log' pour enregistrer"
+
+**Bonnes pratiques communes:**
+- Le feedback vocal doit etre encourageant, jamais culpabilisant
+- Inclure le total du jour dans la reponse pour conscience situationnelle
+- Proposer un raccourci vocal pour la fonction la plus frequente (log)
+- Ne pas exposer les statistiques detaillees par voix (trop long → orienter vers l'ecran)
+
+---
+
+### Checklist AI Assistants & Voice
+
+- ✅ App Actions / App Intents declares pour les fonctions principales
+- ✅ Feedback vocal bref et encourageant (<2s de dialogue)
+- ✅ Confirmation haptique apres chaque action vocale
+- ✅ Fallback offline : actions locales executees, actions cloud en file d'attente
+- ✅ Gestion d'erreur : afficher ce qui a ete compris + option reessayer
+- ✅ SiriTipView / voice shortcut tips integres dans l'app
+- ✅ Indicateur de confidentialite visible quand le micro est actif
+- ✅ Timeout de 3s de silence, feedback visuel du countdown
+- ✅ Teste en environnement bruyant (>70dB) avec des commandes courantes
+- ✅ Multi-langue : au minimum la langue du systeme + anglais
+- ❌ Ne pas executer d'action destructive sans confirmation vocale explicite
+- ❌ Ne pas envoyer de donnees vocales au cloud si un modele on-device suffit
+- ❌ Ne pas forcer l'assistant vocal : toujours offrir une alternative tactile
+- ❌ Ne pas depasser 30s d'ecoute continue sur la montre
+
+**Sources:** [Google I/O 2025](https://io.google/2025/), [Apple WWDC 2025](https://developer.apple.com/wwdc25/), [Samsung Galaxy Watch AI Features](https://developer.samsung.com/one-ui-watch), [Gemini Nano on-device](https://ai.google.dev/edge), [Apple App Intents](https://developer.apple.com/documentation/appintents), [App Actions](https://developer.android.com/guide/app-actions), [NNGroup Voice UX](https://www.nngroup.com/articles/voice-first/)
+
+---
+
+*Bible UX Wearable - Sections BC-BX added March 2026*
+*Sources include: Apple Developer Documentation, Android Developer Documentation, Garmin Connect IQ SDK, FDA regulatory guidance, NEJM, Nature Medicine, AHA standards, FiRa Consortium, NNGroup, WHO guidance, Google AI, Apple Intelligence*

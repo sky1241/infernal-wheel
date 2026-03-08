@@ -12318,4 +12318,3353 @@ function sendToAnalytics(metric) {
 - Ignoring `navigationType` — back-forward navigations from bfcache have near-zero LCP, skewing data downward.
 - Alerting on daily fluctuations — use 2-day or 7-day rolling p75 to avoid noise.
 
+---
+## CM. Flexbox & Layout Patterns
+
+Professional CSS layout patterns every web developer needs, with exact copy-paste-ready code.
+
+### Centering — The 3 Canonical Methods
+
+**Method 1 — Flexbox (most common):**
+
+```css
+.center-flex {
+  display: flex;
+  justify-content: center;   /* horizontal */
+  align-items: center;        /* vertical */
+  min-height: 100vh;          /* or any defined height */
+}
+```
+
+**Method 2 — Grid (most concise):**
+
+```css
+.center-grid {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+}
+```
+
+**Method 3 — Absolute + Transform (legacy-friendly):**
+
+```css
+.center-absolute {
+  position: relative;
+}
+.center-absolute > .child {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+```
+
+### Sticky Footer
+
+The page footer sticks to the bottom even when content is short.
+
+```css
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  margin: 0;
+}
+main {
+  flex-grow: 1;   /* pushes footer down */
+}
+footer {
+  flex-shrink: 0;
+}
+```
+
+### Navbar Pattern
+
+Logo left, navigation center, action buttons right.
+
+```css
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+  height: 64px;
+}
+.navbar__logo {
+  flex-shrink: 0;
+}
+.navbar__nav {
+  display: flex;
+  gap: 24px;
+  /* centering trick — give logo and actions equal width */
+}
+.navbar__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+```
+
+Alternatively, use `margin-left: auto` on `.navbar__actions` if exact centering of nav is not required.
+
+### Equal-Height Cards
+
+All cards in a row stretch to the height of the tallest card, with the card body filling remaining space.
+
+```css
+.card-grid {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 300px;            /* grow, shrink, min-width */
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.card__body {
+  flex: 1;                    /* fills remaining height */
+  padding: 16px;
+}
+.card__actions {
+  padding: 8px 16px 16px;
+  margin-top: auto;           /* pushes actions to bottom */
+}
+```
+
+### Holy Grail Layout
+
+Header, footer, main content with left and right sidebars.
+
+```css
+.holy-grail {
+  display: grid;
+  grid-template-areas:
+    "header  header  header"
+    "left    main    right"
+    "footer  footer  footer";
+  grid-template-columns: 240px 1fr 240px;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+}
+.header  { grid-area: header; }
+.left    { grid-area: left; }
+.main    { grid-area: main; }
+.right   { grid-area: right; }
+.footer  { grid-area: footer; }
+
+/* Responsive: stack on mobile */
+@media (max-width: 768px) {
+  .holy-grail {
+    grid-template-areas:
+      "header"
+      "main"
+      "left"
+      "right"
+      "footer";
+    grid-template-columns: 1fr;
+  }
+}
+```
+
+### Aspect Ratio Boxes
+
+**Modern method (widely supported since 2021):**
+
+```css
+.aspect-box {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  object-fit: cover;          /* for img/video */
+}
+```
+
+**Fallback — padding hack (for older browsers):**
+
+```css
+.aspect-box-fallback {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%;        /* 9/16 = 0.5625 = 56.25% */
+}
+.aspect-box-fallback > * {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+```
+
+Common ratios: `16/9` (video), `4/3` (classic), `1/1` (square/avatar), `3/2` (photo), `21/9` (ultrawide hero).
+
+### CSS Grid: auto-fill vs auto-fit with minmax
+
+**`auto-fill`** — creates as many tracks as fit, even if empty (columns stay fixed width):
+
+```css
+.grid-auto-fill {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+```
+
+**`auto-fit`** — collapses empty tracks, so items stretch to fill the row:
+
+```css
+.grid-auto-fit {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+}
+```
+
+**When to use which:**
+- `auto-fill`: when you want consistent column widths regardless of item count (e.g., product grids).
+- `auto-fit`: when you have few items and want them to stretch to fill available space (e.g., dashboard widgets).
+
+### Checklist
+
+- [ ] Use flexbox for 1D layouts (rows or columns), grid for 2D layouts.
+- [ ] Always set `min-height: 0` on flex children that contain overflow content (prevents flex blowout).
+- [ ] Use `gap` instead of margin hacks for spacing between flex/grid children.
+- [ ] Test layouts at 320px, 768px, 1024px, 1440px breakpoints minimum.
+- [ ] Use `flex-wrap: wrap` on card grids to handle overflow gracefully.
+- [ ] Prefer `aspect-ratio` over padding hack for new projects (95%+ browser support).
+- [ ] Set `margin: 0` on body for sticky footer pattern to work correctly.
+
+---
+## CN. Input Field States Deep Dive
+
+Complete input field state matrix with exact CSS values for every state, transition, and variant.
+
+### CSS Custom Properties for Theming
+
+```css
+:root {
+  /* Input base tokens */
+  --input-border: #d1d5db;
+  --input-border-hover: #9ca3af;
+  --input-border-focus: #3b82f6;
+  --input-border-error: #ef4444;
+  --input-border-disabled: #e5e7eb;
+
+  --input-bg: #ffffff;
+  --input-bg-hover: #fafbfc;
+  --input-bg-disabled: #f9fafb;
+  --input-bg-readonly: #f3f4f6;
+
+  --input-text: #111827;
+  --input-text-placeholder: #9ca3af;
+  --input-text-disabled: #9ca3af;
+
+  --input-ring-focus: rgba(59, 130, 246, 0.3);
+  --input-ring-error: rgba(239, 68, 68, 0.3);
+
+  --input-radius: 4px;
+  --input-height-sm: 32px;
+  --input-height-md: 36px;
+  --input-height-lg: 40px;
+
+  --input-font-size: 14px;
+  --input-line-height: 20px;
+
+  --input-helper-color: #6b7280;
+  --input-helper-error: #ef4444;
+  --input-helper-size: 12px;
+
+  --input-transition: 150ms ease;
+}
+```
+
+### Default State
+
+```css
+.input {
+  width: 100%;
+  height: var(--input-height-md);
+  padding: 10px 14px;
+  border: 1px solid var(--input-border);       /* #d1d5db */
+  border-radius: var(--input-radius);          /* 4px */
+  background: var(--input-bg);                 /* #fff */
+  color: var(--input-text);                    /* #111827 */
+  font-size: var(--input-font-size);           /* 14px */
+  line-height: var(--input-line-height);       /* 20px */
+  outline: none;
+  transition: border-color var(--input-transition),
+              box-shadow var(--input-transition),
+              background-color var(--input-transition);
+}
+.input::placeholder {
+  color: var(--input-text-placeholder);        /* #9ca3af */
+}
+```
+
+### Hover State
+
+```css
+.input:hover:not(:focus):not(:disabled):not([readonly]) {
+  border-color: var(--input-border-hover);     /* #9ca3af */
+  background: var(--input-bg-hover);           /* #fafbfc subtle */
+}
+```
+
+### Focus State
+
+```css
+.input:focus {
+  border-color: var(--input-border-focus);     /* #3b82f6 */
+  box-shadow: 0 0 0 3px var(--input-ring-focus); /* rgba(59,130,246,0.3) */
+  outline: none;
+}
+```
+
+### Filled State
+
+```css
+/* Same as default — no special styling needed.
+   The text color remains --input-text (#111827).
+   Border reverts to default after blur. */
+```
+
+### Error State
+
+```css
+.input--error,
+.input[aria-invalid="true"] {
+  border-color: var(--input-border-error);     /* #ef4444 */
+}
+.input--error:focus,
+.input[aria-invalid="true"]:focus {
+  box-shadow: 0 0 0 3px var(--input-ring-error); /* rgba(239,68,68,0.3) */
+}
+```
+
+### Disabled State
+
+```css
+.input:disabled {
+  background: var(--input-bg-disabled);        /* #f9fafb */
+  border-color: var(--input-border-disabled);  /* #e5e7eb */
+  color: var(--input-text-disabled);           /* #9ca3af */
+  cursor: not-allowed;
+  opacity: 0.6;
+  /* Do NOT use pointer-events:none — user should see the not-allowed cursor */
+}
+```
+
+### Read-Only State
+
+```css
+.input[readonly] {
+  background: var(--input-bg-readonly);        /* #f3f4f6 */
+  cursor: default;
+  /* Border stays at default — read-only is still selectable/copyable */
+}
+```
+
+### Floating Label
+
+```css
+.field {
+  position: relative;
+}
+.field__label {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: var(--input-font-size);           /* 14px */
+  color: var(--input-text-placeholder);
+  pointer-events: none;
+  transition: transform var(--input-transition),
+              font-size var(--input-transition),
+              color var(--input-transition);
+  transform-origin: left center;
+  background: var(--input-bg);
+  padding: 0 4px;
+}
+/* Float up when focused or filled */
+.field__input:focus + .field__label,
+.field__input:not(:placeholder-shown) + .field__label {
+  transform: translateY(-130%);
+  font-size: 11px;
+  color: var(--input-border-focus);            /* #3b82f6 on focus */
+}
+.field__input:not(:focus):not(:placeholder-shown) + .field__label {
+  color: var(--input-helper-color);            /* #6b7280 when filled but not focused */
+}
+```
+
+### Helper Text
+
+```css
+.field__helper {
+  font-size: var(--input-helper-size);         /* 12px */
+  color: var(--input-helper-color);            /* #6b7280 */
+  margin-top: 4px;
+  line-height: 16px;
+}
+.field--error .field__helper {
+  color: var(--input-helper-error);            /* #ef4444 */
+}
+```
+
+### Icon Placement
+
+```css
+/* Left icon */
+.input--icon-left {
+  padding-left: 40px;
+}
+.field__icon--left {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+/* Right icon */
+.input--icon-right {
+  padding-right: 40px;
+}
+.field__icon--right {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  color: #9ca3af;
+}
+```
+
+### Character Counter
+
+```css
+.field__counter {
+  font-size: 12px;
+  color: var(--input-helper-color);            /* #6b7280 */
+  text-align: right;
+  margin-top: 4px;
+}
+.field__counter--limit {
+  color: var(--input-helper-error);            /* #ef4444 — at or over limit */
+  font-weight: 500;
+}
+```
+
+### Textarea
+
+```css
+.textarea {
+  /* Inherits all .input styles, plus: */
+  resize: vertical;
+  min-height: 80px;
+  height: auto;
+  padding: 10px 14px;
+  line-height: 1.5;
+}
+```
+
+### Error State with Icon
+
+```css
+.field--error .field__icon--right {
+  color: var(--input-border-error);            /* #ef4444 */
+}
+/* Use a warning/exclamation icon on error;
+   replace any existing right icon (e.g., search) with the error icon */
+```
+
+### Input Sizes
+
+```css
+.input--sm {
+  height: var(--input-height-sm);              /* 32px */
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.input--md {
+  height: var(--input-height-md);              /* 36px — default */
+  padding: 8px 14px;
+  font-size: 14px;
+}
+.input--lg {
+  height: var(--input-height-lg);              /* 40px */
+  padding: 10px 16px;
+  font-size: 15px;
+}
+```
+
+### Checklist
+
+- [ ] Every input has a visible label (floating or static) — never rely on placeholder alone.
+- [ ] Error messages use `aria-describedby` linking to the helper text element.
+- [ ] Error inputs use `aria-invalid="true"`.
+- [ ] Focus ring is visible for keyboard users — never remove outline without replacement.
+- [ ] Disabled inputs are excluded from tab order (native `disabled` attribute handles this).
+- [ ] Read-only inputs remain in tab order and are copyable.
+- [ ] Transition all state changes (border, shadow, background) for 150ms smoothness.
+- [ ] Test color contrast of placeholder text (minimum 3:1 ratio per WCAG).
+- [ ] Character counter updates live with `aria-live="polite"`.
+
+---
+## CO. Border Radius System
+
+A systematic scale for border-radius values with clear usage guidance, CSS custom properties, and consistency rules.
+
+### CSS Custom Properties
+
+```css
+:root {
+  --radius-none: 0px;
+  --radius-sm: 2px;
+  --radius: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+}
+```
+
+### 0px — Sharp / None
+
+```css
+border-radius: var(--radius-none);   /* 0px */
+```
+
+**Use for:** data tables, table cells, code blocks (`<pre>`, `<code>` inline with parent), horizontal rules, full-bleed sections, dividers, and elements that need to tile flush against each other.
+
+### 2px — Subtle
+
+```css
+border-radius: var(--radius-sm);     /* 2px */
+```
+
+**Use for:** badges, tags, inline code snippets, small chips, status indicators, keyboard shortcut hints (`<kbd>`), and tiny UI elements where sharp feels too harsh but rounded is too much.
+
+### 4px — Default
+
+```css
+border-radius: var(--radius);        /* 4px */
+```
+
+**Use for:** buttons (primary default), text inputs, selects, textareas, small cards, tooltips, checkboxes (subtle rounding), toggle containers, and most interactive elements. This is the workhorse value — when in doubt, use 4px.
+
+### 6px — Medium
+
+```css
+border-radius: var(--radius-md);     /* 6px */
+```
+
+**Use for:** medium cards, dropdown menus, alert banners, notification toasts, popover containers, and inline callout boxes. A step up from default that signals "container" rather than "interactive element."
+
+### 8px — Large
+
+```css
+border-radius: var(--radius-lg);     /* 8px */
+```
+
+**Use for:** large cards, modals, dialog boxes, sidebar panels, image containers, and any prominent surface that needs to feel friendly and approachable. The most common card radius in modern design systems.
+
+### 12px — Extra Large
+
+```css
+border-radius: var(--radius-xl);     /* 12px */
+```
+
+**Use for:** feature cards, hero sections, large promotional panels, pricing cards, onboarding cards, and high-emphasis containers. Signals importance and visual warmth.
+
+### 16px — Pill-Adjacent
+
+```css
+border-radius: var(--radius-2xl);    /* 16px */
+```
+
+**Use for:** pill-shaped buttons, search bars, floating action containers, chat bubbles, and elements that need to feel soft and modern. Also used for large floating elements like cookie banners.
+
+### 9999px — Full / Circle
+
+```css
+border-radius: var(--radius-full);   /* 9999px */
+```
+
+**Use for:** avatars (with equal width and height), status dots, circular icon buttons, progress indicators, and any element that must be perfectly round. The `9999px` value ensures a circle regardless of element size.
+
+### Consistency Rules
+
+1. **All interactive elements share one radius.** Buttons, inputs, selects, and textareas should all use the same `--radius` value (e.g., 4px). Mixing 4px buttons with 8px inputs looks inconsistent.
+
+2. **All cards share one radius.** Every card-like surface on the page (content cards, modal, dropdown, alert) should use the same radius. Pick one: 6px, 8px, or 12px.
+
+3. **Never mix more than 3 radius values on one page.** A typical system uses:
+   - Small (2-4px) for interactive elements and small UI
+   - Medium (6-8px) for containers and cards
+   - Full (9999px) for avatars and circular elements
+
+4. **Nested radius rule:** Inner elements should have a smaller radius than their parent. If a card has 12px radius, inner elements should use 8px or less. The formula: `inner-radius = outer-radius - padding`. If the card has 12px radius and 16px padding, the inner radius should be ~8px maximum.
+
+5. **Images inside rounded containers:** Use `overflow: hidden` on the container, or apply the same border-radius to the image. Never let image corners poke out of a rounded container.
+
+```css
+.card {
+  border-radius: var(--radius-lg);   /* 8px */
+  overflow: hidden;                   /* clips child images */
+}
+.card__inner {
+  border-radius: calc(var(--radius-lg) - 4px); /* 4px inner */
+}
+```
+
+### Design System Integration
+
+| Component        | Radius Token      | Value  |
+|-----------------|-------------------|--------|
+| Button          | `--radius`        | 4px    |
+| Input / Select  | `--radius`        | 4px    |
+| Tooltip         | `--radius`        | 4px    |
+| Badge / Tag     | `--radius-sm`     | 2px    |
+| Dropdown        | `--radius-md`     | 6px    |
+| Card            | `--radius-lg`     | 8px    |
+| Modal / Dialog  | `--radius-lg`     | 8px    |
+| Alert / Toast   | `--radius-md`     | 6px    |
+| Feature Card    | `--radius-xl`     | 12px   |
+| Search Bar      | `--radius-2xl`    | 16px   |
+| Pill Button     | `--radius-full`   | 9999px |
+| Avatar          | `--radius-full`   | 9999px |
+| Checkbox        | `--radius-sm`     | 2px    |
+| Toggle Track    | `--radius-full`   | 9999px |
+
+### Sources
+
+- Tailwind CSS border-radius scale (`rounded-none` through `rounded-full`)
+- Radix UI Themes radius system
+- Shadcn/ui component defaults
+- Apple Human Interface Guidelines corner radius guidance
+- Material Design shape system (small, medium, large, extra-large)
+
+---
+## CP. Color Palette Construction (60-30-10)
+
+Building a complete, production-ready color system from a single brand color.
+
+### The 60-30-10 Rule
+
+| Proportion | Role                        | Examples                                |
+|-----------|-----------------------------|-----------------------------------------|
+| **60%**   | Dominant (background)       | Page background, large surfaces, white space |
+| **30%**   | Secondary (supporting)      | Cards, sidebars, section backgrounds, secondary text |
+| **10%**   | Accent (emphasis)           | CTAs, links, active states, icons, highlights |
+
+This ratio creates visual harmony. The eye rests on the 60%, scans the 30%, and is drawn to the 10%.
+
+### Starting from ONE Brand Color
+
+Given a single brand color, generate a full palette using HSL manipulation.
+
+**Step 1 — Define the primary:**
+
+```css
+/* Example brand color: a vibrant blue */
+--color-primary-500: hsl(220, 90%, 56%);
+```
+
+**Step 2 — Generate primary variants (lighten/darken):**
+
+```css
+:root {
+  --color-primary-50:  hsl(220, 90%, 97%);   /* tinted background */
+  --color-primary-100: hsl(220, 90%, 93%);   /* light highlight */
+  --color-primary-200: hsl(220, 85%, 85%);   /* light border */
+  --color-primary-300: hsl(220, 80%, 72%);   /* disabled / muted */
+  --color-primary-400: hsl(220, 85%, 64%);   /* hover state */
+  --color-primary-500: hsl(220, 90%, 56%);   /* BASE — buttons, links */
+  --color-primary-600: hsl(220, 85%, 48%);   /* hover (on light bg) */
+  --color-primary-700: hsl(220, 80%, 40%);   /* active / pressed */
+  --color-primary-800: hsl(220, 75%, 32%);   /* heavy emphasis */
+  --color-primary-900: hsl(220, 70%, 24%);   /* dark text on light */
+  --color-primary-950: hsl(220, 65%, 15%);   /* near-black accent */
+}
+```
+
+**Pattern:** As lightness increases, slightly decrease saturation to avoid neon tones. As lightness decreases, decrease saturation to avoid muddy darks.
+
+**Step 3 — Choose a secondary color:**
+
+```
+Complementary:  hue ± 180° → hsl(40, 90%, 56%)  — high contrast, bold
+Analogous:      hue ± 30°  → hsl(250, 90%, 56%) — harmonious, subtle
+Split-comp:     hue ± 150° → hsl(70, 90%, 56%)  — balanced contrast
+Triadic:        hue ± 120° → hsl(340, 90%, 56%) — vibrant, diverse
+```
+
+For most apps, analogous (±30°) is safest. Complementary works for marketing sites.
+
+**Step 4 — Build the neutral scale:**
+
+Use the same hue as your primary color with very low saturation (5-10%) for a cohesive feel. Pure grays (#737373) feel disconnected from colored UIs.
+
+```css
+:root {
+  /* Neutral scale — tinted with primary hue (220°) */
+  --color-neutral-50:  hsl(220, 8%, 98%);    /* #fafafa — page bg */
+  --color-neutral-100: hsl(220, 7%, 96%);    /* #f5f5f5 — subtle bg */
+  --color-neutral-200: hsl(220, 6%, 90%);    /* #e5e5e5 — borders */
+  --color-neutral-300: hsl(220, 5%, 83%);    /* #d4d4d4 — disabled border */
+  --color-neutral-400: hsl(220, 4%, 64%);    /* #a3a3a3 — placeholder */
+  --color-neutral-500: hsl(220, 4%, 45%);    /* #737373 — secondary text */
+  --color-neutral-600: hsl(220, 5%, 32%);    /* #525252 — body text */
+  --color-neutral-700: hsl(220, 6%, 25%);    /* #404040 — headings */
+  --color-neutral-800: hsl(220, 7%, 15%);    /* #262626 — strong text */
+  --color-neutral-900: hsl(220, 8%, 9%);     /* #171717 — near-black */
+  --color-neutral-950: hsl(220, 10%, 4%);    /* #0a0a0a — true dark */
+}
+```
+
+**Step 5 — Semantic colors:**
+
+```css
+:root {
+  /* Success — green */
+  --color-success-50:  hsl(142, 70%, 95%);
+  --color-success-100: hsl(142, 65%, 87%);
+  --color-success-500: #22c55e;               /* primary green */
+  --color-success-600: #16a34a;               /* hover */
+  --color-success-700: #15803d;               /* active */
+
+  /* Warning — amber */
+  --color-warning-50:  hsl(48, 96%, 95%);
+  --color-warning-100: hsl(48, 90%, 85%);
+  --color-warning-500: #f59e0b;               /* primary amber */
+  --color-warning-600: #d97706;               /* hover */
+  --color-warning-700: #b45309;               /* active */
+
+  /* Error / Destructive — red */
+  --color-error-50:  hsl(0, 86%, 97%);
+  --color-error-100: hsl(0, 80%, 90%);
+  --color-error-500: #ef4444;                 /* primary red */
+  --color-error-600: #dc2626;                 /* hover */
+  --color-error-700: #b91c1c;                 /* active */
+
+  /* Info — blue (can share primary if primary is blue) */
+  --color-info-50:  hsl(210, 80%, 96%);
+  --color-info-100: hsl(210, 75%, 88%);
+  --color-info-500: #3b82f6;                  /* primary blue */
+  --color-info-600: #2563eb;                  /* hover */
+  --color-info-700: #1d4ed8;                  /* active */
+}
+```
+
+**Semantic variant pattern — background, border, and text from one semantic color:**
+
+```css
+/* Error alert example */
+.alert--error {
+  background: var(--color-error-50);           /* 10% opacity feel */
+  border: 1px solid hsl(0, 80%, 80%);         /* 30% opacity feel */
+  color: var(--color-error-700);               /* full-strength text */
+}
+```
+
+### Dark Mode
+
+**Do NOT invert.** Remap instead:
+
+| Light Mode Token         | Light Value          | Dark Value               |
+|--------------------------|----------------------|--------------------------|
+| `--bg-page`              | `--neutral-50`  (white-ish) | `--neutral-900` (near-black) |
+| `--bg-surface`           | `#ffffff`            | `--neutral-800`          |
+| `--bg-surface-raised`    | `--neutral-50`       | `--neutral-700`          |
+| `--text-primary`         | `--neutral-900`      | `--neutral-50`           |
+| `--text-secondary`       | `--neutral-600`      | `--neutral-400`          |
+| `--border-default`       | `--neutral-200`      | `--neutral-700`          |
+| `--color-primary-500`    | `hsl(220,90%,56%)`   | `hsl(220,80%,65%)` — slightly desaturated and lighter |
+
+```css
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-page: var(--color-neutral-900);
+    --bg-surface: var(--color-neutral-800);
+    --text-primary: var(--color-neutral-50);
+    --text-secondary: var(--color-neutral-400);
+    --border-default: var(--color-neutral-700);
+    /* Accent colors: slightly desaturate and increase lightness by ~10% */
+  }
+}
+```
+
+### Contrast Requirements
+
+| Level | Ratio   | Applies To                      |
+|-------|---------|---------------------------------|
+| AA    | 4.5:1   | Normal text (< 18px / < 14px bold) |
+| AA    | 3:1     | Large text (≥ 18px / ≥ 14px bold), UI components, graphical objects |
+| AAA   | 7:1     | Normal text (enhanced)          |
+| AAA   | 4.5:1   | Large text (enhanced)           |
+
+**Tools for checking:** Chrome DevTools contrast picker, WebAIM Contrast Checker, Stark plugin (Figma), `axe-core` automated testing.
+
+### Checklist
+
+- [ ] Define one brand color, then derive the full palette from HSL manipulation.
+- [ ] Create a 10-step neutral scale tinted with the brand hue (never pure gray).
+- [ ] Define semantic colors (success, warning, error, info) with at least 50/500/600/700 variants.
+- [ ] Verify AA contrast (4.5:1) for all text/background combinations.
+- [ ] Dark mode remaps tokens — never simple CSS `filter: invert()`.
+- [ ] Test with color blindness simulators (protanopia, deuteranopia, tritanopia).
+- [ ] Never rely on color alone — pair with icons, text labels, or patterns.
+- [ ] Document palette in a shared design token file (JSON, CSS, or SCSS).
+
+### Sources
+
+- Refactoring UI by Adam Wathan & Steve Schoger — palette construction methodology
+- Material Design 3 color system — tonal palettes and dynamic color
+- Tailwind CSS color palette — neutral/slate/gray/zinc scale conventions
+- WCAG 2.2 — contrast ratio requirements (1.4.3, 1.4.6, 1.4.11)
+
+---
+## CQ. Spacing Applied Rules
+
+When to use margin vs padding vs gap, with exact pixel values for every common component.
+
+### The 8px Grid
+
+ALL spacing values should be multiples of 8px (with 4px for fine adjustments). This creates a consistent visual rhythm across the entire interface.
+
+```
+4px   — micro (icon-to-text in tight spaces)
+8px   — xs (tight gaps, small padding)
+12px  — sm (compact spacing)
+16px  — md (default spacing)
+20px  — md+ (comfortable spacing)
+24px  — lg (section spacing, generous padding)
+32px  — xl (large gaps, section padding)
+40px  — 2xl
+48px  — 3xl (section vertical padding)
+64px  — 4xl (large section padding)
+96px  — 5xl (hero/section vertical padding)
+```
+
+### PADDING — Space INSIDE an Element
+
+Padding creates breathing room between content and its container edges.
+
+**Buttons:**
+
+```css
+.btn--sm  { padding: 8px 16px; }     /* 32px height */
+.btn--md  { padding: 10px 20px; }    /* 36-40px height */
+.btn--lg  { padding: 12px 24px; }    /* 44-48px height */
+```
+
+**Cards:**
+
+```css
+.card--compact   { padding: 16px; }
+.card--default   { padding: 20px; }
+.card--spacious  { padding: 24px; }
+```
+
+**Sections (vertical padding for page sections):**
+
+```css
+.section--sm  { padding: 48px 0; }
+.section--md  { padding: 64px 0; }
+.section--lg  { padding: 96px 0; }
+```
+
+**Inputs:**
+
+```css
+.input--sm  { padding: 8px 12px; }
+.input--md  { padding: 10px 14px; }
+.input--lg  { padding: 12px 16px; }
+```
+
+**Modals:**
+
+```css
+.modal__header  { padding: 20px 24px; }
+.modal__body    { padding: 0 24px 20px; }
+.modal__footer  { padding: 16px 24px; }
+```
+
+### MARGIN — Space BETWEEN Sibling Elements
+
+Use margin when elements are siblings and flexbox/grid `gap` is not available.
+
+**Typography:**
+
+```css
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 1.5em;       /* space above heading = 1.5x its own font size */
+  margin-bottom: 0.5em;    /* space below heading = 0.5x its own font size */
+}
+h1:first-child,
+h2:first-child,
+h3:first-child {
+  margin-top: 0;           /* no top margin when first in container */
+}
+p {
+  margin-top: 0;
+  margin-bottom: 1em;      /* 16px at default font size */
+}
+p:last-child {
+  margin-bottom: 0;        /* prevent double spacing at container bottom */
+}
+```
+
+**Form fields (vertical stack without flex):**
+
+```css
+.form-group {
+  margin-bottom: 20px;     /* 16px compact, 20px default, 24px spacious */
+}
+.form-group:last-child {
+  margin-bottom: 0;
+}
+```
+
+**Anti-pattern: margin on first/last child.** Always zero out margin-top on first-child and margin-bottom on last-child to prevent spacing leaks:
+
+```css
+.container > :first-child { margin-top: 0; }
+.container > :last-child  { margin-bottom: 0; }
+```
+
+### GAP — Preferred for Flex/Grid Layouts
+
+`gap` is the modern, preferred way to space items in flex and grid containers. It does NOT add space before the first or after the last item.
+
+**Icon + Text:**
+
+```css
+.btn-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;                 /* between icon and label */
+}
+```
+
+**Button Group:**
+
+```css
+.btn-group {
+  display: flex;
+  gap: 8px;                 /* 8px compact, 12px default */
+}
+```
+
+**Card Grid:**
+
+```css
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;                /* 16px compact, 24px default, 32px spacious */
+}
+```
+
+**Vertical Stack:**
+
+```css
+.stack--tight    { display: flex; flex-direction: column; gap: 8px; }
+.stack--default  { display: flex; flex-direction: column; gap: 12px; }
+.stack--loose    { display: flex; flex-direction: column; gap: 16px; }
+```
+
+**Form Fields (in flex container):**
+
+```css
+.form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;                /* consistent spacing, no margin needed */
+}
+```
+
+**Navigation Items:**
+
+```css
+.nav {
+  display: flex;
+  gap: 24px;                /* horizontal nav links */
+}
+```
+
+### Content-to-Edge (Page Margins)
+
+```css
+.container {
+  width: 100%;
+  max-width: 1200px;        /* or 1280px, 1440px */
+  margin: 0 auto;
+  padding-left: 16px;       /* mobile */
+  padding-right: 16px;
+}
+
+@media (min-width: 768px) {
+  .container {
+    padding-left: 24px;     /* tablet */
+    padding-right: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container {
+    padding-left: 32px;     /* desktop */
+    padding-right: 32px;
+  }
+}
+```
+
+### Decision Tree
+
+```
+Need space INSIDE a box (between content and edges)?
+  → Use PADDING
+
+Need space BETWEEN siblings in a flex/grid container?
+  → Use GAP
+
+Need space BETWEEN siblings in flow layout (no flex/grid)?
+  → Use MARGIN (margin-bottom on each, zero on :last-child)
+
+Need space BETWEEN a page edge and content?
+  → Use PADDING on the container (not margin on children)
+```
+
+### Checklist
+
+- [ ] All spacing values are multiples of 8px (or 4px for fine adjustments).
+- [ ] Prefer `gap` over margin for flex/grid layouts.
+- [ ] Zero out margin-top on `:first-child` and margin-bottom on `:last-child`.
+- [ ] Page margins: 16px mobile, 24px tablet, 32px desktop.
+- [ ] Section vertical padding: 48-96px depending on visual weight.
+- [ ] Button padding is horizontal-heavy (px > py) for comfortable click targets.
+- [ ] Card padding is consistent within a page (pick 16, 20, or 24 — not all three).
+- [ ] Test spacing at mobile breakpoints — reduce section padding and card gaps.
+
+### Sources
+
+- Material Design spacing system — 4dp/8dp grid
+- Tailwind CSS spacing scale — `space-x`, `gap`, padding/margin utilities
+- Nathan Curtis, "Space in Design Systems" (Medium) — spacing taxonomy
+- Every Layout (Heydon Pickering & Andy Bell) — compositional spacing patterns
+
+---
+## CR. Button Hierarchy Visual Specs
+
+Complete button variant system with exact CSS values for primary, secondary, tertiary, destructive, and link-style buttons.
+
+### CSS Custom Properties
+
+```css
+:root {
+  /* Button base tokens */
+  --btn-radius: 4px;
+  --btn-font-weight: 500;
+  --btn-transition: 150ms ease;
+  --btn-focus-ring: 0 0 0 2px #fff, 0 0 0 4px var(--color-primary-500);
+
+  /* Sizes */
+  --btn-h-sm: 32px;
+  --btn-h-md: 36px;
+  --btn-h-lg: 40px;
+  --btn-h-xl: 48px;
+}
+```
+
+### Primary Button
+
+The main call-to-action. Use ONE per logical section.
+
+```css
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--btn-h-md);
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: var(--btn-font-weight);
+  line-height: 1;
+  color: #ffffff;
+  background: #3b82f6;
+  border: none;
+  border-radius: var(--btn-radius);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: background var(--btn-transition),
+              box-shadow var(--btn-transition),
+              transform var(--btn-transition);
+}
+.btn-primary:hover {
+  background: #2563eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.btn-primary:active {
+  background: #1d4ed8;
+  box-shadow: none;
+  transform: translateY(1px);
+}
+.btn-primary:focus-visible {
+  outline: none;
+  box-shadow: var(--btn-focus-ring);
+}
+.btn-primary:disabled {
+  background: #93c5fd;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+```
+
+### Secondary Button
+
+Supporting action alongside primary. "Cancel," "Back," "Save as Draft."
+
+```css
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--btn-h-md);
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: var(--btn-font-weight);
+  line-height: 1;
+  color: #374151;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: var(--btn-radius);
+  cursor: pointer;
+  transition: background var(--btn-transition),
+              border-color var(--btn-transition);
+}
+.btn-secondary:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+.btn-secondary:active {
+  background: #f3f4f6;
+}
+.btn-secondary:focus-visible {
+  outline: none;
+  box-shadow: var(--btn-focus-ring);
+}
+.btn-secondary:disabled {
+  background: #f9fafb;
+  color: #d1d5db;
+  border-color: #e5e7eb;
+  cursor: not-allowed;
+}
+```
+
+### Tertiary / Ghost Button
+
+Low-emphasis action. "Learn more," "View all," toolbar actions.
+
+```css
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--btn-h-md);
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: var(--btn-font-weight);
+  line-height: 1;
+  color: #3b82f6;
+  background: transparent;
+  border: none;
+  border-radius: var(--btn-radius);
+  cursor: pointer;
+  transition: background var(--btn-transition);
+}
+.btn-ghost:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+.btn-ghost:active {
+  background: rgba(59, 130, 246, 0.12);
+}
+.btn-ghost:focus-visible {
+  outline: none;
+  box-shadow: var(--btn-focus-ring);
+}
+.btn-ghost:disabled {
+  color: #93c5fd;
+  background: transparent;
+  cursor: not-allowed;
+}
+```
+
+### Destructive Button
+
+**ONLY for irreversible actions:** delete account, remove permanently, revoke access.
+
+```css
+.btn-destructive {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--btn-h-md);
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: var(--btn-font-weight);
+  line-height: 1;
+  color: #ffffff;
+  background: #ef4444;
+  border: none;
+  border-radius: var(--btn-radius);
+  cursor: pointer;
+  transition: background var(--btn-transition);
+}
+.btn-destructive:hover {
+  background: #dc2626;
+}
+.btn-destructive:active {
+  background: #b91c1c;
+}
+.btn-destructive:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #ef4444;
+}
+.btn-destructive:disabled {
+  background: #fca5a5;
+  cursor: not-allowed;
+}
+```
+
+### Link-Style Button
+
+Looks like a hyperlink but behaves as a button. For inline actions within text or low-chrome UIs.
+
+```css
+.btn-link {
+  display: inline;
+  padding: 0;
+  font-size: inherit;
+  font-weight: var(--btn-font-weight);
+  color: #3b82f6;
+  background: none;
+  border: none;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--btn-transition);
+}
+.btn-link:hover {
+  text-decoration: underline;
+  color: #2563eb;
+}
+.btn-link:active {
+  color: #1d4ed8;
+}
+.btn-link:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.btn-link:disabled {
+  color: #93c5fd;
+  text-decoration: none;
+  cursor: not-allowed;
+}
+```
+
+### Button Sizes
+
+```css
+.btn--sm {
+  height: var(--btn-h-sm);   /* 32px */
+  padding: 0 12px;
+  font-size: 13px;
+}
+.btn--md {
+  height: var(--btn-h-md);   /* 36px — default */
+  padding: 0 16px;
+  font-size: 14px;
+}
+.btn--lg {
+  height: var(--btn-h-lg);   /* 40px */
+  padding: 0 20px;
+  font-size: 15px;
+}
+.btn--xl {
+  height: var(--btn-h-xl);   /* 48px */
+  padding: 0 24px;
+  font-size: 16px;
+}
+```
+
+### Icon Buttons
+
+Square buttons with only an icon — equal width and height.
+
+```css
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--btn-h-md);    /* square: width = height */
+  height: var(--btn-h-md);
+  padding: 0;
+  border-radius: var(--btn-radius);
+}
+.btn-icon svg {
+  width: 18px;
+  height: 18px;
+}
+/* Always provide aria-label for icon-only buttons */
+```
+
+### Loading State
+
+```css
+.btn--loading {
+  position: relative;
+  color: transparent;        /* hide text */
+  pointer-events: none;      /* prevent clicks */
+}
+.btn--loading::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin 600ms linear infinite;
+}
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+/* Alternative: replace left icon with spinner, keep text visible */
+```
+
+### Focus Ring (Keyboard Navigation)
+
+```css
+/* Applied via :focus-visible — does NOT show on mouse click */
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #ffffff,          /* white gap */
+              0 0 0 4px var(--color-primary-500); /* colored ring */
+}
+```
+
+### Minimum Touch Target
+
+```css
+/* Even if a button is visually 32px tall, ensure 44x44px touch area */
+.btn--sm {
+  position: relative;
+}
+.btn--sm::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  /* invisible, but expands touch area */
+}
+```
+
+### Checklist
+
+- [ ] ONE primary button per section/viewport. Multiple primaries = no hierarchy.
+- [ ] Destructive buttons require confirmation (modal or inline "Are you sure?").
+- [ ] All buttons have `:focus-visible` styling for keyboard navigation.
+- [ ] Disabled buttons have `cursor: not-allowed` and reduced opacity.
+- [ ] Loading state disables interaction (`pointer-events: none`).
+- [ ] Icon-only buttons have `aria-label` for screen readers.
+- [ ] Minimum 44x44px touch target on all buttons (WCAG 2.5.5).
+- [ ] Button text uses sentence case ("Save changes"), not all-caps.
+- [ ] Never use `<div>` or `<span>` as a button — use `<button>` or `<a>`.
+
+### Sources
+
+- Radix UI Primitives — button patterns and accessibility
+- Shadcn/ui — button component variants
+- Tailwind UI — button design patterns
+- WCAG 2.2 SC 2.5.5 — Target Size (Enhanced)
+
+---
+## CS. Shadow & Elevation System
+
+Complete box-shadow scale with CSS values, dark mode handling, and usage guidelines.
+
+### CSS Custom Properties
+
+```css
+:root {
+  --shadow-none: none;
+  --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow:     0 1px 3px rgba(0, 0, 0, 0.1),
+                0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md:  0 4px 6px rgba(0, 0, 0, 0.07),
+                0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-lg:  0 10px 15px rgba(0, 0, 0, 0.1),
+                0 4px 6px rgba(0, 0, 0, 0.05);
+  --shadow-xl:  0 20px 25px rgba(0, 0, 0, 0.1),
+                0 8px 10px rgba(0, 0, 0, 0.04);
+  --shadow-2xl: 0 25px 50px rgba(0, 0, 0, 0.25);
+
+  --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-ring:  0 0 0 3px rgba(59, 130, 246, 0.4);
+}
+```
+
+### Level 0 — Flat (none)
+
+```css
+box-shadow: var(--shadow-none);   /* none */
+```
+
+**Use for:** default state of most elements, flat design surfaces, elements distinguished by background color or border rather than elevation. Tables, inline elements, text blocks.
+
+### Level 1 — Raised (sm)
+
+```css
+box-shadow: var(--shadow-sm);
+/* 0 1px 2px rgba(0, 0, 0, 0.05) */
+```
+
+**Use for:** cards at rest, buttons at rest, static containers, subtle separation from background. The lightest perceptible shadow — adds depth without drawing attention.
+
+### Level 2 — Elevated (default)
+
+```css
+box-shadow: var(--shadow);
+/* 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06) */
+```
+
+**Use for:** card hover state, dropdown menus, autocomplete suggestions, small floating elements. A clear but modest lift — signals interactivity or temporary surfaces.
+
+### Level 3 — Floating (md)
+
+```css
+box-shadow: var(--shadow-md);
+/* 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06) */
+```
+
+**Use for:** popovers, tooltips, sticky elements, floating toolbars, context menus. Clearly elevated above the main content plane.
+
+### Level 4 — Overlay (lg)
+
+```css
+box-shadow: var(--shadow-lg);
+/* 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05) */
+```
+
+**Use for:** modals, drawers, side panels, dialog boxes. High elevation — these surfaces demand attention and sit above a backdrop.
+
+### Level 5 — Supreme (xl)
+
+```css
+box-shadow: var(--shadow-xl);
+/* 0 20px 25px rgba(0, 0, 0, 0.1), 0 8px 10px rgba(0, 0, 0, 0.04) */
+```
+
+**Use for:** toast notifications, floating action buttons, snackbars, elevated bottom sheets. The highest elevation for persistent floating UI elements.
+
+### Level 6 — Dramatic (2xl)
+
+```css
+box-shadow: var(--shadow-2xl);
+/* 0 25px 50px rgba(0, 0, 0, 0.25) */
+```
+
+**Use for:** full-screen overlays, image lightboxes, photo viewers, hero card with dramatic hover effect. Use sparingly — this is a statement shadow.
+
+### Ring Shadow (Focus)
+
+```css
+box-shadow: var(--shadow-ring);
+/* 0 0 0 3px rgba(59, 130, 246, 0.4) */
+```
+
+**Use for:** focus states on interactive elements. Always pair with `outline: none`. Can combine with other shadows:
+
+```css
+.card:focus-visible {
+  box-shadow: var(--shadow-sm), var(--shadow-ring);
+  outline: none;
+}
+```
+
+### Inset Shadow
+
+```css
+box-shadow: var(--shadow-inner);
+/* inset 0 2px 4px rgba(0, 0, 0, 0.06) */
+```
+
+**Use for:** pressed button states, active toggle backgrounds, input inner glow, well/sunken containers, and elements that should feel recessed rather than elevated.
+
+### Dark Mode Shadows
+
+Shadows on dark backgrounds are nearly invisible since there is no contrast between the shadow and the dark surface. Instead:
+
+```css
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Reduce shadow opacity by ~50% */
+    --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow:     0 1px 3px rgba(0, 0, 0, 0.4),
+                  0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md:  0 4px 6px rgba(0, 0, 0, 0.35),
+                  0 2px 4px rgba(0, 0, 0, 0.3);
+    --shadow-lg:  0 10px 15px rgba(0, 0, 0, 0.4),
+                  0 4px 6px rgba(0, 0, 0, 0.3);
+    --shadow-xl:  0 20px 25px rgba(0, 0, 0, 0.45),
+                  0 8px 10px rgba(0, 0, 0, 0.3);
+    --shadow-2xl: 0 25px 50px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Add subtle luminous border to replace shadow perception */
+  .card, .dropdown, .modal {
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+}
+```
+
+**Key insight:** In dark mode, elevation is communicated more by surface lightness than by shadows. Higher surfaces = lighter background color.
+
+### Transition
+
+Always animate shadow changes for smooth elevation transitions:
+
+```css
+.card {
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 150ms ease;
+}
+.card:hover {
+  box-shadow: var(--shadow);
+}
+```
+
+**Performance note:** `box-shadow` transitions do not trigger layout. They do trigger paint, but the performance cost is negligible in modern browsers. For absolute maximum performance on many simultaneous animating elements, consider using `filter: drop-shadow()` which can be GPU-accelerated.
+
+### Elevation Mapping Table
+
+| Component           | Resting Shadow  | Hover Shadow   | Active Shadow   |
+|---------------------|----------------|----------------|-----------------|
+| Button              | `--shadow-sm`  | `--shadow`     | `none`          |
+| Card                | `--shadow-sm`  | `--shadow`     | `--shadow-sm`   |
+| Dropdown / Select   | —              | —              | `--shadow`      |
+| Tooltip             | `--shadow-md`  | —              | —               |
+| Popover             | `--shadow-md`  | —              | —               |
+| Modal               | `--shadow-lg`  | —              | —               |
+| Drawer              | `--shadow-lg`  | —              | —               |
+| Toast / Snackbar    | `--shadow-xl`  | —              | —               |
+| Lightbox            | `--shadow-2xl` | —              | —               |
+| Input (focus)       | —              | —              | `--shadow-ring` |
+
+### Checklist
+
+- [ ] Define shadow scale as CSS custom properties for consistency.
+- [ ] Use `--shadow-sm` as default card shadow, `--shadow` for hover.
+- [ ] Always `transition: box-shadow 150ms ease` on elements that change shadow.
+- [ ] In dark mode, rely on surface color hierarchy more than shadows.
+- [ ] Add `border: 1px solid rgba(255,255,255,0.05)` to dark mode elevated surfaces.
+- [ ] Combine ring shadow with existing shadow on focus: `box-shadow: var(--shadow-sm), var(--shadow-ring)`.
+- [ ] Never use more than 2 elevation levels difference on hover (e.g., sm → default, not none → lg).
+- [ ] Test shadows on both white and off-white backgrounds — too-subtle shadows disappear on #f5f5f5.
+
+### Sources
+
+- Tailwind CSS shadow scale (`shadow-sm` through `shadow-2xl`)
+- Material Design elevation system — 6 levels (0dp through 24dp)
+- Josh Comeau, "Designing Beautiful Shadows" — layered shadow technique
+- CSS Tricks, "Getting Deep into Shadows" — performance considerations
+
+---
+## CT. Card Component Deep Anatomy
+
+Professional card component specification covering structure, every sub-element, interactive states, variants, and skeleton loading.
+
+### Card Structure
+
+```
+<article class="card">
+  <div class="card__header">         <!-- optional -->
+    <img class="card__avatar" />
+    <div class="card__header-text">
+      <span class="card__title">…</span>
+      <span class="card__subtitle">…</span>
+    </div>
+    <button class="card__menu">⋯</button>
+  </div>
+  <div class="card__media">          <!-- optional -->
+    <img src="…" alt="…" />
+  </div>
+  <div class="card__body">
+    <h3 class="card__body-title">…</h3>
+    <p class="card__body-desc">…</p>
+    <div class="card__body-meta">…</div>
+  </div>
+  <div class="card__actions">        <!-- optional -->
+    <button class="btn-primary">…</button>
+    <button class="btn-ghost">…</button>
+  </div>
+</article>
+```
+
+### Container
+
+```css
+.card {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  /* OR use shadow instead of border: */
+  /* box-shadow: 0 1px 2px rgba(0,0,0,0.05); */
+  overflow: hidden;
+  transition: box-shadow 150ms ease,
+              border-color 150ms ease,
+              transform 150ms ease;
+}
+```
+
+**Note:** Use border OR shadow for elevation — not both. Border is crisper at small sizes; shadow feels more modern.
+
+### Header
+
+```css
+.card__header {
+  display: flex;
+  align-items: center;
+  padding: 16px 16px 0;
+  gap: 12px;
+}
+.card__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.card__header-text {
+  flex: 1;
+  min-width: 0;             /* prevents text overflow from breaking flex */
+}
+.card__title {
+  display: block;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card__subtitle {
+  display: block;
+  font-size: 13px;
+  line-height: 18px;
+  color: #6b7280;
+}
+.card__menu {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;              /* 44px touch target */
+  height: 44px;
+  margin: -12px -12px -12px auto;  /* visually align, expand touch area */
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 20px;
+}
+.card__menu:hover {
+  background: #f3f4f6;
+}
+```
+
+### Media
+
+```css
+.card__media {
+  width: 100%;
+  overflow: hidden;
+}
+.card__media img,
+.card__media video {
+  width: 100%;
+  aspect-ratio: 16 / 9;     /* or 4/3, 1/1 — choose one per card type */
+  object-fit: cover;
+  display: block;            /* removes bottom gap from inline img */
+}
+```
+
+### Body
+
+```css
+.card__body {
+  flex: 1;                   /* fills remaining vertical space */
+  padding: 16px;
+}
+.card__body-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+  color: #111827;
+  margin: 0 0 4px;
+  /* Clamp to 2 lines */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card__body-desc {
+  font-size: 14px;
+  line-height: 20px;
+  color: #4b5563;
+  margin: 0;
+  /* Clamp to 3 lines */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card__body-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+```
+
+### Actions
+
+```css
+.card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 16px;
+  justify-content: flex-end;
+  /* Or use space-between for left+right alignment */
+}
+```
+
+### Clickable Card
+
+When the entire card is a clickable link.
+
+```css
+/* Approach 1: Wrap in <a> */
+a.card {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Approach 2: Pseudo-element stretch link */
+.card--clickable {
+  position: relative;
+  cursor: pointer;
+}
+.card--clickable .card__body-title a {
+  text-decoration: none;
+  color: inherit;
+}
+.card--clickable .card__body-title a::after {
+  content: "";
+  position: absolute;
+  inset: 0;                  /* stretches link over entire card */
+}
+/* Inner links (tags, author) need to sit above the stretched link */
+.card--clickable .card__body-meta a,
+.card--clickable .card__actions button {
+  position: relative;
+  z-index: 1;
+}
+```
+
+**Hover state:**
+
+```css
+.card--clickable:hover {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1),
+              0 1px 2px rgba(0, 0, 0, 0.06);  /* shadow level 2 */
+  border-color: #d1d5db;
+}
+```
+
+**Pressed/Active state:**
+
+```css
+.card--clickable:active {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);  /* shadow level 1 */
+  transform: scale(0.99);
+}
+```
+
+**Focus state (keyboard navigation):**
+
+```css
+.card--clickable:focus-visible,
+.card--clickable:has(a:focus-visible) {
+  outline: none;
+  box-shadow: 0 0 0 2px #ffffff,
+              0 0 0 4px #3b82f6;
+}
+```
+
+### Horizontal Card
+
+Card with media on the left and content on the right, side by side.
+
+```css
+.card--horizontal {
+  flex-direction: row;
+}
+.card--horizontal .card__media {
+  width: 33%;                /* or 40% — adjust to taste */
+  flex-shrink: 0;
+}
+.card--horizontal .card__media img {
+  height: 100%;
+  aspect-ratio: auto;        /* fill available height */
+}
+.card--horizontal .card__body {
+  flex: 1;
+}
+
+/* Stack on small screens */
+@media (max-width: 480px) {
+  .card--horizontal {
+    flex-direction: column;
+  }
+  .card--horizontal .card__media {
+    width: 100%;
+  }
+  .card--horizontal .card__media img {
+    aspect-ratio: 16 / 9;
+  }
+}
+```
+
+### Skeleton Loading
+
+Placeholder card shown while data is loading.
+
+```css
+.card--skeleton .card__avatar,
+.card--skeleton .card__media,
+.card--skeleton .card__body-title,
+.card--skeleton .card__body-desc,
+.card--skeleton .card__body-meta {
+  background: #f3f4f6;
+  border-radius: 4px;
+  color: transparent;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Shimmer animation */
+.card--skeleton .card__avatar::after,
+.card--skeleton .card__media::after,
+.card--skeleton .card__body-title::after,
+.card--skeleton .card__body-desc::after,
+.card--skeleton .card__body-meta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Skeleton placeholder sizes */
+.card--skeleton .card__body-title {
+  height: 20px;
+  width: 70%;
+  margin-bottom: 8px;
+}
+.card--skeleton .card__body-desc {
+  height: 16px;
+  width: 100%;
+  margin-bottom: 4px;
+}
+.card--skeleton .card__body-desc:last-child {
+  width: 60%;
+}
+.card--skeleton .card__body-meta {
+  height: 14px;
+  width: 40%;
+  margin-top: 12px;
+}
+```
+
+Use `aria-busy="true"` and `aria-label="Loading"` on skeleton cards for screen readers. Replace with real content once loaded.
+
+### Dark Mode Card
+
+```css
+@media (prefers-color-scheme: dark) {
+  .card {
+    background: #1f2937;                     /* neutral-800 */
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+  .card__title,
+  .card__body-title {
+    color: #f9fafb;                          /* neutral-50 */
+  }
+  .card__subtitle,
+  .card__body-desc {
+    color: #9ca3af;                          /* neutral-400 */
+  }
+  .card__body-meta {
+    color: #6b7280;                          /* neutral-500 */
+  }
+  .card--skeleton .card__avatar::after,
+  .card--skeleton .card__media::after,
+  .card--skeleton .card__body-title::after,
+  .card--skeleton .card__body-desc::after {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.08) 50%,
+      transparent 100%
+    );
+  }
+}
+```
+
+### Checklist
+
+- [ ] Card uses semantic HTML (`<article>`, `<h3>`, `<p>`, `<a>`).
+- [ ] Clickable cards have a clear hover state (shadow change or border change).
+- [ ] Inner links within clickable cards use `position: relative; z-index: 1` to stay clickable.
+- [ ] Images use `object-fit: cover` and a defined `aspect-ratio` to prevent layout shift.
+- [ ] Text truncation uses `-webkit-line-clamp` for multi-line clamping.
+- [ ] Skeleton loading uses `aria-busy="true"` and shimmer animation.
+- [ ] Cards in a grid use `flex: 1` on body so actions align at the bottom.
+- [ ] `overflow: hidden` on the container clips media to the card's border-radius.
+- [ ] Horizontal cards stack to vertical below 480px.
+- [ ] Focus-visible ring is visible for keyboard navigation on clickable cards.
+- [ ] Set `min-width: 0` on flex children containing text to prevent overflow.
+- [ ] Test card with no image, no header, no actions — each section is optional.
+
+### Sources
+
+- Material Design 3 — Card component specification
+- Ant Design — Card component documentation
+- Apple Human Interface Guidelines — Content views and cards
+- Inclusive Components (Heydon Pickering) — Card accessibility patterns
+- Shadcn/ui — Card component implementation
+
 > **Sources:** web.dev — "Web Vitals" (Philip Walton); web-vitals library documentation (GitHub); Chrome UX Report (CrUX) documentation; web.dev — "Best practices for measuring Web Vitals in the field"; Google Search Central — Core Web Vitals & ranking; Philip Walton — "Fixing INP" (web.dev, 2024).
+
+---
+
+## CU. New CSS Features 2025-2026
+
+> Modern CSS capabilities that shipped in major browsers between 2024-2026, replacing JavaScript workarounds and preprocessor dependencies with native platform features.
+
+### CSS @scope
+
+Native CSS scoping limits style reach to a subtree of the DOM without requiring BEM naming, CSS Modules, or Shadow DOM.
+
+**Basic scoping — styles only apply inside `.card`:**
+
+```css
+@scope (.card) {
+  :scope {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+
+  h2 {
+    font-size: 1.2em;
+    margin-bottom: 0.5rem;
+  }
+
+  p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  a {
+    color: var(--primary);
+    text-decoration: underline;
+  }
+}
+```
+
+**Donut scope — style the outer region but exclude inner content:**
+
+```css
+/* Styles apply inside .card but NOT inside .card__content */
+@scope (.card) to (.card__content) {
+  :scope {
+    background: var(--surface);
+    padding: 1rem;
+  }
+
+  /* This targets .card > header, .card > footer, etc. */
+  /* but NOT anything inside .card__content */
+  span {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+}
+```
+
+**Component library isolation — prevent style leakage between widgets:**
+
+```css
+/* Third-party widget scoping */
+@scope (.widget-datepicker) {
+  :scope {
+    font-family: system-ui, sans-serif;
+    font-size: 14px;
+  }
+
+  button {
+    /* These button styles won't leak outside .widget-datepicker */
+    all: unset;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+
+  button:hover {
+    background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+  }
+}
+
+/* Nested scope — sidebar nav vs. main nav */
+@scope (.sidebar) {
+  nav a {
+    display: block;
+    padding: 0.5rem 1rem;
+  }
+}
+
+@scope (.main-content) {
+  nav a {
+    display: inline-flex;
+    padding: 0.25rem 0.75rem;
+  }
+}
+```
+
+**Proximity wins over specificity** — when two `@scope` rules match, the closer ancestor scope takes precedence, which is a more intuitive cascade behavior than specificity counting.
+
+**Browser support (early 2026):** Chrome 118+, Edge 118+, Safari 17.4+, Firefox behind flag (expected stable mid-2026).
+
+**When to use:** Component libraries, CMS content isolation, third-party embed sandboxing, replacing BEM `.block__element--modifier` naming conventions.
+
+### CSS color-mix()
+
+Native color manipulation directly in CSS, replacing Sass `lighten()`, `darken()`, and `rgba()` workarounds.
+
+**Basic usage — lighten and darken:**
+
+```css
+:root {
+  --primary: #3b82f6;
+  --primary-light: color-mix(in srgb, var(--primary), white 20%);
+  --primary-dark: color-mix(in srgb, var(--primary), black 20%);
+  --primary-subtle: color-mix(in srgb, var(--primary), white 85%);
+}
+```
+
+**Dynamic hover and active states:**
+
+```css
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  /* Lighten by mixing 15% white */
+  background: color-mix(in srgb, var(--primary), white 15%);
+}
+
+.btn-primary:active {
+  /* Darken by mixing 20% black */
+  background: color-mix(in srgb, var(--primary), black 20%);
+}
+```
+
+**Alpha/transparency manipulation:**
+
+```css
+.overlay {
+  /* 50% opacity of primary color */
+  background: color-mix(in srgb, var(--primary) 50%, transparent);
+}
+
+.focus-ring {
+  /* 30% opacity ring */
+  outline: 3px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  outline-offset: 2px;
+}
+
+.border-subtle {
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+```
+
+**oklch vs srgb — perceptual uniformity:**
+
+```css
+:root {
+  --primary: oklch(0.6 0.2 250);
+
+  /* oklch produces more perceptually uniform lightness steps */
+  --primary-100: color-mix(in oklch, var(--primary), white 90%);
+  --primary-200: color-mix(in oklch, var(--primary), white 70%);
+  --primary-300: color-mix(in oklch, var(--primary), white 50%);
+  --primary-400: color-mix(in oklch, var(--primary), white 25%);
+  --primary-500: var(--primary);
+  --primary-600: color-mix(in oklch, var(--primary), black 20%);
+  --primary-700: color-mix(in oklch, var(--primary), black 40%);
+  --primary-800: color-mix(in oklch, var(--primary), black 60%);
+  --primary-900: color-mix(in oklch, var(--primary), black 80%);
+}
+
+/* srgb can produce muddy mid-tones; oklch keeps hue/chroma consistent */
+```
+
+**Theming with a single custom property:**
+
+```css
+[data-theme="blue"]  { --accent: #3b82f6; }
+[data-theme="green"] { --accent: #22c55e; }
+[data-theme="red"]   { --accent: #ef4444; }
+
+/* All derived colors update automatically */
+.card {
+  background: color-mix(in oklch, var(--accent), white 92%);
+  border: 1px solid color-mix(in oklch, var(--accent), white 70%);
+}
+
+.card:hover {
+  border-color: color-mix(in oklch, var(--accent), white 40%);
+}
+```
+
+**Browser support (early 2026):** Baseline 2023 — Chrome 111+, Firefox 113+, Safari 16.2+, Edge 111+. Safe to use in production.
+
+### CSS text-wrap: balance / pretty
+
+Typography refinement that previously required JavaScript or manual `<br>` insertion.
+
+```css
+/* balance: equalizes line lengths — ideal for headings */
+h1, h2, h3, h4, h5, h6,
+.heading,
+blockquote {
+  text-wrap: balance;
+}
+
+/* pretty: prevents orphans on last line — ideal for paragraphs */
+p, li, dd, figcaption {
+  text-wrap: pretty;
+}
+
+/* stable: prevents reflow during editing — ideal for editable content */
+[contenteditable],
+.live-preview,
+textarea {
+  text-wrap: stable;
+}
+```
+
+**Visual difference:**
+
+```
+/* Without text-wrap: balance (default) */
+This is a heading that wraps to
+two lines unevenly
+
+/* With text-wrap: balance */
+This is a heading that
+wraps to two lines evenly
+```
+
+**Performance considerations:**
+
+- `balance` is computationally expensive above 6 lines — the browser may silently ignore it on long blocks. Use only on short text (headings, captions, pull quotes).
+- `pretty` is lightweight and safe on any length — it only adjusts the last line.
+- `stable` prevents layout shift during live editing — small performance cost.
+
+**Browser support (early 2026):** Baseline 2024 — Chrome 114+, Firefox 121+, Safari 17.4+, Edge 114+. Safe to use in production (graceful degradation — browsers that do not support it simply use default wrapping).
+
+### CSS field-sizing
+
+Auto-sizing form controls based on their content, replacing JavaScript resize hacks.
+
+```css
+/* Textarea grows with content */
+textarea {
+  field-sizing: content;
+  min-height: 3lh;   /* at least 3 lines */
+  max-height: 10lh;  /* cap at 10 lines */
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  resize: vertical;  /* still allow manual resize */
+}
+
+/* Input widens to fit value */
+input[type="text"].auto-width {
+  field-sizing: content;
+  min-width: 8ch;    /* at least 8 characters wide */
+  max-width: 40ch;
+  padding: 0.5rem 0.75rem;
+}
+
+/* Select adjusts to longest visible option */
+select.auto-width {
+  field-sizing: content;
+  min-width: 10ch;
+}
+```
+
+**The `lh` unit** — represents the computed line-height of the element, making it natural to set height bounds relative to lines of text:
+
+```css
+.comment-box {
+  field-sizing: content;
+  min-height: 2lh;   /* 2 lines minimum */
+  max-height: 15lh;  /* 15 lines maximum, then scroll */
+  overflow-y: auto;
+}
+```
+
+**Before (JavaScript hack this replaces):**
+
+```javascript
+// No longer needed with field-sizing: content
+textarea.addEventListener('input', () => {
+  textarea.style.height = 'auto';
+  textarea.style.height = textarea.scrollHeight + 'px';
+});
+```
+
+**Browser support (early 2026):** Chrome 123+, Edge 123+, Firefox 132+, Safari experimental (behind flag). Use with progressive enhancement — set a fixed height as fallback.
+
+```css
+textarea {
+  /* Fallback for browsers without field-sizing */
+  height: 120px;
+  resize: vertical;
+}
+
+@supports (field-sizing: content) {
+  textarea {
+    field-sizing: content;
+    height: auto;
+    min-height: 3lh;
+    max-height: 10lh;
+  }
+}
+```
+
+### Exclusive Accordion (details name="")
+
+Native HTML-only accordion groups — no JavaScript, no ARIA manual wiring.
+
+```html
+<!-- Only one <details> open at a time within the same name group -->
+<details name="faq">
+  <summary>What is your return policy?</summary>
+  <p>You can return items within 30 days of purchase.</p>
+</details>
+
+<details name="faq">
+  <summary>How long does shipping take?</summary>
+  <p>Standard shipping takes 3-5 business days.</p>
+</details>
+
+<details name="faq" open>
+  <summary>Do you offer international shipping?</summary>
+  <p>Yes, we ship to over 50 countries worldwide.</p>
+</details>
+```
+
+**Animated open/close with `::details-content`:**
+
+```css
+details {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+}
+
+details summary {
+  padding: 1rem;
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+details summary::marker {
+  display: none;
+}
+
+details summary::after {
+  content: '+';
+  float: right;
+  font-size: 1.25rem;
+  transition: transform 200ms ease;
+}
+
+details[open] summary::after {
+  content: '−';
+}
+
+/* Animate the content panel */
+details::details-content {
+  block-size: 0;
+  overflow: hidden;
+  transition: block-size 300ms ease, content-visibility 300ms ease allow-discrete;
+}
+
+details[open]::details-content {
+  block-size: max-content;
+}
+
+details > :not(summary) {
+  padding: 0 1rem 1rem;
+}
+```
+
+**Browser support (early 2026):** Chrome 120+, Safari 17.2+, Firefox 130+, Edge 120+. The `name` attribute for exclusive behavior and `::details-content` for animation are both well-supported.
+
+### Dialog Element Improvements
+
+Declarative dialog control without JavaScript event listeners.
+
+**The `closedby` attribute — control how the dialog can be dismissed:**
+
+```html
+<!-- Light dismiss: click outside, Escape, or close button all work -->
+<dialog id="settings-panel" closedby="any">
+  <h2>Settings</h2>
+  <form method="dialog">
+    <!-- ... -->
+    <button>Save & Close</button>
+  </form>
+</dialog>
+
+<!-- Only Escape key or explicit close button (no click-outside) -->
+<dialog id="confirm-delete" closedby="closerequest">
+  <h2>Delete this item?</h2>
+  <p>This action cannot be undone.</p>
+  <button commandfor="confirm-delete" command="close">Cancel</button>
+  <button onclick="deleteItem()">Delete</button>
+</dialog>
+
+<!-- Only closeable programmatically (forced flow) -->
+<dialog id="onboarding-wizard" closedby="none">
+  <h2>Welcome! Let's set up your account.</h2>
+  <!-- User must complete all steps -->
+</dialog>
+```
+
+**Declarative open/close with `command` and `commandfor`:**
+
+```html
+<!-- Open a modal — no JavaScript needed -->
+<button commandfor="my-dialog" command="show-modal">Open Settings</button>
+
+<!-- The dialog with a declarative close button -->
+<dialog id="my-dialog" closedby="any">
+  <h2>Settings</h2>
+  <p>Configure your preferences.</p>
+
+  <!-- Closes parent dialog without JS -->
+  <button commandfor="my-dialog" command="close">Done</button>
+</dialog>
+```
+
+**`requestClose()` — allows prevention of closing:**
+
+```javascript
+const dialog = document.getElementById('unsaved-changes');
+
+dialog.addEventListener('cancel', (event) => {
+  if (hasUnsavedChanges()) {
+    event.preventDefault();
+    showConfirmation('Discard unsaved changes?');
+  }
+});
+
+// requestClose() fires the cancel event first (unlike .close() which is immediate)
+document.getElementById('close-btn').addEventListener('click', () => {
+  dialog.requestClose();
+});
+```
+
+**Styling best practices:**
+
+```css
+dialog {
+  border: none;
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: min(90vw, 480px);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+/* Entry animation */
+dialog[open] {
+  animation: dialog-in 200ms ease-out;
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.97);
+  }
+}
+```
+
+**Browser support (early 2026):** `closedby` — Chrome 131+, Edge 131+; `command`/`commandfor` — Chrome 131+; Firefox and Safari are implementing both, expected stable mid-2026. The base `<dialog>` element and `::backdrop` are Baseline 2022 and universally supported.
+
+### Checklist
+
+- [ ] Use `@scope` for component-level style isolation instead of BEM or CSS Modules where appropriate.
+- [ ] Replace Sass `lighten()`/`darken()` with `color-mix()` — prefer `oklch` color space for perceptual uniformity.
+- [ ] Apply `text-wrap: balance` to headings and `text-wrap: pretty` to body text.
+- [ ] Use `field-sizing: content` with `min-height`/`max-height` bounds on textareas — wrap in `@supports` for fallback.
+- [ ] Use `<details name="group">` for simple exclusive accordions before reaching for a JS component.
+- [ ] Use `closedby` and `commandfor` attributes on dialogs to reduce JavaScript for open/close logic.
+- [ ] Verify browser support for each feature and provide graceful fallbacks.
+
+### Sources
+
+- Chrome for Developers — "CSS @scope" (2024)
+- MDN Web Docs — `color-mix()`, `text-wrap`, `field-sizing`, `::details-content`, `closedby`
+- web.dev — "New CSS features in 2024-2025" (Una Kravets, Adam Argyle)
+- Can I Use — browser support tables for each feature
+- W3C CSS Scoping Module Level 2 specification
+- Open UI — Dialog and Invoker commands explainer
+
+---
+
+## CV. Privacy Sandbox & Post-Cookie Web
+
+> The web is transitioning away from third-party cookies. Safari and Firefox already block them by default. Chrome adopted a user-choice model instead of blanket deprecation. This section covers the replacement APIs and practical migration steps.
+
+### Third-Party Cookie Deprecation Timeline
+
+**Current status (early 2026):**
+
+| Browser | Third-party cookie status |
+|---------|--------------------------|
+| Safari  | Blocked by default since 2020 (ITP — Intelligent Tracking Prevention) |
+| Firefox | Blocked by default since 2023 (ETP — Enhanced Tracking Protection, Strict mode) |
+| Chrome  | User-choice model: users can opt to block 3P cookies; not blanket-deprecated |
+| Edge    | Follows Chromium behavior, tracking prevention levels (Basic/Balanced/Strict) |
+
+**What broke when 3P cookies disappeared:**
+
+- Cross-site analytics (e.g., GA tracking across subdomains without config)
+- Ad conversion measurement (click on site A, convert on site B)
+- Remarketing audiences (show ads on site B based on site A visit)
+- Embedded auth widgets (SSO iframes, social login buttons)
+- Embedded comment systems, chat widgets, payment iframes
+- Federated login flows relying on cookie-based session sharing
+
+### Topics API (Replaces FLoC)
+
+Interest-based advertising without tracking individual users.
+
+**How it works:**
+
+1. Browser locally observes sites a user visits.
+2. Each site is mapped to one of ~470 standardized topics (taxonomy v2).
+3. Per epoch (1 week), the browser selects top 5 topics from browsing.
+4. When a site calls the API, it receives up to 3 topics (one per recent epoch).
+5. 5% of the time, a random topic is returned (differential privacy noise).
+
+**Implementation:**
+
+```javascript
+// JavaScript API
+const topics = await document.browsingTopics();
+// Returns array: [{ topic: 57, taxonomyVersion: '2', modelVersion: '4', ... }]
+
+// Send topics to ad server for targeting
+fetch('https://ads.example.com/bid', {
+  method: 'POST',
+  body: JSON.stringify({ topics }),
+});
+```
+
+```
+// HTTP header approach — topic observation happens automatically
+// Response header from ad server:
+Observe-Browsing-Topics: ?1
+
+// Request header sent by browser to ad server:
+Sec-Browsing-Topics: (57);v=chrome.2:4:10, (123);v=chrome.2:4:10
+```
+
+**Privacy guarantees:**
+
+- Topics are coarse-grained (470 categories, not fine-grained interests).
+- Only 3 weeks of history, then topics age out.
+- Users can view and remove topics in `chrome://settings/adPrivacy`.
+- No cross-site identity linking — topics are the same regardless of which site calls the API.
+- 5% noise ensures plausible deniability for any single topic.
+
+### Attribution Reporting API
+
+Measures ad conversions without cross-site user tracking.
+
+**Event-level reports (click/view to conversion):**
+
+```html
+<!-- On the ad-serving page -->
+<a href="https://shop.example.com/product"
+   attributionsrc="https://adtech.example.com/register-source">
+  Buy Now
+</a>
+```
+
+```
+// Ad tech server registers the source via response header:
+Attribution-Reporting-Register-Source: {
+  "destination": "https://shop.example.com",
+  "source_event_id": "843756",
+  "expiry": "604800"
+}
+```
+
+```javascript
+// On the conversion page (shop.example.com/thank-you):
+// Register the trigger (conversion event)
+fetch('https://adtech.example.com/register-trigger', {
+  method: 'POST',
+  headers: {
+    'Attribution-Reporting-Eligible': 'trigger'
+  }
+});
+```
+
+```
+// Ad tech server responds with:
+Attribution-Reporting-Register-Trigger: {
+  "event_trigger_data": [{
+    "trigger_data": "1",
+    "priority": "100"
+  }]
+}
+```
+
+**Event-level vs summary reports:**
+
+| Aspect | Event-level | Summary (aggregated) |
+|--------|------------|---------------------|
+| Data | Limited (3 bits for click, 1 bit for view) | Rich (histograms with noise) |
+| Delay | 2 days to 30 days (randomized) | ~1 hour with aggregation service |
+| Privacy | Low entropy per report | Differential privacy (noise added) |
+| Use case | Basic "did they convert?" | Revenue attribution, demographic breakdowns |
+
+**Summary reports** use an aggregation service (Trusted Execution Environment) that adds calibrated noise before returning results, preventing any single-user extraction.
+
+### Protected Audience API (Formerly FLEDGE)
+
+On-device ad auctions for remarketing/retargeting without server-side tracking.
+
+**Workflow:**
+
+```javascript
+// 1. Advertiser adds user to interest group (on advertiser's site)
+await navigator.joinAdInterestGroup({
+  owner: 'https://dsp.example.com',
+  name: 'running-shoes-viewers',
+  biddingLogicUrl: 'https://dsp.example.com/bid.js',
+  ads: [{
+    renderUrl: 'https://dsp.example.com/ads/shoes-ad.html',
+    metadata: { campaign: 'spring-sale' }
+  }],
+  // Interest group expires after 30 days
+  lifetimeMs: 30 * 24 * 3600 * 1000,
+}, 30 * 24 * 3600 * 1000);
+```
+
+```javascript
+// 2. Publisher runs on-device auction (on publisher's site)
+const auctionConfig = {
+  seller: 'https://ssp.example.com',
+  decisionLogicUrl: 'https://ssp.example.com/score-ad.js',
+  interestGroupBuyers: ['https://dsp.example.com'],
+  auctionSignals: { pageContext: 'sports-news' },
+};
+
+const adFrame = await navigator.runAdAuction(auctionConfig);
+// Returns a Fenced Frame config — ad renders in isolation
+document.getElementById('ad-slot').config = adFrame;
+```
+
+**Key privacy properties:**
+
+- Interest groups stored locally on user's device, not on servers.
+- Bidding and scoring logic runs in isolated worklets (no network during auction).
+- Winning ad renders in a Fenced Frame (cannot communicate with embedding page).
+- Users can view/clear interest groups at `chrome://settings/adPrivacy`.
+
+### Storage Access API
+
+Allows embedded third-party content to request cookie access with user consent.
+
+```javascript
+// Check if storage access is already granted
+const hasAccess = await document.hasStorageAccess();
+
+if (!hasAccess) {
+  try {
+    // Prompts user for permission (must be called from user gesture)
+    await document.requestStorageAccess();
+    // Now this iframe can read/write its first-party cookies
+    console.log('Storage access granted');
+  } catch (err) {
+    console.log('Storage access denied — use alternative auth flow');
+    // Fallback: redirect-based auth, postMessage, etc.
+  }
+}
+
+// After access is granted, cookies work normally in this iframe
+const response = await fetch('https://auth.example.com/session', {
+  credentials: 'include',
+});
+```
+
+**When you need it:**
+
+- Embedded social login widgets (Google, Facebook sign-in buttons in iframes)
+- Embedded comment systems (Disqus, embedded discussion widgets)
+- Embedded payment flows (PayPal, Stripe checkout in iframes)
+- Any third-party iframe that needs its own cookies
+
+**Behavior:**
+
+- Requires a user gesture (click/tap) to call `requestStorageAccess()`.
+- Prompt shown once per embedded-site / top-level-site pair.
+- Permission persists for 30 days (browser-dependent).
+- Safari pioneered this API; now Baseline 2023 in all major browsers.
+
+### Related Website Sets (Formerly First-Party Sets)
+
+Declare that multiple domains belong to the same organization for limited cookie sharing.
+
+**Declaration file (hosted at each domain):**
+
+```json
+// https://primary.example.com/.well-known/related-website-set.json
+{
+  "primary": "https://primary.example.com",
+  "associatedSites": [
+    "https://shop.example.com",
+    "https://blog.example.com",
+    "https://support.example.com"
+  ],
+  "serviceSites": [
+    "https://cdn.example-assets.com"
+  ]
+}
+```
+
+**Constraints:**
+
+- Maximum 5 associated sites (plus unlimited service sites and ccTLD variants).
+- Must be submitted to the Related Website Sets list (public GitHub repo, reviewed by browser vendors).
+- Each domain can only appear in one set.
+- Use with `requestStorageAccessFor()` to access cookies across set members:
+
+```javascript
+// On primary.example.com, request access to shop.example.com cookies
+await document.requestStorageAccessFor('https://shop.example.com');
+```
+
+### CHIPS (Cookies Having Independent Partitioned State)
+
+For cookies that need to exist cross-site but should be partitioned (isolated per top-level site).
+
+```
+// Server sets a partitioned cookie:
+Set-Cookie: __Host-session=abc123;
+  Secure;
+  Path=/;
+  SameSite=None;
+  Partitioned;
+```
+
+**Use case:** An embedded widget (chat, analytics) needs to remember state per embedding site, but that state should not be shared across different embedding sites. The cookie is keyed to (top-level site, embedded site) pair.
+
+### Practical Migration Checklist
+
+**Testing your site without 3P cookies:**
+
+1. Chrome: Settings > Privacy > Third-party cookies > Block third-party cookies.
+2. Or launch Chrome with `--test-third-party-cookie-phaseout` flag.
+3. DevTools > Application > Cookies — look for blocked cookies (yellow warning icon).
+4. DevTools > Issues tab — shows specific cookie issues with remediation advice.
+
+**Migration steps by use case:**
+
+| Current approach | Replacement | API |
+|-----------------|-------------|-----|
+| Cross-site tracking cookies | Interest-based targeting | Topics API |
+| Conversion pixels (3P cookies) | Privacy-preserving attribution | Attribution Reporting API |
+| Remarketing cookies | On-device ad auctions | Protected Audience API |
+| Embedded widget cookies | User-granted access | Storage Access API |
+| Cross-domain login cookies | Organizational cookie sharing | Related Website Sets |
+| Embedded state cookies | Partitioned cookies | CHIPS (`Partitioned` attribute) |
+
+**Server-side changes:**
+
+```
+# Add Partitioned to cross-site cookies that need to work
+Set-Cookie: widget_session=xyz; SameSite=None; Secure; Partitioned
+
+# Migrate to first-party data collection
+# Use server-side tagging (GTM server container) instead of client-side 3P scripts
+
+# Set proper cookie attributes
+Set-Cookie: session=abc; SameSite=Lax; Secure; HttpOnly; Path=/
+```
+
+**Analytics migration:**
+
+```javascript
+// Before: relied on 3P cookies for cross-site tracking
+// After: use first-party data + server-side measurement
+
+// First-party cookie for analytics (unaffected by 3P cookie changes)
+document.cookie = '_analytics_id=uuid; max-age=63072000; SameSite=Lax; Secure; path=/';
+
+// Server-side event forwarding (replaces client-side 3P pixels)
+fetch('/api/analytics/event', {
+  method: 'POST',
+  body: JSON.stringify({
+    event: 'purchase',
+    value: 49.99,
+    // Server forwards to GA4, Meta CAPI, etc.
+  }),
+});
+```
+
+### Checklist
+
+- [ ] Test site with third-party cookies blocked in Chrome, Safari, and Firefox.
+- [ ] Audit all `Set-Cookie` headers — add `Partitioned` to legitimate cross-site cookies.
+- [ ] Replace cross-site conversion tracking with Attribution Reporting API or server-side CAPI.
+- [ ] Implement Storage Access API for embedded widgets that need their own cookies.
+- [ ] Register Related Website Sets if you operate multiple domains sharing auth state.
+- [ ] Move analytics to first-party data collection + server-side forwarding.
+- [ ] Add `SameSite=Lax` (or `Strict`) to all first-party cookies that do not need cross-site access.
+- [ ] Review DevTools Issues tab for cookie-related deprecation warnings.
+
+### Sources
+
+- Chrome Privacy Sandbox documentation (privacysandbox.com)
+- W3C Privacy Community Group — Storage Access API specification
+- MDN Web Docs — Related Website Sets, CHIPS, Storage Access API
+- WebKit blog — "Intelligent Tracking Prevention" (John Wilander)
+- Mozilla wiki — Enhanced Tracking Protection documentation
+- Google Developers — Attribution Reporting API, Topics API, Protected Audience API
+
+---
+
+## CW. WebNN & Browser AI/ML
+
+> On-device machine learning is becoming a browser-native capability. WebNN provides hardware-accelerated inference, Chrome ships a built-in small language model (Gemini Nano), and specialized AI APIs (Writer, Rewriter, Translator) are emerging. This section covers practical implementation patterns for AI-powered web experiences.
+
+### WebNN API (Web Neural Network)
+
+Hardware-accelerated ML inference in the browser using GPU, NPU, or CPU backends.
+
+**Core architecture — graph-based computation:**
+
+```javascript
+// 1. Create ML context targeting specific hardware
+const context = await navigator.ml.createContext({ deviceType: 'gpu' });
+// deviceType options: 'cpu', 'gpu', 'npu' (Neural Processing Unit)
+
+const builder = new MLGraphBuilder(context);
+
+// 2. Define computation graph (simple example: linear regression y = mx + b)
+const x = builder.input('x', { dataType: 'float32', shape: [1, 4] });
+const m = builder.constant(
+  { dataType: 'float32', shape: [4, 1] },
+  new Float32Array([0.5, -0.3, 0.8, 0.1])
+);
+const b = builder.constant(
+  { dataType: 'float32', shape: [1] },
+  new Float32Array([0.2])
+);
+
+const product = builder.matmul(x, m);
+const y = builder.add(product, b);
+
+// 3. Compile the graph (optimized for target hardware)
+const graph = await builder.build({ y });
+
+// 4. Run inference
+const inputBuffer = new Float32Array([1.0, 2.0, 3.0, 4.0]);
+const outputBuffer = new Float32Array(1);
+
+const inputs = { x: inputBuffer };
+const outputs = { y: outputBuffer };
+
+await context.compute(graph, inputs, outputs);
+console.log('Prediction:', outputs.y[0]);
+```
+
+**Image classification example:**
+
+```javascript
+async function classifyImage(imageElement) {
+  const context = await navigator.ml.createContext({ deviceType: 'gpu' });
+  const builder = new MLGraphBuilder(context);
+
+  // Load pre-trained model (e.g., MobileNet)
+  // Typically loaded from an ONNX or TFLite model converted for WebNN
+  const modelUrl = '/models/mobilenet-v2.onnx';
+  const modelBuffer = await (await fetch(modelUrl)).arrayBuffer();
+
+  // Use a helper library to load ONNX into WebNN graph
+  // (ONNX Runtime Web with WebNN backend)
+  const session = await ort.InferenceSession.create(modelBuffer, {
+    executionProviders: ['webnn'],
+    webnn: { deviceType: 'gpu' },
+  });
+
+  // Preprocess image to tensor
+  const canvas = document.createElement('canvas');
+  canvas.width = 224;
+  canvas.height = 224;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(imageElement, 0, 0, 224, 224);
+
+  const imageData = ctx.getImageData(0, 0, 224, 224);
+  const float32Data = new Float32Array(3 * 224 * 224);
+
+  // Normalize pixel values to [0, 1] and convert HWC to CHW
+  for (let i = 0; i < 224 * 224; i++) {
+    float32Data[i]                 = imageData.data[i * 4]     / 255.0; // R
+    float32Data[i + 224 * 224]     = imageData.data[i * 4 + 1] / 255.0; // G
+    float32Data[i + 2 * 224 * 224] = imageData.data[i * 4 + 2] / 255.0; // B
+  }
+
+  const inputTensor = new ort.Tensor('float32', float32Data, [1, 3, 224, 224]);
+  const results = await session.run({ input: inputTensor });
+
+  return results.output.data; // Class probabilities
+}
+```
+
+**Supported backends (early 2026):**
+
+| Platform | Backend | Hardware |
+|----------|---------|----------|
+| Windows  | DirectML | GPU (any), NPU (Intel, Qualcomm) |
+| macOS    | CoreML   | GPU (Metal), Apple Neural Engine |
+| Linux    | XNNPACK  | CPU (optimized SIMD) |
+| Android  | NNAPI    | GPU, DSP, NPU |
+
+**Browser support:** Chrome 124+ (Origin Trial graduated), Edge 124+. Firefox and Safari in active development.
+
+**WebNN vs TensorFlow.js:**
+
+| Aspect | WebNN | TensorFlow.js |
+|--------|-------|---------------|
+| Backend | OS-native (DirectML, CoreML) | WebGL, WebGPU, WASM |
+| Performance | Faster for supported ops (hardware-optimized) | Wider op coverage, more models |
+| Model format | ONNX (via ONNX Runtime Web) | TF SavedModel, TFLite, TFJS |
+| NPU support | Yes (where available) | No |
+| Bundle size | Minimal (browser-native API) | 100KB-1MB+ library |
+
+### On-Device LLM (Gemini Nano in Chrome)
+
+Chrome ships a built-in small language model accessible via the Prompt API.
+
+**Basic usage:**
+
+```javascript
+// Check availability
+const capabilities = await ai.languageModel.capabilities();
+
+if (capabilities.available === 'readily') {
+  // Model is downloaded and ready
+  const session = await ai.languageModel.create();
+
+  const result = await session.prompt('Summarize in one sentence: ' + articleText);
+  console.log(result);
+
+  // Session tracks conversation history
+  const followUp = await session.prompt('Make it shorter.');
+  console.log(followUp);
+
+  // Clean up when done
+  session.destroy();
+
+} else if (capabilities.available === 'after-download') {
+  // Model needs to be downloaded (~1.5GB)
+  const session = await ai.languageModel.create({
+    monitor: (monitor) => {
+      monitor.addEventListener('downloadprogress', (e) => {
+        console.log(`Download: ${Math.round(e.loaded / e.total * 100)}%`);
+      });
+    },
+  });
+} else {
+  // 'no' — device doesn't meet requirements (needs 8GB+ RAM)
+  console.log('On-device AI not available, falling back to server API');
+}
+```
+
+**Streaming responses:**
+
+```javascript
+const session = await ai.languageModel.create();
+
+const stream = await session.promptStreaming('Write a haiku about the web.');
+
+const outputEl = document.getElementById('ai-output');
+outputEl.textContent = '';
+
+for await (const chunk of stream) {
+  outputEl.textContent = chunk; // Each chunk is the full response so far
+}
+```
+
+**System prompt and configuration:**
+
+```javascript
+const session = await ai.languageModel.create({
+  systemPrompt: `You are a helpful assistant for an e-commerce site.
+    You help users find products and answer questions about orders.
+    Keep responses concise (under 100 words).
+    Never discuss competitors.`,
+  temperature: 0.7,    // 0.0 = deterministic, 1.0 = creative
+  topK: 40,            // Top-K sampling
+});
+```
+
+**Token counting:**
+
+```javascript
+const session = await ai.languageModel.create();
+
+// Check remaining context window
+console.log('Max tokens:', session.maxTokens);
+console.log('Tokens used:', session.tokensSoFar);
+console.log('Tokens remaining:', session.tokensLeft);
+
+// Count tokens before sending
+const tokenCount = await session.countPromptTokens('Your long prompt here...');
+if (tokenCount > session.tokensLeft) {
+  // Truncate or summarize input before sending
+}
+```
+
+### Specialized AI APIs (Writer, Rewriter, Translator)
+
+Chrome also exposes purpose-built AI APIs for common tasks.
+
+**Writer API — generate text from instructions:**
+
+```javascript
+const writer = await ai.writer.create({
+  tone: 'formal',            // 'formal', 'neutral', 'casual'
+  format: 'plain-text',      // 'plain-text', 'markdown'
+  length: 'medium',          // 'short', 'medium', 'long'
+  sharedContext: 'Product reviews for an electronics store.',
+});
+
+const review = await writer.write(
+  'Write a review for wireless noise-canceling headphones, mentioning comfort and battery life.'
+);
+
+// Streaming
+const stream = await writer.writeStreaming('Write a product description for...');
+for await (const chunk of stream) {
+  outputEl.textContent = chunk;
+}
+```
+
+**Rewriter API — transform existing text:**
+
+```javascript
+const rewriter = await ai.rewriter.create({
+  tone: 'more-casual',       // 'as-is', 'more-formal', 'more-casual'
+  format: 'as-is',
+  length: 'shorter',         // 'as-is', 'shorter', 'longer'
+  sharedContext: 'Customer support chat messages.',
+});
+
+const simplified = await rewriter.rewrite(
+  'We regret to inform you that your request cannot be processed at this time due to insufficient documentation.'
+);
+// -> "Sorry, we can't process your request yet — we need a few more documents."
+```
+
+**Translator API — on-device translation:**
+
+```javascript
+// Check language pair availability
+const capabilities = await ai.translator.capabilities();
+const pairStatus = capabilities.languagePairAvailable('en', 'fr');
+// 'readily', 'after-download', or 'no'
+
+if (pairStatus !== 'no') {
+  const translator = await ai.translator.create({
+    sourceLanguage: 'en',
+    targetLanguage: 'fr',
+  });
+
+  const translated = await translator.translate('Hello, how can I help you today?');
+  // -> "Bonjour, comment puis-je vous aider aujourd'hui ?"
+}
+```
+
+### AI-Powered Web UX Patterns
+
+Design guidelines for integrating AI features into web applications.
+
+**Progressive enhancement — always provide a non-AI fallback:**
+
+```javascript
+async function enhanceSearchWithAI(query) {
+  // Try on-device AI first
+  if ('ai' in globalThis) {
+    const caps = await ai.languageModel.capabilities();
+    if (caps.available === 'readily') {
+      const session = await ai.languageModel.create();
+      const enhanced = await session.prompt(
+        `Expand this search query with synonyms: "${query}"`
+      );
+      session.destroy();
+      return enhanced;
+    }
+  }
+
+  // Fallback: server-side AI
+  try {
+    const res = await fetch('/api/ai/expand-query', {
+      method: 'POST',
+      body: JSON.stringify({ query }),
+    });
+    return (await res.json()).expanded;
+  } catch {
+    // Final fallback: use original query as-is
+    return query;
+  }
+}
+```
+
+**Disclosure — label AI-generated content (EU AI Act requirement):**
+
+```html
+<div class="ai-response" role="region" aria-label="AI-generated response">
+  <p>{{ aiGeneratedText }}</p>
+  <footer class="ai-disclosure">
+    <svg aria-hidden="true"><!-- sparkle icon --></svg>
+    <span>Generated by AI — may contain inaccuracies</span>
+  </footer>
+</div>
+```
+
+```css
+.ai-disclosure {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.75rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  background: var(--surface-secondary);
+  border-radius: 6px;
+}
+```
+
+**Streaming UX — show incremental results:**
+
+```javascript
+async function streamAIResponse(prompt, outputElement) {
+  outputElement.textContent = '';
+  outputElement.setAttribute('aria-busy', 'true');
+  outputElement.classList.add('ai-typing');
+
+  try {
+    const session = await ai.languageModel.create();
+    const stream = await session.promptStreaming(prompt);
+
+    for await (const chunk of stream) {
+      outputElement.textContent = chunk;
+    }
+
+    session.destroy();
+  } catch (err) {
+    outputElement.textContent = 'AI features temporarily unavailable. Please try again.';
+  } finally {
+    outputElement.setAttribute('aria-busy', 'false');
+    outputElement.classList.remove('ai-typing');
+  }
+}
+```
+
+```css
+.ai-typing::after {
+  content: '▊';
+  animation: blink 0.7s step-end infinite;
+  margin-left: 1px;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+```
+
+**Opt-in pattern — let users trigger AI features explicitly:**
+
+```html
+<div class="compose-toolbar">
+  <textarea id="message" placeholder="Type your message..."></textarea>
+  <div class="ai-actions">
+    <!-- AI features are opt-in, not automatic -->
+    <button onclick="improveWriting()" class="btn-secondary btn-sm">
+      <svg aria-hidden="true"><!-- wand icon --></svg>
+      Improve writing
+    </button>
+    <button onclick="makeShorter()" class="btn-secondary btn-sm">
+      Shorten
+    </button>
+    <button onclick="translateMessage()" class="btn-secondary btn-sm">
+      Translate
+    </button>
+  </div>
+</div>
+```
+
+**Caching inference results:**
+
+```javascript
+const aiCache = new Map();
+
+async function cachedPrompt(session, prompt) {
+  const cacheKey = prompt.trim().toLowerCase();
+
+  if (aiCache.has(cacheKey)) {
+    return aiCache.get(cacheKey);
+  }
+
+  const result = await session.prompt(prompt);
+  aiCache.set(cacheKey, result);
+
+  // Evict oldest entries if cache grows too large
+  if (aiCache.size > 100) {
+    const firstKey = aiCache.keys().next().value;
+    aiCache.delete(firstKey);
+  }
+
+  return result;
+}
+```
+
+### Practical Implementation Pattern
+
+**Full feature-detection and fallback chain:**
+
+```javascript
+class AIService {
+  #session = null;
+  #available = false;
+
+  async init() {
+    // Feature detection
+    if (!('ai' in globalThis) || !ai.languageModel) {
+      console.log('Prompt API not available');
+      return false;
+    }
+
+    const caps = await ai.languageModel.capabilities();
+
+    if (caps.available === 'readily') {
+      this.#available = true;
+      return true;
+    }
+
+    if (caps.available === 'after-download') {
+      // Optionally trigger download with progress UI
+      try {
+        this.#session = await ai.languageModel.create({
+          monitor: (m) => m.addEventListener('downloadprogress', this.#onProgress),
+        });
+        this.#available = true;
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    return false;
+  }
+
+  async prompt(text) {
+    if (!this.#available) {
+      return this.#serverFallback(text);
+    }
+
+    try {
+      if (!this.#session) {
+        this.#session = await ai.languageModel.create();
+      }
+      return await this.#session.prompt(text);
+    } catch (err) {
+      // Model error — fall back to server
+      return this.#serverFallback(text);
+    }
+  }
+
+  async #serverFallback(text) {
+    try {
+      const res = await fetch('/api/ai/prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: text }),
+      });
+      if (!res.ok) throw new Error('Server AI failed');
+      return (await res.json()).result;
+    } catch {
+      return null; // Caller handles null as "AI unavailable"
+    }
+  }
+
+  #onProgress(e) {
+    console.log(`Model download: ${Math.round(e.loaded / e.total * 100)}%`);
+  }
+
+  destroy() {
+    this.#session?.destroy();
+    this.#session = null;
+  }
+}
+```
+
+**Web Worker offloading for heavy inference:**
+
+```javascript
+// main.js
+const aiWorker = new Worker('/workers/ai-inference.js', { type: 'module' });
+
+aiWorker.postMessage({
+  type: 'classify',
+  imageData: canvasCtx.getImageData(0, 0, 224, 224),
+});
+
+aiWorker.addEventListener('message', (e) => {
+  if (e.data.type === 'result') {
+    displayClassification(e.data.predictions);
+  }
+});
+```
+
+```javascript
+// workers/ai-inference.js
+import * as ort from 'onnxruntime-web';
+
+let session = null;
+
+async function loadModel() {
+  session = await ort.InferenceSession.create('/models/mobilenet.onnx', {
+    executionProviders: ['webnn', 'wasm'], // fallback chain
+  });
+}
+
+self.addEventListener('message', async (e) => {
+  if (!session) await loadModel();
+
+  if (e.data.type === 'classify') {
+    const input = preprocessImage(e.data.imageData);
+    const results = await session.run({ input });
+    self.postMessage({ type: 'result', predictions: Array.from(results.output.data) });
+  }
+});
+```
+
+**Performance expectations (early 2026):**
+
+| Task | On-device latency | Notes |
+|------|-------------------|-------|
+| Image classification (MobileNet) | 10-50ms (GPU) | Real-time capable |
+| Object detection (YOLO) | 30-100ms (GPU) | Viable for camera feed |
+| Text generation (Gemini Nano) | 2-10s for ~100 tokens | Depends on device capability |
+| Translation (on-device) | 200-800ms per sentence | After model download |
+| Text embedding | 5-20ms per passage | Good for local search |
+
+### Checklist
+
+- [ ] Feature-detect AI APIs before using: `if ('ai' in globalThis && ai.languageModel)`.
+- [ ] Always provide a non-AI fallback path (server-side API or manual input).
+- [ ] Label AI-generated content with a visible disclosure per EU AI Act guidelines.
+- [ ] Use streaming for text generation to avoid blocking the UI with long waits.
+- [ ] Make AI features opt-in — do not auto-generate content unless the user explicitly enables it.
+- [ ] Run heavy inference (WebNN, ONNX) in a Web Worker to keep the main thread responsive.
+- [ ] Cache repeated inference results to avoid redundant computation.
+- [ ] Handle model download gracefully — show progress and allow cancellation.
+- [ ] Set `aria-busy="true"` on output regions during AI processing.
+- [ ] Test on low-end devices — provide graceful degradation when hardware is insufficient.
+- [ ] Do not ship model weights in your JavaScript bundle — use browser-provided models or lazy-load from CDN.
+
+### Sources
+
+- W3C WebNN specification (webmachinelearning.github.io/webnn)
+- Chrome for Developers — "Built-in AI" documentation (Prompt API, Writer, Rewriter, Translator)
+- ONNX Runtime Web — WebNN execution provider documentation
+- Google AI for Web — Gemini Nano integration guides
+- EU AI Act — Article 52: transparency obligations for AI-generated content
+- web.dev — "AI on the web" (Thomas Steiner, 2024-2025)
