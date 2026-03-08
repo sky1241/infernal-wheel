@@ -1645,6 +1645,7 @@ function Get-LiveStatePayload() {
     elapsedSec = $elapsed
     remainSec = $remain
     overtimeSec = $overtime
+    startedAtStr = if ($startedAt) { $startedAt.ToString("HH:mm") } else { "" }
 
     goalWorkSec = [int]($s.GoalWorkSeconds ?? 500*3600)
     totalWorkSec = [int]($s.TotalWorkSeconds ?? 0)

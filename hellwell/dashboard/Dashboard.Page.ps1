@@ -1265,10 +1265,10 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 /* Pulsating ring border — breathes in/out */
 .ac-ring-wrap::before{
   content:'';position:absolute;inset:6px;border-radius:50%;
-  border:2px solid var(--curr-border, rgba(102,126,234,.2));
+  border:2px solid var(--curr-border, rgba(102,126,234,.25));
   box-shadow:
-    0 0 10px var(--curr-glow, rgba(102,126,234,.12)),
-    inset 0 0 10px var(--curr-glow, rgba(102,126,234,.04));
+    0 0 14px var(--curr-glow, rgba(102,126,234,.18)),
+    inset 0 0 12px var(--curr-glow, rgba(102,126,234,.06));
   pointer-events:none;
   animation:acHaloBreathe 3s ease-in-out infinite;
 }
@@ -1276,8 +1276,8 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .ac-ring-wrap::after{
   content:'';position:absolute;inset:4px;border-radius:50%;
   border:2px solid transparent;
-  border-top-color:var(--curr-border, rgba(102,126,234,.4));
-  box-shadow:0 0 8px var(--curr-glow, rgba(102,126,234,.15));
+  border-top-color:var(--curr-border, rgba(102,126,234,.5));
+  box-shadow:0 0 10px var(--curr-glow, rgba(102,126,234,.2));
   pointer-events:none;
   animation:acOrbit 4s linear infinite;
 }
@@ -2918,6 +2918,14 @@ body{
             </div>
             <div class="ac-info-rows">
               <div class="ac-info-row">
+                <span class="ac-info-lbl">Debut</span>
+                <span class="ac-info-val" id="kStartedAt">-</span>
+              </div>
+              <div class="ac-info-row">
+                <span class="ac-info-lbl">Restant</span>
+                <span class="ac-info-val" id="kTimerRemain">-</span>
+              </div>
+              <div class="ac-info-row">
                 <span class="ac-info-lbl">Status</span>
                 <span class="box-action-flags" id="kSeg2"></span>
               </div>
@@ -3322,18 +3330,26 @@ async function getJSON(url){
     requestEnd();
   }
 }
-async function editGoal(){
+function editGoal(){
   const cur = document.getElementById("statGoal");
   const curMin = parseInt(cur?.textContent) || 30000;
   const curH = Math.round(curMin / 60);
-  const input = prompt("Objectif en heures :", curH);
-  if(input === null) return;
-  const h = parseInt(input);
+  const inp = document.getElementById("goalInput");
+  inp.value = curH;
+  document.getElementById("goalModal").classList.add("open");
+  inp.onkeydown = (e)=>{ if(e.key==="Enter") submitGoal(); if(e.key==="Escape") closeGoalModal(); };
+  setTimeout(()=>inp.select(), 100);
+}
+function closeGoalModal(){ document.getElementById("goalModal").classList.remove("open") }
+async function submitGoal(){
+  const h = parseInt(document.getElementById("goalInput").value);
   if(isNaN(h) || h < 1 || h > 9999){ showToast("Entre 1 et 9999 heures","error"); return; }
   const r = await postJSON("/api/goal", {hours: h}, false);
   if(r.ok){
-    showToast("Objectif mis a jour: " + h + "h", "ok");
+    showToast("Objectif: " + h + "h", "ok");
+    const cur = document.getElementById("statGoal");
     if(cur) cur.textContent = (h * 60) + "m";
+    closeGoalModal();
   } else {
     showToast("Erreur: " + (r.error||"?"), "error");
   }
@@ -4605,6 +4621,10 @@ async function refreshLive(){
     if(j.resumeDetected) flags.push("<span class='box-action-flag'>RESUME_GAP</span>");
     document.getElementById("kSeg2").innerHTML = flags.length ? flags.join("") : "<span class='box-action-flag active'>RUN</span>";
 
+    // Started at
+    const startEl = document.getElementById("kStartedAt");
+    if(startEl) startEl.textContent = j.startedAtStr || "-";
+
     // Timer display
     const elapsedEl = document.getElementById("kTimerElapsed");
     const remainEl = document.getElementById("kTimerRemain");
@@ -5001,6 +5021,28 @@ document.addEventListener('click', () => {
     <div class="ca-footer">
       <button class="ca-btn-cancel" onclick="closeAlcVolModal()">Annuler</button>
       <button class="ca-btn-save" onclick="saveAlcVolumes()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Goal Edit Modal (UX §T.97 small modal, §T.100 ARIA) -->
+<div class="ca-overlay" id="goalModal" onclick="if(event.target===this)closeGoalModal()">
+  <div class="ca-modal ca-modal--sm" role="dialog" aria-modal="true" aria-labelledby="goalTitle">
+    <div class="ca-header">
+      <h3 id="goalTitle">Objectif travail</h3>
+      <button class="ca-close" onclick="closeGoalModal()" aria-label="Fermer">&times;</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <label style="font-size:.8rem;color:rgba(255,255,255,.5)">Nombre d'heures</label>
+      <div style="display:flex;align-items:center;gap:12px">
+        <input type="number" id="goalInput" class="input" min="1" max="9999" style="flex:1;font-size:1.4rem;font-weight:700;text-align:center;padding:12px" />
+        <span style="font-size:1rem;color:rgba(255,255,255,.4);font-weight:600">heures</span>
+      </div>
+      <div style="font-size:.7rem;color:rgba(255,255,255,.3);text-align:center">De 1h a 9999h. Le moteur met a jour au prochain cycle.</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+        <button class="btn ghost" onclick="closeGoalModal()">Annuler</button>
+        <button class="btn" onclick="submitGoal()">Enregistrer</button>
+      </div>
     </div>
   </div>
 </div>
