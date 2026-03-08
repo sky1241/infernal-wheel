@@ -951,7 +951,114 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .cmdStatusPill{ font-size:.85rem }
 
 /* [WEB] gap 16px */
-.kpi{display:flex; gap:16px; flex-wrap:wrap; align-items:stretch}
+/* --- Global layout switcher --- */
+.layout-switcher{
+  display:flex;align-items:center;gap:6px;
+  margin-bottom:12px;justify-content:flex-end;
+}
+.layout-switcher-lbl{font-size:.6rem;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:1px;margin-right:4px}
+.layout-btn{
+  width:26px;height:26px;border-radius:8px;border:1px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.04);color:rgba(255,255,255,.35);
+  font-size:.65rem;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;padding:0;
+}
+.layout-btn:hover{background:rgba(255,255,255,.1);color:rgba(255,255,255,.6)}
+.layout-btn.active{background:var(--accent);border-color:var(--accent);color:#000}
+
+.kpi{display:flex; gap:16px; flex-wrap:wrap; align-items:stretch; transition:all .3s ease}
+
+/* ======= LAYOUT B: Centered rings on top ======= */
+.kpi[data-layout="b"] .wk-top{
+  flex-direction:column;align-items:center;text-align:center;gap:16px;
+}
+.kpi[data-layout="b"] .wk-data{align-items:center}
+.kpi[data-layout="b"] .wk-ring-wrap{width:120px;height:120px}
+.kpi[data-layout="b"] .wk-hero-value{font-size:2.2rem}
+.kpi[data-layout="b"] .wk-stat-row{justify-content:center}
+
+.kpi[data-layout="b"] .ac-top{
+  flex-direction:column;align-items:center;text-align:center;gap:16px;
+}
+.kpi[data-layout="b"] .ac-data{align-items:center}
+.kpi[data-layout="b"] .ac-ring-wrap{width:120px;height:120px}
+.kpi[data-layout="b"] .ac-name{font-size:2.2rem;text-align:center}
+.kpi[data-layout="b"] .ac-info-row{justify-content:center}
+
+/* ======= LAYOUT C: No rings, minimal data-focused ======= */
+.kpi[data-layout="c"] .wk-ring-wrap{display:none}
+.kpi[data-layout="c"] .wk-top{gap:0}
+.kpi[data-layout="c"] .wk-hero-value{font-size:3.2rem}
+.kpi[data-layout="c"] .wk-hero-unit{margin-bottom:12px}
+.kpi[data-layout="c"] .wkBox .wk-particle{display:none}
+
+.kpi[data-layout="c"] .ac-ring-wrap{display:none}
+.kpi[data-layout="c"] .ac-top{gap:0}
+.kpi[data-layout="c"] .ac-name{font-size:3.2rem}
+.kpi[data-layout="c"] .ac-subtitle{margin-bottom:12px}
+.kpi[data-layout="c"] .acBox .ac-particle{display:none}
+
+/* ======= LAYOUT B: Agenda — hero clock centered, compact ======= */
+.kpi[data-layout="b"] .agendaBox{
+  text-align:center;
+  background:linear-gradient(165deg,rgba(14,20,30,.95),rgba(8,12,20,.98)) !important;
+  border-radius:24px !important;padding:24px 20px !important;
+  border:1px solid rgba(91,178,255,.12) !important;
+  display:flex !important;flex-direction:column !important;align-items:center !important;
+}
+.kpi[data-layout="b"] .agenda-header{
+  flex-direction:column;align-items:center;gap:4px;
+  border-bottom:none;padding-bottom:0;margin-bottom:12px;width:100%;
+}
+.kpi[data-layout="b"] .agenda-title{font-size:.7rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1.5px}
+.kpi[data-layout="b"] .agenda-title .help{display:none}
+.kpi[data-layout="b"] .agenda-clock{
+  font-size:2.8rem;font-weight:800;letter-spacing:-2px;
+  background:linear-gradient(135deg,#fff 20%,var(--accent) 90%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 0 20px rgba(53,217,154,.2));
+}
+.kpi[data-layout="b"] #agendaTimeline{margin:0 auto 12px;max-width:100%}
+.kpi[data-layout="b"] .agenda-legend{
+  justify-content:center;gap:12px;padding:8px 0;
+  border-top:1px solid rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.06);
+  margin-bottom:8px;width:100%;
+}
+.kpi[data-layout="b"] .agenda-legend-item{font-size:.65rem}
+.kpi[data-layout="b"] .agenda-legend-dot{width:7px;height:7px}
+.kpi[data-layout="b"] .agenda-toggle{width:100%;justify-content:center;gap:8px;border-radius:10px}
+.kpi[data-layout="b"] .agenda-details{width:100%}
+
+/* ======= LAYOUT C: Agenda — ultra minimal, clock + action only ======= */
+.kpi[data-layout="c"] .agendaBox{
+  background:linear-gradient(165deg,rgba(14,20,30,.95),rgba(8,12,20,.98)) !important;
+  border-radius:24px !important;padding:24px 20px !important;
+  border:1px solid rgba(91,178,255,.08) !important;
+  display:flex !important;flex-direction:column !important;
+}
+.kpi[data-layout="c"] .agenda-header{
+  flex-direction:column;align-items:flex-start;gap:2px;
+  border-bottom:none;padding-bottom:0;margin-bottom:16px;
+}
+.kpi[data-layout="c"] .agenda-title{display:none}
+.kpi[data-layout="c"] .agenda-clock{
+  font-size:3.5rem;font-weight:800;letter-spacing:-3px;line-height:1;
+  color:#fff;
+  text-shadow:0 0 30px rgba(53,217,154,.15);
+}
+.kpi[data-layout="c"] #agendaTimeline{
+  margin-bottom:auto;
+  opacity:.6;
+}
+.kpi[data-layout="c"] .agenda-legend{display:none}
+.kpi[data-layout="c"] .agenda-toggle{
+  margin-top:auto;border:none;
+  background:rgba(255,255,255,.03);border-radius:10px;
+  padding:8px 12px;
+}
+.kpi[data-layout="c"] .agenda-toggle-label{font-size:.75rem}
+.kpi[data-layout="c"] .agenda-details{width:100%}
 .kpi .box{
   /* Glass morphism KPI box */
   flex:1 1 100%; min-width:0; border:1px solid rgba(255,255,255,.1);
@@ -1405,6 +1512,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .ac-info-row{opacity:0;animation:wkSlideIn .4s ease-out forwards}
 .ac-info-row:nth-child(1){animation-delay:.15s}
 .ac-info-row:nth-child(2){animation-delay:.25s}
+.ac-info-row:nth-child(3){animation-delay:.35s}
 .ac-bar{opacity:0;animation:wkSlideIn .3s ease-out forwards;animation-delay:.35s}
 .ac-note{opacity:0;animation:wkSlideIn .3s ease-out forwards;animation-delay:.45s}
 
@@ -2847,7 +2955,13 @@ body{
       </div>
     </div>
     <div id="firstsToday" class="firstsHero"></div>
-    <div class="kpi">
+    <div class="layout-switcher">
+      <span class="layout-switcher-lbl">Layout</span>
+      <button class="layout-btn active" data-l="a" onclick="setLayout('a')">A</button>
+      <button class="layout-btn" data-l="b" onclick="setLayout('b')">B</button>
+      <button class="layout-btn" data-l="c" onclick="setLayout('c')">C</button>
+    </div>
+    <div class="kpi" id="kpiGrid" data-layout="a">
       <div class="box wkBox" role="region" aria-label="Travail restant">
         <div class="wk-particle" aria-hidden="true"></div>
         <div class="wk-particle" aria-hidden="true"></div>
@@ -2902,10 +3016,9 @@ body{
         <div class="ac-particle" aria-hidden="true"></div>
         <div class="ac-particle" aria-hidden="true"></div>
         <div class="ac-particle" aria-hidden="true"></div>
-        <!-- Mirror layout: elapsed ring left + data right -->
+        <!-- Layout: elapsed ring left + data right -->
         <div class="ac-top">
           <div class="ac-ring-wrap" id="kTimerWrap">
-            <!-- Ring is pure CSS halo now, no SVG needed -->
             <div class="ac-ring-center">
               <div class="ac-ring-val" id="kTimerElapsed">-</div>
               <div class="ac-ring-lbl">elapsed</div>
@@ -2917,14 +3030,16 @@ body{
               <div class="ac-subtitle">action en cours</div>
             </div>
             <div class="ac-info-rows">
+              <!-- Row 1: Debut (all variants) -->
               <div class="ac-info-row">
                 <span class="ac-info-lbl">Debut</span>
                 <span class="ac-info-val" id="kStartedAt">-</span>
               </div>
               <div class="ac-info-row">
-                <span class="ac-info-lbl">Restant</span>
-                <span class="ac-info-val" id="kTimerRemain">-</span>
+                <span class="ac-info-lbl">Aujourd'hui</span>
+                <span class="ac-info-val" id="acTodayVal">-</span>
               </div>
+              <!-- Row 3: Status (all variants) -->
               <div class="ac-info-row">
                 <span class="ac-info-lbl">Status</span>
                 <span class="box-action-flags" id="kSeg2"></span>
@@ -3341,6 +3456,19 @@ function editGoal(){
   setTimeout(()=>inp.select(), 100);
 }
 function closeGoalModal(){ document.getElementById("goalModal").classList.remove("open") }
+
+/* --- Global layout switcher --- */
+let _layout = localStorage.getItem("dashLayout") || "a";
+function setLayout(v){
+  _layout = v;
+  localStorage.setItem("dashLayout", v);
+  const grid = document.getElementById("kpiGrid");
+  if(grid) grid.dataset.layout = v;
+  document.querySelectorAll(".layout-btn").forEach(b=>{
+    b.classList.toggle("active", b.dataset.l === v);
+  });
+}
+document.addEventListener("DOMContentLoaded", ()=>{ setLayout(_layout); });
 async function submitGoal(){
   const h = parseInt(document.getElementById("goalInput").value);
   if(isNaN(h) || h < 1 || h > 9999){ showToast("Entre 1 et 9999 heures","error"); return; }
@@ -4624,6 +4752,15 @@ async function refreshLive(){
     // Started at
     const startEl = document.getElementById("kStartedAt");
     if(startEl) startEl.textContent = j.startedAtStr || "-";
+
+    // Today's total for current action
+    if(j.dailyActions){
+      const curKey = (j.currentName||"idle").toLowerCase().replace(/[^a-z0-9_-]/g,"");
+      const match = j.dailyActions.find(a=>(a.key||"").toLowerCase()===curKey);
+      const todaySec = match ? Math.max(0, Number(match.durSec||0)) : 0;
+      const el = document.getElementById("acTodayVal");
+      if(el) el.textContent = todaySec > 0 ? Math.ceil(todaySec/60) + "m" : "0m";
+    }
 
     // Timer display
     const elapsedEl = document.getElementById("kTimerElapsed");
