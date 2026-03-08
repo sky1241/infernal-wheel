@@ -961,15 +961,110 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
   box-shadow:0 8px 32px rgba(0,0,0,.35);
   transition:all .3s cubic-bezier(.4,0,.2,1);
 }
-/* WORK Remaining box - minimal */
+/* ========== WORK Remaining — Glass Cockpit ========== */
 .kpi .box[aria-label="Travail restant"]{
-  background:#161b22;
-  border:1px solid #30363d;
-  border-radius:16px;
-  box-shadow:none;
-  padding:24px;
+  background:linear-gradient(165deg,rgba(20,28,40,.85),rgba(12,18,28,.92));
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid rgba(91,178,255,.12);
+  border-radius:24px;
+  padding:28px 28px 20px;
+  position:relative;
+  box-shadow:0 8px 40px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.03) inset;
+  transition:all .3s cubic-bezier(.4,0,.2,1);
 }
 .kpi .box[aria-label="Travail restant"]::after{display:none}
+/* [UX §154] KPI card anatomy: label + value + trend */
+.kpi .box[aria-label="Travail restant"] .box-header{padding-bottom:16px}
+.kpi .box[aria-label="Travail restant"] .box-title{
+  color:rgba(255,255,255,.55);font-weight:600;font-size:.8rem;letter-spacing:.5px;
+}
+.kpi .box[aria-label="Travail restant"] .box-subtitle{display:none}
+/* [UX §36] Spacing scale 4px base — stats use 10px gap */
+.kpi .box[aria-label="Travail restant"] .box-stats{
+  display:flex;gap:10px;margin:0 0 4px;padding:0;
+}
+/* [UX §65] F-pattern: secondary data smaller, contained */
+.kpi .box[aria-label="Travail restant"] .box-stat{
+  flex:1;padding:14px 10px;border-radius:14px;
+  background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.05);
+  transition:all .2s cubic-bezier(.4,0,.2,1);
+}
+/* [UX §41] Hover micro-interaction 100-150ms */
+.kpi .box[aria-label="Travail restant"] .box-stat:hover{
+  background:rgba(255,255,255,.07);
+  transform:translateY(-1px);
+  border-color:rgba(255,255,255,.1);
+}
+.kpi .box[aria-label="Travail restant"] .box-stat-value{
+  font-size:1.15rem;font-weight:700;font-variant-numeric:tabular-nums;
+}
+.kpi .box[aria-label="Travail restant"] .box-stat-label{
+  font-size:.6rem;text-transform:uppercase;letter-spacing:.8px;
+  opacity:.4;margin-top:6px;font-weight:500;
+}
+/* [UX §154] KPI principal = hero number, gradient text */
+.kpi .box[aria-label="Travail restant"] .box-remain{padding:20px 0 18px}
+.kpi .box[aria-label="Travail restant"] .box-remain-value{
+  font-size:3.8rem;font-weight:800;letter-spacing:-3px;line-height:1;
+  background:linear-gradient(135deg,#e6edf3 30%,var(--accent));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.kpi .box[aria-label="Travail restant"] .box-remain-label{
+  font-size:.7rem;color:var(--accent);opacity:.6;margin-top:10px;
+  font-weight:500;letter-spacing:.5px;
+}
+/* [UX §A.5] Progress bar visible >3s, height 10px, glow feedback */
+.kpi .box[aria-label="Travail restant"] .box-progress{
+  height:10px;background:rgba(255,255,255,.05);border-radius:6px;
+  margin-top:4px;position:relative;overflow:hidden;
+}
+.kpi .box[aria-label="Travail restant"] .box-progress-bar{
+  height:100%;border-radius:6px;
+  background:linear-gradient(90deg,var(--accent),#6bbcff);
+  box-shadow:0 0 16px rgba(53,217,154,.35);
+  position:relative;
+  transition:width .6s cubic-bezier(.4,0,.2,1);
+}
+.kpi .box[aria-label="Travail restant"] .box-progress-bar::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.18) 50%,transparent 100%);
+  animation:glassShine 3s ease-in-out infinite;
+}
+@keyframes glassShine{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
+.kpi .box[aria-label="Travail restant"] .box-progress-pct{
+  position:absolute;right:0;top:-22px;font-size:.75rem;font-weight:700;
+  color:var(--accent);text-shadow:0 0 8px rgba(53,217,154,.4);
+  font-variant-numeric:tabular-nums;
+}
+/* [UX §36] Divider = subtle breathing space before note */
+.kpi .box[aria-label="Travail restant"] .box-divider{
+  display:block;height:1px;margin:18px 0 0;
+  background:linear-gradient(90deg,transparent,rgba(91,178,255,.12),transparent);
+}
+/* Note — frosted glass, focus ring per WCAG 2.4.7 */
+.kpi .box[aria-label="Travail restant"] .miniNoteWrap{
+  margin-top:14px;border:1px solid rgba(91,178,255,.08);
+  border-radius:14px;background:rgba(255,255,255,.025);
+  transition:border-color .2s;
+}
+.kpi .box[aria-label="Travail restant"] .miniNoteWrap:focus-within{
+  border-color:rgba(91,178,255,.25);
+  box-shadow:0 0 0 3px rgba(91,178,255,.08);
+}
+.kpi .box[aria-label="Travail restant"] .miniNote{
+  min-height:48px;padding:12px 14px;font-size:.85rem;
+  line-height:1.5;
+}
+.kpi .box[aria-label="Travail restant"] .miniNote::placeholder{
+  color:rgba(255,255,255,.18);font-style:italic;
+}
+.kpi .box[aria-label="Travail restant"] #quickNoteStatus{
+  font-size:.6rem;padding:2px 14px 8px;opacity:.3;
+  transition:opacity .3s;
+}
+.kpi .box[aria-label="Travail restant"]:hover #quickNoteStatus{opacity:.5}
 .kpi .box:hover{
   transform:translateY(-2px);
   box-shadow:0 12px 40px rgba(0,0,0,.45);
@@ -4267,7 +4362,7 @@ getJSON("/api/quicknote").then(j=>{
   if(j && j.ok){
     qn.value = j.content || "";
     qLast = qn.value;
-    if(qns) qns.textContent = "loaded";
+    if(qns) qns.textContent = "\u2713";
   } else {
     if(qns) qns.textContent = "error";
     showToast("Impossible de charger la note rapide.", "error", "Notes");
@@ -4275,7 +4370,7 @@ getJSON("/api/quicknote").then(j=>{
 });
 qn.addEventListener("input", ()=>{
   qDirty = true;
-  if(qns) qns.textContent = "saving...";
+  if(qns) qns.textContent = "\u2022\u2022\u2022";
 });
 setInterval(async ()=>{
   const current = qn.value || "";
@@ -4284,7 +4379,7 @@ setInterval(async ()=>{
   if(j && j.ok){
     qLast = current;
     qDirty = false;
-    if(qns) qns.textContent = "saved";
+    if(qns) qns.textContent = "\u2713";
   } else {
     if(qns) qns.textContent = "error";
     showToast("Erreur sauvegarde note rapide.", "error", "Notes");
