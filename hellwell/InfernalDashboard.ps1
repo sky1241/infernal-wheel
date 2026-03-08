@@ -3353,6 +3353,22 @@ console.log('[INIT] initInputListeners done - ALL READY');
         }
         continue
       }
+      if ($path -eq "/api/goal") {
+        try {
+          $hours = [int]$data.hours
+          if ($hours -lt 1 -or $hours -gt 9999) { throw "hours must be 1-9999" }
+          $goalSec = $hours * 3600
+          Invoke-WithMutexRetry -Name $M_STATE -TimeoutMs 2000 -Retries 10 -Script {
+            $s = Read-JsonSafe -Path $StatePath -BackupPath $StateBakPath
+            $s.GoalWorkSeconds = $goalSec
+            Write-JsonSafe -Path $StatePath -BackupPath $StateBakPath -Data $s
+          }
+          Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true; goalHours=$hours} | ConvertTo-Json))
+        } catch {
+          Write-HttpResponse $ctx 500 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error=$_.Exception.Message} | ConvertTo-Json))
+        }
+        continue
+      }
       if ($path -eq "/api/settings/alcohol-volumes") {
         try {
           $vBeer = 0.5; $vWine = 0.2; $vStrong = 0.2

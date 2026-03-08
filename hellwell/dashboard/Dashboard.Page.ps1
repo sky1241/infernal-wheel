@@ -951,7 +951,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .cmdStatusPill{ font-size:.85rem }
 
 /* [WEB] gap 16px */
-.kpi{display:flex; gap:16px; flex-wrap:wrap}
+.kpi{display:flex; gap:16px; flex-wrap:wrap; align-items:stretch}
 .kpi .box{
   /* Glass morphism KPI box */
   flex:1 1 100%; min-width:0; border:1px solid rgba(255,255,255,.1);
@@ -969,6 +969,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
   border-radius:24px;
   padding:28px 28px 18px;
   position:relative;overflow:visible;
+  display:flex;flex-direction:column;
   box-shadow:
     0 0 0 1px rgba(255,255,255,.04) inset,
     0 16px 56px rgba(0,0,0,.6),
@@ -990,7 +991,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 
 /* --- Top layout: ring left + data right --- */
 .wk-top{
-  display:flex;align-items:center;gap:28px;
+  display:flex;align-items:flex-start;gap:28px;
   margin-bottom:18px;position:relative;z-index:1;
 }
 
@@ -1077,11 +1078,14 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 }
 .wk-stat-val.accent{color:var(--accent);text-shadow:0 0 12px rgba(53,217,154,.25)}
 .wk-stat-val.warn{color:var(--warn);text-shadow:0 0 12px rgba(247,191,84,.25)}
+.wk-stat-row--goal{cursor:pointer}
+.wk-goal-edit{font-size:.7rem;opacity:0;transition:opacity .2s;margin-left:4px;color:rgba(255,255,255,.4)}
+.wk-stat-row--goal:hover .wk-goal-edit{opacity:1}
 
 /* --- Bar (beefier) --- */
 .wk-bar{
   height:5px;background:rgba(255,255,255,.06);border-radius:3px;
-  overflow:hidden;margin:0 4px;position:relative;z-index:1;
+  overflow:hidden;margin:0 4px 16px;position:relative;z-index:1;
 }
 .wk-bar-fill{
   height:100%;border-radius:3px;
@@ -1099,7 +1103,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 
 /* --- Note --- */
 .wk-note{
-  margin-top:14px;border:1px solid rgba(255,255,255,.06);
+  margin-top:auto;padding-top:14px;border:1px solid rgba(255,255,255,.06);
   border-radius:10px;background:rgba(255,255,255,.03);
   transition:all .2s;position:relative;z-index:1;
 }
@@ -1233,6 +1237,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
   border-radius:24px !important;
   padding:28px 28px 18px !important;
   position:relative;overflow:hidden !important;
+  display:flex !important;flex-direction:column !important;
 }
 .acBox::before{
   content:'';position:absolute;top:-20%;right:0;width:100%;height:80%;
@@ -1247,8 +1252,9 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 
 /* --- Mirror layout: ring left + data right --- */
 .ac-top{
-  display:flex;align-items:center;gap:28px;
+  display:flex;align-items:flex-start;gap:28px;
   margin-bottom:18px;position:relative;z-index:1;
+  flex:1;
 }
 
 /* --- Elapsed halo (pure CSS, no SVG) --- */
@@ -1356,7 +1362,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 
 /* --- Note (same style as WORK) --- */
 .ac-note{
-  margin-top:14px;border:1px solid rgba(255,255,255,.04);
+  margin-top:auto;padding-top:14px;border:1px solid rgba(255,255,255,.04);
   border-radius:10px;background:rgba(255,255,255,.02);
   transition:all .2s;position:relative;z-index:1;
 }
@@ -2864,10 +2870,11 @@ body{
               <div class="wk-hero-unit">restantes</div>
             </div>
             <div class="wk-stats-v">
-              <div class="wk-stat-row">
+              <div class="wk-stat-row wk-stat-row--goal" onclick="editGoal()">
                 <div class="wk-stat-dot wk-dot-goal"></div>
                 <span class="wk-stat-lbl">Objectif</span>
                 <span class="wk-stat-val" id="statGoal">__GOALM__</span>
+                <span class="wk-goal-edit" title="Modifier l'objectif">&#9998;</span>
               </div>
               <div class="wk-stat-row">
                 <div class="wk-stat-dot wk-dot-done"></div>
@@ -3313,6 +3320,22 @@ async function getJSON(url){
     return {ok:false}; 
   } finally {
     requestEnd();
+  }
+}
+async function editGoal(){
+  const cur = document.getElementById("statGoal");
+  const curMin = parseInt(cur?.textContent) || 30000;
+  const curH = Math.round(curMin / 60);
+  const input = prompt("Objectif en heures :", curH);
+  if(input === null) return;
+  const h = parseInt(input);
+  if(isNaN(h) || h < 1 || h > 9999){ showToast("Entre 1 et 9999 heures","error"); return; }
+  const r = await postJSON("/api/goal", {hours: h}, false);
+  if(r.ok){
+    showToast("Objectif mis a jour: " + h + "h", "ok");
+    if(cur) cur.textContent = (h * 60) + "m";
+  } else {
+    showToast("Erreur: " + (r.error||"?"), "error");
   }
 }
 function setStatus(t){
