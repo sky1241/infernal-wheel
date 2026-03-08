@@ -1,22 +1,22 @@
 {
   "repo": ".infernal_wheel",
-  "date": "2026-03-08T17:46:27.434991",
+  "date": "2026-03-08T17:56:57.833129",
   "phase": "CANOPÉE",
-  "total_files": 384,
-  "total_code_lines": 33042,
+  "total_files": 339,
+  "total_code_lines": 33392,
   "languages": {
-    "PowerShell": 13903,
     "HTML": 5066,
+    "PowerShell": 13946,
     "Dart": 7173,
     "C/C++": 185,
     "C++": 467,
     "Python": 2350,
     "Swift": 1559,
-    "Kotlin": 2339
+    "Kotlin": 2646
   },
   "biggest_file": {
     "path": "hellwell\\dashboard\\Dashboard.Page.ps1",
-    "lines": 4631,
+    "lines": 4705,
     "lang": "PowerShell"
   }
 }

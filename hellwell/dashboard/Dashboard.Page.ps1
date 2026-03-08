@@ -961,110 +961,145 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
   box-shadow:0 8px 32px rgba(0,0,0,.35);
   transition:all .3s cubic-bezier(.4,0,.2,1);
 }
-/* ========== WORK Remaining — Glass Cockpit ========== */
-.kpi .box[aria-label="Travail restant"]{
-  background:linear-gradient(165deg,rgba(20,28,40,.85),rgba(12,18,28,.92));
-  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border:1px solid rgba(91,178,255,.12);
+/* ========== WORK Remaining — Glass Cockpit v3 ========== */
+.wkBox{
+  background:linear-gradient(165deg,rgba(16,22,32,.92),rgba(10,14,22,.96));
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border:1px solid rgba(91,178,255,.1);
   border-radius:24px;
-  padding:28px 28px 20px;
-  position:relative;
-  box-shadow:0 8px 40px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.03) inset;
-  transition:all .3s cubic-bezier(.4,0,.2,1);
+  padding:24px 24px 16px;
+  position:relative;overflow:hidden;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.03) inset,
+    0 12px 48px rgba(0,0,0,.5),
+    0 0 80px rgba(53,217,154,.04);
+  transition:all .35s cubic-bezier(.4,0,.2,1);
 }
-.kpi .box[aria-label="Travail restant"]::after{display:none}
-/* [UX §154] KPI card anatomy: label + value + trend */
-.kpi .box[aria-label="Travail restant"] .box-header{padding-bottom:16px}
-.kpi .box[aria-label="Travail restant"] .box-title{
-  color:rgba(255,255,255,.55);font-weight:600;font-size:.8rem;letter-spacing:.5px;
+.wkBox::before{
+  content:'';position:absolute;top:-60%;left:-20%;width:140%;height:120%;
+  background:radial-gradient(ellipse at 30% 0%,rgba(53,217,154,.06) 0%,transparent 55%);
+  pointer-events:none;
 }
-.kpi .box[aria-label="Travail restant"] .box-subtitle{display:none}
-/* [UX §36] Spacing scale 4px base — stats use 10px gap */
-.kpi .box[aria-label="Travail restant"] .box-stats{
-  display:flex;gap:10px;margin:0 0 4px;padding:0;
+.wkBox::after{display:none}
+
+/* --- Top layout: ring left + data right --- */
+.wk-top{
+  display:flex;align-items:center;gap:24px;
+  margin-bottom:16px;
 }
-/* [UX §65] F-pattern: secondary data smaller, contained */
-.kpi .box[aria-label="Travail restant"] .box-stat{
-  flex:1;padding:14px 10px;border-radius:14px;
-  background:rgba(255,255,255,.035);
-  border:1px solid rgba(255,255,255,.05);
-  transition:all .2s cubic-bezier(.4,0,.2,1);
+
+/* --- Ring gauge (compact) --- */
+.wk-ring-wrap{
+  position:relative;width:140px;height:140px;flex-shrink:0;
 }
-/* [UX §41] Hover micro-interaction 100-150ms */
-.kpi .box[aria-label="Travail restant"] .box-stat:hover{
-  background:rgba(255,255,255,.07);
-  transform:translateY(-1px);
-  border-color:rgba(255,255,255,.1);
+.wk-ring{width:100%;height:100%;transform:rotate(-90deg)}
+.wk-ring-track{fill:none;stroke:rgba(255,255,255,.05);stroke-width:10}
+.wk-ring-fill{
+  fill:none;stroke:url(#ringGrad);stroke-width:10;
+  stroke-linecap:round;
+  transition:stroke-dashoffset .8s cubic-bezier(.4,0,.2,1);
+  filter:drop-shadow(0 0 8px rgba(53,217,154,.4));
 }
-.kpi .box[aria-label="Travail restant"] .box-stat-value{
-  font-size:1.15rem;font-weight:700;font-variant-numeric:tabular-nums;
+.wk-ring-center{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
 }
-.kpi .box[aria-label="Travail restant"] .box-stat-label{
-  font-size:.6rem;text-transform:uppercase;letter-spacing:.8px;
-  opacity:.4;margin-top:6px;font-weight:500;
+.wk-ring-pct{
+  font-size:2rem;font-weight:800;letter-spacing:-1.5px;
+  color:#e6edf3;line-height:1;font-variant-numeric:tabular-nums;
 }
-/* [UX §154] KPI principal = hero number, gradient text */
-.kpi .box[aria-label="Travail restant"] .box-remain{padding:20px 0 18px}
-.kpi .box[aria-label="Travail restant"] .box-remain-value{
-  font-size:3.8rem;font-weight:800;letter-spacing:-3px;line-height:1;
-  background:linear-gradient(135deg,#e6edf3 30%,var(--accent));
+.wk-ring-pct-unit{font-size:.9rem;font-weight:600;color:var(--accent);margin-left:1px}
+
+/* --- Right data column --- */
+.wk-data{flex:1;min-width:0;display:flex;flex-direction:column;gap:14px}
+
+/* Hero number */
+.wk-hero{padding:0}
+.wk-hero-value{
+  font-size:2.4rem;font-weight:800;letter-spacing:-2px;line-height:1;
+  background:linear-gradient(135deg,#e6edf3 20%,var(--accent) 80%);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
   background-clip:text;
 }
-.kpi .box[aria-label="Travail restant"] .box-remain-label{
-  font-size:.7rem;color:var(--accent);opacity:.6;margin-top:10px;
-  font-weight:500;letter-spacing:.5px;
+.wk-hero-unit{
+  font-size:.65rem;color:rgba(255,255,255,.25);margin-top:4px;
+  letter-spacing:.3px;font-weight:400;
 }
-/* [UX §A.5] Progress bar visible >3s, height 10px, glow feedback */
-.kpi .box[aria-label="Travail restant"] .box-progress{
-  height:10px;background:rgba(255,255,255,.05);border-radius:6px;
-  margin-top:4px;position:relative;overflow:hidden;
+
+/* Vertical stats list */
+.wk-stats-v{display:flex;flex-direction:column;gap:6px}
+.wk-stat-row{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 10px;border-radius:8px;
+  background:rgba(255,255,255,.025);
+  border:1px solid rgba(255,255,255,.03);
+  transition:all .15s;
 }
-.kpi .box[aria-label="Travail restant"] .box-progress-bar{
-  height:100%;border-radius:6px;
+.wk-stat-row:hover{background:rgba(255,255,255,.05)}
+.wk-stat-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.wk-dot-goal{background:#8b949e;box-shadow:0 0 4px rgba(139,148,158,.3)}
+.wk-dot-done{background:var(--accent);box-shadow:0 0 4px rgba(53,217,154,.4)}
+.wk-dot-pause{background:var(--warn);box-shadow:0 0 4px rgba(247,191,84,.4)}
+.wk-stat-lbl{
+  font-size:.65rem;color:rgba(255,255,255,.35);font-weight:500;
+  flex:1;
+}
+.wk-stat-val{
+  font-size:.85rem;font-weight:700;color:#e6edf3;
+  font-variant-numeric:tabular-nums;text-align:right;
+}
+.wk-stat-val.accent{color:var(--accent)}
+.wk-stat-val.warn{color:var(--warn)}
+
+/* --- Thin bar --- */
+.wk-bar{
+  height:4px;background:rgba(255,255,255,.05);border-radius:2px;
+  overflow:hidden;margin:0 4px;
+}
+.wk-bar-fill{
+  height:100%;border-radius:2px;
   background:linear-gradient(90deg,var(--accent),#6bbcff);
-  box-shadow:0 0 16px rgba(53,217,154,.35);
-  position:relative;
+  box-shadow:0 0 12px rgba(53,217,154,.3);
   transition:width .6s cubic-bezier(.4,0,.2,1);
+  position:relative;
 }
-.kpi .box[aria-label="Travail restant"] .box-progress-bar::after{
+.wk-bar-fill::after{
   content:'';position:absolute;inset:0;
-  background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.18) 50%,transparent 100%);
-  animation:glassShine 3s ease-in-out infinite;
+  background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.25) 50%,transparent 100%);
+  animation:wkShine 3s ease-in-out infinite;
 }
-@keyframes glassShine{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
-.kpi .box[aria-label="Travail restant"] .box-progress-pct{
-  position:absolute;right:0;top:-22px;font-size:.75rem;font-weight:700;
-  color:var(--accent);text-shadow:0 0 8px rgba(53,217,154,.4);
-  font-variant-numeric:tabular-nums;
+@keyframes wkShine{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
+
+/* --- Note (compact) --- */
+.wk-note{
+  margin-top:12px;border:1px solid rgba(255,255,255,.04);
+  border-radius:10px;background:rgba(255,255,255,.02);
+  transition:all .2s;
 }
-/* [UX §36] Divider = subtle breathing space before note */
-.kpi .box[aria-label="Travail restant"] .box-divider{
-  display:block;height:1px;margin:18px 0 0;
-  background:linear-gradient(90deg,transparent,rgba(91,178,255,.12),transparent);
+.wk-note:focus-within{
+  border-color:rgba(91,178,255,.2);
+  box-shadow:0 0 0 3px rgba(91,178,255,.06);
+  background:rgba(255,255,255,.03);
 }
-/* Note — frosted glass, focus ring per WCAG 2.4.7 */
-.kpi .box[aria-label="Travail restant"] .miniNoteWrap{
-  margin-top:14px;border:1px solid rgba(91,178,255,.08);
-  border-radius:14px;background:rgba(255,255,255,.025);
-  transition:border-color .2s;
+.wk-note-input{
+  width:100%;min-height:36px;resize:vertical;
+  background:transparent;border:none;color:var(--text);
+  padding:8px 12px;outline:none;font-family:inherit;
+  font-size:.78rem;line-height:1.4;
 }
-.kpi .box[aria-label="Travail restant"] .miniNoteWrap:focus-within{
-  border-color:rgba(91,178,255,.25);
-  box-shadow:0 0 0 3px rgba(91,178,255,.08);
+.wk-note-input::placeholder{color:rgba(255,255,255,.15);font-style:italic}
+.wk-note-status{
+  display:block;font-size:.55rem;padding:0 12px 5px;
+  color:rgba(255,255,255,.2);transition:opacity .3s;
 }
-.kpi .box[aria-label="Travail restant"] .miniNote{
-  min-height:48px;padding:12px 14px;font-size:.85rem;
-  line-height:1.5;
+.wkBox:hover .wk-note-status{opacity:.6}
+
+/* Mobile: stack vertically */
+@media(max-width:400px){
+  .wk-top{flex-direction:column;gap:16px}
+  .wk-ring-wrap{width:120px;height:120px}
+  .wk-data{align-items:center;text-align:center}
 }
-.kpi .box[aria-label="Travail restant"] .miniNote::placeholder{
-  color:rgba(255,255,255,.18);font-style:italic;
-}
-.kpi .box[aria-label="Travail restant"] #quickNoteStatus{
-  font-size:.6rem;padding:2px 14px 8px;opacity:.3;
-  transition:opacity .3s;
-}
-.kpi .box[aria-label="Travail restant"]:hover #quickNoteStatus{opacity:.5}
 .kpi .box:hover{
   transform:translateY(-2px);
   box-shadow:0 12px 40px rgba(0,0,0,.45);
@@ -2467,6 +2502,15 @@ body{
 </style>
 </head>
 <body>
+<!-- SVG defs for ring gauge gradient -->
+<svg style="position:absolute;width:0;height:0" aria-hidden="true">
+  <defs>
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="var(--accent,#35d99a)"/>
+      <stop offset="100%" stop-color="#6bbcff"/>
+    </linearGradient>
+  </defs>
+</svg>
 <!-- [skip_link_wcag_2_4_1] -->
 <a href="#main-content" class="skip-link">Aller au contenu</a>
 <div id="globalLoading" class="loadingBar" aria-hidden="true"><div class="loadingBarInner"></div></div>
@@ -2507,23 +2551,49 @@ body{
     </div>
     <div id="firstsToday" class="firstsHero"></div>
     <div class="kpi">
-      <div class="box" role="region" aria-label="Travail restant">
-        <div class="box-header">
-          <div class="box-title"><span class="box-title-icon progressEmoji" id="progressEmoji" aria-hidden="true">&#128564;</span><span>WORK Remaining</span></div>
-          <span class="box-subtitle">minutes</span>
+      <div class="box wkBox" role="region" aria-label="Travail restant">
+        <!-- Top: ring left + data right -->
+        <div class="wk-top">
+          <div class="wk-ring-wrap">
+            <svg class="wk-ring" viewBox="0 0 200 200" aria-hidden="true">
+              <circle class="wk-ring-track" cx="100" cy="100" r="85" />
+              <circle class="wk-ring-fill" id="ringFill" cx="100" cy="100" r="85" stroke-dasharray="534.07" stroke-dashoffset="534.07" />
+            </svg>
+            <div class="wk-ring-center">
+              <div class="wk-ring-pct" id="progressPct">0<span class="wk-ring-pct-unit">%</span></div>
+            </div>
+          </div>
+          <div class="wk-data">
+            <div class="wk-hero">
+              <div class="wk-hero-value" id="kRemain">__REM__m</div>
+              <div class="wk-hero-unit">restantes</div>
+            </div>
+            <div class="wk-stats-v">
+              <div class="wk-stat-row">
+                <div class="wk-stat-dot wk-dot-goal"></div>
+                <span class="wk-stat-lbl">Objectif</span>
+                <span class="wk-stat-val" id="statGoal">__GOALM__</span>
+              </div>
+              <div class="wk-stat-row">
+                <div class="wk-stat-dot wk-dot-done"></div>
+                <span class="wk-stat-lbl">Fait</span>
+                <span class="wk-stat-val accent" id="statDone">__DONEM__</span>
+              </div>
+              <div class="wk-stat-row">
+                <div class="wk-stat-dot wk-dot-pause"></div>
+                <span class="wk-stat-lbl">Pause</span>
+                <span class="wk-stat-val warn" id="statBreak">__OVERM__</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="box-stats">
-          <div class="box-stat"><div class="box-stat-icon" aria-hidden="true">&#127919;</div><div class="box-stat-value" id="statGoal">__GOALM__</div><div class="box-stat-label">Objectif</div></div>
-          <div class="box-stat"><div class="box-stat-icon" aria-hidden="true">&#9989;</div><div class="box-stat-value accent" id="statDone">__DONEM__</div><div class="box-stat-label">Fait</div></div>
-          <div class="box-stat"><div class="box-stat-icon" aria-hidden="true">&#9749;</div><div class="box-stat-value warn" id="statBreak">__OVERM__</div><div class="box-stat-label">Pause</div></div>
-        </div>
-        <div class="box-remain"><div class="box-remain-value" id="kRemain">__REM__m</div><div class="box-remain-label">restant</div></div>
-        <div class="box-progress"><span class="box-progress-pct" id="progressPct">0%</span><div class="box-progress-bar" id="bar" style="width:0%"></div></div>
-        <div class="box-divider"></div>
-        <div class="miniNoteWrap">
+        <!-- Thin bar -->
+        <div class="wk-bar"><div class="wk-bar-fill" id="bar" style="width:0%"></div></div>
+        <!-- Note -->
+        <div class="wk-note">
           <label for="quickNote" class="sr-only">Note rapide</label>
-          <textarea id="quickNote" class="miniNote" placeholder="Note rapide..." aria-label="Note rapide"></textarea>
-          <small id="quickNoteStatus" class="muted" role="status" aria-live="polite">-</small>
+          <textarea id="quickNote" class="wk-note-input" placeholder="Note rapide..." aria-label="Note rapide"></textarea>
+          <small id="quickNoteStatus" class="wk-note-status" role="status" aria-live="polite">-</small>
         </div>
       </div>
       <div class="box currentBox" id="currentBox" role="region" aria-label="Action en cours">
@@ -4135,17 +4205,21 @@ async function refreshLive(){
     const pct = denom > 0 ? Math.min(100, (doneSec/denom)*100) : 0;
     document.getElementById("bar").style.width = pct.toFixed(1) + "%";
     const pctEl = document.getElementById("progressPct");
-    if(pctEl) pctEl.textContent = pct.toFixed(0) + "%";
-
-    // Dynamic emoji based on progress
-    const emojiEl = document.getElementById("progressEmoji");
-    if(emojiEl) {
-      let emoji = "\u{1F634}"; // 0-25%: sleeping
-      if(pct >= 25 && pct < 50) emoji = "\u{1F525}"; // 25-50%: fire
-      else if(pct >= 50 && pct < 75) emoji = "\u{26A1}"; // 50-75%: lightning
-      else if(pct >= 75 && pct < 100) emoji = "\u{1F680}"; // 75-99%: rocket
-      else if(pct >= 100) emoji = "\u{1F389}"; // 100%: party
-      emojiEl.textContent = emoji;
+    if(pctEl){
+      // Set just the number, keep the <span>%</span> child
+      const unitSpan = pctEl.querySelector(".wk-ring-pct-unit");
+      if(unitSpan){
+        pctEl.firstChild.textContent = pct.toFixed(0);
+      } else {
+        pctEl.textContent = pct.toFixed(0) + "%";
+      }
+    }
+    // Ring gauge
+    const ringEl = document.getElementById("ringFill");
+    if(ringEl){
+      const circ = 2 * Math.PI * 85; // 534.07
+      const offset = circ - (circ * Math.min(pct,100) / 100);
+      ringEl.style.strokeDashoffset = offset.toFixed(1);
     }
 
     const seg = (j.currentName || "idle").toUpperCase();
