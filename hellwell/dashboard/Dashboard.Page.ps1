@@ -1251,7 +1251,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
   margin-bottom:18px;position:relative;z-index:1;
 }
 
-/* --- Elapsed halo (pure CSS glow, no SVG) --- */
+/* --- Elapsed halo (pure CSS, no SVG) --- */
 .ac-ring-wrap{
   position:relative;width:150px;height:150px;flex-shrink:0;
 }
@@ -1305,18 +1305,18 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
   to{transform:rotate(360deg)}
 }
 
-/* --- Right data column --- */
-.ac-data{flex:1;min-width:0;display:flex;flex-direction:column;gap:14px;position:relative;z-index:1}
+/* --- Right data column (matches wk-data gap) --- */
+.ac-data{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px;position:relative;z-index:1}
 
-/* Hero action name */
+/* Hero action name — matches wk-hero sizing */
 .ac-hero{padding:0}
 .ac-name{
-  font-size:2.2rem;font-weight:900;letter-spacing:-1px;line-height:1;
+  font-size:2.6rem;font-weight:800;letter-spacing:-2px;line-height:1;
   color:#fff;padding:0;
   text-shadow:0 0 30px var(--curr-glow, rgba(102,126,234,.35));
 }
 .ac-subtitle{
-  font-size:.6rem;color:rgba(255,255,255,.3);margin-top:5px;
+  font-size:.65rem;color:rgba(255,255,255,.35);margin-top:5px;
   letter-spacing:.5px;font-weight:500;text-transform:uppercase;
 }
 
@@ -2911,18 +2911,12 @@ body{
             </div>
             <div class="ac-info-rows">
               <div class="ac-info-row">
-                <span class="ac-info-lbl">Restant</span>
-                <span class="ac-info-val" id="kTimerRemain">-</span>
-              </div>
-              <div class="ac-info-row">
                 <span class="ac-info-lbl">Status</span>
                 <span class="box-action-flags" id="kSeg2"></span>
               </div>
             </div>
           </div>
         </div>
-        <!-- Bar + Note -->
-        <div class="ac-bar"><div class="ac-bar-fill" id="acBarFill"></div></div>
         <div class="ac-note">
           <label for="scratchNote" class="sr-only">Note action</label>
           <textarea id="scratchNote" class="ac-note-input" placeholder="Note action..." aria-label="Note action"></textarea>
