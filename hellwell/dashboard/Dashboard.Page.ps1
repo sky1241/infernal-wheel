@@ -961,125 +961,152 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
   box-shadow:0 8px 32px rgba(0,0,0,.35);
   transition:all .3s cubic-bezier(.4,0,.2,1);
 }
-/* ========== WORK Remaining — Glass Cockpit v3 ========== */
+/* ========== WORK Remaining — Glass Cockpit v4 ========== */
 .wkBox{
-  background:linear-gradient(165deg,rgba(16,22,32,.92),rgba(10,14,22,.96));
+  background:linear-gradient(165deg,rgba(14,20,30,.95),rgba(8,12,20,.98));
   backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
-  border:1px solid rgba(91,178,255,.1);
+  border:1px solid rgba(91,178,255,.15);
   border-radius:24px;
-  padding:24px 24px 16px;
-  position:relative;overflow:hidden;
+  padding:28px 28px 18px;
+  position:relative;overflow:visible;
   box-shadow:
-    0 0 0 1px rgba(255,255,255,.03) inset,
-    0 12px 48px rgba(0,0,0,.5),
-    0 0 80px rgba(53,217,154,.04);
+    0 0 0 1px rgba(255,255,255,.04) inset,
+    0 16px 56px rgba(0,0,0,.6),
+    0 0 100px rgba(53,217,154,.05);
   transition:all .35s cubic-bezier(.4,0,.2,1);
 }
+/* Ambient top glow */
 .wkBox::before{
-  content:'';position:absolute;top:-60%;left:-20%;width:140%;height:120%;
-  background:radial-gradient(ellipse at 30% 0%,rgba(53,217,154,.06) 0%,transparent 55%);
+  content:'';position:absolute;top:-40%;left:-10%;width:120%;height:100%;
+  background:radial-gradient(ellipse at 25% 0%,rgba(53,217,154,.09) 0%,transparent 50%);
+  pointer-events:none;z-index:0;
+}
+/* Bottom edge light line */
+.wkBox::after{
+  content:'';position:absolute;bottom:0;left:10%;right:10%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(53,217,154,.2),rgba(107,188,255,.15),transparent);
   pointer-events:none;
 }
-.wkBox::after{display:none}
 
 /* --- Top layout: ring left + data right --- */
 .wk-top{
-  display:flex;align-items:center;gap:24px;
-  margin-bottom:16px;
+  display:flex;align-items:center;gap:28px;
+  margin-bottom:18px;position:relative;z-index:1;
 }
 
-/* --- Ring gauge (compact) --- */
+/* --- Ring gauge --- */
 .wk-ring-wrap{
-  position:relative;width:140px;height:140px;flex-shrink:0;
+  position:relative;width:150px;height:150px;flex-shrink:0;
 }
-.wk-ring{width:100%;height:100%;transform:rotate(-90deg)}
-.wk-ring-track{fill:none;stroke:rgba(255,255,255,.05);stroke-width:10}
+.wk-ring{width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
+.wk-ring-track{fill:none;stroke:rgba(255,255,255,.07);stroke-width:9}
 .wk-ring-fill{
-  fill:none;stroke:url(#ringGrad);stroke-width:10;
+  fill:none;stroke:url(#ringGrad);stroke-width:9;
   stroke-linecap:round;
   transition:stroke-dashoffset .8s cubic-bezier(.4,0,.2,1);
-  filter:drop-shadow(0 0 8px rgba(53,217,154,.4));
+  filter:drop-shadow(0 0 10px rgba(53,217,154,.5));
+}
+/* Glow ring behind the track */
+.wk-ring-wrap::before{
+  content:'';position:absolute;inset:-8px;border-radius:50%;
+  background:radial-gradient(circle,rgba(53,217,154,.06) 60%,transparent 70%);
+  pointer-events:none;
 }
 .wk-ring-center{
   position:absolute;inset:0;display:flex;flex-direction:column;
   align-items:center;justify-content:center;
 }
 .wk-ring-pct{
-  font-size:2rem;font-weight:800;letter-spacing:-1.5px;
-  color:#e6edf3;line-height:1;font-variant-numeric:tabular-nums;
+  font-size:2.2rem;font-weight:800;letter-spacing:-1.5px;
+  color:#fff;line-height:1;font-variant-numeric:tabular-nums;
+  text-shadow:0 0 20px rgba(53,217,154,.3);
 }
-.wk-ring-pct-unit{font-size:.9rem;font-weight:600;color:var(--accent);margin-left:1px}
+.wk-ring-pct-unit{font-size:.95rem;font-weight:700;color:var(--accent);margin-left:1px}
 
 /* --- Right data column --- */
-.wk-data{flex:1;min-width:0;display:flex;flex-direction:column;gap:14px}
+.wk-data{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px;position:relative;z-index:1}
 
 /* Hero number */
 .wk-hero{padding:0}
 .wk-hero-value{
-  font-size:2.4rem;font-weight:800;letter-spacing:-2px;line-height:1;
-  background:linear-gradient(135deg,#e6edf3 20%,var(--accent) 80%);
+  font-size:2.6rem;font-weight:800;letter-spacing:-2px;line-height:1;
+  background:linear-gradient(135deg,#ffffff 10%,var(--accent) 90%);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
   background-clip:text;
+  filter:drop-shadow(0 0 24px rgba(53,217,154,.2));
 }
 .wk-hero-unit{
-  font-size:.65rem;color:rgba(255,255,255,.25);margin-top:4px;
-  letter-spacing:.3px;font-weight:400;
+  font-size:.65rem;color:rgba(255,255,255,.35);margin-top:5px;
+  letter-spacing:.5px;font-weight:500;
 }
 
 /* Vertical stats list */
-.wk-stats-v{display:flex;flex-direction:column;gap:6px}
+.wk-stats-v{display:flex;flex-direction:column;gap:5px}
 .wk-stat-row{
-  display:flex;align-items:center;gap:8px;
-  padding:6px 10px;border-radius:8px;
-  background:rgba(255,255,255,.025);
-  border:1px solid rgba(255,255,255,.03);
+  display:flex;align-items:center;gap:10px;
+  padding:8px 12px;border-radius:10px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.06);
   transition:all .15s;
+  position:relative;
 }
-.wk-stat-row:hover{background:rgba(255,255,255,.05)}
-.wk-stat-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.wk-dot-goal{background:#8b949e;box-shadow:0 0 4px rgba(139,148,158,.3)}
-.wk-dot-done{background:var(--accent);box-shadow:0 0 4px rgba(53,217,154,.4)}
-.wk-dot-pause{background:var(--warn);box-shadow:0 0 4px rgba(247,191,84,.4)}
+.wk-stat-row:hover{
+  background:rgba(255,255,255,.08);
+  border-color:rgba(255,255,255,.12);
+  transform:translateX(2px);
+}
+/* Colored left accent per stat */
+.wk-stat-row::before{
+  content:'';position:absolute;left:0;top:25%;bottom:25%;width:2px;
+  border-radius:1px;opacity:.6;
+}
+.wk-stat-row:nth-child(1)::before{background:#8b949e}
+.wk-stat-row:nth-child(2)::before{background:var(--accent)}
+.wk-stat-row:nth-child(3)::before{background:var(--warn)}
+.wk-stat-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.wk-dot-goal{background:#8b949e;box-shadow:0 0 6px rgba(139,148,158,.4)}
+.wk-dot-done{background:var(--accent);box-shadow:0 0 8px rgba(53,217,154,.5)}
+.wk-dot-pause{background:var(--warn);box-shadow:0 0 8px rgba(247,191,84,.5)}
 .wk-stat-lbl{
-  font-size:.65rem;color:rgba(255,255,255,.35);font-weight:500;
+  font-size:.7rem;color:rgba(255,255,255,.45);font-weight:500;
   flex:1;
 }
 .wk-stat-val{
-  font-size:.85rem;font-weight:700;color:#e6edf3;
+  font-size:.9rem;font-weight:700;color:#e6edf3;
   font-variant-numeric:tabular-nums;text-align:right;
 }
-.wk-stat-val.accent{color:var(--accent)}
-.wk-stat-val.warn{color:var(--warn)}
+.wk-stat-val.accent{color:var(--accent);text-shadow:0 0 12px rgba(53,217,154,.25)}
+.wk-stat-val.warn{color:var(--warn);text-shadow:0 0 12px rgba(247,191,84,.25)}
 
-/* --- Thin bar --- */
+/* --- Bar (beefier) --- */
 .wk-bar{
-  height:4px;background:rgba(255,255,255,.05);border-radius:2px;
-  overflow:hidden;margin:0 4px;
+  height:5px;background:rgba(255,255,255,.06);border-radius:3px;
+  overflow:hidden;margin:0 4px;position:relative;z-index:1;
 }
 .wk-bar-fill{
-  height:100%;border-radius:2px;
+  height:100%;border-radius:3px;
   background:linear-gradient(90deg,var(--accent),#6bbcff);
-  box-shadow:0 0 12px rgba(53,217,154,.3);
+  box-shadow:0 0 16px rgba(53,217,154,.4);
   transition:width .6s cubic-bezier(.4,0,.2,1);
   position:relative;
 }
 .wk-bar-fill::after{
   content:'';position:absolute;inset:0;
-  background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.25) 50%,transparent 100%);
-  animation:wkShine 3s ease-in-out infinite;
+  background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.3) 50%,transparent 100%);
+  animation:wkShine 2.5s ease-in-out infinite;
 }
 @keyframes wkShine{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
 
-/* --- Note (compact) --- */
+/* --- Note --- */
 .wk-note{
-  margin-top:12px;border:1px solid rgba(255,255,255,.04);
-  border-radius:10px;background:rgba(255,255,255,.02);
-  transition:all .2s;
+  margin-top:14px;border:1px solid rgba(255,255,255,.06);
+  border-radius:10px;background:rgba(255,255,255,.03);
+  transition:all .2s;position:relative;z-index:1;
 }
 .wk-note:focus-within{
-  border-color:rgba(91,178,255,.2);
-  box-shadow:0 0 0 3px rgba(91,178,255,.06);
-  background:rgba(255,255,255,.03);
+  border-color:rgba(91,178,255,.25);
+  box-shadow:0 0 0 3px rgba(91,178,255,.08);
+  background:rgba(255,255,255,.04);
 }
 .wk-note-input{
   width:100%;min-height:36px;resize:vertical;
@@ -1087,12 +1114,78 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
   padding:8px 12px;outline:none;font-family:inherit;
   font-size:.78rem;line-height:1.4;
 }
-.wk-note-input::placeholder{color:rgba(255,255,255,.15);font-style:italic}
+.wk-note-input::placeholder{color:rgba(255,255,255,.2);font-style:italic}
 .wk-note-status{
   display:block;font-size:.55rem;padding:0 12px 5px;
-  color:rgba(255,255,255,.2);transition:opacity .3s;
+  color:rgba(255,255,255,.25);transition:opacity .3s;
 }
-.wkBox:hover .wk-note-status{opacity:.6}
+.wkBox:hover .wk-note-status{opacity:.7}
+
+/* --- Life: ring breathe (glow pulse) --- */
+@keyframes ringBreathe{
+  0%,100%{filter:drop-shadow(0 0 8px rgba(53,217,154,.4))}
+  50%{filter:drop-shadow(0 0 18px rgba(53,217,154,.7))}
+}
+.wk-ring-fill{animation:ringBreathe 3s ease-in-out infinite}
+
+/* --- Life: floating particles (bigger, brighter) --- */
+.wkBox .wk-particle{
+  position:absolute;border-radius:50%;
+  pointer-events:none;z-index:0;
+  animation:wkFloat linear infinite;
+}
+.wkBox .wk-particle:nth-child(1){left:12%;top:75%;width:3px;height:3px;background:rgba(53,217,154,.5);animation-duration:7s;animation-delay:0s}
+.wkBox .wk-particle:nth-child(2){left:70%;top:85%;width:4px;height:4px;background:rgba(53,217,154,.35);animation-duration:9s;animation-delay:-2s}
+.wkBox .wk-particle:nth-child(3){left:40%;top:90%;width:3px;height:3px;background:rgba(107,188,255,.4);animation-duration:11s;animation-delay:-5s}
+.wkBox .wk-particle:nth-child(4){left:88%;top:65%;width:2px;height:2px;background:rgba(107,188,255,.35);animation-duration:8s;animation-delay:-1s}
+@keyframes wkFloat{
+  0%{transform:translateY(0) translateX(0);opacity:0}
+  8%{opacity:.8}
+  85%{opacity:.8}
+  100%{transform:translateY(-140px) translateX(25px);opacity:0}
+}
+
+/* --- Life: stagger reveal --- */
+.wk-stat-row{opacity:0;animation:wkSlideIn .4s ease-out forwards}
+.wk-stat-row:nth-child(1){animation-delay:.15s}
+.wk-stat-row:nth-child(2){animation-delay:.25s}
+.wk-stat-row:nth-child(3){animation-delay:.35s}
+.wk-hero{opacity:0;animation:wkSlideIn .5s ease-out forwards;animation-delay:.05s}
+.wk-ring-wrap{opacity:0;animation:wkScaleIn .6s cubic-bezier(.175,.885,.32,1.275) forwards}
+.wk-bar{opacity:0;animation:wkSlideIn .3s ease-out forwards;animation-delay:.4s}
+.wk-note{opacity:0;animation:wkSlideIn .3s ease-out forwards;animation-delay:.5s}
+@keyframes wkSlideIn{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@keyframes wkScaleIn{
+  from{opacity:0;transform:scale(.8)}
+  to{opacity:1;transform:scale(1)}
+}
+
+/* --- Life: card hover glow --- */
+.wkBox:hover{
+  border-color:rgba(53,217,154,.25);
+  transform:translateY(-2px);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.05) inset,
+    0 20px 60px rgba(0,0,0,.55),
+    0 0 60px rgba(53,217,154,.1);
+}
+
+/* --- Trick: animated border shimmer --- */
+@keyframes borderShimmer{
+  0%,100%{border-color:rgba(91,178,255,.15)}
+  50%{border-color:rgba(53,217,154,.2)}
+}
+.wkBox{animation:borderShimmer 6s ease-in-out infinite}
+
+/* [UX §104] Respect reduced motion */
+@media(prefers-reduced-motion:reduce){
+  .wk-ring-fill,.wkBox,.wk-bar-fill::after{animation:none !important}
+  .wkBox .wk-particle{display:none}
+  .wk-stat-row,.wk-hero,.wk-ring-wrap,.wk-bar,.wk-note{animation:none !important;opacity:1}
+}
 
 /* Mobile: stack vertically */
 @media(max-width:400px){
@@ -2552,10 +2645,14 @@ body{
     <div id="firstsToday" class="firstsHero"></div>
     <div class="kpi">
       <div class="box wkBox" role="region" aria-label="Travail restant">
+        <div class="wk-particle" aria-hidden="true"></div>
+        <div class="wk-particle" aria-hidden="true"></div>
+        <div class="wk-particle" aria-hidden="true"></div>
+        <div class="wk-particle" aria-hidden="true"></div>
         <!-- Top: ring left + data right -->
         <div class="wk-top">
           <div class="wk-ring-wrap">
-            <svg class="wk-ring" viewBox="0 0 200 200" aria-hidden="true">
+            <svg class="wk-ring" viewBox="0 0 200 200" style="overflow:visible" aria-hidden="true">
               <circle class="wk-ring-track" cx="100" cy="100" r="85" />
               <circle class="wk-ring-fill" id="ringFill" cx="100" cy="100" r="85" stroke-dasharray="534.07" stroke-dashoffset="534.07" />
             </svg>
@@ -3030,6 +3127,27 @@ async function send(cmd, btn){
   setTimeout(refreshLive, 1200);
 }
 function fmtMin(sec){ return Math.max(0, Math.round((sec||0)/60)); }
+
+// Count-up animation for KPI values
+const _cuActive = {};
+function countUp(el, target, suffix, dur){
+  if(!el) return;
+  const id = el.id || Math.random();
+  if(_cuActive[id]) cancelAnimationFrame(_cuActive[id]);
+  const raw = parseInt(el.textContent) || 0;
+  if(raw === target){ el.textContent = target + suffix; return; }
+  const start = performance.now();
+  const diff = target - raw;
+  const ms = Math.min(dur || 600, Math.abs(diff) < 5 ? 150 : 600);
+  function step(now){
+    const t = Math.min(1, (now - start) / ms);
+    const ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
+    el.textContent = Math.round(raw + diff * ease) + suffix;
+    if(t < 1) _cuActive[id] = requestAnimationFrame(step);
+    else delete _cuActive[id];
+  }
+  _cuActive[id] = requestAnimationFrame(step);
+}
 
 let SETTINGS = null;
 let agendaScrollUntil = 0;
@@ -4194,12 +4312,12 @@ async function refreshLive(){
     setEngineStatus("running");
     setOffline(false);
 
-    document.getElementById("kRemain").textContent = fmtMin(j.remWorkSec) + "m";
     const doneSec = (j.totalWorkSec || 0) + (j.totalOverrunSec || 0);
     const breakSec = j.totalBreakSec || 0;
-    document.getElementById("statGoal").textContent = fmtMin(j.goalWorkSec) + "m";
-    document.getElementById("statDone").textContent = fmtMin(doneSec) + "m";
-    document.getElementById("statBreak").textContent = fmtMin(breakSec) + "m";
+    countUp(document.getElementById("kRemain"), fmtMin(j.remWorkSec), "m");
+    countUp(document.getElementById("statGoal"), fmtMin(j.goalWorkSec), "m");
+    countUp(document.getElementById("statDone"), fmtMin(doneSec), "m");
+    countUp(document.getElementById("statBreak"), fmtMin(breakSec), "m");
 
     const denom = (j.goalWorkSec || 0);
     const pct = denom > 0 ? Math.min(100, (doneSec/denom)*100) : 0;
