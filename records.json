@@ -8,12 +8,12 @@
     "date": "2026-02-13"
   },
   "alcoholSober": {
-    "bestMin": 4768,
-    "date": "2026-03-05"
+    "bestMin": 8551,
+    "date": "2026-03-09"
   },
   "clopeSober": {
-    "bestMin": 8549,
-    "date": "2026-03-05"
+    "bestMin": 12333,
+    "date": "2026-03-09"
   },
   "anyFromWake": {
     "date": "2026-02-23",
