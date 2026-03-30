@@ -40,6 +40,9 @@ dependencies:
   pointycastle: ^3.9.1
   crypto: ^3.0.5
 
+  # Background service (timer must survive app backgrounding)
+  flutter_foreground_task: ^8.10.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
