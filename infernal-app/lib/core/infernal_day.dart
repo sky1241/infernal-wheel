@@ -80,15 +80,15 @@ class InfernalDay {
 
   // --- Navigation ---
 
-  /// Jour precedent
+  /// Jour precedent (DST-safe: pas de Duration)
   InfernalDay get previous {
-    final prev = DateTime(year, month, day).subtract(const Duration(days: 1));
+    final prev = DateTime(year, month, day - 1);
     return InfernalDay(prev.year, prev.month, prev.day);
   }
 
-  /// Jour suivant
+  /// Jour suivant (DST-safe: pas de Duration)
   InfernalDay get next {
-    final nxt = DateTime(year, month, day).add(const Duration(days: 1));
+    final nxt = DateTime(year, month, day + 1);
     return InfernalDay(nxt.year, nxt.month, nxt.day);
   }
 
