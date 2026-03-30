@@ -356,11 +356,11 @@ AFTER:   Phone → Dart shelf server → WebView → localhost:auto
 | 6 | Android foreground service + persistent notification | DONE |
 | 7 | GET API endpoints (state, settings, notes, consumption) | DONE |
 | 8 | POST API endpoints (cmd, drinks, notes, settings) | DONE |
-| 9 | Notifications (timer expired, WAIT_OK) | TODO |
-| 10 | Encrypted backup/restore (device migration) | TODO |
-| 11 | Onboarding (PIN + tracker selection) | TODO |
-| 12 | Play Store prep (privacy policy, signing, etc.) | TODO |
-| 13 | End-to-end integration test | TODO |
+| 9 | Notifications on timer expiry (WAIT_OK alerts) | DONE |
+| 10 | Encrypted backup/restore (device migration) | DONE |
+| 11 | Onboarding welcome screen | DONE |
+| 12 | Play Store prep (API 34, privacy policy, app ID) | DONE |
+| 13 | Unit tests (22 tests, DST bugfix) | DONE |
 
 ### Key files
 - `lib/server/local_server.dart` — shelf HTTP server, 20 API routes
