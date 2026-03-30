@@ -35,6 +35,11 @@ dependencies:
   shelf_router: ^1.1.4
   webview_flutter: ^4.10.0
 
+  # Security — AES-256 encryption + secure key storage
+  flutter_secure_storage: ^9.2.2
+  pointycastle: ^3.9.1
+  crypto: ^3.0.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

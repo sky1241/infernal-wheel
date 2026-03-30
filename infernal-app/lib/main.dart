@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'security/crypto_service.dart';
 import 'server/local_server.dart';
 import 'theme/app_theme.dart';
 import 'views/dashboard_webview.dart';
+import 'views/pin_screen.dart';
 
 /// Serveur local — singleton global
 final localServer = LocalServer();
@@ -50,29 +52,34 @@ class AppLauncher extends StatefulWidget {
 }
 
 class _AppLauncherState extends State<AppLauncher> {
-  String _status = 'Demarrage...';
-  bool _ready = false;
+  final _crypto = CryptoService();
+
+  // States: checking → pin → loading → ready
+  String _phase = 'checking'; // checking, pin_setup, pin_unlock, loading, ready, error
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _startServer();
+    _checkSetup();
   }
 
-  Future<void> _startServer() async {
+  Future<void> _checkSetup() async {
     try {
-      setState(() => _status = 'Lancement du serveur...');
-      await localServer.start();
-      setState(() {
-        _status = 'Pret sur port ${localServer.port}';
-        _ready = true;
-      });
+      final isSetup = await _crypto.isSetup();
+      setState(() => _phase = isSetup ? 'pin_unlock' : 'pin_setup');
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _status = 'Erreur';
-      });
+      setState(() { _phase = 'error'; _error = e.toString(); });
+    }
+  }
+
+  Future<void> _onPinSuccess() async {
+    setState(() => _phase = 'loading');
+    try {
+      await localServer.start();
+      setState(() => _phase = 'ready');
+    } catch (e) {
+      setState(() { _phase = 'error'; _error = e.toString(); });
     }
   }
 
@@ -84,37 +91,62 @@ class _AppLauncherState extends State<AppLauncher> {
 
   @override
   Widget build(BuildContext context) {
-    if (_ready) {
-      return DashboardWebView(serverUrl: localServer.url);
-    }
+    switch (_phase) {
+      case 'ready':
+        return DashboardWebView(serverUrl: localServer.url);
 
+      case 'pin_setup':
+        return PinScreen(isSetup: true, onSuccess: _onPinSuccess);
+
+      case 'pin_unlock':
+        return PinScreen(isSetup: false, onSuccess: _onPinSuccess);
+
+      case 'loading':
+        return _buildLoading('Lancement du serveur...');
+
+      case 'error':
+        return _buildError();
+
+      default: // checking
+        return _buildLoading('Demarrage...');
+    }
+  }
+
+  Widget _buildLoading(String message) {
     return Scaffold(
       backgroundColor: const Color(0xFF0E1319),
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_error == null) ...[
-              const CircularProgressIndicator(color: Color(0xFF35D99A)),
-              const SizedBox(height: 24),
-              Text(
-                _status,
-                style: const TextStyle(color: Color(0xFFE7EDF3), fontSize: 16),
-              ),
-            ] else ...[
-              const Icon(Icons.error_outline, color: Color(0xFFFF7A7A), size: 48),
-              const SizedBox(height: 16),
-              Text(
-                'Erreur: $_error',
-                style: const TextStyle(color: Color(0xFFFF7A7A), fontSize: 14),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _startServer,
-                child: const Text('Reessayer'),
-              ),
-            ],
+            const CircularProgressIndicator(color: Color(0xFF35D99A)),
+            const SizedBox(height: 24),
+            Text(message, style: const TextStyle(color: Color(0xFFE7EDF3), fontSize: 16)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0E1319),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: Color(0xFFFF7A7A), size: 48),
+            const SizedBox(height: 16),
+            Text(
+              'Erreur: $_error',
+              style: const TextStyle(color: Color(0xFFFF7A7A), fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _checkSetup,
+              child: const Text('Reessayer'),
+            ),
           ],
         ),
       ),
