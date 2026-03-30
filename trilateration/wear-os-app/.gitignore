@@ -1,0 +1,18 @@
+# Build artifacts
+build/
+app/build/
+.gradle/
+
+# Local config
+local.properties
+
+# APK/AAB
+*.apk
+*.aab
+
+# JVM crash logs
+hs_err_pid*.log
+
+# IDE
+.idea/
+*.iml

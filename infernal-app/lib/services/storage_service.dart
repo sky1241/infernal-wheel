@@ -6,7 +6,7 @@ import '../core/logger.dart';
 import '../core/result.dart';
 import '../models/day_entry.dart';
 import '../models/user_settings.dart';
-import '../utils/infernal_day.dart';
+import '../core/infernal_day.dart';
 
 /// Service de stockage local (100% offline, rien envoye)
 ///

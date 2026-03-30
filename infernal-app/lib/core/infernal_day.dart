@@ -14,7 +14,6 @@ class InfernalDay {
 
   /// Jour InfernalWheel pour une date/heure donnee
   factory InfernalDay.from(DateTime dt) {
-    // Si avant 4h du matin → jour precedent
     if (dt.hour < kInfernalDayStartHour) {
       final yesterday = dt.subtract(const Duration(days: 1));
       return InfernalDay(yesterday.year, yesterday.month, yesterday.day);
@@ -22,11 +21,53 @@ class InfernalDay {
     return InfernalDay(dt.year, dt.month, dt.day);
   }
 
+  /// Alias: compatibilite avec ancien code
+  factory InfernalDay.fromDate(DateTime dt) => InfernalDay.from(dt);
+
   /// Jour InfernalWheel actuel
   factory InfernalDay.today() => InfernalDay.from(DateTime.now());
 
+  /// Alias: compatibilite avec ancien code
+  factory InfernalDay.current() => InfernalDay.today();
+
+  /// Hier
+  factory InfernalDay.yesterday() {
+    final today = InfernalDay.today();
+    return today.previous;
+  }
+
+  /// Parse depuis une cle (yyyy-MM-dd)
+  factory InfernalDay.fromKey(String key) {
+    final parts = key.split('-');
+    return InfernalDay(
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+      int.parse(parts[2]),
+    );
+  }
+
+  /// Parse depuis une cle (yyyy-MM-dd), retourne null si invalide
+  static InfernalDay? tryParse(String key) {
+    try {
+      final parts = key.split('-');
+      if (parts.length != 3) return null;
+      return InfernalDay(
+        int.parse(parts[0]),
+        int.parse(parts[1]),
+        int.parse(parts[2]),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // --- Storage ---
+
   /// Cle unique pour stockage (yyyy-MM-dd)
   String get key => '$year-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
+
+  /// DateTime interne (debut calendaire du jour, 00:00)
+  DateTime get date => DateTime(year, month, day);
 
   /// DateTime du debut du jour (4h00)
   DateTime get startTime => DateTime(year, month, day, kInfernalDayStartHour, 0, 0);
@@ -36,6 +77,8 @@ class InfernalDay {
     final nextDay = DateTime(year, month, day).add(const Duration(days: 1));
     return DateTime(nextDay.year, nextDay.month, nextDay.day, kInfernalDayStartHour - 1, 59, 59);
   }
+
+  // --- Navigation ---
 
   /// Jour precedent
   InfernalDay get previous {
@@ -54,20 +97,33 @@ class InfernalDay {
     return InfernalDay.from(dt) == this;
   }
 
-  /// Parse depuis une cle (yyyy-MM-dd)
-  static InfernalDay? tryParse(String key) {
-    try {
-      final parts = key.split('-');
-      if (parts.length != 3) return null;
-      return InfernalDay(
-        int.parse(parts[0]),
-        int.parse(parts[1]),
-        int.parse(parts[2]),
-      );
-    } catch (_) {
-      return null;
-    }
-  }
+  /// Est-ce aujourd'hui?
+  bool get isToday => this == InfernalDay.today();
+
+  /// Est-ce hier?
+  bool get isYesterday => this == InfernalDay.yesterday();
+
+  // --- Display ---
+
+  static const _dayNames = [
+    'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'
+  ];
+
+  static const _monthNames = [
+    'janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin',
+    'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'
+  ];
+
+  /// Nom du jour (Lundi, Mardi, ...)
+  String get dayName => _dayNames[date.weekday - 1];
+
+  /// Date formatee "5 fevrier 2024"
+  String get formattedDate => '${date.day} ${_monthNames[date.month - 1]} ${date.year}';
+
+  /// Header complet "Jeudi 5 fevrier"
+  String get headerText => '$dayName ${date.day} ${_monthNames[date.month - 1]}';
+
+  // --- Equality ---
 
   @override
   bool operator ==(Object other) =>

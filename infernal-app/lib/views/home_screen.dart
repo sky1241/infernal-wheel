@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
-import '../utils/infernal_day.dart';
+import '../core/infernal_day.dart';
 import '../models/addiction.dart';
 import '../models/day_entry.dart';
 import 'components/addiction_card.dart';
