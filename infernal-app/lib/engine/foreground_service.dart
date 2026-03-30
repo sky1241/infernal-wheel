@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'notification_service.dart';
 import 'timer_engine.dart';
 
 /// Configure et demarre le foreground service Android
@@ -85,11 +86,14 @@ void _startCallback() {
 class _TimerTaskHandler extends TaskHandler {
   final _engine = TimerEngine();
 
+  final _notif = NotificationService();
+
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
-    // Demarrer le timer engine
+    await _notif.init();
     _engine.start();
     _engine.onStateChanged = _updateNotification;
+    _engine.onTimerExpired = (name) => _notif.notifyTimerExpired(name);
   }
 
   @override

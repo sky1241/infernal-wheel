@@ -351,20 +351,24 @@ AFTER:   Phone → Dart shelf server → WebView → localhost:auto
 | 1 | Dart shelf server (port auto, CORS, no-cache) | DONE |
 | 2 | Serve HTML from Flutter assets | DONE |
 | 3 | WebView + AppLauncher lifecycle | DONE |
-| 4 | PIN + AES-256 encrypted storage | TODO |
-| 5 | Timer engine (segments, day rollover 4h, gap detection) | TODO |
-| 6 | Android foreground service + persistent notification | TODO |
-| 7 | GET API endpoints (state, settings, notes, consumption) | TODO |
-| 8 | POST API endpoints (cmd, drinks, notes, settings) | TODO |
+| 4 | PIN + AES-256-GCM encrypted storage (PBKDF2 600k) | DONE |
+| 5 | Timer engine (segments, day rollover 4h, commands) | DONE |
+| 6 | Android foreground service + persistent notification | DONE |
+| 7 | GET API endpoints (state, settings, notes, consumption) | DONE |
+| 8 | POST API endpoints (cmd, drinks, notes, settings) | DONE |
 | 9 | Notifications (timer expired, WAIT_OK) | TODO |
 | 10 | Encrypted backup/restore (device migration) | TODO |
 | 11 | Onboarding (PIN + tracker selection) | TODO |
 | 12 | Play Store prep (privacy policy, signing, etc.) | TODO |
 | 13 | End-to-end integration test | TODO |
 
-### Key files (new)
-- `lib/server/local_server.dart` — shelf HTTP server, all routes
+### Key files
+- `lib/server/local_server.dart` — shelf HTTP server, 20 API routes
+- `lib/server/data_store.dart` — local file storage (JSON, CSV, TXT)
+- `lib/engine/timer_engine.dart` — timer engine (port of InfernalWheel.ps1)
+- `lib/engine/foreground_service.dart` — Android foreground service wrapper
+- `lib/security/crypto_service.dart` — AES-256-GCM + PBKDF2 + Keystore
+- `lib/views/pin_screen.dart` — PIN entry (setup + unlock)
 - `lib/views/dashboard_webview.dart` — WebView widget
-- `lib/main.dart` — AppLauncher (server → WebView lifecycle)
+- `lib/main.dart` — AppLauncher (PIN → server → WebView lifecycle)
 - `assets/web/index.html` — 5281-line static dashboard (224KB)
-- `android/app/src/main/res/xml/network_security_config.xml` — cleartext localhost

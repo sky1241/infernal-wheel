@@ -43,6 +43,9 @@ dependencies:
   # Background service (timer must survive app backgrounding)
   flutter_foreground_task: ^8.10.0
 
+  # Local notifications (timer expired alerts)
+  flutter_local_notifications: ^18.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

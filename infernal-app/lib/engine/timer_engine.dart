@@ -195,6 +195,7 @@ class TimerEngine {
   Timer? _timer;
   LogCallback? onLog;
   VoidCallback? onStateChanged;
+  void Function(String segmentName)? onTimerExpired;
 
   // Actions par defaut
   List<ActionDef> _actions = const [
@@ -314,10 +315,12 @@ class TimerEngine {
     // Check timed segment expiry
     final endsAt = _state.current.endsAt;
     if (endsAt != null && !_state.current.paused && now.isAfter(endsAt)) {
+      final expiredName = _state.current.name;
       if (_state.current.requireOk) {
         _state.awaitOk = true;
         _switchSegment('WAIT_OK', 0, false, false, false);
         _startOvertimeIfNeeded();
+        onTimerExpired?.call(expiredName);
       } else {
         _state.awaitOk = false;
         _switchSegment('work', 0, true, false, false);
