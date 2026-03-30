@@ -17,7 +17,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters += listOf("armeabi-v7a")
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
         }
     }
 
@@ -42,7 +42,6 @@ android {
 
     buildFeatures {
         compose = true
-        viewBinding = true
     }
 
     composeOptions {
@@ -76,9 +75,6 @@ dependencies {
     // TensorFlow Lite (LiteRT 2024)
     implementation("org.tensorflow:tensorflow-lite:2.14.0")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
-
-    // NNAPI delegate (hardware acceleration)
-    implementation("org.tensorflow:tensorflow-lite-gpu:2.14.0")
 
     // Sensors & Health Services
     implementation("androidx.health:health-services-client:1.0.0-beta03")

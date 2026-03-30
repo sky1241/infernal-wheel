@@ -11,12 +11,10 @@ class AppTheme {
 
       // Couleurs
       colorScheme: ColorScheme.dark(
-        background: AppColors.background,
         surface: AppColors.surface,
         primary: AppColors.accent,
         secondary: AppColors.accent,
         error: AppColors.danger,
-        onBackground: AppColors.text,
         onSurface: AppColors.text,
         onPrimary: AppColors.background,
       ),
@@ -46,7 +44,7 @@ class AppTheme {
       ),
 
       // Cards
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(

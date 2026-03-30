@@ -75,7 +75,7 @@ class InfernalDay {
   /// DateTime de fin du jour (3h59:59 lendemain)
   DateTime get endTime {
     final nextDay = DateTime(year, month, day).add(const Duration(days: 1));
-    return DateTime(nextDay.year, nextDay.month, nextDay.day, kInfernalDayStartHour - 1, 59, 59);
+    return DateTime(nextDay.year, nextDay.month, nextDay.day, kInfernalDayStartHour, 0, 0).subtract(const Duration(milliseconds: 1));
   }
 
   // --- Navigation ---

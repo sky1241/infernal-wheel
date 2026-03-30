@@ -9,12 +9,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   # UI
   cupertino_icons: ^1.0.6
 
   # Health data (HealthKit + Health Connect)
-  health: ^4.4.0
+  health: ^13.1.4
 
   # Storage local
   hive: ^2.2.3
@@ -25,7 +27,7 @@ dependencies:
   provider: ^6.1.1
 
   # Utils
-  intl: ^0.18.1
+  intl: any
   share_plus: ^7.2.1
 
 dev_dependencies:

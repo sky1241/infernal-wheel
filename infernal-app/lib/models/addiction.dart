@@ -29,10 +29,10 @@ enum AddictionType {
       this == alcoolFort;
 
   /// Couleur pour le fond (opacity)
-  Color get backgroundColor => color.withOpacity(0.12);
+  Color get backgroundColor => color.withValues(alpha: 0.12);
 
   /// Couleur pour la bordure
-  Color get borderColor => color.withOpacity(0.4);
+  Color get borderColor => color.withValues(alpha: 0.4);
 
   /// Trouver par ID avec fallback safe
   static AddictionType? fromId(String? id) {
@@ -93,10 +93,12 @@ class AddictionEntry {
     firstTime = null;
   }
 
-  /// Delai depuis le reveil (en minutes, toujours positif)
+  /// Delai depuis le reveil (en minutes)
+  /// Retourne 0 si firstTime est avant wakeTime (donnee invalide).
   int? delayFromWake(DateTime? wakeTime) {
     if (firstTime == null || wakeTime == null) return null;
-    return firstTime!.difference(wakeTime).inMinutes.abs();
+    if (firstTime!.isBefore(wakeTime)) return 0;
+    return firstTime!.difference(wakeTime).inMinutes;
   }
 
   /// Serialization JSON
@@ -152,8 +154,9 @@ class AddictionEntry {
       identical(this, other) ||
       other is AddictionEntry &&
           type == other.type &&
-          _count == other._count;
+          _count == other._count &&
+          firstTime == other.firstTime;
 
   @override
-  int get hashCode => Object.hash(type, _count);
+  int get hashCode => Object.hash(type, _count, firstTime);
 }

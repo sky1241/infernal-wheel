@@ -43,6 +43,10 @@ class DetectionService : Service() {
         const val ACTION_START = "com.infernal.smokingdetector.START"
         const val ACTION_STOP = "com.infernal.smokingdetector.STOP"
 
+        // BUG 18 FIX: Static flag for service running state (replaces deprecated ActivityManager query)
+        @Volatile
+        var isRunning = false
+
         /**
          * Start detection service
          */
@@ -85,6 +89,8 @@ class DetectionService : Service() {
     private var smokingHand = "auto"
     private var cigarettesDetected = 0
     private var lastDetectionTime = 0L
+    // BUG 10 FIX: Guard against double-start
+    private var isMonitoring = false
 
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
@@ -101,6 +107,7 @@ class DetectionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true // BUG 18 FIX
         Log.d(TAG, "Service created")
 
         // Initialize components
@@ -139,6 +146,7 @@ class DetectionService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // BUG 11 FIX: Handle null intent (system restart with START_STICKY)
         when (intent?.action) {
             ACTION_START -> {
                 Log.d(TAG, "Starting detection service")
@@ -150,6 +158,12 @@ class DetectionService : Service() {
                 stopMonitoring()
                 stopSelf()
             }
+            null -> {
+                // System restarted the service — ensure foreground notification is shown
+                Log.d(TAG, "Service restarted by system (null intent), resuming")
+                startForegroundService()
+                startMonitoring()
+            }
         }
         return START_STICKY
     }
@@ -158,6 +172,7 @@ class DetectionService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        isRunning = false // BUG 18 FIX
         Log.d(TAG, "Service destroyed")
         prefs.unregisterOnSharedPreferenceChangeListener(prefListener)
         stopMonitoring()
@@ -183,6 +198,13 @@ class DetectionService : Service() {
      * Start continuous monitoring
      */
     private fun startMonitoring() {
+        // BUG 10 FIX: Guard against double-start
+        if (isMonitoring) return
+        isMonitoring = true
+
+        // BUG 21 FIX: Initialize cigarettesDetected from database so it doesn't reset on service restart
+        cigarettesDetected = database.getCountLastNDays(1)
+
         // Start sensor collection with current boost mode rate
         val started = sensorCollector.start(boostManager.getCurrentRate())
         if (!started) {
@@ -218,6 +240,7 @@ class DetectionService : Service() {
      * Stop monitoring
      */
     private fun stopMonitoring() {
+        isMonitoring = false // BUG 10 FIX
         inferenceJob?.cancel()
         sensorCollector.stop()
         gpsManager.stop()
@@ -240,6 +263,12 @@ class DetectionService : Service() {
                     numSamples = 1000,
                     mirrorForLeftWrist = isLeftWrist
                 )
+
+                // BUG 2 FIX: Skip inference if not enough sensor data yet
+                if (sensorData == null) {
+                    Log.d(TAG, "Not enough sensor data yet, skipping inference")
+                    return@withContext
+                }
 
                 // Extract 30 features
                 val features = featureExtractor.extractAllFeatures(

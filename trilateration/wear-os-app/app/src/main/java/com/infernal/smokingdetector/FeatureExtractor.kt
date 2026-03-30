@@ -88,8 +88,66 @@ class FeatureExtractor {
         )
         contextual.copyInto(features, idx)
 
-        Log.d(TAG, "Feature extraction complete: 30 features")
+        // BUG 12 FIX: Normalize features to [0,1] using known min/max ranges
+        normalizeFeatures(features)
+
+        Log.d(TAG, "Feature extraction complete: 30 features (normalized)")
         return features
+    }
+
+    /**
+     * Normalize features to [0,1] using known min/max ranges.
+     * Feature order:
+     *  0-4: Time-domain (rms, peakAccel, duration, intervalMean, intervalStd)
+     *  5-8: Angular (angularVelocity, wristRotation, orientationStability, rotationSmoothness)
+     *  9-11: Jerk (jerkMagnitude, jerkSmoothness, jerkConsistency)
+     *  12-16: Frequency (dominantFreq, spectralEnergy, spectralEntropy, autocorrPeak, periodicity)
+     *  17-20: Trajectory (pathCurvature, elevationAngle, elevationConsistency, totalDistance)
+     *  21-23: Regularity (regularityScore, periodicityCoef, temporalClustering)
+     *  24-29: Contextual (hrBaseline, hrDelta, gpsCluster, timeOfDay, dayOfWeek, proximitySmoking)
+     */
+    private fun normalizeFeatures(features: FloatArray) {
+        // [min, max] for each of the 30 features
+        val ranges = arrayOf(
+            floatArrayOf(0f, 50f),     // 0: rms (m/s²)
+            floatArrayOf(0f, 50f),     // 1: peakAccel (m/s²)
+            floatArrayOf(0f, 30f),     // 2: duration (seconds)
+            floatArrayOf(0f, 10f),     // 3: intervalMean (seconds)
+            floatArrayOf(0f, 5f),      // 4: intervalStd (seconds)
+            floatArrayOf(0f, 10f),     // 5: angularVelocity (rad/s)
+            floatArrayOf(0f, 3600f),   // 6: wristRotation (degrees)
+            floatArrayOf(0f, 100f),    // 7: orientationStability
+            floatArrayOf(0f, 10f),     // 8: rotationSmoothness
+            floatArrayOf(0f, 500f),    // 9: jerkMagnitude (m/s³)
+            floatArrayOf(0f, 10f),     // 10: jerkSmoothness
+            floatArrayOf(-1f, 1f),     // 11: jerkConsistency
+            floatArrayOf(0f, 25f),     // 12: dominantFreq (Hz)
+            floatArrayOf(0f, 2500f),   // 13: spectralEnergy
+            floatArrayOf(0f, 3f),      // 14: spectralEntropy
+            floatArrayOf(0f, 1f),      // 15: autocorrPeak
+            floatArrayOf(0f, 50f),     // 16: periodicity
+            floatArrayOf(0f, 3.14f),   // 17: pathCurvature (rad)
+            floatArrayOf(-90f, 90f),   // 18: elevationAngle (degrees)
+            floatArrayOf(0f, 100f),    // 19: elevationConsistency
+            floatArrayOf(0f, 1000f),   // 20: totalDistance
+            floatArrayOf(-1f, 1f),     // 21: regularityScore
+            floatArrayOf(0f, 100f),    // 22: periodicityCoef
+            floatArrayOf(-1f, 1f),     // 23: temporalClustering
+            floatArrayOf(40f, 200f),   // 24: hrBaseline (bpm)
+            floatArrayOf(-30f, 60f),   // 25: hrDelta (bpm)
+            floatArrayOf(0f, 5f),      // 26: gpsCluster
+            floatArrayOf(0f, 24f),     // 27: timeOfDay (hour)
+            floatArrayOf(0f, 6f),      // 28: dayOfWeek
+            floatArrayOf(0f, 1f),      // 29: proximitySmoking
+        )
+
+        for (i in features.indices) {
+            val min = ranges[i][0]
+            val max = ranges[i][1]
+            val range = max - min
+            if (range < 1e-10f) continue
+            features[i] = ((features[i] - min) / range).coerceIn(0f, 1f)
+        }
     }
 
     // ========================================================================
@@ -356,6 +414,9 @@ class FeatureExtractor {
         val mean = signal.average().toFloat()
         val variance = signal.map { (it - mean).pow(2) }.average().toFloat()
 
+        // BUG 3 FIX: Guard against division by zero when variance is near-zero
+        if (variance < 1e-10f) return FloatArray(maxLag) { if (it == 0) 1f else 0f }
+
         for (lag in 0 until maxLag) {
             var sum = 0.0
             for (i in 0 until signal.size - lag) {
@@ -374,6 +435,10 @@ class FeatureExtractor {
         val bins = 10
         val min = signal.minOrNull() ?: 0f
         val max = signal.maxOrNull() ?: 1f
+
+        // BUG 4 FIX: Guard against division by zero when all values are identical
+        if (max - min < 1e-10f) return 0f
+
         val binWidth = (max - min) / bins
 
         val histogram = IntArray(bins)
@@ -406,6 +471,8 @@ class FeatureExtractor {
      * Index of maximum value
      */
     private fun List<Float>.indexOfMax(): Int {
+        // BUG 5 FIX: Guard against empty list
+        if (isEmpty()) return 0
         var maxIndex = 0
         var maxValue = this[0]
         for (i in 1 until this.size) {

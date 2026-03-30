@@ -1,7 +1,6 @@
 package com.infernal.smokingdetector
 
 import android.Manifest
-import android.app.ActivityManager
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
@@ -168,16 +167,10 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Check if DetectionService is currently running
+     * BUG 18 FIX: Use static flag instead of deprecated ActivityManager.getRunningServices
      */
     private fun isServiceRunning(): Boolean {
-        val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        @Suppress("DEPRECATION")
-        for (service in manager.getRunningServices(Integer.MAX_VALUE)) {
-            if (DetectionService::class.java.name == service.service.className) {
-                return true
-            }
-        }
-        return false
+        return DetectionService.isRunning
     }
 
     /**

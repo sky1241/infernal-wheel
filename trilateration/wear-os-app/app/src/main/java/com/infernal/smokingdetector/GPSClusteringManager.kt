@@ -204,8 +204,9 @@ class GPSClusteringManager(private val context: Context) : LocationListener {
 
                 // Label cluster based on time patterns
                 val avgHour = neighbors.map { it.hour }.average()
+                // BUG 6 FIX: 22.0..8.0 is an empty range in Kotlin; use || instead
                 point.clusterName = when {
-                    avgHour in 22.0..8.0 -> "home"
+                    avgHour >= 22.0 || avgHour <= 8.0 -> "home"
                     avgHour in 9.0..17.0 -> "work"
                     avgHour in 18.0..23.0 -> "bar"
                     else -> "other"

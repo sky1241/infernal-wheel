@@ -7,6 +7,8 @@ import 'layout_issue_detector.dart';
 import 'daily_bug_report.dart';
 
 /// Initialise le systeme de debug (appeler dans main())
+/// NOTE: This function is not currently called from main.dart.
+/// Wire it in when ready: call initDebugSystem() in main() before runApp().
 void initDebugSystem() {
   if (!kDebugMode) return;
 
@@ -35,7 +37,7 @@ Future<DailyBugReport?> checkDailyBugReport({
     model: 'Unknown', // TODO: get from device_info_plus
     screenWidth: mediaQuery.size.width.toInt(),
     screenHeight: mediaQuery.size.height.toInt(),
-    textScale: mediaQuery.textScaleFactor,
+    textScale: mediaQuery.textScaler.scale(1.0),
     locale: locale.toString(),
     isRTL: Directionality.of(context) == TextDirection.rtl,
   );

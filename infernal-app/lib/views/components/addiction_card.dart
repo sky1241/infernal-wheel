@@ -99,7 +99,7 @@ class AddictionCard extends StatelessWidget {
         vertical: Spacing.xxs,
       ),
       decoration: BoxDecoration(
-        color: Color(trend.colorValue).withOpacity(0.15),
+        color: Color(trend.colorValue).withValues(alpha:0.15),
         borderRadius: BorderRadius.circular(Spacing.radiusSm),
       ),
       child: Text(
@@ -131,11 +131,11 @@ class AddictionCard extends StatelessWidget {
           height: Spacing.touchTarget,
           decoration: BoxDecoration(
             color: enabled
-                ? type.color.withOpacity(0.15)
-                : AppColors.border.withOpacity(0.3),
+                ? type.color.withValues(alpha:0.15)
+                : AppColors.border.withValues(alpha:0.3),
             borderRadius: BorderRadius.circular(Spacing.radiusMd),
             border: Border.all(
-              color: enabled ? type.color.withOpacity(0.4) : AppColors.border,
+              color: enabled ? type.color.withValues(alpha:0.4) : AppColors.border,
               width: 1,
             ),
           ),

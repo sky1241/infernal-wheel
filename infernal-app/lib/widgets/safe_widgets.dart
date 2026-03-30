@@ -24,17 +24,13 @@ class SafeText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Text(
-          text,
-          style: style,
-          overflow: TextOverflow.ellipsis,
-          maxLines: maxLines,
-          softWrap: true,
-          textAlign: textAlign,
-        );
-      },
+    return Text(
+      text,
+      style: style,
+      overflow: TextOverflow.ellipsis,
+      maxLines: maxLines,
+      softWrap: true,
+      textAlign: textAlign,
     );
   }
 }

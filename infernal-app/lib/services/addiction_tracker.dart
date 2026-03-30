@@ -4,28 +4,13 @@
 
 import 'package:flutter/foundation.dart';
 import '../core/infernal_day.dart';
+import '../models/addiction.dart';
 import 'wake_tracker.dart';
 
-/// Type d'addiction trackee
-enum AddictionType {
-  cigarette('cigarette', 'Cigarette', '🚬'),
-  beer('beer', 'Biere', '🍺'),
-  wine('wine', 'Vin', '🍷'),
-  spirits('spirits', 'Alcool fort', '🥃');
-
-  final String id;
-  final String label;
-  final String emoji;
-
-  const AddictionType(this.id, this.label, this.emoji);
-
-  static AddictionType? fromId(String id) {
-    for (final type in values) {
-      if (type.id == id) return type;
-    }
-    return null;
-  }
-}
+// TODO: The duplicate AddictionType enum that was here has been removed.
+// Use AddictionType from models/addiction.dart instead.
+// The service's IDs (cigarette, beer, wine, spirits) were never used by the UI
+// which uses the model's IDs (tabac, biere, vin, fort).
 
 /// Evenement d'addiction (une consommation)
 class AddictionEvent {
@@ -49,7 +34,7 @@ class AddictionEvent {
 
   factory AddictionEvent.fromJson(Map<String, dynamic> json) {
     return AddictionEvent(
-      type: AddictionType.fromId(json['type'] as String? ?? '') ?? AddictionType.cigarette,
+      type: AddictionType.fromIdOrDefault(json['type'] as String?),
       timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ?? DateTime.now(),
       count: (json['count'] as num?)?.toInt() ?? 1,
     );

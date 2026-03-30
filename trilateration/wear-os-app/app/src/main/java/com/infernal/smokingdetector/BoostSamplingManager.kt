@@ -84,9 +84,14 @@ class BoostSamplingManager(private val context: Context) {
     fun triggerBoost(reason: String) {
         val now = System.currentTimeMillis()
 
-        // If already in boost mode, extend the duration
+        // BUG 7 FIX: If already in boost mode, cancel old job and launch new one with extended time
         if (currentMode == SamplingMode.BOOST) {
             boostEndTime = now + BOOST_DURATION_MS
+            boostJob?.cancel()
+            boostJob = coroutineScope.launch {
+                delay(boostEndTime - System.currentTimeMillis())
+                returnToNormal()
+            }
             Log.d(TAG, "Boost extended: reason=$reason, duration=${BOOST_DURATION_MS / 1000}s")
             return
         }

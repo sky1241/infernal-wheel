@@ -207,7 +207,7 @@ function Add-CsvLineSafe {
     try {
       $fs.Seek(0, [System.IO.SeekOrigin]::End) | Out-Null
       $sw = [System.IO.StreamWriter]::new($fs, [System.Text.Encoding]::UTF8, 1024, $true)
-      try { $sw.WriteLine($Line) } finally { $sw.Flush() }
+      try { $sw.WriteLine($Line) } finally { $sw.Flush(); $sw.Dispose() }
     } finally {
       $fs.Dispose()
     }

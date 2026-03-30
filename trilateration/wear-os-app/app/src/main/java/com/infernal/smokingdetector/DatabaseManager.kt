@@ -128,14 +128,9 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
      */
     fun getTotalCount(): Int {
         val db = readableDatabase
-        val cursor = db.rawQuery("SELECT COUNT(*) FROM $TABLE_DETECTIONS", null)
-
-        return if (cursor.moveToFirst()) {
-            cursor.getInt(0)
-        } else {
-            0
-        }.also {
-            cursor.close()
+        // BUG 17 FIX: Use cursor.use {} to avoid leaks
+        return db.rawQuery("SELECT COUNT(*) FROM $TABLE_DETECTIONS", null).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getInt(0) else 0
         }
     }
 
@@ -146,17 +141,12 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
         val db = readableDatabase
         val cutoffTime = System.currentTimeMillis() - (days * 24 * 60 * 60 * 1000L)
 
-        val cursor = db.rawQuery(
+        // BUG 17 FIX: Use cursor.use {} to avoid leaks
+        return db.rawQuery(
             "SELECT COUNT(*) FROM $TABLE_DETECTIONS WHERE $COL_TIMESTAMP > ?",
             arrayOf(cutoffTime.toString())
-        )
-
-        return if (cursor.moveToFirst()) {
-            cursor.getInt(0)
-        } else {
-            0
-        }.also {
-            cursor.close()
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getInt(0) else 0
         }
     }
 
@@ -173,17 +163,12 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
      */
     fun getCountByCluster(cluster: Int): Int {
         val db = readableDatabase
-        val cursor = db.rawQuery(
+        // BUG 17 FIX: Use cursor.use {} to avoid leaks
+        return db.rawQuery(
             "SELECT COUNT(*) FROM $TABLE_DETECTIONS WHERE $COL_GPS_CLUSTER = ?",
             arrayOf(cluster.toString())
-        )
-
-        return if (cursor.moveToFirst()) {
-            cursor.getInt(0)
-        } else {
-            0
-        }.also {
-            cursor.close()
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getInt(0) else 0
         }
     }
 
@@ -192,17 +177,12 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
      */
     fun getLastDetectionTime(): Long {
         val db = readableDatabase
-        val cursor = db.rawQuery(
+        // BUG 17 FIX: Use cursor.use {} to avoid leaks
+        return db.rawQuery(
             "SELECT $COL_TIMESTAMP FROM $TABLE_DETECTIONS ORDER BY $COL_TIMESTAMP DESC LIMIT 1",
             null
-        )
-
-        return if (cursor.moveToFirst()) {
-            cursor.getLong(0)
-        } else {
-            0L
-        }.also {
-            cursor.close()
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getLong(0) else 0L
         }
     }
 
@@ -239,26 +219,26 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
      */
     fun exportToCSV(): String {
         val db = readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM $TABLE_DETECTIONS", null)
+        // BUG 17 FIX: Use cursor.use {} to avoid leaks
+        return db.rawQuery("SELECT * FROM $TABLE_DETECTIONS", null).use { cursor ->
+            val csv = StringBuilder()
+            csv.append("timestamp,confidence,gps_cluster,hr_baseline,hr_current,hr_delta,wrist_location,smoking_hand\n")
 
-        val csv = StringBuilder()
-        csv.append("timestamp,confidence,gps_cluster,hr_baseline,hr_current,hr_delta,wrist_location,smoking_hand\n")
+            while (cursor.moveToNext()) {
+                val timestamp = cursor.getLong(cursor.getColumnIndexOrThrow(COL_TIMESTAMP))
+                val confidence = cursor.getFloat(cursor.getColumnIndexOrThrow(COL_CONFIDENCE))
+                val gpsCluster = cursor.getInt(cursor.getColumnIndexOrThrow(COL_GPS_CLUSTER))
+                val hrBaseline = cursor.getFloat(cursor.getColumnIndexOrThrow(COL_HR_BASELINE))
+                val hrCurrent = cursor.getFloat(cursor.getColumnIndexOrThrow(COL_HR_CURRENT))
+                val hrDelta = cursor.getFloat(cursor.getColumnIndexOrThrow(COL_HR_DELTA))
 
-        while (cursor.moveToNext()) {
-            val timestamp = cursor.getLong(cursor.getColumnIndexOrThrow(COL_TIMESTAMP))
-            val confidence = cursor.getFloat(cursor.getColumnIndexOrThrow(COL_CONFIDENCE))
-            val gpsCluster = cursor.getInt(cursor.getColumnIndexOrThrow(COL_GPS_CLUSTER))
-            val hrBaseline = cursor.getFloat(cursor.getColumnIndexOrThrow(COL_HR_BASELINE))
-            val hrCurrent = cursor.getFloat(cursor.getColumnIndexOrThrow(COL_HR_CURRENT))
-            val hrDelta = cursor.getFloat(cursor.getColumnIndexOrThrow(COL_HR_DELTA))
+                val wrist = cursor.getString(cursor.getColumnIndexOrThrow(COL_WRIST_LOCATION)) ?: "right"
+                val hand = cursor.getString(cursor.getColumnIndexOrThrow(COL_SMOKING_HAND)) ?: "auto"
+                csv.append("$timestamp,$confidence,$gpsCluster,$hrBaseline,$hrCurrent,$hrDelta,$wrist,$hand\n")
+            }
 
-            val wrist = cursor.getString(cursor.getColumnIndexOrThrow(COL_WRIST_LOCATION)) ?: "right"
-            val hand = cursor.getString(cursor.getColumnIndexOrThrow(COL_SMOKING_HAND)) ?: "auto"
-            csv.append("$timestamp,$confidence,$gpsCluster,$hrBaseline,$hrCurrent,$hrDelta,$wrist,$hand\n")
+            csv.toString()
         }
-
-        cursor.close()
-        return csv.toString()
     }
 
     /**

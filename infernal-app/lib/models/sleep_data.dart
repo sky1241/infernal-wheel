@@ -82,7 +82,10 @@ class SleepData {
     required bool isApple,
     int goalMinutes = 480,
   }) {
-    final duration = wakeTime.difference(bedTime).inMinutes.abs();
+    // If bedTime > wakeTime (invalid data), swap them
+    final actualBed = bedTime.isBefore(wakeTime) ? bedTime : wakeTime;
+    final actualWake = bedTime.isBefore(wakeTime) ? wakeTime : bedTime;
+    final duration = actualWake.difference(actualBed).inMinutes;
     return SleepData(
       source: isApple ? SleepSource.healthKit : SleepSource.healthConnect,
       bedTime: bedTime,

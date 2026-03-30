@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'package:flutter/foundation.dart';
 
 /// Niveaux de log
@@ -48,7 +49,7 @@ class LogEntry {
 /// ```
 class Log {
   static LogLevel minLevel = kDebugMode ? LogLevel.trace : LogLevel.info;
-  static final List<LogEntry> _buffer = [];
+  static final Queue<LogEntry> _buffer = Queue<LogEntry>();
   static const int _maxBufferSize = 500;
 
   static void _log(
@@ -71,9 +72,9 @@ class Log {
     );
 
     // Buffer pour export futur
-    _buffer.add(entry);
+    _buffer.addLast(entry);
     if (_buffer.length > _maxBufferSize) {
-      _buffer.removeAt(0);
+      _buffer.removeFirst();
     }
 
     // En dev: print

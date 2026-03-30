@@ -83,6 +83,7 @@ $prefix = $listenerInfo.Prefix
 try { Write-TextAtomic -Path $DashPortPath -Text "$Port" } catch {}
 Write-Host "InfernalDashboard running on $prefix" -ForegroundColor Green
 
+try {
 while ($true) {
   $ctx = $listener.GetContext()
   try {
@@ -111,6 +112,10 @@ while ($true) {
       }
       if ($path -eq "/api/note") {
         $d = if ($qs.ContainsKey("d")) { $qs["d"] } else { Get-InfernalDayKey (Get-Date) }
+        if ($d -notmatch '^\d{4}-\d{2}-\d{2}$') {
+          Write-HttpResponse $ctx 400 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error="invalid day format"} | ConvertTo-Json))
+          continue
+        }
         $content = Get-NoteContent $d
         Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true; day=$d; content=$content} | ConvertTo-Json -Depth 6))
         continue
@@ -3279,46 +3284,44 @@ console.log('[INIT] initInputListeners done - ALL READY');
           if ($data.actions) { $incoming = @($data.actions) }
           if ($incoming.Count -gt 3) { $incoming = $incoming[0..2] }
 
-          $settings = Invoke-WithMutexRetry -Name $M_SETTINGS -TimeoutMs 1200 -Retries 10 -Script {
-            Read-JsonSafe -Path $SettingsPath -BackupPath $SettingsBak
-          }
-          if (-not $settings) { $settings = @{ actions = @() } }
-
-          # Remove old custom actions
-          $kept = @()
-          foreach ($a in $settings.actions) {
-            if (-not $a.custom) { $kept += $a }
-          }
-
-          # Add new custom actions
-          foreach ($raw in $incoming) {
-            $label = [string]($raw.label ?? "")
-            if (-not $label.Trim()) { continue }
-            $key = $label.Trim().ToLowerInvariant() -replace '[^a-z0-9]',''
-            if (-not $key) { continue }
-            # Avoid collision with existing keys
-            $existingKeys = $kept | ForEach-Object { $_.key }
-            if ($existingKeys -contains $key) { $key = "c_$key" }
-            $color = [string]($raw.color ?? "#ff9955")
-            $kept += @{
-              key = $key
-              label = $label.Trim()
-              mode = "break"
-              minutes = 0
-              requireOk = $true
-              custom = $true
-              color = $color
-            }
-          }
-
-          $settings.actions = $kept
           Invoke-WithMutexRetry -Name $M_SETTINGS -TimeoutMs 1200 -Retries 10 -Script {
+            $settings = Read-JsonSafe -Path $SettingsPath -BackupPath $SettingsBak
+            if (-not $settings) { $settings = @{ actions = @() } }
+
+            # Remove old custom actions
+            $kept = @()
+            foreach ($a in $settings.actions) {
+              if (-not $a.custom) { $kept += $a }
+            }
+
+            # Add new custom actions
+            foreach ($raw in $incoming) {
+              $label = [string]($raw.label ?? "")
+              if (-not $label.Trim()) { continue }
+              $key = $label.Trim().ToLowerInvariant() -replace '[^a-z0-9]',''
+              if (-not $key) { continue }
+              # Avoid collision with existing keys
+              $existingKeys = $kept | ForEach-Object { $_.key }
+              if ($existingKeys -contains $key) { $key = "c_$key" }
+              $color = [string]($raw.color ?? "#ff9955")
+              $kept += @{
+                key = $key
+                label = $label.Trim()
+                mode = "break"
+                minutes = 0
+                requireOk = $true
+                custom = $true
+                color = $color
+              }
+            }
+
+            $settings.actions = $kept
             $json = $settings | ConvertTo-Json -Depth 12
-            Write-TextAtomic -Path $SettingsPath -Text $json -MutexName $M_SETTINGS
+            Write-TextAtomic -Path $SettingsPath -Text $json
           }
           Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true} | ConvertTo-Json))
         } catch {
-          Write-HttpResponse $ctx 500 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error=$_.Exception.Message} | ConvertTo-Json))
+          Write-HttpResponse $ctx 500 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error="Internal error"} | ConvertTo-Json))
         }
         continue
       }
@@ -3334,22 +3337,20 @@ console.log('[INIT] initInputListeners done - ALL READY');
             Write-HttpResponse $ctx 400 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error="Cannot remove system action"} | ConvertTo-Json))
             continue
           }
-          $settings = Invoke-WithMutexRetry -Name $M_SETTINGS -TimeoutMs 1200 -Retries 10 -Script {
-            Read-JsonSafe -Path $SettingsPath -BackupPath $SettingsBak
-          }
-          if (-not $settings) { $settings = @{ actions = @() } }
-          $kept = @()
-          foreach ($a in $settings.actions) {
-            if ($a.key -ne $removeKey) { $kept += $a }
-          }
-          $settings.actions = $kept
           Invoke-WithMutexRetry -Name $M_SETTINGS -TimeoutMs 1200 -Retries 10 -Script {
+            $settings = Read-JsonSafe -Path $SettingsPath -BackupPath $SettingsBak
+            if (-not $settings) { $settings = @{ actions = @() } }
+            $kept = @()
+            foreach ($a in $settings.actions) {
+              if ($a.key -ne $removeKey) { $kept += $a }
+            }
+            $settings.actions = $kept
             $json = $settings | ConvertTo-Json -Depth 12
-            Write-TextAtomic -Path $SettingsPath -Text $json -MutexName $M_SETTINGS
+            Write-TextAtomic -Path $SettingsPath -Text $json
           }
           Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true} | ConvertTo-Json))
         } catch {
-          Write-HttpResponse $ctx 500 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error=$_.Exception.Message} | ConvertTo-Json))
+          Write-HttpResponse $ctx 500 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error="Internal error"} | ConvertTo-Json))
         }
         continue
       }
@@ -3361,11 +3362,11 @@ console.log('[INIT] initInputListeners done - ALL READY');
           Invoke-WithMutexRetry -Name $M_STATE -TimeoutMs 2000 -Retries 10 -Script {
             $s = Read-JsonSafe -Path $StatePath -BackupPath $StateBakPath
             $s.GoalWorkSeconds = $goalSec
-            Write-JsonSafe -Path $StatePath -BackupPath $StateBakPath -Data $s
+            Write-JsonAtomic -Path $StatePath -Obj $s -BackupPath $StateBakPath -MutexName $M_STATE
           }
           Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true; goalHours=$hours} | ConvertTo-Json))
         } catch {
-          Write-HttpResponse $ctx 500 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error=$_.Exception.Message} | ConvertTo-Json))
+          Write-HttpResponse $ctx 500 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error="Internal error"} | ConvertTo-Json))
         }
         continue
       }
@@ -3378,14 +3379,12 @@ console.log('[INIT] initInputListeners done - ALL READY');
           if ($vBeer -lt 0.05 -or $vBeer -gt 3) { $vBeer = 0.5 }
           if ($vWine -lt 0.05 -or $vWine -gt 2) { $vWine = 0.2 }
           if ($vStrong -lt 0.02 -or $vStrong -gt 2) { $vStrong = 0.2 }
-          $settings = Invoke-WithMutexRetry -Name $M_SETTINGS -TimeoutMs 1200 -Retries 10 -Script {
-            Read-JsonSafe -Path $SettingsPath -BackupPath $SettingsBak
-          }
-          if (-not $settings) { $settings = @{} }
-          $settings.alcoholVolumes = @{ beer = $vBeer; wine = $vWine; strong = $vStrong }
           Invoke-WithMutexRetry -Name $M_SETTINGS -TimeoutMs 1200 -Retries 10 -Script {
+            $settings = Read-JsonSafe -Path $SettingsPath -BackupPath $SettingsBak
+            if (-not $settings) { $settings = @{} }
+            $settings.alcoholVolumes = @{ beer = $vBeer; wine = $vWine; strong = $vStrong }
             $json = $settings | ConvertTo-Json -Depth 12
-            Write-TextAtomic -Path $SettingsPath -Text $json -MutexName $M_SETTINGS
+            Write-TextAtomic -Path $SettingsPath -Text $json
           }
           # Update runtime globals
           $script:BEER_L = $vBeer
@@ -3393,7 +3392,7 @@ console.log('[INIT] initInputListeners done - ALL READY');
           $script:STRONG_L = $vStrong
           Write-HttpResponse $ctx 200 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$true; beer=$vBeer; wine=$vWine; strong=$vStrong} | ConvertTo-Json))
         } catch {
-          Write-HttpResponse $ctx 500 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error=$_.Exception.Message} | ConvertTo-Json))
+          Write-HttpResponse $ctx 500 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error="Internal error"} | ConvertTo-Json))
         }
         continue
       }
@@ -3486,6 +3485,10 @@ console.log('[INIT] initInputListeners done - ALL READY');
 
       if ($path -eq "/api/note") {
         $day = if ($data.day) { [string]$data.day } else { Get-InfernalDayKey (Get-Date) }
+        if ($day -notmatch '^\d{4}-\d{2}-\d{2}$') {
+          Write-HttpResponse $ctx 400 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error="invalid day format"} | ConvertTo-Json))
+          continue
+        }
         $content = if ($data.content) { [string]$data.content } else { "" }
         try {
           Set-NoteContent $day $content
@@ -3523,8 +3526,17 @@ console.log('[INIT] initInputListeners done - ALL READY');
       continue
     }
 
+    # Method not GET or POST
+    Write-HttpResponse $ctx 405 "application/json; charset=utf-8" (ConvertTo-HttpBytes (@{ok=$false; error="Method Not Allowed"} | ConvertTo-Json))
+
   } catch {
     Write-ErrorLog -Path $DashLogPath -Context "RequestLoop" -Exception $_.Exception
-    try { Write-HttpResponse $ctx 500 "text/plain; charset=utf-8" (ConvertTo-HttpBytes $_.Exception.Message) } catch {}
+    try { Write-HttpResponse $ctx 500 "text/plain; charset=utf-8" (ConvertTo-HttpBytes "Internal error") } catch {}
   }
+}
+} finally {
+  try { $listener.Stop() } catch {}
+  try { $listener.Close() } catch {}
+  try { $dashMutex.ReleaseMutex() } catch {}
+  try { $dashMutex.Dispose() } catch {}
 }

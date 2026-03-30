@@ -227,6 +227,8 @@ class LayoutIssueDetector {
 void setupLayoutErrorInterceptor() {
   if (!kDebugMode) return;
 
+  final previousHandler = FlutterError.onError;
+
   FlutterError.onError = (FlutterErrorDetails details) {
     final message = details.toString();
 
@@ -244,7 +246,7 @@ void setupLayoutErrorInterceptor() {
       );
     }
 
-    // Log standard Flutter
-    FlutterError.presentError(details);
+    // Call previous handler (preserves existing error handling chain)
+    previousHandler?.call(details);
   };
 }

@@ -41,8 +41,8 @@ class AppColors {
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [
-        color.withOpacity(0.15),
-        color.withOpacity(0.05),
+        color.withValues(alpha:0.15),
+        color.withValues(alpha:0.05),
       ],
     );
   }
@@ -51,7 +51,7 @@ class AppColors {
   static List<BoxShadow> glow(Color color, {double blur = 12}) {
     return [
       BoxShadow(
-        color: color.withOpacity(0.4),
+        color: color.withValues(alpha:0.4),
         blurRadius: blur,
         spreadRadius: 0,
       ),

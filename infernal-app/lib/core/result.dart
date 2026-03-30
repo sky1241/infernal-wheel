@@ -1,3 +1,5 @@
+import 'dart:async';
+
 /// Resultat type-safe pour operations qui peuvent echouer
 ///
 /// Usage:
@@ -136,13 +138,4 @@ extension FutureResultExtension<T> on Future<T> {
       return Failure(AppError.unknown(e, stack));
     }
   }
-}
-
-/// TimeoutException pour compatibilite
-class TimeoutException implements Exception {
-  final String? message;
-  const TimeoutException([this.message]);
-
-  @override
-  String toString() => 'TimeoutException: $message';
 }

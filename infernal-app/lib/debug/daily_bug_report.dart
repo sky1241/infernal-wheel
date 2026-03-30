@@ -220,6 +220,8 @@ class DailyBugReportGenerator {
   static const int maxIssuesPerReport = 20;
 
   /// Verifie si un rapport peut etre genere (1x/jour max)
+  /// Note: if _lastReportDate is null (e.g. after restart), caller should
+  /// restore it from storage via BugReportStorage.getLastReportDate() first.
   bool canGenerateReport() {
     if (_lastReportDate == null) return true;
 
@@ -352,7 +354,9 @@ class BugReportStorage {
       // Trier par nom (date)
       files.sort((a, b) => b.path.compareTo(a.path));
 
-      final file = files.first as File;
+      final fileEntities = files.whereType<File>().toList();
+      if (fileEntities.isEmpty) return null;
+      final file = fileEntities.first;
       final content = await file.readAsString();
       return DailyBugReport.fromJson(jsonDecode(content) as Map<String, dynamic>);
     } catch (e) {
@@ -403,6 +407,11 @@ Future<DailyBugReport?> maybeGenerateDailyBugReport({
 
   final generator = DailyBugReportGenerator.instance;
   final storage = BugReportStorage(storagePath);
+
+  // Restore _lastReportDate from storage if null (e.g. after app restart)
+  if (generator._lastReportDate == null) {
+    generator._lastReportDate = await storage.getLastReportDate();
+  }
 
   // Verifier si on peut generer
   if (!generator.canGenerateReport()) {

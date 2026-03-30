@@ -92,21 +92,25 @@ class SensorDataCollector(context: Context) : SensorEventListener {
     override fun onSensorChanged(event: SensorEvent) {
         when (event.sensor.type) {
             Sensor.TYPE_ACCELEROMETER -> {
+                // Only accelerometer advances the index and writes timestamp
                 accelX[bufferIndex] = event.values[0]
                 accelY[bufferIndex] = event.values[1]
                 accelZ[bufferIndex] = event.values[2]
                 timestamps[bufferIndex] = event.timestamp
+
+                // Advance buffer (circular) — only on accelerometer events
+                bufferIndex = (bufferIndex + 1) % BUFFER_SIZE
+                samplesCollected++
             }
             Sensor.TYPE_GYROSCOPE -> {
-                gyroX[bufferIndex] = event.values[0]
-                gyroY[bufferIndex] = event.values[1]
-                gyroZ[bufferIndex] = event.values[2]
+                // Gyroscope writes to CURRENT index without advancing
+                // This ensures accel[i] and gyro[i] are from nearly the same moment
+                val idx = bufferIndex
+                gyroX[idx] = event.values[0]
+                gyroY[idx] = event.values[1]
+                gyroZ[idx] = event.values[2]
             }
         }
-
-        // Advance buffer (circular)
-        bufferIndex = (bufferIndex + 1) % BUFFER_SIZE
-        samplesCollected++
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
@@ -121,29 +125,39 @@ class SensorDataCollector(context: Context) : SensorEventListener {
      *        to normalize left-wrist data as if worn on right wrist.
      *        This ensures consistent feature extraction regardless of wrist.
      */
-    fun getRecentData(numSamples: Int = 1000, mirrorForLeftWrist: Boolean = false): SensorData {
+    fun getRecentData(numSamples: Int = 1000, mirrorForLeftWrist: Boolean = false): SensorData? {
         require(numSamples <= BUFFER_SIZE) { "numSamples exceeds buffer size" }
 
-        val startIndex = if (samplesCollected < numSamples) {
+        // BUG 2 FIX: Return null if not enough data collected (minimum 50 = 1s at 50Hz)
+        val MIN_SAMPLES = 50
+        if (samplesCollected < MIN_SAMPLES) {
+            Log.d(TAG, "Not enough data yet: $samplesCollected < $MIN_SAMPLES")
+            return null
+        }
+
+        // Only return the valid portion if we haven't filled the requested amount yet
+        val actualSamples = minOf(numSamples, samplesCollected)
+
+        val startIndex = if (samplesCollected < actualSamples) {
             0
         } else {
-            (bufferIndex - numSamples + BUFFER_SIZE) % BUFFER_SIZE
+            (bufferIndex - actualSamples + BUFFER_SIZE) % BUFFER_SIZE
         }
 
         val xSign = if (mirrorForLeftWrist) -1f else 1f
         val yGyroSign = if (mirrorForLeftWrist) -1f else 1f
 
-        val accel = Array(numSamples) { i ->
+        val accel = Array(actualSamples) { i ->
             val idx = (startIndex + i) % BUFFER_SIZE
             floatArrayOf(accelX[idx] * xSign, accelY[idx], accelZ[idx])
         }
 
-        val gyro = Array(numSamples) { i ->
+        val gyro = Array(actualSamples) { i ->
             val idx = (startIndex + i) % BUFFER_SIZE
             floatArrayOf(gyroX[idx], gyroY[idx] * yGyroSign, gyroZ[idx])
         }
 
-        val ts = LongArray(numSamples) { i ->
+        val ts = LongArray(actualSamples) { i ->
             val idx = (startIndex + i) % BUFFER_SIZE
             timestamps[idx]
         }

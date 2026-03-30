@@ -190,11 +190,10 @@ function Add-LogRow([datetime]$start, [datetime]$end, [string]$name, [bool]$work
       return
     }
   }
-  # Fix: for sleep sessions starting before 2pm (14h), assign to previous infernal day
-  # (this is the end-of-day sleep, not the start of a new day)
-  # Based on user's actual sleep patterns: 83% of sleeps before 14h are end-of-day
+  # Fix: for sleep sessions starting before 10am, assign to previous infernal day
+  # (this is the end-of-night sleep, not an afternoon nap)
   $dayKey = Get-InfernalDayKey $start
-  if ($sleep -and $start.Hour -ge 4 -and $start.Hour -lt 14) {
+  if ($sleep -and $start.Hour -ge 4 -and $start.Hour -lt 10) {
     try {
       $prevDay = [datetime]::ParseExact($dayKey, "yyyy-MM-dd", $null).AddDays(-1)
       $dayKey = $prevDay.ToString("yyyy-MM-dd")
@@ -330,7 +329,8 @@ function Invoke-CommandLine([string]$cmdLine, $settings) {
     "extend" {
       # extend N minutes on current timed action
       $n = 5
-      if ($arg) { [void][int]::TryParse($arg, [ref]$n) }
+      $parsed = 0
+      if ($arg -and [int]::TryParse($arg, [ref]$parsed)) { $n = $parsed }
       if ($n -lt 1) { $n = 1 }
       if ($s.Current.EndsAt) {
         try {

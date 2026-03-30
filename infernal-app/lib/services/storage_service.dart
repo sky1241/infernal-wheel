@@ -13,6 +13,10 @@ import '../core/infernal_day.dart';
 /// Toutes les donnees restent sur l'appareil.
 /// Pas de cloud, pas de sync, pas de tracking.
 class StorageService {
+  static final StorageService _instance = StorageService._internal();
+  factory StorageService() => _instance;
+  StorageService._internal();
+
   static const String _daysDir = 'days';
   static const String _settingsFile = 'settings.json';
   static const String _backupSuffix = '.bak';
@@ -184,10 +188,14 @@ class StorageService {
     // 2. Ecrire dans temp
     await temp.writeAsString(content).timeout(_writeTimeout);
 
-    // 3. Renommer temp -> fichier final
+    // 3. Supprimer le fichier cible s'il existe (Windows rename ne peut pas overwrite)
+    final target = File(file.path);
+    if (await target.exists()) await target.delete();
+
+    // 4. Renommer temp -> fichier final
     await temp.rename(file.path);
 
-    // 4. Supprimer backup si succes
+    // 5. Supprimer backup si succes
     if (await backup.exists()) {
       try {
         await backup.delete();
@@ -223,15 +231,14 @@ class StorageService {
     if (count <= 0) return [];
 
     final entries = <DayEntry>[];
-    var date = DateTime.now();
+    var day = InfernalDay.today();
 
     for (var i = 0; i < count; i++) {
-      final dayKey = InfernalDay.fromDate(date).key;
-      final entry = await loadDay(dayKey);
+      final entry = await loadDay(day.key);
       if (entry != null) {
         entries.add(entry);
       }
-      date = date.subtract(const Duration(days: 1));
+      day = day.previous;
     }
 
     Log.debug('STORAGE', 'Loaded history',

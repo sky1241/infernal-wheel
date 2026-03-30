@@ -125,26 +125,10 @@ class _JournalScreenState extends State<JournalScreen> {
         maxChildSize: 0.95,
         expand: false,
         builder: (context, scrollController) {
-          // TODO: Generer le vrai export depuis DayEntry
-          final exportText = '''
-==================================================
-JOURNAL - 2024-02-06
-==================================================
-
---- SOMMEIL ---
-Reveil: 10:30
-Duree: 7h30
-Qualite: Bon (8/10)
-
---- ADDICTIONS ---
-🚬 Cigarettes: 5 (1ere a +45min du reveil)
-🍺 Bieres: 2
-
---- NOTES LIBRES ---
-${_controller.text}
-
-==================================================
-''';
+          final journalText = _controller.text.trim();
+          final exportText = journalText.isNotEmpty
+              ? journalText
+              : 'Export disponible prochainement';
 
           return Column(
             children: [

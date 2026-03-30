@@ -102,18 +102,7 @@ function Get-WeeklyAlcoholLiters {
 
   $rows = @()
   try { $rows = Import-Csv -Path $DrinksPath } catch {
-    return [pscustomobject]@{
-      MonthKey = $Ym
-      WineGlasses = 0
-      BeerCans = 0
-      StrongGlasses = 0
-      WineLiters = 0
-      BeerLiters = 0
-      StrongLiters = 0
-      WineBottles = 0
-      StrongBottles = 0
-      TotalLiters = 0
-    }
+    return @()
   }
 
   $weeks = @{}
@@ -371,7 +360,7 @@ function Get-MonthlyStats {
     if ($d.sleepSec -gt 0) { $sleepDays++ }
     if ($d.sportSec -gt 0) { $sportDays++ }
     # Only count as clope/alcohol-free if the day had real activity (not just unlogged)
-    $dayActive = ([int]$d.workSec -gt 0 -or [int]$d.sleepSec -gt 0)
+    $dayActive = ([int]$d.workMin -gt 0 -or [int]$d.sleepMin -gt 0)
     if ($dayActive -and [int]$d.clopeCount -eq 0) { $clopeFreeDays++ }
     if ($d.workSec -gt $bestWorkSec) { $bestWorkSec = [int]$d.workSec; $bestWorkDay = $k }
   }
@@ -467,7 +456,7 @@ function Get-MonthlySummary {
   # Count alcohol-free days (only active days with 0 drinks)
   $alcoholFreeDays = 0
   foreach ($d in $curr.Daily) {
-    $dayActive = ([int]$d.workSec -gt 0 -or [int]$d.sleepSec -gt 0)
+    $dayActive = ([int]$d.workMin -gt 0 -or [int]$d.sleepMin -gt 0)
     $alcCount = if ($d.PSObject.Properties['alcoholCount']) { [int]$d.alcoholCount } else { 0 }
     if ($dayActive -and $alcCount -eq 0) { $alcoholFreeDays++ }
   }
@@ -545,16 +534,6 @@ function Get-MonthlySummary {
   if ($alcoholFreeDays -gt 0) { $insights += ("Alcohol-free days: {0}." -f $alcoholFreeDays) }
 
   $displayClopeSec = [int]($s.DayClopeSeconds ?? 0)
-  if ($currName -eq "clope" -and $currStart) {
-    try {
-      $currDayKey = Get-InfernalDayKey $currStart
-      if ($currDayKey -eq $todayKey) {
-        $minSec = 7 * 60
-        $bonus = [int][Math]::Max(0, $minSec - $elapsed)
-        if ($bonus -gt 0) { $displayClopeSec += $bonus }
-      }
-    } catch {}
-  }
 
   return @{
     ok = $true
@@ -1195,7 +1174,10 @@ function Get-DayTimelineHtml([string]$dayKey, $state) {
     # Calculate position as % of 24h
     $startMin = $it.Start.Hour * 60 + $it.Start.Minute
     $endMin = $it.End.Hour * 60 + $it.End.Minute
-    if ($endMin -le $startMin) { $endMin = $startMin + 1 }
+    if ($endMin -le $startMin) {
+      # Cross-midnight segment: split at midnight (show only the before-midnight part)
+      $endMin = 1440
+    }
     $leftPct = [math]::Round(($startMin / 1440) * 100, 2)
     $widthPct = [math]::Round((($endMin - $startMin) / 1440) * 100, 2)
     if ($widthPct -lt 0.5) { $widthPct = 0.5 }
@@ -1341,7 +1323,10 @@ function Get-DailyActionDurationsForDay([string]$dayKey, $state) {
   return $out
 }
 
-function Get-NotePath([string]$dayKey) { return (Join-Path $NotesDir ("{0}.txt" -f $dayKey)) }
+function Get-NotePath([string]$dayKey) {
+  if ($dayKey -notmatch '^\d{4}-\d{2}-\d{2}$') { return $null }
+  return (Join-Path $NotesDir ("{0}.txt" -f $dayKey))
+}
 
 function Get-NoteContent([string]$dayKey) {
   $p = Get-NotePath $dayKey
@@ -1460,10 +1445,20 @@ function Write-HttpResponse($ctx, [int]$status, [string]$type, [byte[]]$bytes) {
 }
 
 function Read-Body($ctx) {
+  $maxLen = 1MB
+  if ($ctx.Request.ContentLength64 -gt $maxLen) {
+    throw "Request body too large (max 1MB)"
+  }
   $sr = [System.IO.StreamReader]::new($ctx.Request.InputStream, $ctx.Request.ContentEncoding)
-  $txt = $sr.ReadToEnd()
-  $sr.Close()
-  return $txt
+  try {
+    $txt = $sr.ReadToEnd()
+    if ($txt.Length -gt $maxLen) {
+      throw "Request body too large (max 1MB)"
+    }
+    return $txt
+  } finally {
+    $sr.Close()
+  }
 }
 
 function Get-LiveStatePayload() {

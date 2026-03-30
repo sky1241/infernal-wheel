@@ -46,15 +46,22 @@ class SmokingDetector(private val context: Context) {
 
             val model = loadModelFile(MODEL_FILE)
 
-            // Configure interpreter options
+            // BUG 14 FIX: Use 1 thread on watch (limited CPU cores)
+            // BUG 15 FIX: Wrap NNAPI in try-catch with fallback
             val options = Interpreter.Options().apply {
-                // Use NNAPI for hardware acceleration (Neural Engine)
-                useNNAPI = true
-                // Number of threads for CPU fallback
-                numThreads = 4
+                numThreads = 1
             }
 
-            interpreter = Interpreter(model, options)
+            interpreter = try {
+                val nnapiOptions = Interpreter.Options().apply {
+                    numThreads = 1
+                    useNNAPI = true
+                }
+                Interpreter(model, nnapiOptions)
+            } catch (e: Exception) {
+                Log.w(TAG, "NNAPI not available, falling back to CPU", e)
+                Interpreter(model, options)
+            }
 
             Log.d(TAG, "Model loaded successfully")
             Log.d(TAG, "Input shape: ${interpreter?.getInputTensor(0)?.shape()?.contentToString()}")

@@ -68,7 +68,7 @@ class SleepCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: AppColors.cardGradient(qualityColor),
         borderRadius: BorderRadius.circular(Spacing.radiusLg),
-        border: Border.all(color: qualityColor.withOpacity(0.3), width: 1),
+        border: Border.all(color: qualityColor.withValues(alpha:0.3), width: 1),
       ),
       child: Row(
         children: [
@@ -77,7 +77,7 @@ class SleepCard extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: qualityColor.withOpacity(0.2),
+              color: qualityColor.withValues(alpha:0.2),
               borderRadius: BorderRadius.circular(Spacing.radiusMd),
             ),
             child: Icon(
@@ -121,7 +121,7 @@ class SleepCard extends StatelessWidget {
                   vertical: Spacing.xxs,
                 ),
                 decoration: BoxDecoration(
-                  color: qualityColor.withOpacity(0.2),
+                  color: qualityColor.withValues(alpha:0.2),
                   borderRadius: BorderRadius.circular(Spacing.radiusSm),
                 ),
                 child: Text(

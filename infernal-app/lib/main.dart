@@ -24,6 +24,8 @@ class InfernalWheelApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // TODO: Wire localization into MaterialApp (localizationsDelegates,
+    // supportedLocales, locale) once generated l10n files are up to date.
     return MaterialApp(
       title: 'InfernalWheel',
       debugShowCheckedModeBanner: false,

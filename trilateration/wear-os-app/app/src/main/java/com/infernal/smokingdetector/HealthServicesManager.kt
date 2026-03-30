@@ -3,6 +3,7 @@ package com.infernal.smokingdetector
 import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.*
+import java.util.Collections
 
 /**
  * Health Services Manager for Real-Time Heart Rate
@@ -32,8 +33,11 @@ class HealthServicesManager(private val context: Context) {
 
     private var currentHR = DEFAULT_BASELINE_HR
     private var baselineHR = DEFAULT_BASELINE_HR
-    private val hrHistory = mutableListOf<Float>()
+    // BUG 9 FIX: Thread-safe list for HR history (accessed from coroutine + main thread)
+    private val hrHistory: MutableList<Float> = Collections.synchronizedList(mutableListOf())
     private var monitoringJob: Job? = null
+    // BUG 8 FIX: Store the CoroutineScope as a field so we can cancel it in stop()
+    private var monitoringScope: CoroutineScope? = null
 
     /**
      * Start passive heart rate monitoring
@@ -43,7 +47,10 @@ class HealthServicesManager(private val context: Context) {
         return withContext(Dispatchers.IO) {
             try {
                 // STUB: Simulate HR monitoring with random variations
-                monitoringJob = CoroutineScope(Dispatchers.Default).launch {
+                // BUG 8 FIX: Store scope so we can cancel it properly in stop()
+                val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+                monitoringScope = scope
+                monitoringJob = scope.launch {
                     while (isActive) {
                         // Simulate HR update every 10 seconds
                         val mockHR = 70f + (Math.random() * 10).toFloat()
@@ -66,7 +73,10 @@ class HealthServicesManager(private val context: Context) {
      */
     fun stop() {
         try {
+            // BUG 8 FIX: Cancel the entire scope, not just the job
             monitoringJob?.cancel()
+            monitoringScope?.cancel()
+            monitoringScope = null
             Log.d(TAG, "Heart rate monitoring stopped")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to stop heart rate monitoring", e)
@@ -78,18 +88,22 @@ class HealthServicesManager(private val context: Context) {
      */
     private fun onHeartRateUpdate(hr: Float) {
         currentHR = hr
-        hrHistory.add(hr)
 
-        // Keep last 7 days of HR data (assuming ~100 samples/day)
-        if (hrHistory.size > BASELINE_WINDOW_DAYS * 100) {
-            hrHistory.removeAt(0)
-        }
+        // BUG 9 FIX: Synchronize compound operations on the synchronized list
+        synchronized(hrHistory) {
+            hrHistory.add(hr)
 
-        // Update baseline (average of lowest 20% of HR values - resting HR)
-        if (hrHistory.size > 10) {
-            val sorted = hrHistory.sorted()
-            val restingCount = (sorted.size * 0.2).toInt().coerceAtLeast(5)
-            baselineHR = sorted.take(restingCount).average().toFloat()
+            // Keep last 7 days of HR data (assuming ~100 samples/day)
+            if (hrHistory.size > BASELINE_WINDOW_DAYS * 100) {
+                hrHistory.removeAt(0)
+            }
+
+            // Update baseline (average of lowest 20% of HR values - resting HR)
+            if (hrHistory.size > 10) {
+                val sorted = hrHistory.sorted()
+                val restingCount = (sorted.size * 0.2).toInt().coerceAtLeast(5)
+                baselineHR = sorted.take(restingCount).average().toFloat()
+            }
         }
 
         Log.d(TAG, "HR update: current=$hr, baseline=$baselineHR, delta=${hr - baselineHR}")
