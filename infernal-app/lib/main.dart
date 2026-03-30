@@ -4,6 +4,7 @@ import 'security/crypto_service.dart';
 import 'server/local_server.dart';
 import 'theme/app_theme.dart';
 import 'views/dashboard_webview.dart';
+import 'views/onboarding_screen.dart';
 import 'views/pin_screen.dart';
 
 /// Serveur local — singleton global
@@ -54,8 +55,8 @@ class AppLauncher extends StatefulWidget {
 class _AppLauncherState extends State<AppLauncher> {
   final _crypto = CryptoService();
 
-  // States: checking → pin → loading → ready
-  String _phase = 'checking'; // checking, pin_setup, pin_unlock, loading, ready, error
+  // States: checking → onboarding → pin → loading → ready
+  String _phase = 'checking';
   String? _error;
 
   @override
@@ -67,7 +68,7 @@ class _AppLauncherState extends State<AppLauncher> {
   Future<void> _checkSetup() async {
     try {
       final isSetup = await _crypto.isSetup();
-      setState(() => _phase = isSetup ? 'pin_unlock' : 'pin_setup');
+      setState(() => _phase = isSetup ? 'pin_unlock' : 'onboarding');
     } catch (e) {
       setState(() { _phase = 'error'; _error = e.toString(); });
     }
@@ -94,6 +95,9 @@ class _AppLauncherState extends State<AppLauncher> {
     switch (_phase) {
       case 'ready':
         return DashboardWebView(serverUrl: localServer.url);
+
+      case 'onboarding':
+        return OnboardingScreen(onContinue: () => setState(() => _phase = 'pin_setup'));
 
       case 'pin_setup':
         return PinScreen(isSetup: true, onSuccess: _onPinSuccess);
