@@ -30,6 +30,11 @@ dependencies:
   intl: any
   share_plus: ^7.2.1
 
+  # Local HTTP server + WebView
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
+  webview_flutter: ^4.10.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
