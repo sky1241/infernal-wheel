@@ -245,18 +245,19 @@ Watch detects cigarette (ML)
 
 ## 8. Known Issues & Technical Debt
 
-### CRITICAL
-| Issue | Location | Impact |
-|-------|----------|--------|
-| Duplicate InfernalDay class | `lib/core/` vs `lib/utils/` | Import conflicts, mixed types |
-| 151 MB build artifacts in git | `wear-os-app/app/build/` | Bloated repo, slow clones |
-| health_service.dart unimplemented | `lib/services/` | Health data integration broken |
+### Fixed (2026-03-30 deep audit)
+- 56 bugs fixed across Flutter (21), Wear OS (21), PowerShell (14)
+- Duplicate InfernalDay class → merged into single source
+- Wear OS sensor buffer race condition → fixed (was causing 0 detections)
+- Feature normalization added to ML pipeline
+- Path traversal vulnerability in notes API → patched
+- .gitignore added for Wear OS build artifacts
 
-### HIGH
+### Remaining
 | Issue | Location | Impact |
 |-------|----------|--------|
-| Zero useful tests | `test/widget_test.dart` | Regressions undetected |
-| Missing .gitignore (Wear OS) | `wear-os-app/` | Build artifacts tracked |
+| health_service.dart mostly TODO stubs | `lib/services/` | Health data integration incomplete |
+| 151 MB build artifacts in git history | `wear-os-app/app/build/` | Bloated repo (gitignored now, history not cleaned) |
 | 23 TODO/FIXME in Flutter code | `lib/` | Incomplete features |
 
 ### MEDIUM
@@ -335,11 +336,35 @@ python convert_to_tflite.py
 
 ## 11. Migration Roadmap
 
-See [project_mobile_app_plan.md](/.claude/projects/c--Users-ludov-infernal-wheel/memory/project_mobile_app_plan.md) for the 14-bloc migration plan.
-
 **Summary**: The PowerShell dashboard (hellwell/) is being migrated into the Flutter app. The HTML/CSS/JS frontend is reused as-is, served locally via shelf on the phone. The PowerShell backend is replaced by Dart. All data is encrypted AES-256 with a user PIN.
 
 ```
 BEFORE:  PC → PowerShell server → Browser → localhost:8011
 AFTER:   Phone → Dart shelf server → WebView → localhost:auto
 ```
+
+### Progress (2026-03-30)
+
+| Bloc | Description | Status |
+|------|-------------|--------|
+| 0 | Extract HTML, make frontend full client-side | DONE |
+| 1 | Dart shelf server (port auto, CORS, no-cache) | DONE |
+| 2 | Serve HTML from Flutter assets | DONE |
+| 3 | WebView + AppLauncher lifecycle | DONE |
+| 4 | PIN + AES-256 encrypted storage | TODO |
+| 5 | Timer engine (segments, day rollover 4h, gap detection) | TODO |
+| 6 | Android foreground service + persistent notification | TODO |
+| 7 | GET API endpoints (state, settings, notes, consumption) | TODO |
+| 8 | POST API endpoints (cmd, drinks, notes, settings) | TODO |
+| 9 | Notifications (timer expired, WAIT_OK) | TODO |
+| 10 | Encrypted backup/restore (device migration) | TODO |
+| 11 | Onboarding (PIN + tracker selection) | TODO |
+| 12 | Play Store prep (privacy policy, signing, etc.) | TODO |
+| 13 | End-to-end integration test | TODO |
+
+### Key files (new)
+- `lib/server/local_server.dart` — shelf HTTP server, all routes
+- `lib/views/dashboard_webview.dart` — WebView widget
+- `lib/main.dart` — AppLauncher (server → WebView lifecycle)
+- `assets/web/index.html` — 5281-line static dashboard (224KB)
+- `android/app/src/main/res/xml/network_security_config.xml` — cleartext localhost
