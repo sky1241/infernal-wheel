@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart' as crypto;
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pointycastle/export.dart';
 
@@ -24,8 +25,8 @@ class CryptoService {
   static const _keyPinHash = 'infernal_pin_hash';
   static const _keySetup = 'infernal_setup_done';
 
-  // PBKDF2 params — 600k iterations est le minimum OWASP 2024 pour SHA-256
-  static const _pbkdf2Iterations = 600000;
+  // PBKDF2 params — 100k iterations (bon compromis securite/perf mobile)
+  static const _pbkdf2Iterations = 100000;
   static const _saltLength = 32;
   static const _keyLength = 32; // 256 bits
   static const _ivLength = 12;  // GCM standard
@@ -52,8 +53,8 @@ class CryptoService {
     // Hash du PIN pour verification ulterieure (SHA-256, pas reversible)
     final pinHash = _hashPin(pin, salt);
 
-    // Deriver la cle AES-256
-    _derivedKey = _deriveKey(pin, salt);
+    // Deriver la cle AES-256 (dans un isolate pour ne pas bloquer l'UI)
+    _derivedKey = await _deriveKeyAsync(pin, salt);
 
     // Stocker dans le Keystore securise
     await _storage.write(key: _keySalt, value: base64Encode(salt));
@@ -80,8 +81,8 @@ class CryptoService {
     final pinHash = _hashPin(pin, salt);
     if (!_constantTimeEquals(pinHash, storedHash)) return false;
 
-    // Deriver la cle
-    _derivedKey = _deriveKey(pin, salt);
+    // Deriver la cle (dans un isolate)
+    _derivedKey = await _deriveKeyAsync(pin, salt);
     _isUnlocked = true;
     return true;
   }
@@ -125,7 +126,7 @@ class CryptoService {
     if (_derivedKey == null) throw StateError('CryptoService not unlocked');
 
     final data = base64Decode(encrypted);
-    if (data.length < _ivLength + 16) throw FormatException('Invalid encrypted data');
+    if (data.length < _ivLength + 16) throw const FormatException('Invalid encrypted data');
 
     final iv = Uint8List.sublistView(data, 0, _ivLength);
     final ciphertextAndTag = Uint8List.sublistView(data, _ivLength);
@@ -169,7 +170,7 @@ class CryptoService {
   /// Retourne un JSON chiffre avec un mot de passe temporaire
   Future<String> exportBackup(String backupPassword, Map<String, dynamic> data) async {
     final salt = _generateRandom(_saltLength);
-    final key = _deriveKey(backupPassword, salt);
+    final key = await _deriveKeyAsync(backupPassword, salt);
 
     final plaintext = jsonEncode(data);
     final iv = _generateRandom(_ivLength);
@@ -199,7 +200,7 @@ class CryptoService {
       final salt = base64Decode(backup['salt'] as String);
       final iv = base64Decode(backup['iv'] as String);
       final ciphertextAndTag = base64Decode(backup['data'] as String);
-      final key = _deriveKey(backupPassword, salt);
+      final key = await _deriveKeyAsync(backupPassword, salt);
 
       final cipher = GCMBlockCipher(AESEngine())
         ..init(false, AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)));
@@ -239,10 +240,16 @@ class CryptoService {
     return Uint8List.fromList(crypto.sha256.convert(combined).bytes);
   }
 
-  Uint8List _deriveKey(String pin, Uint8List salt) {
+  /// Derive la cle dans un isolate (ne bloque pas l'UI)
+  Future<Uint8List> _deriveKeyAsync(String pin, Uint8List salt) {
+    return compute(_deriveKeyIsolate, _DeriveParams(pin, salt, _pbkdf2Iterations, _keyLength));
+  }
+
+  /// Top-level function pour l'isolate
+  static Uint8List _deriveKeyIsolate(_DeriveParams p) {
     final pbkdf2 = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64))
-      ..init(Pbkdf2Parameters(salt, _pbkdf2Iterations, _keyLength));
-    return pbkdf2.process(utf8.encode(pin));
+      ..init(Pbkdf2Parameters(p.salt, p.iterations, p.keyLength));
+    return pbkdf2.process(utf8.encode(p.pin));
   }
 
   bool _constantTimeEquals(Uint8List a, Uint8List b) {
@@ -253,5 +260,13 @@ class CryptoService {
     }
     return result == 0;
   }
+}
 
+/// Params pour l'isolate PBKDF2
+class _DeriveParams {
+  final String pin;
+  final Uint8List salt;
+  final int iterations;
+  final int keyLength;
+  const _DeriveParams(this.pin, this.salt, this.iterations, this.keyLength);
 }

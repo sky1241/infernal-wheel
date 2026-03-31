@@ -23,18 +23,18 @@ void main() async {
     ),
   );
 
-  runApp(const InfernalWheelApp());
+  runApp(const PlusMinusOneApp());
 }
 
-class InfernalWheelApp extends StatelessWidget {
-  const InfernalWheelApp({super.key});
+class PlusMinusOneApp extends StatelessWidget {
+  const PlusMinusOneApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     // TODO: Wire localization into MaterialApp (localizationsDelegates,
     // supportedLocales, locale) once generated l10n files are up to date.
     return MaterialApp(
-      title: 'InfernalWheel',
+      title: '\u00b11',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       darkTheme: AppTheme.dark,

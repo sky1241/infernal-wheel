@@ -36,7 +36,7 @@ class OnboardingScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               const Text(
-                'InfernalWheel',
+                '\u00b11',
                 style: TextStyle(
                   color: Color(0xFFE7EDF3),
                   fontSize: 28,

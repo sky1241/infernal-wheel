@@ -10,7 +10,7 @@ void main() {
       home: OnboardingScreen(onContinue: () => continued = true),
     ));
 
-    expect(find.text('InfernalWheel'), findsOneWidget);
+    expect(find.text('\u00b11'), findsOneWidget);
     expect(find.text('Commencer'), findsOneWidget);
     expect(find.text('Donnees privees'), findsOneWidget);
     expect(find.text('Zero internet'), findsOneWidget);
@@ -24,7 +24,7 @@ void main() {
       home: PinScreen(isSetup: true, onSuccess: () {}),
     ));
 
-    expect(find.text('InfernalWheel'), findsOneWidget);
+    expect(find.text('\u00b11'), findsOneWidget);
     expect(find.text('Choisissez un code PIN (4-6 chiffres)\npour proteger vos donnees'), findsOneWidget);
 
     // Tap digits
