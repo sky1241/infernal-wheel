@@ -11,6 +11,7 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
@@ -21,7 +22,7 @@ android {
 
     defaultConfig {
         applicationId = "com.infernal.wheel"
-        minSdk = 24 // Android 7.0+ (WebView + foreground service)
+        minSdk = 26 // Android 8.0+ (required by flutter_local_notifications)
         targetSdk = 34 // Android 14 (Play Store requirement 2025)
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -34,6 +35,10 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 flutter {
