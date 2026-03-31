@@ -5,59 +5,58 @@
     android:viewportHeight="108">
 
     <!--
-      ±1 App Icon — fond vert, symboles noirs
-      ±1 en haut (dans la tete), sourire en bas
-      Safe zone: 21-87 (66dp circle)
+      ±1 App Icon v4 — Bible-driven redesign
+      Safe zone: 66dp circle, coords 21-87, center 54
+      Rules applied: A1 (safe zone), B3 (contrast 10:1), C3 (silhouette test),
+      C5 (optical centering), C6 (bold typo), D1 (minimalism)
+      Green bg + dark fg (#0E1319 on #35D99A = 10:1 contrast)
     -->
 
-    <!-- === ±1 en haut (dans la tete) === -->
+    <!-- === ±1 SYMBOL (upper half — "dans la tête") === -->
 
-    <!-- Barre horizontale du + -->
+    <!-- Plus-minus: single bold block approach -->
+    <!-- Horizontal bar TOP of ± (the plus crossbar) -->
     <path
         android:fillColor="#0E1319"
-        android:pathData="M34,28 L52,28 L52,32 L34,32 Z" />
+        android:pathData="M30,27 L56,27 L56,33 L30,33 Z" />
 
-    <!-- Barre verticale du + -->
+    <!-- Vertical bar of + -->
     <path
         android:fillColor="#0E1319"
-        android:pathData="M41,22 L45,22 L45,38 L41,38 Z" />
+        android:pathData="M39,21 L47,21 L47,39 L39,39 Z" />
 
-    <!-- Barre du minus -->
+    <!-- Horizontal bar BOTTOM of ± (the minus) -->
     <path
         android:fillColor="#0E1319"
-        android:pathData="M34,40 L52,40 L52,44 L34,44 Z" />
+        android:pathData="M30,41 L56,41 L56,47 L30,47 Z" />
 
-    <!-- Le chiffre "1" -->
+    <!-- The digit "1" — bold single stroke + base -->
     <path
         android:fillColor="#0E1319"
-        android:pathData="M60,22 L67,22 L67,44 L60,44 Z" />
-    <!-- Serif du 1 -->
+        android:pathData="M64,21 L72,21 L72,47 L64,47 Z" />
+    <!-- Base serif of 1 -->
     <path
         android:fillColor="#0E1319"
-        android:pathData="M56,22 L67,22 L67,26 L56,26 Z" />
-    <!-- Base du 1 -->
+        android:pathData="M59,41 L77,41 L77,47 L59,47 Z" />
+
+    <!-- === SMILEY FACE (lower half) === -->
+
+    <!-- Left eye — big bold circle -->
     <path
         android:fillColor="#0E1319"
-        android:pathData="M56,40 L73,40 L73,44 L56,44 Z" />
+        android:pathData="M38,60 m-6,0 a6,6 0 1,1 12,0 a6,6 0 1,1 -12,0" />
 
-    <!-- === Visage en bas === -->
-
-    <!-- Oeil gauche -->
+    <!-- Right eye — big bold circle -->
     <path
         android:fillColor="#0E1319"
-        android:pathData="M40,58 m-5,0 a5,5 0 1,1 10,0 a5,5 0 1,1 -10,0" />
+        android:pathData="M70,60 m-6,0 a6,6 0 1,1 12,0 a6,6 0 1,1 -12,0" />
 
-    <!-- Oeil droit -->
-    <path
-        android:fillColor="#0E1319"
-        android:pathData="M68,58 m-5,0 a5,5 0 1,1 10,0 a5,5 0 1,1 -10,0" />
-
-    <!-- Sourire -->
+    <!-- Smile — wide, thick, warm arc -->
     <path
         android:strokeColor="#0E1319"
-        android:strokeWidth="3.5"
+        android:strokeWidth="4.5"
         android:strokeLineCap="round"
         android:fillColor="#00000000"
-        android:pathData="M35,72 Q54,87 73,72" />
+        android:pathData="M33,75 Q54,92 75,75" />
 
 </vector>
