@@ -1,6 +1,6 @@
 # DESIGN TREE - Mind Map UX/UI
 
-> Arbres de decision UNIQUEMENT - pour le code, voir WEB.md et MOBILE.md
+> Arbres de decision UNIQUEMENT - pour le code, voir WEB.md, MOBILE.md, WEARABLE.md et ICONS.md
 
 ---
 
