@@ -36,10 +36,30 @@ class CryptoService {
 
   bool get isUnlocked => _isUnlocked;
 
-  /// Verifie si le PIN a deja ete configure
+  static const _keyRawKey = 'infernal_raw_key';
+
+  /// Verifie si le chiffrement a deja ete configure
   Future<bool> isSetup() async {
     final done = await _storage.read(key: _keySetup);
     return done == 'true';
+  }
+
+  /// Setup automatique (sans PIN) — genere une cle AES-256 random
+  /// La cle est stockee dans Android Keystore (protegee par le verrou du tel)
+  Future<void> setupAuto() async {
+    final key = _generateRandom(_keyLength);
+    _derivedKey = key;
+    await _storage.write(key: _keyRawKey, value: base64Encode(key));
+    await _storage.write(key: _keySetup, value: 'true');
+    _isUnlocked = true;
+  }
+
+  /// Deverrouillage automatique (sans PIN) — recupere la cle du Keystore
+  Future<void> unlockAuto() async {
+    final keyB64 = await _storage.read(key: _keyRawKey);
+    if (keyB64 == null) throw StateError('No key found in Keystore');
+    _derivedKey = base64Decode(keyB64);
+    _isUnlocked = true;
   }
 
   /// Premier lancement : configure le PIN
