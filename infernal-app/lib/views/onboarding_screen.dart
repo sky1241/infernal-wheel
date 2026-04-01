@@ -17,22 +17,10 @@ class OnboardingScreen extends StatelessWidget {
           child: Column(
             children: [
               const Spacer(flex: 2),
-              // Logo
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFF35D99A),
-                      const Color(0xFF35D99A).withValues(alpha: 0.6),
-                    ],
-                  ),
-                ),
-                child: const Icon(Icons.local_fire_department, color: Color(0xFF0E1319), size: 44),
+              // Logo app
+              ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.asset('assets/icons/ic_launcher.png', width: 80, height: 80),
               ),
               const SizedBox(height: 24),
               const Text(
@@ -52,11 +40,9 @@ class OnboardingScreen extends StatelessWidget {
               // Features
               _buildFeature(Icons.timer_outlined, 'Suivi du temps', 'Travail, pauses, sommeil — tout est compte'),
               const SizedBox(height: 16),
-              _buildFeature(Icons.smoking_rooms_outlined, 'Compteur clopes', 'Chaque cigarette est tracee automatiquement'),
+              _buildFeature(Icons.smoking_rooms_outlined, 'Compteur clopes', 'Chaque cigarette est tracee'),
               const SizedBox(height: 16),
-              _buildFeature(Icons.lock_outline, 'Donnees privees', 'Tout reste sur ton telephone, chiffre AES-256'),
-              const SizedBox(height: 16),
-              _buildFeature(Icons.wifi_off_outlined, 'Zero internet', 'Aucun serveur, aucun compte, aucun tracking'),
+              _buildFeature(Icons.lock_outline, 'Donnees privees', 'Tout reste sur ton telephone, chiffre'),
               const Spacer(),
               // CTA
               SizedBox(
