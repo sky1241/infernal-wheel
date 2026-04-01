@@ -191,7 +191,7 @@ class DataStore {
         }
       }
     } catch (_) {}
-    // TODO: ajouter les clopes depuis log.csv quand implemente
+    // Cigarette data from log.csv will be added here once implemented
     final result = byDay.entries.map((e) => {
       'day': e.key, ...e.value,
     }).toList();

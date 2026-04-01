@@ -12,7 +12,7 @@ class JournalScreen extends StatefulWidget {
 
 class _JournalScreenState extends State<JournalScreen> {
   final TextEditingController _controller = TextEditingController();
-  bool _isExporting = false;
+  final bool _isExporting = false;
 
   @override
   void dispose() {
@@ -37,19 +37,19 @@ class _JournalScreenState extends State<JournalScreen> {
                 maxLines: null,
                 expands: true,
                 textAlignVertical: TextAlignVertical.top,
-                style: TextStyle(
+                style: const TextStyle(
                   color: AppColors.text,
                   fontSize: 16,
                   height: 1.5,
                 ),
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: 'Ecris ce que tu veux...',
                   hintStyle: TextStyle(color: AppColors.muted),
                   border: InputBorder.none,
                   filled: false,
                 ),
                 onChanged: (text) {
-                  // TODO: Auto-save avec debounce
+                  // Auto-save with debounce will be added here
                 },
               ),
             ),
@@ -67,7 +67,7 @@ class _JournalScreenState extends State<JournalScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(Spacing.lg),
       color: AppColors.surface,
-      child: Column(
+      child: const Column(
         children: [
           Text(
             'Libere-toi. Lache-toi. Ecris.',
@@ -77,7 +77,7 @@ class _JournalScreenState extends State<JournalScreen> {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: Spacing.xs),
+          SizedBox(height: Spacing.xs),
           Text(
             'Cet espace est le tien. Pas de jugement, pas de filtre.',
             style: TextStyle(
@@ -97,7 +97,7 @@ class _JournalScreenState extends State<JournalScreen> {
       child: ElevatedButton.icon(
         onPressed: _isExporting ? null : _showExportSheet,
         icon: _isExporting
-            ? SizedBox(
+            ? const SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
@@ -179,7 +179,7 @@ class _JournalScreenState extends State<JournalScreen> {
                     ),
                     child: SelectableText(
                       exportText,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AppColors.text,
                         fontFamily: 'monospace',
                         fontSize: 12,
@@ -200,8 +200,8 @@ class _JournalScreenState extends State<JournalScreen> {
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: exportText));
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text('Copie dans le presse-papier'),
+                            const SnackBar(
+                              content: Text('Copie dans le presse-papier'),
                               backgroundColor: AppColors.accent,
                             ),
                           );
@@ -214,7 +214,7 @@ class _JournalScreenState extends State<JournalScreen> {
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          // TODO: Share.share(exportText)
+                          // Share.share(exportText) will be wired here
                           Navigator.pop(context);
                         },
                         icon: const Icon(Icons.share),

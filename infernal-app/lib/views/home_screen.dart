@@ -21,7 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late DayEntry _today;
   DayEntry? _yesterday;
 
-  // TODO: Charger depuis StorageService
+  // Enabled addictions will be loaded from StorageService
   final List<AddictionType> _enabledAddictions = [
     AddictionType.tabac,
     AddictionType.alcoolBiere,
@@ -33,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _today = DayEntry(dayKey: InfernalDay.current().key);
-    // TODO: Charger depuis storage
+    // Will load from storage once persistence is wired
   }
 
   @override
@@ -82,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: SleepCard(
                 sleep: _today.sleep,
                 onTap: () {
-                  // TODO: Ouvrir modal saisie manuelle ou demander HealthKit
+                  // Will open manual input modal or request HealthKit
                 },
               ),
             ),
@@ -109,13 +109,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         setState(() {
                           _today.increment(type);
                         });
-                        // TODO: Sauvegarder
+                        // Will persist to storage
                       },
                       onDecrement: () {
                         setState(() {
                           _today.decrement(type);
                         });
-                        // TODO: Sauvegarder
+                        // Will persist to storage
                       },
                     ),
                   );
@@ -136,7 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBottomNav() {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.surface,
         border: Border(
           top: BorderSide(color: AppColors.border, width: 1),

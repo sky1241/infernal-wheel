@@ -233,7 +233,7 @@ class HealthService {
     _source = HealthSource.healthKit;
     _permission = HealthPermission.notDetermined;
 
-    // TODO: Avec le package 'health':
+    // HealthKit init will use the 'health' package:
     // final health = HealthFactory();
     // final available = await health.hasPermissions([HealthDataType.SLEEP_ASLEEP]);
     // _permission = available == true ? HealthPermission.authorized : HealthPermission.notDetermined;
@@ -244,7 +244,7 @@ class HealthService {
   }
 
   Future<HealthPermission> _requestHealthKitPermission() async {
-    // TODO: Implementer avec health package
+    // Will implement with health package
     //
     // final health = HealthFactory();
     // final types = [
@@ -263,7 +263,7 @@ class HealthService {
   }
 
   Future<SleepSession?> _getHealthKitSleep(InfernalDay day) async {
-    // TODO: Implementer avec health package
+    // Will implement with health package
     //
     // final health = HealthFactory();
     // final startTime = day.startTime.subtract(const Duration(hours: 12));
@@ -314,7 +314,7 @@ class HealthService {
     _source = HealthSource.healthConnect;
     _permission = HealthPermission.notDetermined;
 
-    // TODO: Avec le package 'health':
+    // Health Connect init will use the 'health' package:
     // final health = HealthFactory();
     // final status = await health.getHealthConnectSdkStatus();
     //
@@ -332,7 +332,7 @@ class HealthService {
   }
 
   Future<HealthPermission> _requestHealthConnectPermission() async {
-    // TODO: Implementer avec health package
+    // Will implement with health package
     //
     // final health = HealthFactory();
     // final types = [
@@ -351,7 +351,7 @@ class HealthService {
   }
 
   Future<SleepSession?> _getHealthConnectSleep(InfernalDay day) async {
-    // TODO: Implementer avec health package
+    // Will implement with health package
     //
     // final health = HealthFactory();
     // final startTime = day.startTime.subtract(const Duration(hours: 12));

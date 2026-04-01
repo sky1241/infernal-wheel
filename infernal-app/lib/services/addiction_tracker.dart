@@ -7,11 +7,6 @@ import '../core/infernal_day.dart';
 import '../models/addiction.dart';
 import 'wake_tracker.dart';
 
-// TODO: The duplicate AddictionType enum that was here has been removed.
-// Use AddictionType from models/addiction.dart instead.
-// The service's IDs (cigarette, beer, wine, spirits) were never used by the UI
-// which uses the model's IDs (tabac, biere, vin, fort).
-
 /// Evenement d'addiction (une consommation)
 class AddictionEvent {
   final AddictionType type;

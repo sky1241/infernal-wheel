@@ -36,7 +36,7 @@ class OnboardingScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               const Text(
-                '\u00b11',
+                '-1+',
                 style: TextStyle(
                   color: Color(0xFFE7EDF3),
                   fontSize: 28,

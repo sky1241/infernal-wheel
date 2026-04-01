@@ -116,7 +116,7 @@ class _PinScreenState extends State<PinScreen> {
             const Icon(Icons.local_fire_department, color: Color(0xFF35D99A), size: 48),
             const SizedBox(height: 16),
             Text(
-              widget.isSetup ? '\u00b11' : 'Deverrouillage',
+              widget.isSetup ? '-1+' : 'Deverrouillage',
               style: const TextStyle(
                 color: Color(0xFFE7EDF3),
                 fontSize: 24,

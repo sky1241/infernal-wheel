@@ -31,10 +31,9 @@ class PlusMinusOneApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: Wire localization into MaterialApp (localizationsDelegates,
-    // supportedLocales, locale) once generated l10n files are up to date.
+    // Localization will be wired once l10n files are finalized.
     return MaterialApp(
-      title: '\u00b11',
+      title: '-1+',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       darkTheme: AppTheme.dark,

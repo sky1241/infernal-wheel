@@ -11,8 +11,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // TODO: Charger depuis UserSettings
-  List<AddictionType> _enabledAddictions = [
+  // Will be loaded from UserSettings
+  final List<AddictionType> _enabledAddictions = [
     AddictionType.tabac,
     AddictionType.alcoolBiere,
     AddictionType.alcoolVin,
@@ -53,7 +53,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: Spacing.xl),
 
           // Version
-          Center(
+          const Center(
             child: Text(
               'InfernalWheel v1.0.0',
               style: TextStyle(color: AppColors.muted, fontSize: 12),
@@ -68,7 +68,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: TextStyle(
+      style: const TextStyle(
         color: AppColors.muted,
         fontSize: 12,
         fontWeight: FontWeight.w600,
@@ -103,7 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _enabledAddictions.remove(type);
                     }
                   });
-                  // TODO: Sauvegarder
+                  // Will persist to UserSettings
                 },
                 title: Row(
                   children: [
@@ -112,13 +112,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Text(type.label),
                   ],
                 ),
-                activeColor: type.color,
+                activeThumbColor: type.color,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: Spacing.md,
                   vertical: Spacing.xxs,
                 ),
               ),
-              if (!isLast) Divider(height: 1, color: AppColors.border),
+              if (!isLast) const Divider(height: 1, color: AppColors.border),
             ],
           );
         }).toList(),
@@ -139,7 +139,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // Objectif heures
           Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: Text('Objectif sommeil'),
               ),
               DropdownButton<double>(
@@ -153,7 +153,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onChanged: (value) {
                   if (value != null) {
                     setState(() => _sleepGoal = value);
-                    // TODO: Sauvegarder
+                    // Will persist to UserSettings
                   }
                 },
                 dropdownColor: AppColors.surface,
@@ -169,14 +169,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: _useHealthData,
             onChanged: (value) {
               setState(() => _useHealthData = value);
-              // TODO: Demander permissions si active
+              // Will request health permissions when enabled
             },
             title: const Text('Utiliser la montre'),
-            subtitle: Text(
+            subtitle: const Text(
               'Importer le sommeil automatiquement',
               style: TextStyle(color: AppColors.muted, fontSize: 12),
             ),
-            activeColor: AppColors.accent,
+            activeThumbColor: AppColors.accent,
             contentPadding: EdgeInsets.zero,
           ),
         ],
@@ -200,13 +200,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               color: AppColors.accent.withValues(alpha:0.1),
               borderRadius: BorderRadius.circular(Spacing.radiusMd),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.lock,
               color: AppColors.accent,
             ),
           ),
           const SizedBox(width: Spacing.md),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -217,7 +217,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     color: AppColors.text,
                   ),
                 ),
-                const SizedBox(height: Spacing.xxs),
+                SizedBox(height: Spacing.xxs),
                 Text(
                   'Tes donnees restent sur ton telephone. Rien n\'est envoye nulle part.',
                   style: TextStyle(

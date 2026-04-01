@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>1± — Test couleur yeux</title>
+<style>
+  body { background: #1a1a2e; color: #eee; font-family: system-ui; padding: 20px; text-align:center; }
+  h1 { color: #35D99A; }
+  h2 { color: #aaa; }
+  .row { display: flex; gap: 32px; justify-content: center; margin: 20px 0 40px; flex-wrap: wrap; }
+  .preview { text-align: center; }
+  .preview span { display: block; color: #888; font-size: 13px; margin-top: 8px; }
+</style></head><body>
+<h1>Image ChatGPT originale — juste la couleur des yeux qui change</h1>
+<p style="color:#888">Même image, même composition. Seul le remplissage des cercles d'yeux change.</p>
+
+<h2>Original (yeux noirs avec +/- blanc dedans)</h2>
+<div class="row">
+  <div class="preview">
+    <svg width="256" height="256" viewBox="0 0 108 108">
+      <rect width="108" height="108" rx="20" fill="#35D99A"/>
+      <!-- Yeux: cercles NOIRS, symboles BLANCS dedans (= original ChatGPT) -->
+      <circle cx="32" cy="36" r="14" fill="#0E1319"/>
+      <rect x="26" y="34" width="12" height="5" rx="1" fill="#E7EDF3"/>
+      <rect x="30" y="27" width="5" height="18" rx="1" fill="#E7EDF3"/>
+      <circle cx="76" cy="36" r="14" fill="#0E1319"/>
+      <rect x="69" y="34" width="14" height="5" rx="1" fill="#E7EDF3"/>
+      <!-- 1 serif nez -->
+      <path d="M48,30 L56,23 L56,28 L52,31 Z" fill="#0E1319"/>
+      <rect x="50" y="28" width="7" height="34" rx="1" fill="#0E1319"/>
+      <!-- Sourire -->
+      <path d="M24,72 Q54,96 84,72" stroke="#0E1319" stroke-width="7" fill="none" stroke-linecap="round"/>
+    </svg>
+    <span>Original ChatGPT</span>
+  </div>
+</div>
+
+<h2>Variantes — JUSTE la couleur des yeux</h2>
+<div class="row">
+  <div class="preview">
+    <svg width="192" height="192" viewBox="0 0 108 108">
+      <rect width="108" height="108" rx="20" fill="#35D99A"/>
+      <!-- Yeux: cercles VERT FONCE, symboles blancs -->
+      <circle cx="32" cy="36" r="14" fill="#1a7a54"/>
+      <rect x="26" y="34" width="12" height="5" rx="1" fill="#E7EDF3"/>
+      <rect x="30" y="27" width="5" height="18" rx="1" fill="#E7EDF3"/>
+      <circle cx="76" cy="36" r="14" fill="#1a7a54"/>
+      <rect x="69" y="34" width="14" height="5" rx="1" fill="#E7EDF3"/>
+      <path d="M48,30 L56,23 L56,28 L52,31 Z" fill="#0E1319"/>
+      <rect x="50" y="28" width="7" height="34" rx="1" fill="#0E1319"/>
+      <path d="M24,72 Q54,96 84,72" stroke="#0E1319" stroke-width="7" fill="none" stroke-linecap="round"/>
+    </svg>
+    <span>Yeux vert foncé</span>
+  </div>
+
+  <div class="preview">
+    <svg width="192" height="192" viewBox="0 0 108 108">
+      <rect width="108" height="108" rx="20" fill="#35D99A"/>
+      <!-- Yeux: cercles BLANCS, symboles noirs -->
+      <circle cx="32" cy="36" r="14" fill="#E7EDF3"/>
+      <rect x="26" y="34" width="12" height="5" rx="1" fill="#0E1319"/>
+      <rect x="30" y="27" width="5" height="18" rx="1" fill="#0E1319"/>
+      <circle cx="76" cy="36" r="14" fill="#E7EDF3"/>
+      <rect x="69" y="34" width="14" height="5" rx="1" fill="#0E1319"/>
+      <path d="M48,30 L56,23 L56,28 L52,31 Z" fill="#0E1319"/>
+      <rect x="50" y="28" width="7" height="34" rx="1" fill="#0E1319"/>
+      <path d="M24,72 Q54,96 84,72" stroke="#0E1319" stroke-width="7" fill="none" stroke-linecap="round"/>
+    </svg>
+    <span>Yeux blancs</span>
+  </div>
+
+  <div class="preview">
+    <svg width="192" height="192" viewBox="0 0 108 108">
+      <rect width="108" height="108" rx="20" fill="#35D99A"/>
+      <!-- Yeux: PAS DE CERCLE, juste +/- noir brut sur le vert -->
+      <rect x="26" y="34" width="12" height="5" rx="1" fill="#0E1319"/>
+      <rect x="30" y="27" width="5" height="18" rx="1" fill="#0E1319"/>
+      <rect x="69" y="34" width="14" height="5" rx="1" fill="#0E1319"/>
+      <path d="M48,30 L56,23 L56,28 L52,31 Z" fill="#0E1319"/>
+      <rect x="50" y="28" width="7" height="34" rx="1" fill="#0E1319"/>
+      <path d="M24,72 Q54,96 84,72" stroke="#0E1319" stroke-width="7" fill="none" stroke-linecap="round"/>
+    </svg>
+    <span>Sans cercles (brut)</span>
+  </div>
+
+  <div class="preview">
+    <svg width="192" height="192" viewBox="0 0 108 108">
+      <rect width="108" height="108" rx="20" fill="#35D99A"/>
+      <!-- Yeux: cercles VERT CLAIR (plus clair que le fond), symboles noirs -->
+      <circle cx="32" cy="36" r="14" fill="#5EEDB5"/>
+      <rect x="26" y="34" width="12" height="5" rx="1" fill="#0E1319"/>
+      <rect x="30" y="27" width="5" height="18" rx="1" fill="#0E1319"/>
+      <circle cx="76" cy="36" r="14" fill="#5EEDB5"/>
+      <rect x="69" y="34" width="14" height="5" rx="1" fill="#0E1319"/>
+      <path d="M48,30 L56,23 L56,28 L52,31 Z" fill="#0E1319"/>
+      <rect x="50" y="28" width="7" height="34" rx="1" fill="#0E1319"/>
+      <path d="M24,72 Q54,96 84,72" stroke="#0E1319" stroke-width="7" fill="none" stroke-linecap="round"/>
+    </svg>
+    <span>Yeux vert clair</span>
+  </div>
+</div>
+
+<h2>Même chose en petit (48px)</h2>
+<div class="row">
+  <div class="preview">
+    <svg width="48" height="48" viewBox="0 0 108 108">
+      <rect width="108" height="108" rx="20" fill="#35D99A"/>
+      <circle cx="32" cy="36" r="14" fill="#0E1319"/>
+      <rect x="26" y="34" width="12" height="5" rx="1" fill="#E7EDF3"/>
+      <rect x="30" y="27" width="5" height="18" rx="1" fill="#E7EDF3"/>
+      <circle cx="76" cy="36" r="14" fill="#0E1319"/>
+      <rect x="69" y="34" width="14" height="5" rx="1" fill="#E7EDF3"/>
+      <path d="M48,30 L56,23 L56,28 L52,31 Z" fill="#0E1319"/>
+      <rect x="50" y="28" width="7" height="34" rx="1" fill="#0E1319"/>
+      <path d="M24,72 Q54,96 84,72" stroke="#0E1319" stroke-width="7" fill="none" stroke-linecap="round"/>
+    </svg>
+    <span>Original</span>
+  </div>
+  <div class="preview">
+    <svg width="48" height="48" viewBox="0 0 108 108">
+      <rect width="108" height="108" rx="20" fill="#35D99A"/>
+      <circle cx="32" cy="36" r="14" fill="#1a7a54"/>
+      <rect x="26" y="34" width="12" height="5" rx="1" fill="#E7EDF3"/>
+      <rect x="30" y="27" width="5" height="18" rx="1" fill="#E7EDF3"/>
+      <circle cx="76" cy="36" r="14" fill="#1a7a54"/>
+      <rect x="69" y="34" width="14" height="5" rx="1" fill="#E7EDF3"/>
+      <path d="M48,30 L56,23 L56,28 L52,31 Z" fill="#0E1319"/>
+      <rect x="50" y="28" width="7" height="34" rx="1" fill="#0E1319"/>
+      <path d="M24,72 Q54,96 84,72" stroke="#0E1319" stroke-width="7" fill="none" stroke-linecap="round"/>
+    </svg>
+    <span>Vert foncé</span>
+  </div>
+  <div class="preview">
+    <svg width="48" height="48" viewBox="0 0 108 108">
+      <rect width="108" height="108" rx="20" fill="#35D99A"/>
+      <circle cx="32" cy="36" r="14" fill="#E7EDF3"/>
+      <rect x="26" y="34" width="12" height="5" rx="1" fill="#0E1319"/>
+      <rect x="30" y="27" width="5" height="18" rx="1" fill="#0E1319"/>
+      <circle cx="76" cy="36" r="14" fill="#E7EDF3"/>
+      <rect x="69" y="34" width="14" height="5" rx="1" fill="#0E1319"/>
+      <path d="M48,30 L56,23 L56,28 L52,31 Z" fill="#0E1319"/>
+      <rect x="50" y="28" width="7" height="34" rx="1" fill="#0E1319"/>
+      <path d="M24,72 Q54,96 84,72" stroke="#0E1319" stroke-width="7" fill="none" stroke-linecap="round"/>
+    </svg>
+    <span>Blancs</span>
+  </div>
+  <div class="preview">
+    <svg width="48" height="48" viewBox="0 0 108 108">
+      <rect width="108" height="108" rx="20" fill="#35D99A"/>
+      <rect x="26" y="34" width="12" height="5" rx="1" fill="#0E1319"/>
+      <rect x="30" y="27" width="5" height="18" rx="1" fill="#0E1319"/>
+      <rect x="69" y="34" width="14" height="5" rx="1" fill="#0E1319"/>
+      <path d="M48,30 L56,23 L56,28 L52,31 Z" fill="#0E1319"/>
+      <rect x="50" y="28" width="7" height="34" rx="1" fill="#0E1319"/>
+      <path d="M24,72 Q54,96 84,72" stroke="#0E1319" stroke-width="7" fill="none" stroke-linecap="round"/>
+    </svg>
+    <span>Sans cercles</span>
+  </div>
+  <div class="preview">
+    <svg width="48" height="48" viewBox="0 0 108 108">
+      <rect width="108" height="108" rx="20" fill="#35D99A"/>
+      <circle cx="32" cy="36" r="14" fill="#5EEDB5"/>
+      <rect x="26" y="34" width="12" height="5" rx="1" fill="#0E1319"/>
+      <rect x="30" y="27" width="5" height="18" rx="1" fill="#0E1319"/>
+      <circle cx="76" cy="36" r="14" fill="#5EEDB5"/>
+      <rect x="69" y="34" width="14" height="5" rx="1" fill="#0E1319"/>
+      <path d="M48,30 L56,23 L56,28 L52,31 Z" fill="#0E1319"/>
+      <rect x="50" y="28" width="7" height="34" rx="1" fill="#0E1319"/>
+      <path d="M24,72 Q54,96 84,72" stroke="#0E1319" stroke-width="7" fill="none" stroke-linecap="round"/>
+    </svg>
+    <span>Vert clair</span>
+  </div>
+</div>
+
+</body></html>

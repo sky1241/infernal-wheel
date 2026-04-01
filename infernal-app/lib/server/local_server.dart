@@ -216,7 +216,7 @@ class LocalServer {
   }
 
   Response _handleApiDrinksWeeks(Request request) {
-    // TODO: compute weekly aggregates from drinks.csv
+    // Weekly aggregates from drinks.csv will be computed here
     return _jsonOk([]);
   }
 

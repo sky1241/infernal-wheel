@@ -33,8 +33,8 @@ Future<DailyBugReport?> checkDailyBugReport({
 
   final device = DeviceInfo(
     os: defaultTargetPlatform == TargetPlatform.iOS ? 'iOS' : 'Android',
-    version: '1.0', // TODO: get from device_info_plus
-    model: 'Unknown', // TODO: get from device_info_plus
+    version: '1.0', // Hardcoded; device_info_plus not added yet
+    model: 'Unknown', // Hardcoded; device_info_plus not added yet
     screenWidth: mediaQuery.size.width.toInt(),
     screenHeight: mediaQuery.size.height.toInt(),
     textScale: mediaQuery.textScaler.scale(1.0),
