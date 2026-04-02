@@ -7,6 +7,7 @@ import 'package:shelf_router/shelf_router.dart';
 import '../core/infernal_day.dart';
 import '../engine/timer_engine.dart';
 import 'data_store.dart';
+import '../services/wear_sync_service.dart';
 
 /// Serveur HTTP local qui sert le dashboard + API
 /// Tourne sur localhost, port auto (0 = l'OS choisit)
@@ -18,6 +19,7 @@ class LocalServer {
 
   final _engine = TimerEngine();
   final _store = DataStore();
+  final _wearSync = WearSyncService();
 
   bool get isRunning => _server != null;
   int get port => _port;
@@ -63,6 +65,8 @@ class LocalServer {
       ..get('/api/notes/all', _handleApiNotesAll)
       ..get('/api/quicknote', _handleApiQuickNote)
       ..get('/api/actionnote', _handleApiActionNote)
+      // Watch endpoints
+      ..get('/api/watch/summary', _handleApiWatchSummary)
       // POST endpoints
       ..post('/api/cmd', _handleApiCmd)
       ..post('/api/drinks/add', _handleApiDrinksAdd)
@@ -267,6 +271,36 @@ class LocalServer {
   Future<Response> _handleApiActionNote(Request request) async {
     final content = await _store.loadActionNote();
     return _jsonOk({'ok': true, 'content': content});
+  }
+
+  // =======================================================
+  // WATCH ENDPOINTS
+  // =======================================================
+
+  Future<Response> _handleApiWatchSummary(Request request) async {
+    try {
+      final summary = await _wearSync.getDailySummary();
+      final latestSync = await _wearSync.getLatestSync();
+      return _jsonOk({
+        'ok': true,
+        'cigaretteCount': summary['cigaretteCount'] ?? 0,
+        'totalDetections': summary['totalDetections'] ?? 0,
+        'date': summary['date'] ?? '',
+        'lastSyncAt': summary['receivedAt'] ?? 0,
+        'lastDetectionConfidence': latestSync['latestDetection']?['confidence'],
+        'lastDetectionTimestamp': latestSync['latestDetection']?['timestamp'],
+      });
+    } catch (e) {
+      return _jsonOk({
+        'ok': true,
+        'cigaretteCount': 0,
+        'totalDetections': 0,
+        'date': '',
+        'lastSyncAt': 0,
+        'watchConnected': false,
+        'error': e.toString(),
+      });
+    }
   }
 
   // =======================================================

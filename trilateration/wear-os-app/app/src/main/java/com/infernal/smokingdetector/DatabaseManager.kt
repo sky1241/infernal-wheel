@@ -37,7 +37,7 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
     companion object {
         private const val TAG = "DatabaseManager"
         private const val DATABASE_NAME = "smoking_detector.db"
-        private const val DATABASE_VERSION = 2
+        private const val DATABASE_VERSION = 3
 
         // Table: cigarette_detections
         private const val TABLE_DETECTIONS = "cigarette_detections"
@@ -51,6 +51,8 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
         private const val COL_FEATURES = "features" // JSON string of 30 features
         private const val COL_WRIST_LOCATION = "wrist_location" // "left" or "right"
         private const val COL_SMOKING_HAND = "smoking_hand" // "left", "right", or "auto"
+
+        private const val COL_SYNC_STATUS = "sync_status" // 'pending' or 'synced'
 
         // Auto-cleanup: keep last 90 days
         private const val RETENTION_DAYS = 90
@@ -68,7 +70,8 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
                 $COL_HR_DELTA REAL,
                 $COL_FEATURES TEXT,
                 $COL_WRIST_LOCATION TEXT DEFAULT 'right',
-                $COL_SMOKING_HAND TEXT DEFAULT 'auto'
+                $COL_SMOKING_HAND TEXT DEFAULT 'auto',
+                $COL_SYNC_STATUS TEXT DEFAULT 'pending'
             )
         """.trimIndent()
 
@@ -85,6 +88,10 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
             db.execSQL("ALTER TABLE $TABLE_DETECTIONS ADD COLUMN $COL_WRIST_LOCATION TEXT DEFAULT 'right'")
             db.execSQL("ALTER TABLE $TABLE_DETECTIONS ADD COLUMN $COL_SMOKING_HAND TEXT DEFAULT 'auto'")
             Log.d(TAG, "Database migrated: added wrist_location + smoking_hand columns")
+        }
+        if (oldVersion < 3) {
+            db.execSQL("ALTER TABLE $TABLE_DETECTIONS ADD COLUMN $COL_SYNC_STATUS TEXT DEFAULT 'pending'")
+            Log.d(TAG, "Database migrated: added sync_status column")
         }
         Log.d(TAG, "Database upgraded: $oldVersion → $newVersion")
     }
@@ -194,6 +201,63 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
         // Simplified: count days with ≤ maxCigarettesPerDay
         // TODO: Implement proper consecutive days logic
         return 0 // Placeholder
+    }
+
+    /**
+     * Data class for a detection row (used by sync)
+     */
+    data class Detection(
+        val timestamp: Long,
+        val confidence: Float,
+        val gpsCluster: Int,
+        val hrBaseline: Float,
+        val hrCurrent: Float,
+        val hrDelta: Float,
+        val wristLocation: String,
+        val smokingHand: String
+    )
+
+    /**
+     * Get all detections that haven't been synced to phone yet
+     */
+    fun getUnsyncedDetections(): List<Detection> {
+        val db = readableDatabase
+        return db.rawQuery(
+            "SELECT $COL_TIMESTAMP, $COL_CONFIDENCE, $COL_GPS_CLUSTER, $COL_HR_BASELINE, $COL_HR_CURRENT, $COL_HR_DELTA, $COL_WRIST_LOCATION, $COL_SMOKING_HAND FROM $TABLE_DETECTIONS WHERE $COL_SYNC_STATUS = 'pending' ORDER BY $COL_TIMESTAMP ASC",
+            null
+        ).use { cursor ->
+            val results = mutableListOf<Detection>()
+            while (cursor.moveToNext()) {
+                results.add(Detection(
+                    timestamp = cursor.getLong(0),
+                    confidence = cursor.getFloat(1),
+                    gpsCluster = cursor.getInt(2),
+                    hrBaseline = cursor.getFloat(3),
+                    hrCurrent = cursor.getFloat(4),
+                    hrDelta = cursor.getFloat(5),
+                    wristLocation = cursor.getString(6) ?: "right",
+                    smokingHand = cursor.getString(7) ?: "auto"
+                ))
+            }
+            results
+        }
+    }
+
+    /**
+     * Mark a detection as synced to phone
+     */
+    fun markAsSynced(timestamp: Long) {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put(COL_SYNC_STATUS, "synced")
+        }
+        val updated = db.update(
+            TABLE_DETECTIONS,
+            values,
+            "$COL_TIMESTAMP = ?",
+            arrayOf(timestamp.toString())
+        )
+        Log.d(TAG, "Marked detection as synced: timestamp=$timestamp (updated=$updated)")
     }
 
     /**

@@ -34,6 +34,7 @@ class DetectionService : Service() {
         private const val NOTIFICATION_CHANNEL_ID = "smoking_detection_channel"
         private const val NOTIFICATION_ID = 1001
         private const val INFERENCE_INTERVAL_MS = 30_000L // 30 seconds
+        private const val SYNC_INTERVAL_MS = 30 * 60 * 1000L // 30 minutes
 
         // Detection thresholds
         private const val THRESHOLD_DIRECT = 0.7f   // Watch on smoking hand → strong signal
@@ -79,10 +80,12 @@ class DetectionService : Service() {
     private lateinit var healthServices: HealthServicesManager
     private lateinit var database: DatabaseManager
     private lateinit var boostManager: BoostSamplingManager
+    private lateinit var wearSync: WearSyncManager
     private lateinit var notificationManager: NotificationManager
 
     private var serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var inferenceJob: Job? = null
+    private var syncJob: Job? = null
 
     private lateinit var prefs: SharedPreferences
     private var isLeftWrist = false
@@ -118,6 +121,7 @@ class DetectionService : Service() {
         healthServices = HealthServicesManager(this)
         database = DatabaseManager(this)
         boostManager = BoostSamplingManager(this)
+        wearSync = WearSyncManager(this)
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         // Read wrist/hand preferences + listen for runtime changes
@@ -234,6 +238,20 @@ class DetectionService : Service() {
         }
 
         Log.d(TAG, "Periodic inference started (every ${INFERENCE_INTERVAL_MS / 1000}s)")
+
+        // Start periodic batch sync (every 30 minutes)
+        syncJob = serviceScope.launch {
+            while (isActive) {
+                delay(SYNC_INTERVAL_MS)
+                try {
+                    wearSync.syncBatch(database)
+                    wearSync.syncDailySummary(database)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Periodic sync failed", e)
+                }
+            }
+        }
+        Log.d(TAG, "Periodic sync started (every ${SYNC_INTERVAL_MS / 60000} min)")
     }
 
     /**
@@ -242,6 +260,7 @@ class DetectionService : Service() {
     private fun stopMonitoring() {
         isMonitoring = false // BUG 10 FIX
         inferenceJob?.cancel()
+        syncJob?.cancel()
         sensorCollector.stop()
         gpsManager.stop()
         healthServices.stop()
@@ -338,6 +357,27 @@ class DetectionService : Service() {
             smokingHand = smokingHand
         )
         Log.d(TAG, "Detection saved to database: id=$id")
+
+        // Sync detection to phone via Wear Data Layer
+        val detection = DatabaseManager.Detection(
+            timestamp = currentTime,
+            confidence = confidence,
+            gpsCluster = gpsManager.getCurrentCluster(),
+            hrBaseline = healthServices.getBaselineHR(),
+            hrCurrent = healthServices.getCurrentHR(),
+            hrDelta = healthServices.getCurrentHR() - healthServices.getBaselineHR(),
+            wristLocation = if (isLeftWrist) "left" else "right",
+            smokingHand = smokingHand
+        )
+        serviceScope.launch {
+            try {
+                wearSync.syncDetection(detection)
+                database.markAsSynced(currentTime)
+                wearSync.syncDailySummary(database)
+            } catch (e: Exception) {
+                Log.e(TAG, "Immediate sync failed, will retry in batch", e)
+            }
+        }
 
         // Send notification
         sendCigaretteNotification(confidence)
