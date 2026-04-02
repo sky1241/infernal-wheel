@@ -1,0 +1,1429 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Notes - InfernalWheel</title>
+<style>
+/* [UX_SPACING_PDF] Design tokens - 4px base system (4,8,12,16,20,24,32,40,48,64,80,96) */
+:root{
+  --bg:#0e1319; --panel:#121820; --panel-2:#141c25; --border:#24303c;
+  --text:#e7edf3; --muted:#a7b3bf;
+  --accent:#35d99a; --blue:#6bbcff; --warn:#f7bf54; --danger:#ff7a7a;
+  --shadow:0 1px 3px rgba(0,0,0,.1); --r:8px; --r-lg:12px;
+  --sp-4:4px; --sp-8:8px; --sp-12:12px; --sp-16:16px;
+  --sp-20:20px; --sp-24:24px; --sp-32:32px; --sp-40:40px;
+  --sp-48:48px; --sp-64:64px; --sp-80:80px; --sp-96:96px;
+  --transition-fast:150ms; --transition-normal:250ms; --transition-slow:400ms;
+  --text-sm:0.875rem; --text-base:1rem; --text-lg:1.125rem; --text-xl:1.25rem;
+  --text-2xl:1.5rem; --text-3xl:1.875rem; --text-4xl:2.25rem;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  padding:var(--sp-12);
+  font-family:'Space Grotesk',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:var(--bg); color:var(--text); line-height:1.5;
+  min-height:100vh;
+  font-size:var(--text-base);
+}
+@media(min-width:768px){body{padding:var(--sp-32)}}
+@media(min-width:1024px){body{padding:var(--sp-80)}}
+
+.skip-link{position:absolute;top:-40px;left:0;background:var(--accent);color:#000;padding:.5rem 1rem;z-index:100;border-radius:0 0 8px 0;font-weight:700;text-decoration:none}
+.skip-link:focus{top:0}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+.container{max-width:1120px; margin:0 auto}
+
+.topbar{
+  display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:var(--sp-16);
+  padding:var(--sp-12) var(--sp-16); margin-bottom:var(--sp-24);
+  min-height:56px;
+  border:1px solid rgba(255,255,255,.12); border-radius:var(--r-lg);
+  background:linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+  backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+  box-shadow:0 4px 20px rgba(0,0,0,.3);
+}
+@media(min-width:768px){.topbar{min-height:64px;padding:var(--sp-16) var(--sp-24)}}
+.brand{display:flex; align-items:center; gap:var(--sp-12); flex-wrap:wrap}
+.row{display:flex; gap:var(--sp-8); flex-wrap:wrap; align-items:center}
+
+.btn-back{
+  display:inline-flex; align-items:center; justify-content:center; gap:var(--sp-8);
+  min-width:48px; min-height:48px; padding:var(--sp-8) var(--sp-16);
+  background:linear-gradient(135deg, rgba(53,217,154,.2), rgba(53,217,154,.1));
+  border:2px solid rgba(53,217,154,.5); border-radius:var(--r-lg);
+  color:var(--accent); font-weight:700; font-size:var(--text-base);
+  text-decoration:none; cursor:pointer;
+  box-shadow:0 0 20px rgba(53,217,154,.15), 0 4px 12px rgba(0,0,0,.2);
+  transition:all var(--transition-normal) ease;
+}
+.btn-back:hover{
+  background:linear-gradient(135deg, rgba(53,217,154,.3), rgba(53,217,154,.2));
+  border-color:rgba(53,217,154,.8);
+  transform:translateY(-2px);
+  box-shadow:0 0 30px rgba(53,217,154,.25), 0 8px 20px rgba(0,0,0,.3);
+}
+.btn-back:active{transform:translateY(0) scale(0.98)}
+.btn-back:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn-back svg{width:20px;height:20px;stroke:currentColor;stroke-width:2.5;fill:none}
+
+.btn-notes{
+  display:inline-flex; align-items:center; justify-content:center; gap:var(--sp-8);
+  min-width:48px; min-height:48px; padding:var(--sp-8) var(--sp-16);
+  background:linear-gradient(135deg, rgba(53,217,154,.25), rgba(53,217,154,.15));
+  border:2px solid rgba(53,217,154,.6); border-radius:var(--r-lg);
+  color:var(--accent); font-weight:700; font-size:var(--text-base);
+  box-shadow:0 0 20px rgba(53,217,154,.2), 0 4px 12px rgba(0,0,0,.2);
+}
+.btn-notes svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none}
+
+.pill{
+  border:1px solid var(--border); border-radius:999px; padding:var(--sp-8) var(--sp-12);
+  background:rgba(16,22,29,.6); color:var(--muted); font-size:.875rem;
+  backdrop-filter:blur(6px); display:inline-flex; align-items:center;
+  transition:border-color var(--transition-normal) ease, background var(--transition-normal) ease;
+  text-decoration:none; min-height:44px;
+}
+.pill:hover{border-color:rgba(91,178,255,.5); background:rgba(91,178,255,.08); color:var(--text)}
+
+.card{
+  border:1px solid rgba(255,255,255,.12);
+  background:linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+  backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+  border-radius:var(--r); padding:var(--sp-16); margin-bottom:var(--sp-24);
+  box-shadow:var(--shadow), 0 8px 32px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.05) inset;
+  position:relative; overflow:hidden;
+  transition:all var(--transition-slow) cubic-bezier(.4,0,.2,1);
+}
+@media(min-width:768px){.card{padding:var(--sp-24)}}
+.card::after{
+  content:""; position:absolute; left:-30%; top:-40%; width:120%; height:70%;
+  background:radial-gradient(closest-side, rgba(91,178,255,.08), transparent 70%);
+  opacity:.45; pointer-events:none;
+}
+
+.notesWrap{max-width:1120px;margin:0 auto}
+.notesRow{display:grid;grid-template-columns:1fr;gap:var(--sp-16);align-items:stretch}
+@media(min-width:800px){.notesRow{grid-template-columns:1fr 1fr;gap:var(--sp-24)}}
+
+.notesBox{
+  background:rgba(16,22,29,.6); border:1px solid var(--border); border-radius:var(--r);
+  padding:var(--sp-12); font-size:var(--text-sm); line-height:1.5;
+  overflow-y:auto;
+  display:flex; flex-direction:column; gap:var(--sp-8);
+}
+.tpl-section{
+  background:rgba(0,0,0,.2); border:1px solid rgba(255,255,255,.08);
+  border-radius:var(--r); padding:var(--sp-12);
+  border-left:3px solid var(--accent);
+}
+.tpl-section.morning{border-left-color:#6bbcff}
+.tpl-section.evening{border-left-color:#a78bfa}
+.tpl-section.alert{border-left-color:#ff7a7a}
+.tpl-section.neutral{border-left-color:var(--muted)}
+.tpl-title{
+  display:flex; align-items:center; gap:var(--sp-8);
+  font-weight:700; font-size:var(--text-sm); color:var(--text);
+  margin-bottom:var(--sp-8); padding-bottom:var(--sp-4);
+  border-bottom:1px solid rgba(255,255,255,.1);
+}
+.tpl-title .icon{font-size:1rem}
+.tpl-grid{
+  display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-8) var(--sp-12);
+}
+.tpl-grid.single{grid-template-columns:1fr}
+.tpl-item{
+  display:grid; grid-template-columns:120px 1fr; gap:var(--sp-8);
+  align-items:center; justify-items:start;
+  padding:var(--sp-8) 0; color:var(--muted); font-size:.8125rem;
+}
+.tpl-item .label{color:var(--text);font-weight:500}
+.tpl-item .rating-wrap{justify-self:end}
+.tpl-item .val{
+  background:rgba(255,255,255,.08); padding:2px 8px; border-radius:4px;
+  font-family:monospace; min-width:40px; text-align:center;
+}
+.da-hero-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-8)}
+.da-hero{
+  display:flex;align-items:center;gap:var(--sp-12);
+  padding:var(--sp-8) var(--sp-12);border-radius:8px;
+  border:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.03);
+  transition:border-color .2s;
+}
+.da-hero .da-icon{font-size:1.1rem;flex-shrink:0}
+.da-hero .da-info{flex:1;min-width:0}
+.da-hero .da-label{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.da-hero .da-val{font-family:monospace;font-size:1rem;font-weight:700;color:var(--text)}
+.da-hero .da-trend{margin-left:auto}
+.da-hero.good{border-color:rgba(53,217,154,.5);background:rgba(53,217,154,.06)}
+.da-hero.bad{border-color:rgba(255,122,122,.4);background:rgba(255,122,122,.05)}
+.da-hero.warn{border-color:rgba(247,191,84,.4);background:rgba(247,191,84,.05)}
+.da-row{display:flex;gap:var(--sp-4);padding:var(--sp-4) 0}
+.da-chip{
+  display:flex;align-items:center;gap:var(--sp-4);
+  padding:var(--sp-4) var(--sp-8);border-radius:6px;
+  background:rgba(255,255,255,.04);font-size:.75rem;flex:1;min-width:0;
+}
+.da-chip .da-icon{font-size:.85rem;flex-shrink:0}
+.da-chip .da-num{font-family:monospace;font-weight:700;color:var(--text);min-width:16px;text-align:center}
+.da-chip .da-trend{margin-left:auto}
+.da-chip .da-chip-label{color:var(--muted);font-size:.6rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.da-group-label{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;padding:var(--sp-4) 0 2px;opacity:.6}
+.da-divider{height:1px;background:rgba(255,255,255,.06);margin:var(--sp-4) 0}
+.trend{
+  min-width:20px;height:18px;padding:0 5px;border-radius:4px;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:.6rem;font-weight:700;flex-shrink:0;
+  transition:all .2s ease;
+}
+.trend.warn{background:rgba(247,191,84,.2);color:#f7bf54}
+.trend.good{background:rgba(53,217,154,.2);color:#35d99a}
+.trend.bad{background:rgba(255,122,122,.2);color:#ff7a7a}
+.alc-val{font-family:monospace;font-weight:700;min-width:16px;text-align:center}
+.alc-val.alc-0{color:var(--muted);background:transparent}
+.alc-val.alc-1{color:#ff9999;background:rgba(255,122,122,.1)}
+.alc-val.alc-2{color:#ff7a7a;background:rgba(255,122,122,.2)}
+.alc-val.alc-3{color:#ff5c5c;background:rgba(255,122,122,.3)}
+.alc-val.alc-4{color:#ff3d3d;background:rgba(255,122,122,.45)}
+.alc-val.alc-5{color:#fff;background:rgba(255,60,60,.65);text-shadow:0 0 4px rgba(255,0,0,.5)}
+
+.rating-wrap{
+  display:inline-flex; align-items:stretch;
+  border:1px solid var(--border); border-radius:8px;
+  background:rgba(255,255,255,.04);
+  overflow:hidden;
+}
+.rating-btn{
+  display:flex; align-items:center; justify-content:center;
+  width:32px; height:32px;
+  background:transparent; border:none;
+  color:var(--muted); font-size:1.1rem; font-weight:400;
+  cursor:pointer; transition:all .12s ease; user-select:none; position:relative;
+}
+.rating-btn::after{content:'';position:absolute;top:6px;bottom:6px;width:1px;background:var(--border)}
+.rating-btn.minus::after{right:0}
+.rating-btn.plus::after{left:0}
+.rating-btn:hover{background:rgba(255,255,255,.08);color:var(--text)}
+.rating-btn:active{background:rgba(255,255,255,.12);transform:scale(0.95)}
+.rating-btn:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+.rating-field{
+  display:inline-flex; align-items:center; justify-content:center;
+  background:transparent; border:none; min-width:auto; min-height:28px;
+  transition:all var(--transition-fast) ease;
+}
+.rating-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(53,217,154,.15)}
+.rating-wrap:hover:not(:focus-within){border-color:rgba(107,188,255,.4);background:rgba(255,255,255,.06)}
+.rating-field.val-0{border:2px solid hsl(0,70%,50%);background:hsla(0,70%,45%,.18)}
+.rating-field.val-1{border:2px solid hsl(12,70%,52%);background:hsla(12,70%,47%,.17)}
+.rating-field.val-2{border:2px solid hsl(24,70%,52%);background:hsla(24,70%,47%,.16)}
+.rating-field.val-3{border:2px solid hsl(36,70%,50%);background:hsla(36,70%,45%,.15)}
+.rating-field.val-4{border:2px solid hsl(48,70%,48%);background:hsla(48,70%,43%,.15)}
+.rating-field.val-5{border:2px solid hsl(60,65%,45%);background:hsla(60,65%,40%,.14)}
+.rating-field.val-6{border:2px solid hsl(75,65%,42%);background:hsla(75,65%,38%,.15)}
+.rating-field.val-7{border:2px solid hsl(90,65%,40%);background:hsla(90,65%,36%,.16)}
+.rating-field.val-8{border:2px solid hsl(105,65%,38%);background:hsla(105,65%,34%,.17)}
+.rating-field.val-9{border:2px solid hsl(115,60%,38%);background:hsla(115,60%,34%,.18)}
+.rating-field.val-10{border:2px solid hsl(125,55%,38%);background:hsla(125,55%,34%,.19)}
+.rating-field.filled{border-color:var(--accent);background:rgba(53,217,154,.06)}
+
+.rating-field .tpl-input{
+  width:28px; height:100%; min-height:28px; padding:2px;
+  background:transparent; border:none;
+  color:var(--text); font-size:.875rem; font-weight:600;
+  text-align:right; font-family:inherit; outline:none;
+  -moz-appearance:textfield;
+}
+.rating-field .tpl-input::placeholder{color:var(--muted);opacity:.5}
+.rating-field .tpl-input::-webkit-inner-spin-button,
+.rating-field .tpl-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.rating-field.val-0 .tpl-input{color:hsl(0,65%,68%)}
+.rating-field.val-1 .tpl-input{color:hsl(12,65%,68%)}
+.rating-field.val-2 .tpl-input{color:hsl(24,65%,66%)}
+.rating-field.val-3 .tpl-input{color:hsl(36,65%,64%)}
+.rating-field.val-4 .tpl-input{color:hsl(48,65%,60%)}
+.rating-field.val-5 .tpl-input{color:hsl(60,60%,55%)}
+.rating-field.val-6 .tpl-input{color:hsl(75,60%,52%)}
+.rating-field.val-7 .tpl-input{color:hsl(90,60%,50%)}
+.rating-field.val-8 .tpl-input{color:hsl(105,60%,48%)}
+.rating-field.val-9 .tpl-input{color:hsl(115,55%,46%)}
+.rating-field.val-10 .tpl-input{color:hsl(125,50%,45%)}
+
+.rating-field .rating-suffix{
+  display:flex; align-items:center; justify-content:center;
+  padding:0 4px 0 0; background:transparent;
+  color:var(--muted); font-size:.875rem; font-weight:600;
+  border:none; user-select:none;
+}
+.rating-field.val-0 .rating-suffix{color:hsla(0,55%,65%,.7)}
+.rating-field.val-1 .rating-suffix{color:hsla(12,55%,65%,.7)}
+.rating-field.val-2 .rating-suffix{color:hsla(24,55%,63%,.7)}
+.rating-field.val-3 .rating-suffix{color:hsla(36,55%,60%,.7)}
+.rating-field.val-4 .rating-suffix{color:hsla(48,55%,56%,.7)}
+.rating-field.val-5 .rating-suffix{color:hsla(60,50%,52%,.7)}
+.rating-field.val-6 .rating-suffix{color:hsla(75,50%,50%,.7)}
+.rating-field.val-7 .rating-suffix{color:hsla(90,50%,48%,.7)}
+.rating-field.val-8 .rating-suffix{color:hsla(105,50%,46%,.7)}
+.rating-field.val-9 .rating-suffix{color:hsla(115,45%,44%,.7)}
+.rating-field.val-10 .rating-suffix{color:hsla(125,40%,43%,.7)}
+
+.tpl-input:not(.rating-field .tpl-input):not(.tpl-input-text){
+  width:48px; height:26px; padding:2px 4px;
+  background:rgba(255,255,255,.1); border:1px solid var(--border);
+  border-radius:4px; color:var(--text); font-size:.8rem;
+  text-align:center; font-family:inherit;
+}
+.tpl-input:not(.rating-field .tpl-input):not(.tpl-input-text):focus{outline:none;border-color:var(--accent);background:rgba(53,217,154,.15)}
+
+.tpl-item-text{
+  display:grid; grid-template-columns:100px 1fr; gap:var(--sp-12);
+  align-items:center; padding:var(--sp-8) 0;
+}
+.tpl-item-text .label{color:var(--text); font-weight:500; font-size:.8125rem}
+.tpl-input-text{
+  width:100%; min-height:36px; padding:var(--sp-8) var(--sp-12);
+  background:rgba(255,255,255,.06); border:1px solid var(--border);
+  border-radius:6px; color:var(--text); font-size:.875rem;
+  font-family:inherit; transition:all var(--transition-fast) ease;
+}
+.tpl-input-text::placeholder{color:var(--muted);opacity:.5}
+.tpl-input-text:hover{border-color:rgba(107,188,255,.3);background:rgba(255,255,255,.08)}
+.tpl-input-text:focus{
+  outline:none; border-color:var(--accent);
+  background:rgba(53,217,154,.08);
+  box-shadow:0 0 0 3px rgba(53,217,154,.15);
+}
+.tpl-suffix:not(.rating-suffix){color:var(--muted);font-size:.7rem;margin-left:2px}
+.tpl-list{list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:var(--sp-4)}
+.tpl-list li{
+  display:flex; align-items:center; gap:var(--sp-8);
+  padding:var(--sp-4) var(--sp-8); background:rgba(255,255,255,.04);
+  border-radius:4px; font-size:.8125rem; color:var(--muted);
+  cursor:pointer; transition:all .15s ease;
+}
+.tpl-list li:hover{background:rgba(255,255,255,.08)}
+.tpl-list label{cursor:pointer; display:flex; align-items:center; gap:var(--sp-8); flex:1}
+.tpl-list .tpl-check{width:16px; height:16px; margin:0; accent-color:var(--accent); cursor:pointer}
+.tpl-list li.checked{color:var(--accent); background:rgba(53,217,154,.08)}
+.tpl-note{font-size:.75rem; color:var(--muted); font-style:italic; margin-top:var(--sp-4)}
+.tpl-formula{
+  background:rgba(107,188,255,.1); border:1px solid rgba(107,188,255,.3);
+  padding:var(--sp-8); border-radius:4px; font-family:monospace; font-size:.75rem;
+  color:var(--blue); margin-top:var(--sp-4);
+}
+.tpl-warn{
+  background:rgba(255,122,122,.1); border:1px solid rgba(255,122,122,.3);
+  padding:var(--sp-8); border-radius:4px; font-size:.75rem;
+  color:#ffa0a0; margin-top:var(--sp-4);
+}
+.val.filled{background:rgba(53,217,154,.2);color:var(--accent);font-weight:700;border:1px solid rgba(53,217,154,.4)}
+.val.empty{background:rgba(255,255,255,.08);color:var(--muted)}
+.tpl-hint{font-size:.7rem;color:var(--muted);text-align:center;padding:var(--sp-4);margin-bottom:var(--sp-8);opacity:.7}
+.clickable{cursor:pointer;transition:all var(--transition-fast) ease;border-radius:4px}
+.clickable:hover{background:rgba(107,188,255,.2);transform:translateX(2px);filter:brightness(1.1) saturate(1.3)}
+
+.notesTaWrap{display:flex;flex-direction:column;height:100%}
+.spell-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--blue);border:none;color:#fff;
+  padding:var(--sp-8) var(--sp-16);min-height:44px;
+  font-size:.875rem;font-weight:600;border-radius:var(--r);
+  cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1);
+  box-shadow:0 2px 8px rgba(107,188,255,.3);
+}
+.spell-btn:hover{background:#5bb2ff;transform:translateY(-1px);box-shadow:0 4px 12px rgba(107,188,255,.4)}
+.spell-btn:active{transform:translateY(0);box-shadow:0 1px 4px rgba(107,188,255,.3)}
+.spell-btn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.spell-btn:disabled{opacity:.6;cursor:wait;transform:none}
+.spell-btn svg{width:18px;height:18px}
+
+.notesTa{
+  width:100%; height:100%; min-height:400px; resize:none;
+  background:rgba(16,22,29,.6); border:1px solid var(--border); color:var(--text);
+  padding:var(--sp-16); border-radius:var(--r); outline:none;
+  font-family:inherit; font-size:var(--text-base); line-height:1.6;
+  transition:all var(--transition-normal) ease;
+}
+.notesTa:hover{border-color:rgba(91,178,255,.3);background:rgba(16,22,29,.7)}
+.notesTa:focus-visible{
+  outline:2px solid var(--blue); outline-offset:2px;
+  border-color:var(--blue);
+  box-shadow:0 0 0 4px rgba(107,188,255,.15);
+}
+.notesTa::placeholder{color:var(--muted);opacity:.7}
+
+.notesLeft{display:flex;flex-direction:column;gap:var(--sp-16)}
+
+.dataSummary{
+  padding:var(--sp-12);
+  background:rgba(53,217,154,.05);
+  border:1px solid rgba(53,217,154,.15);
+  border-radius:var(--r);
+}
+
+.btn{
+  border:1px solid var(--border); background:rgba(16,22,29,.65); color:var(--text);
+  font-family:inherit;
+  min-height:40px; min-width:64px; padding:var(--sp-8) var(--sp-16);
+  border-radius:var(--r); cursor:pointer; font-weight:600;
+  font-size:var(--text-sm);
+  box-shadow:0 1px 2px rgba(0,0,0,.18);
+  transition:all var(--transition-normal) ease;
+  position:relative; overflow:hidden;
+}
+.btn::before{content:"";position:absolute;inset:-4px;z-index:-1}
+.btn:hover{transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.35);border-color:rgba(91,178,255,.5);filter:brightness(1.1) saturate(1.3)}
+.btn:active{transform:translateY(0) scale(0.98);filter:brightness(0.95) saturate(1.4)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;box-shadow:0 0 0 4px rgba(53,217,154,.25)}
+.btn.ghost{background:transparent;border-color:rgba(255,255,255,.25)}
+.btn.ghost:hover{background:rgba(255,255,255,.08)}
+.btn:disabled{cursor:not-allowed;opacity:.38;filter:grayscale(30%)}
+.btn:disabled:hover{transform:none;box-shadow:0 1px 2px rgba(0,0,0,.18)}
+
+.export-wrap{position:relative;display:inline-block}
+.export-menu{
+  position:absolute;top:100%;right:0;margin-top:4px;
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--r);
+  box-shadow:0 8px 24px rgba(0,0,0,.4);min-width:180px;z-index:100;
+  opacity:0;visibility:hidden;transform:translateY(-8px);
+  transition:all .2s ease;
+}
+.export-wrap.open .export-menu{opacity:1;visibility:visible;transform:translateY(0)}
+.export-menu button{
+  display:flex;align-items:center;gap:8px;width:100%;
+  background:none;border:none;color:var(--text);padding:12px 16px;
+  font-size:.875rem;cursor:pointer;text-align:left;
+  transition:background .15s ease;
+}
+.export-menu button:hover{background:rgba(255,255,255,.08)}
+.export-menu button:first-child{border-radius:var(--r) var(--r) 0 0}
+.export-menu button:last-child{border-radius:0 0 var(--r) var(--r)}
+.export-menu svg{width:16px;height:16px;opacity:.7}
+
+.export-btn{
+  display:inline-flex;align-items:center;
+  background:rgba(53,217,154,.15);border-color:rgba(53,217,154,.4);color:var(--accent);
+  min-width:auto;padding:var(--sp-4) var(--sp-12);min-height:32px;
+}
+.export-btn:hover{background:rgba(53,217,154,.25);border-color:rgba(53,217,154,.6)}
+
+.ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,.4);transform:scale(0);animation:rippleAnim .5s ease-out;pointer-events:none}
+@keyframes rippleAnim{to{transform:scale(4);opacity:0}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+a{color:var(--blue);text-decoration:none;transition:color var(--transition-fast) ease}
+a:hover{color:var(--accent)}
+a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+.status{font-size:.75rem;padding:var(--sp-4) var(--sp-8);border-radius:999px;font-weight:600}
+.status.saved{background:rgba(53,217,154,.15);color:var(--accent);border:1px solid rgba(53,217,154,.3)}
+.status.saving{background:rgba(247,191,84,.15);color:var(--warn);border:1px solid rgba(247,191,84,.3)}
+.status.error{background:rgba(255,122,122,.15);color:var(--danger);border:1px solid rgba(255,122,122,.3)}
+
+.pageHeader{
+  display:flex; justify-content:space-between; align-items:center; gap:var(--sp-16);
+  flex-wrap:wrap; margin-bottom:var(--sp-16);
+}
+.pageTitle{font-weight:900;font-size:1.375rem;margin:0;letter-spacing:.3px}
+.pageMeta{color:var(--muted);font-size:.875rem;display:flex;align-items:center;gap:var(--sp-8)}
+
+.dateNavWrap{position:relative}
+.dateNav{
+  position:fixed; top:50%; transform:translateY(-50%);
+  display:flex; align-items:center; justify-content:center;
+  width:48px; height:48px;
+  background:linear-gradient(135deg, rgba(107,188,255,.2), rgba(107,188,255,.08));
+  border:2px solid rgba(107,188,255,.4);
+  border-radius:50%; color:var(--blue);
+  text-decoration:none; font-size:1.25rem; font-weight:700;
+  box-shadow:0 4px 24px rgba(0,0,0,.5), 0 0 24px rgba(107,188,255,.15);
+  transition:all var(--transition-normal) ease;
+  z-index:100;
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+  cursor:pointer;
+}
+.dateNav:hover{
+  background:linear-gradient(135deg, rgba(107,188,255,.35), rgba(107,188,255,.2));
+  border-color:rgba(107,188,255,.7);
+  transform:translateY(-50%) scale(1.1);
+  box-shadow:0 8px 32px rgba(0,0,0,.5), 0 0 40px rgba(107,188,255,.25);
+}
+.dateNav:active{transform:translateY(-50%) scale(0.92)}
+.dateNav:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+.dateNav.prev{left:12px}
+.dateNav.next{right:12px}
+@media(max-width:900px){
+  .dateNav{width:44px;height:44px}
+  .dateNav.prev{left:8px}
+  .dateNav.next{right:8px}
+}
+@media(max-width:640px){
+  .dateNav{width:40px;height:40px;top:auto;bottom:24px;transform:none}
+  .dateNav.prev{left:16px}
+  .dateNav.next{right:16px}
+  .dateNav:hover{transform:scale(1.1)}
+  .dateNav:active{transform:scale(0.92)}
+}
+.dateNav svg{width:24px;height:24px;stroke:currentColor;stroke-width:2.5;fill:none}
+@media(max-width:640px){.dateNav svg{width:20px;height:20px}}
+
+.dateDisplay{display:flex; align-items:center; gap:var(--sp-12); font-weight:800; font-size:1.125rem}
+.dateDisplay .dayName{color:var(--blue);text-transform:capitalize}
+.dateDisplay .dateStr{color:var(--text)}
+
+.loadingBar{position:fixed;top:0;left:0;right:0;height:3px;background:rgba(255,255,255,.06);opacity:0;pointer-events:none;z-index:2000;transition:opacity var(--transition-normal) ease}
+.loadingBar.active{opacity:1}
+.loadingBarInner{height:100%;width:30%;background:linear-gradient(90deg, rgba(107,188,255,.2), rgba(107,188,255,.9), rgba(107,188,255,.2));animation:loadingMove 1.2s linear infinite}
+@keyframes loadingMove{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+
+.toastHost{position:fixed;right:var(--sp-16);bottom:var(--sp-16);display:flex;flex-direction:column;gap:var(--sp-8);z-index:2000}
+.toast{
+  background:rgba(18,24,32,.95);border:1px solid var(--border);border-left:4px solid var(--blue);
+  color:var(--text);padding:var(--sp-12);border-radius:10px;min-width:240px;
+  box-shadow:0 8px 24px rgba(0,0,0,.35);
+  animation:toastIn var(--transition-slow) ease;
+}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.toast.success{border-left-color:var(--accent)}
+.toast.error{border-left-color:var(--danger)}
+.toast.warn{border-left-color:var(--warn)}
+.toastTitle{font-weight:800;font-size:.9rem}
+.toastMsg{font-size:.85rem;color:var(--muted);margin-top:2px}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+@media(prefers-contrast:more){
+  :root{--bg:#000;--panel:#0a0a0a;--border:#fff;--text:#fff;--muted:#ccc}
+  .btn,.pill,.card,.notesTa,.notesBox{border-width:2px;border-color:#fff}
+}
+@media(forced-colors:active){
+  .btn,.pill,.card,.notesTa,.notesBox{border:2px solid CanvasText;background:Canvas;color:CanvasText}
+}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:rgba(255,255,255,.05);border-radius:4px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.35)}
+@supports(scrollbar-color:auto){*{scrollbar-color:rgba(255,255,255,.2) rgba(255,255,255,.05);scrollbar-width:thin}}
+</style>
+</head>
+<body>
+<a href="#main-content" class="skip-link">Aller au contenu</a>
+<div id="globalLoading" class="loadingBar" aria-hidden="true"><div class="loadingBarInner"></div></div>
+<div id="toastHost" class="toastHost" aria-live="polite" aria-atomic="true"></div>
+
+<div class="container">
+  <nav class="topbar" aria-label="Navigation principale">
+    <div class="brand">
+      <a href="/" class="btn-back" title="Retour au Dashboard">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        <span>Retour</span>
+      </a>
+    </div>
+    <div class="row">
+      <span class="btn-notes" title="Page Notes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>Notes</span>
+      </span>
+    </div>
+  </nav>
+
+  <main id="main-content">
+    <div class="dateNavWrap">
+      <a id="navPrev" class="dateNav prev" title="Jour pr&eacute;c&eacute;dent" aria-label="Jour pr&eacute;c&eacute;dent">
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <a id="navNext" class="dateNav next" title="Jour suivant" aria-label="Jour suivant">
+        <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+      </a>
+      <div class="card">
+        <div class="pageHeader">
+          <div>
+            <h1 class="pageTitle">Notes</h1>
+            <div class="dateDisplay">
+              <span class="dayName" id="dayName"></span>
+              <span class="dateStr" id="dateStr"></span>
+            </div>
+          </div>
+          <div class="pageMeta">
+            <span id="noteStatus" class="status" role="status" aria-live="polite">-</span>
+            <div class="export-wrap" id="exportWrap">
+              <button type="button" class="btn export-btn" onclick="toggleExportMenu()" title="Exporter les donn&eacute;es">
+                <svg style="width:16px;height:16px;margin-right:4px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Exporter
+                <svg style="width:12px;height:12px;margin-left:4px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="export-menu">
+                <button onclick="exportDayData();toggleExportMenu()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  Ce jour
+                </button>
+                <button onclick="exportAllData();toggleExportMenu()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                  Tout l'historique
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      <div class="notesRow">
+        <div class="notesTaWrap" style="position:relative">
+          <button type="button" class="spell-btn" onclick="correctSpelling()" title="Corriger l'orthographe automatiquement" style="position:absolute;top:-52px;right:0;z-index:10">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+            <span>Corriger</span>
+          </button>
+          <label for="t" class="sr-only">Notes du jour</label>
+          <textarea id="t" class="notesTa" placeholder="Parle, d&eacute;foule-toi, note ce que tu veux... Cet espace est &agrave; toi." aria-label="Notes du jour" spellcheck="false"></textarea>
+        </div>
+        <aside class="notesBox" aria-label="Template de check-in">
+          <!-- BILAN DU JOUR -->
+          <section class="tpl-section" id="bilanSection" style="border-left-color:var(--accent)">
+            <div class="tpl-title"><span class="icon">&#9889;</span> Bilan du jour</div>
+            <div class="da-hero-row">
+              <div class="da-hero warn" id="heroClope"><span class="da-icon">&#128684;</span><div class="da-info"><div class="da-label">1&egrave;re clope</div><div class="da-val" id="valDelayClopeStr">-- min</div></div><span class="da-trend trend warn" id="trendFirstClope">=</span></div>
+              <div class="da-hero warn" id="heroAlcool"><span class="da-icon">&#127864;</span><div class="da-info"><div class="da-label">1er alcool</div><div class="da-val" id="valDelayAlcoolStr">-- min</div></div><span class="da-trend trend warn" id="trendFirstAlcool">=</span></div>
+            </div>
+            <div class="da-divider"></div>
+            <div class="da-group-label">Conso aujourd'hui</div>
+            <div class="da-row">
+              <div class="da-chip"><span class="da-icon">&#128684;</span><span class="da-chip-label">Clopes</span><span class="da-num" id="valClopeCount">--</span><span class="da-trend trend warn" id="trendClope">=</span></div>
+              <div class="da-chip"><span class="da-icon">&#127866;</span><span class="da-chip-label">Bi&egrave;re</span><span class="da-num alc-val alc-0" id="valBeer">--</span><span class="da-trend trend warn" id="trendBeer">=</span></div>
+              <div class="da-chip"><span class="da-icon">&#127863;</span><span class="da-chip-label">Vin</span><span class="da-num alc-val alc-0" id="valWine">--</span><span class="da-trend trend warn" id="trendWine">=</span></div>
+              <div class="da-chip"><span class="da-icon">&#127867;</span><span class="da-chip-label">Fort</span><span class="da-num alc-val alc-0" id="valStrong">--</span><span class="da-trend trend warn" id="trendStrong">=</span></div>
+            </div>
+            <div class="da-divider"></div>
+            <div class="da-group-label">Temps aujourd'hui</div>
+            <div class="da-row">
+              <div class="da-chip"><span class="da-icon">&#128188;</span><span class="da-chip-label">Travail</span><span class="da-num" id="valWork">--</span><span class="da-trend trend warn" id="trendWork">=</span></div>
+              <div class="da-chip"><span class="da-icon">&#127939;</span><span class="da-chip-label">Sport</span><span class="da-num" id="valSport">--</span><span class="da-trend trend warn" id="trendSport">=</span></div>
+              <div class="da-chip"><span class="da-icon">&#128250;</span><span class="da-chip-label">Glando</span><span class="da-num" id="valGlando">--</span><span class="da-trend trend warn" id="trendGlando">=</span></div>
+            </div>
+          </section>
+
+          <!-- MATIN -->
+          <section class="tpl-section morning">
+            <div class="tpl-title"><span class="icon" style="color:#FFD700">&#9728;</span> Check-in Matin</div>
+            <div class="tpl-grid">
+              <div class="tpl-item"><span class="label">Qualit&eacute; sommeil</span><div class="rating-field"><input type="number" class="tpl-input" data-field="qualite" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+              <div class="tpl-item"><span class="label">&Eacute;nergie</span><div class="rating-field"><input type="number" class="tpl-input" data-field="energie" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+              <div class="tpl-item"><span class="label">Motivation</span><div class="rating-field"><input type="number" class="tpl-input" data-field="motivation" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+              <div class="tpl-item"><span class="label">Douleur</span><div class="rating-field"><input type="number" class="tpl-input" data-field="douleur" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+            </div>
+          </section>
+
+          <section class="tpl-section morning">
+            <div class="tpl-title"><span class="icon">&#129504;</span> &Eacute;tat Mental</div>
+            <div class="tpl-grid">
+              <div class="tpl-item"><span class="label">Humeur</span><div class="rating-field"><input type="number" class="tpl-input" data-field="humeur" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+              <div class="tpl-item"><span class="label">Anxi&eacute;t&eacute;</span><div class="rating-field"><input type="number" class="tpl-input" data-field="anxiete" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+              <div class="tpl-item"><span class="label">Irritabilit&eacute;</span><div class="rating-field"><input type="number" class="tpl-input" data-field="irritabilite" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+              <div class="tpl-item"><span class="label">Clart&eacute;</span><div class="rating-field"><input type="number" class="tpl-input" data-field="clarte" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+            </div>
+          </section>
+
+          <section class="tpl-section">
+            <div class="tpl-title"><span class="icon">&#127919;</span> Plan TDAH</div>
+            <div class="tpl-grid single">
+              <div class="tpl-item-text"><span class="label">Priorit&eacute; 1</span><input type="text" class="tpl-input tpl-input-text" data-field="priorite1" placeholder="..."></div>
+              <div class="tpl-item-text"><span class="label">Priorit&eacute; 2</span><input type="text" class="tpl-input tpl-input-text" data-field="priorite2" placeholder="..."></div>
+              <div class="tpl-item-text"><span class="label">Priorit&eacute; 3</span><input type="text" class="tpl-input tpl-input-text" data-field="priorite3" placeholder="..."></div>
+              <div class="tpl-item-text"><span class="label">Minimum vital</span><input type="text" class="tpl-input tpl-input-text" data-field="minimum" placeholder="..."></div>
+            </div>
+          </section>
+
+          <!-- SOIR -->
+          <section class="tpl-section evening">
+            <div class="tpl-title"><span class="icon">&#127769;</span> Journal Soir</div>
+            <div class="tpl-grid">
+              <div class="tpl-item"><span class="label">Humeur soir</span><div class="rating-field"><input type="number" class="tpl-input" data-field="humeur_soir" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+              <div class="tpl-item"><span class="label">Stress</span><div class="rating-field"><input type="number" class="tpl-input" data-field="stress" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+              <div class="tpl-item"><span class="label">Focus</span><div class="rating-field"><input type="number" class="tpl-input" data-field="focus" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+              <div class="tpl-item"><span class="label">Fatigue</span><div class="rating-field"><input type="number" class="tpl-input" data-field="fatigue" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+              <div class="tpl-item"><span class="label">Fiert&eacute;</span><div class="rating-field"><input type="number" class="tpl-input" data-field="fierte" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+            </div>
+          </section>
+
+          <!-- COLERE -->
+          <section class="tpl-section alert">
+            <div class="tpl-title"><span class="icon">&#128293;</span> Col&egrave;re / Explosions</div>
+            <div class="tpl-grid single">
+              <div class="tpl-item"><span class="label">Intensit&eacute;</span><div class="rating-field"><input type="number" class="tpl-input" data-field="intensite" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+            </div>
+            <div class="tpl-item-text" style="margin-top:var(--sp-8)">
+              <span class="label">D&eacute;clencheur</span><input type="text" class="tpl-input tpl-input-text" data-field="declencheur" placeholder="...">
+            </div>
+            <div style="margin-top:8px;font-size:.75rem;color:var(--muted)">Comp&eacute;tences utilis&eacute;es:</div>
+            <ul class="tpl-list">
+              <li><label><input type="checkbox" class="tpl-check" data-field="pause90"> Pause 90 secondes</label></li>
+              <li><label><input type="checkbox" class="tpl-check" data-field="respiration"> Respiration 4-6</label></li>
+              <li><label><input type="checkbox" class="tpl-check" data-field="sortir"> Sortir / marcher</label></li>
+              <li><label><input type="checkbox" class="tpl-check" data-field="ecrire"> &Eacute;crire au lieu de parler</label></li>
+            </ul>
+          </section>
+
+          <!-- CBT -->
+          <section class="tpl-section neutral">
+            <div class="tpl-title"><span class="icon">&#128161;</span> CBT Rapide</div>
+            <div class="tpl-grid single">
+              <div class="tpl-item"><span class="label">&Eacute;motion</span><div class="rating-field"><input type="number" class="tpl-input" data-field="emotion" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+              <div class="tpl-item-text"><span class="label">Pens&eacute;e auto</span><input type="text" class="tpl-input tpl-input-text" data-field="pensee" placeholder="..."></div>
+              <div class="tpl-item-text"><span class="label">Alternative</span><input type="text" class="tpl-input tpl-input-text" data-field="alternative" placeholder="..."></div>
+            </div>
+          </section>
+
+          <!-- GARDE-FOU -->
+          <section class="tpl-section alert">
+            <div class="tpl-title"><span class="icon">&#128680;</span> Garde-fou</div>
+            <div class="tpl-grid single">
+              <div class="tpl-item"><span class="label">Id&eacute;es noires</span><div class="rating-field"><input type="number" class="tpl-input" data-field="ideesnoires" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+            </div>
+            <div class="tpl-warn">Si 8-10: parler &agrave; un pro ou quelqu'un de confiance</div>
+          </section>
+
+          <!-- BILAN -->
+          <section class="tpl-section">
+            <div class="tpl-title"><span class="icon">&#128200;</span> Bilan</div>
+            <div class="tpl-grid">
+              <div class="tpl-item"><span class="label">Score global</span><div class="rating-field"><input type="number" class="tpl-input" data-field="score" min="0" max="10" placeholder="-"><span class="rating-suffix">/10</span></div></div>
+              <div class="tpl-item"><span class="label">Relations</span><div class="rating-field"><input type="number" class="tpl-input" data-field="relations" min="0" max="6" placeholder="-"><span class="rating-suffix">/6</span></div></div>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </div>
+    </div>
+  </main>
+
+  <footer style="text-align:center;padding:var(--sp-16);color:var(--muted);font-size:.8125rem">
+    <span style="margin-right:var(--sp-8)">&#128274;</span>
+    Donn&eacute;es 100% locales - Aucune donn&eacute;e envoy&eacute;e
+  </footer>
+</div>
+<script>
+/* ===== DATE MANAGEMENT ===== */
+const dayNamesFr = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+const monthsFr = ["janvier","f\u00e9vrier","mars","avril","mai","juin","juillet","ao\u00fbt","septembre","octobre","novembre","d\u00e9cembre"];
+
+function getQueryParam(name) {
+  const url = new URL(window.location.href);
+  return url.searchParams.get(name);
+}
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+const day = getQueryParam('d') || todayStr();
+
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function formatDateDisplay(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  const dayName = dayNamesFr[d.getDay()];
+  const dateDisplay = d.getDate() + ' ' + monthsFr[d.getMonth()] + ' ' + d.getFullYear();
+  return { dayName, dateDisplay };
+}
+
+// Set page title and date display
+(function initDate() {
+  const { dayName, dateDisplay } = formatDateDisplay(day);
+  document.getElementById('dayName').textContent = dayName;
+  document.getElementById('dateStr').textContent = dateDisplay;
+  document.title = 'Notes ' + day + ' - InfernalWheel';
+
+  // Navigation links
+  const prevDay = addDays(day, -1);
+  const nextDay = addDays(day, 1);
+  document.getElementById('navPrev').href = '/notes?d=' + prevDay;
+  document.getElementById('navNext').href = '/notes?d=' + nextDay;
+})();
+
+/* ===== UI HELPERS ===== */
+const ta = document.getElementById("t");
+const noteStatus = document.getElementById("noteStatus");
+let pendingReq = 0;
+
+function setNoteStatus(text, type) {
+  noteStatus.textContent = text;
+  noteStatus.className = "status" + (type ? " " + type : "");
+}
+setNoteStatus("loading...", "saving");
+
+function setLoading(on) {
+  const bar = document.getElementById("globalLoading");
+  if (!bar) return;
+  if (on) bar.classList.add("active"); else bar.classList.remove("active");
+}
+function requestStart() { pendingReq++; setLoading(true); }
+function requestEnd() { pendingReq = Math.max(0, pendingReq - 1); if (pendingReq === 0) setLoading(false); }
+
+function showToast(message, type, title) {
+  type = type || "info"; title = title || "";
+  const host = document.getElementById("toastHost");
+  if (!host) return;
+  const t = document.createElement("div");
+  t.className = "toast " + type;
+  const ttl = title ? ("<div class='toastTitle'>" + title + "</div>") : "";
+  t.innerHTML = ttl + "<div class='toastMsg'>" + message + "</div>";
+  host.appendChild(t);
+  setTimeout(function(){ t.style.opacity = "0"; t.style.transform = "translateY(6px)"; }, 2600);
+  setTimeout(function(){ if (t.parentNode) t.parentNode.removeChild(t); }, 3200);
+}
+
+/* ===== API HELPERS ===== */
+async function postJSON(url, obj) {
+  requestStart();
+  try {
+    const r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(obj), cache:"no-store"});
+    if (!r.ok) return {ok:false};
+    return await r.json();
+  } catch(e) {
+    return {ok:false};
+  } finally {
+    requestEnd();
+  }
+}
+async function getJSON(url) {
+  requestStart();
+  try {
+    const r = await fetch(url, {method:"GET", cache:"no-store"});
+    if (!r.ok) return {ok:false};
+    return await r.json();
+  } catch(e) {
+    return {ok:false};
+  } finally {
+    requestEnd();
+  }
+}
+
+/* ===== DAILY STATS (Bilan du jour) ===== */
+async function loadDayStats() {
+  // Fetch state data for today's stats
+  const state = await getJSON("/api/state");
+  if (!state || !state.ok) return;
+
+  // The state endpoint returns today's data; only populate if we're viewing today
+  if (day !== todayStr()) {
+    // For past days, we don't have a dedicated stats API - show dashes
+    return;
+  }
+
+  // Populate consumption from state
+  if (state.dailyAlcohol) {
+    const alc = state.dailyAlcohol;
+    const beer = alc.beer || 0;
+    const wine = alc.wine || 0;
+    const strong = alc.strong || 0;
+
+    document.getElementById('valBeer').textContent = beer;
+    document.getElementById('valWine').textContent = wine;
+    document.getElementById('valStrong').textContent = strong;
+
+    // Intensity classes
+    var bi = Math.min(5, Math.max(0, beer));
+    var wi = Math.min(5, Math.max(0, wine));
+    var si = Math.min(5, Math.max(0, strong));
+    document.getElementById('valBeer').className = 'da-num alc-val alc-' + bi;
+    document.getElementById('valWine').className = 'da-num alc-val alc-' + wi;
+    document.getElementById('valStrong').className = 'da-num alc-val alc-' + si;
+
+    // Yesterday comparison
+    if (state.yesterdayAlcohol) {
+      var yAlc = state.yesterdayAlcohol;
+      setTrend('trendBeer', beer - (yAlc.beer||0), true);
+      setTrend('trendWine', wine - (yAlc.wine||0), true);
+      setTrend('trendStrong', strong - (yAlc.strong||0), true);
+    }
+  }
+
+  // Clope count from live state
+  if (typeof state.clopes !== 'undefined') {
+    document.getElementById('valClopeCount').textContent = state.clopes;
+  }
+}
+
+function setTrend(id, diff, inverted) {
+  // inverted = true means less is better (clopes, alcohol, glando)
+  var el = document.getElementById(id);
+  if (!el) return;
+  var cls, txt;
+  if (diff === 0) { cls = 'warn'; txt = '='; }
+  else if (diff > 0) {
+    cls = inverted ? 'bad' : 'good';
+    txt = '+' + diff;
+  } else {
+    cls = inverted ? 'good' : 'bad';
+    txt = '' + diff;
+  }
+  el.className = 'da-trend trend ' + cls;
+  el.textContent = txt;
+}
+
+/* ===== NOTE LOADING & SAVING ===== */
+let fullContent = "";
+let dirty = false;
+let lastTextOnly = "";
+const NL = "\n";
+
+const metricPatterns = [
+  /^(qualit[e\u00e9]\s*sommeil|[e\u00e9]nergie|motivation|douleur|humeur(\s*soir)?|anxi[e\u00e9]t[e\u00e9]|irritabilit[e\u00e9]|clart[e\u00e9]|stress|focus|fatigue|fiert[e\u00e9]|intensit[e\u00e9]|[e\u00e9]motion|id[e\u00e9]es?\s*noires?|score\s*global|relations?)\s*[:=]\s*.+$/i,
+  /^(minimum\s*vital|minimum|priorit[e\u00e9]\s*[123]|d[e\u00e9]clencheur|pens[e\u00e9]e|alternative)\s*[:=]\s*.+$/i
+];
+function isMetricLine(line) {
+  var trimmed = line.trim();
+  if (!trimmed) return false;
+  return metricPatterns.some(function(p){ return p.test(trimmed); });
+}
+const checkboxLinePatterns = [
+  /^(pause\s*90|90\s*sec)/i,
+  /^(respiration|respi\s*4[- ]?6)/i,
+  /^(sortir|marcher|sortir\s*\/\s*marcher)/i,
+  /^([e\u00e9]crire|[e\u00e9]crit)/i
+];
+function isCheckboxLine(line) {
+  var trimmed = line.trim();
+  if (!trimmed) return false;
+  return checkboxLinePatterns.some(function(p){ return p.test(trimmed); });
+}
+function filterMetrics(text) {
+  return text.split(/\r?\n/).filter(function(line){ return !isMetricLine(line) && !isCheckboxLine(line); }).join('\n').trim();
+}
+
+/* Field mappings for parsing */
+const fieldMappings = {
+  qualite: ['qualite', 'qualit\u00e9', 'qualit\u00e9 sommeil', 'sommeil qualite', 'qual sommeil'],
+  energie: ['energie', '\u00e9nergie', 'nrj'],
+  motivation: ['motivation', 'motiv'],
+  douleur: ['douleur', 'doul', 'mal'],
+  humeur: ['humeur', 'mood'],
+  anxiete: ['anxiete', 'anxi\u00e9t\u00e9', 'anx'],
+  irritabilite: ['irritabilite', 'irritabilit\u00e9', 'irrit'],
+  clarte: ['clarte', 'clart\u00e9', 'clair'],
+  humeur_soir: ['humeur soir', 'mood soir'],
+  stress: ['stress'],
+  focus: ['focus', 'concentration'],
+  fatigue: ['fatigue', 'fatig'],
+  fierte: ['fierte', 'fiert\u00e9', 'fier'],
+  episodes: ['episodes', '\u00e9pisodes', 'colere', 'col\u00e8re'],
+  intensite: ['intensite', 'intensit\u00e9', 'intens'],
+  declencheur: ['declencheur', 'd\u00e9clencheur', 'trigger'],
+  duree: ['duree', 'dur\u00e9e'],
+  emotion: ['emotion', '\u00e9motion'],
+  score: ['score', 'global', 'score global'],
+  relations: ['relations', 'relation'],
+  ideesnoires: ['idees noires', 'id\u00e9es noires', 'noires'],
+  priorite1: ['priorite 1', 'priorit\u00e9 1', 'prio 1', 'p1'],
+  priorite2: ['priorite 2', 'priorit\u00e9 2', 'prio 2', 'p2'],
+  priorite3: ['priorite 3', 'priorit\u00e9 3', 'prio 3', 'p3'],
+  minimum: ['minimum', 'vital', 'minimum vital'],
+  situation: ['situation', 'situ'],
+  pensee: ['pensee', 'pens\u00e9e', 'pensee auto'],
+  alternative: ['alternative', 'alt'],
+  decision: ['decision', 'd\u00e9cision', 'meilleure'],
+  piege: ['piege', 'pi\u00e8ge', 'pire']
+};
+
+const checkMappings = {
+  pause90: ['pause 90', 'pause90', '90 sec'],
+  respiration: ['respiration', 'respi', '4-6', '4 6'],
+  sortir: ['sortir', 'marcher', 'sorti'],
+  ecrire: ['ecrire', '\u00e9crire', 'ecrit', '\u00e9crit']
+};
+
+function parseNoteContent(text) {
+  var lower = text.toLowerCase();
+  var values = {};
+  var checks = {};
+  for (var field in fieldMappings) {
+    var aliases = fieldMappings[field];
+    for (var i = 0; i < aliases.length; i++) {
+      var alias = aliases[i];
+      var patterns = [
+        new RegExp(alias + '\\s*[:=]\\s*([\\d]+|[^\\n,;]+?)(?=[\\n,;]|$)', 'i'),
+        new RegExp(alias + '\\s+(\\d+)(?:\\s|/|$)', 'i')
+      ];
+      for (var p = 0; p < patterns.length; p++) {
+        var match = lower.match(patterns[p]);
+        if (match && match[1]) { values[field] = match[1].trim(); break; }
+      }
+      if (values[field]) break;
+    }
+  }
+  for (var check in checkMappings) {
+    var cAliases = checkMappings[check];
+    for (var j = 0; j < cAliases.length; j++) {
+      if (lower.indexOf(cAliases[j]) !== -1) { checks[check] = true; break; }
+    }
+  }
+  return { values: values, checks: checks };
+}
+
+function updateTemplate(values, checks) {
+  document.querySelectorAll('[data-field]').forEach(function(el) {
+    var field = el.dataset.field;
+    var isInput = el.tagName === 'INPUT';
+    if (values[field]) {
+      if (isInput) {
+        el.value = values[field];
+        if (el.type === 'number') { applySemanticColor(el); }
+        else { var w = el.closest('.rating-field'); var t = w || el; t.classList.add('filled'); }
+      }
+    } else {
+      if (isInput) {
+        el.value = '';
+        var wrapper = el.closest('.rating-field');
+        var target = wrapper || el;
+        for (var i = 0; i <= 10; i++) target.classList.remove('val-' + i);
+        target.classList.remove('filled', 'val-bad', 'val-mid', 'val-good');
+      }
+    }
+  });
+  document.querySelectorAll('.tpl-check').forEach(function(el) {
+    el.checked = !!checks[el.dataset.field];
+  });
+}
+
+async function loadNote() {
+  setNoteStatus("loading...", "saving");
+  var j = await getJSON("/api/note?d=" + encodeURIComponent(day));
+  if (j && j.ok) {
+    fullContent = j.content || "";
+    var textOnly = filterMetrics(fullContent);
+    ta.value = textOnly;
+    lastTextOnly = textOnly;
+    dirty = false;
+    setNoteStatus("loaded", "saved");
+    var parsed = parseNoteContent(fullContent);
+    updateTemplate(parsed.values, parsed.checks);
+  } else {
+    setNoteStatus("error", "error");
+    showToast("Erreur chargement note.", "error", "Notes");
+  }
+}
+
+/* Build full content from inputs + textarea */
+function buildTextFromInputs() {
+  var lines = [];
+  document.querySelectorAll('.tpl-input').forEach(function(input) {
+    var field = input.dataset.field;
+    var val = input.value;
+    if (val && val.trim() !== '') {
+      var label = input.dataset.label || field;
+      if (!input.dataset.label) {
+        var item = input.closest('.tpl-item') || input.closest('.tpl-item-text');
+        if (item) { var labelEl = item.querySelector('.label'); if (labelEl) label = labelEl.textContent; }
+      }
+      lines.push(label + ': ' + val);
+    }
+  });
+  document.querySelectorAll('.tpl-check:checked').forEach(function(cb) {
+    var li = cb.closest('li');
+    if (li) lines.push(li.textContent.trim());
+  });
+  return lines.join(NL);
+}
+
+function buildFullContent() {
+  var metrics = buildTextFromInputs();
+  var newText = ta.value.trim();
+  if (metrics && newText) return metrics + NL + NL + newText;
+  if (metrics) return metrics;
+  return newText;
+}
+
+/* Autosave every 2 seconds */
+ta.addEventListener("input", function() {
+  dirty = true;
+  setNoteStatus("en cours...", "saving");
+});
+
+setInterval(async function() {
+  var currentText = ta.value || "";
+  if (!dirty && currentText === lastTextOnly) return;
+  var toSave = buildFullContent();
+  var j = await postJSON("/api/note", {day: day, content: toSave});
+  if (j && j.ok) {
+    fullContent = toSave;
+    lastTextOnly = currentText;
+    dirty = false;
+    setNoteStatus("saved " + new Date().toLocaleTimeString().slice(0,5), "saved");
+  } else {
+    setNoteStatus("error", "error");
+    showToast("Erreur sauvegarde note.", "error", "Notes");
+  }
+}, 2000);
+
+/* Save on page leave */
+function saveBeforeLeave() {
+  if (dirty || ta.value !== lastTextOnly) {
+    var toSave = buildFullContent();
+    var data = JSON.stringify({day: day, content: toSave});
+    navigator.sendBeacon("/api/note", new Blob([data], {type: "application/json"}));
+    dirty = false;
+    lastTextOnly = ta.value;
+    fullContent = toSave;
+  }
+}
+window.addEventListener("beforeunload", saveBeforeLeave);
+window.addEventListener("pagehide", saveBeforeLeave);
+
+/* Intercept nav links to save first */
+document.querySelectorAll(".dateNav").forEach(function(link) {
+  link.addEventListener("click", function() { saveBeforeLeave(); });
+});
+
+/* Sync template on textarea input */
+function syncTemplate() {
+  var text = fullContent || ta.value || '';
+  var p = parseNoteContent(text);
+  updateTemplate(p.values, p.checks);
+}
+ta.addEventListener('input', syncTemplate);
+
+/* ===== SEMANTIC COLORS ===== */
+const invertedFields = ['douleur','anxiete','irritabilite','stress','fatigue','episodes','intensite','ideesnoires'];
+
+function applySemanticColor(input) {
+  var field = input.dataset.field;
+  var val = parseFloat(input.value);
+  var max = parseFloat(input.max) || 10;
+  var wrapper = input.closest('.rating-field');
+  var target = wrapper || input;
+  for (var i = 0; i <= 10; i++) target.classList.remove('val-' + i);
+  target.classList.remove('val-bad', 'val-mid', 'val-good', 'filled');
+  if (isNaN(val) || input.value === '') return;
+  var isInverted = invertedFields.indexOf(field) !== -1;
+  var level = Math.round((val / max) * 10);
+  level = Math.max(0, Math.min(10, level));
+  if (isInverted) level = 10 - level;
+  target.classList.add('val-' + level);
+}
+
+/* ===== AUTO SCORE ===== */
+function calculateAutoScore() {
+  var getVal = function(field) {
+    var input = document.querySelector('[data-field="' + field + '"]');
+    if (!input || input.value === '') return null;
+    return parseFloat(input.value) || 0;
+  };
+  var positifs = [
+    {field:'qualite',poids:1.5},{field:'energie',poids:1},{field:'motivation',poids:1},
+    {field:'humeur',poids:1.5},{field:'clarte',poids:1},{field:'focus',poids:1},{field:'fierte',poids:0.8}
+  ];
+  var negatifs = [
+    {field:'douleur',poids:0.8},{field:'anxiete',poids:1.2},{field:'irritabilite',poids:1.2},
+    {field:'stress',poids:1.2},{field:'fatigue',poids:1},{field:'ideesnoires',poids:1.5}
+  ];
+  var somme = 0, poidsTotal = 0, champsRemplis = 0;
+  positifs.forEach(function(f) {
+    var val = getVal(f.field);
+    if (val !== null) { somme += val * f.poids; poidsTotal += f.poids * 10; champsRemplis++; }
+  });
+  negatifs.forEach(function(f) {
+    var val = getVal(f.field);
+    if (val !== null) { somme += (10 - val) * f.poids; poidsTotal += f.poids * 10; champsRemplis++; }
+  });
+  if (champsRemplis < 3) return;
+  var score = Math.round((somme / poidsTotal) * 100) / 10;
+  var scoreFinal = Math.max(0, Math.min(10, score));
+  var scoreInput = document.querySelector('[data-field="score"]');
+  if (scoreInput && scoreInput !== document.activeElement) {
+    scoreInput.value = scoreFinal.toFixed(1);
+    applySemanticColor(scoreInput);
+  }
+}
+
+/* Sync inputs to note content */
+function syncInputToTextarea() {
+  dirty = true;
+  setNoteStatus("en cours...", "saving");
+}
+
+/* ===== INPUT LISTENERS ===== */
+function initInputListeners() {
+  document.querySelectorAll('.tpl-input').forEach(function(input) {
+    input.addEventListener('change', syncInputToTextarea);
+    input.addEventListener('input', function() {
+      if (input.type === 'number') {
+        applySemanticColor(input);
+        if (input.dataset.field !== 'score') calculateAutoScore();
+      } else {
+        var w = input.closest('.rating-field');
+        var t = w || input;
+        if (input.value) t.classList.add('filled'); else t.classList.remove('filled');
+      }
+    });
+    if (input.type === 'number' && input.value) applySemanticColor(input);
+  });
+  setTimeout(calculateAutoScore, 600);
+  document.querySelectorAll('.tpl-check').forEach(function(cb) {
+    var updateCheckedClass = function() {
+      var li = cb.closest('li');
+      if (li) li.classList.toggle('checked', cb.checked);
+    };
+    cb.addEventListener('change', function() { updateCheckedClass(); syncInputToTextarea(); });
+    updateCheckedClass();
+  });
+}
+
+/* ===== RATING STEPPERS ===== */
+function initRatingSteppers() {
+  document.querySelectorAll('.rating-field').forEach(function(field) {
+    var input = field.querySelector('input[type="number"]');
+    if (!input) return;
+    var tplItem = field.closest('.tpl-item');
+    if (tplItem) {
+      var labelEl = tplItem.querySelector('.label');
+      if (labelEl) input.dataset.label = labelEl.textContent;
+    }
+    var wrap = document.createElement('div');
+    wrap.className = 'rating-wrap';
+    field.parentNode.insertBefore(wrap, field);
+
+    var btnMinus = document.createElement('button');
+    btnMinus.type = 'button';
+    btnMinus.className = 'rating-btn minus';
+    btnMinus.textContent = '\u2212';
+    btnMinus.setAttribute('aria-label', 'Diminuer');
+    btnMinus.addEventListener('click', function() {
+      var min = parseFloat(input.min) || 0;
+      var val = parseFloat(input.value) || 0;
+      if (val > min) {
+        input.value = val - 1;
+        applySemanticColor(input);
+        syncInputToTextarea();
+        if (input.dataset.field !== 'score') calculateAutoScore();
+      }
+    });
+
+    var btnPlus = document.createElement('button');
+    btnPlus.type = 'button';
+    btnPlus.className = 'rating-btn plus';
+    btnPlus.textContent = '+';
+    btnPlus.setAttribute('aria-label', 'Augmenter');
+    btnPlus.addEventListener('click', function() {
+      var max = parseFloat(input.max) || 10;
+      var val = parseFloat(input.value) || 0;
+      if (val < max) {
+        input.value = val + 1;
+        applySemanticColor(input);
+        syncInputToTextarea();
+        if (input.dataset.field !== 'score') calculateAutoScore();
+      }
+    });
+
+    wrap.appendChild(btnMinus);
+    wrap.appendChild(field);
+    wrap.appendChild(btnPlus);
+  });
+}
+
+/* ===== RIPPLE EFFECT ===== */
+function initRippleEffects() {
+  document.querySelectorAll(".btn").forEach(function(btn) {
+    btn.addEventListener("click", function(event) {
+      if (btn.disabled) return;
+      var circle = document.createElement("span");
+      var diameter = Math.max(btn.clientWidth, btn.clientHeight);
+      var radius = diameter / 2;
+      var rect = btn.getBoundingClientRect();
+      circle.style.width = circle.style.height = diameter + "px";
+      circle.style.left = (event.clientX - rect.left - radius) + "px";
+      circle.style.top = (event.clientY - rect.top - radius) + "px";
+      circle.classList.add("ripple");
+      var existing = btn.querySelector(".ripple");
+      if (existing) existing.remove();
+      btn.appendChild(circle);
+      setTimeout(function(){ if (circle.parentNode) circle.remove(); }, 500);
+    });
+  });
+}
+
+/* ===== SPELL CHECK ===== */
+function fixKeyboardBugs(text) {
+  var fixed = text;
+  fixed = fixed.replace(/\b(\w*)\u00f6(\w*)\b/g, function(match, before, after) {
+    var withE = before + 'e' + after;
+    if (/[aeiou]/.test(before) || /[aeiou]/.test(after)) return withE;
+    return match;
+  });
+  fixed = fixed.replace(/\b(\w*)\u00fc(\w*)\b/g, function(match, before, after) {
+    var withE = before + 'e' + after;
+    if (/[aeiou]/.test(before) || /[aeiou]/.test(after) || before.length > 0 || after.length > 0) return withE;
+    return match;
+  });
+  fixed = fixed.replace(/(.)\1{2,}/g, '$1$1');
+  fixed = fixed.replace(/  +/g, ' ');
+  return fixed;
+}
+
+async function correctSpelling() {
+  var btn = document.querySelector(".spell-btn");
+  var text = ta.value.trim();
+  if (!text) { showToast("Rien a corriger", "warn", "Ortho"); return; }
+  btn.disabled = true;
+  btn.innerHTML = '<svg style="animation:spin 1s linear infinite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span>...</span>';
+  var preFixed = fixKeyboardBugs(text);
+  var keyboardFixes = preFixed !== text ? 1 : 0;
+  text = preFixed;
+  try {
+    var resp = await fetch("https://api.languagetool.org/v2/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "text=" + encodeURIComponent(text) + "&language=fr"
+    });
+    var data = await resp.json();
+    if (data.matches && data.matches.length > 0) {
+      var corrected = text;
+      var normalize = function(s) { return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); };
+      var sortedMatches = data.matches.filter(function(m){ return m.replacements && m.replacements.length > 0; }).sort(function(a,b){ return b.offset - a.offset; });
+      var appliedCount = 0;
+      sortedMatches.forEach(function(m) {
+        var start = m.offset;
+        var end = start + m.length;
+        var original = corrected.slice(start, end);
+        var replacement = m.replacements[0].value;
+        var origNorm = normalize(original);
+        var replNorm = normalize(replacement);
+        // Accept accent-only fixes and minor typos
+        if (start >= 0 && end <= corrected.length) {
+          if (origNorm === replNorm || (original.length >= 3 && Math.abs(original.length - replacement.length) <= 2)) {
+            corrected = corrected.slice(0, start) + replacement + corrected.slice(end);
+            appliedCount++;
+          }
+        }
+      });
+      ta.value = corrected;
+      dirty = true;
+      var msg = appliedCount + " correction(s)";
+      if (keyboardFixes) msg = "Clavier + " + msg;
+      showToast(msg, "success", "Ortho");
+    } else {
+      if (keyboardFixes) { ta.value = text; dirty = true; showToast("Clavier corrige", "success", "Ortho"); }
+      else { showToast("Aucune faute trouvee", "success", "Ortho"); }
+    }
+  } catch (e) {
+    console.error("[SPELL]", e);
+    showToast("Erreur API", "error", "Ortho");
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg><span>Corriger</span>';
+}
+
+/* ===== EXPORT ===== */
+function toggleExportMenu() {
+  document.getElementById("exportWrap").classList.toggle("open");
+}
+document.addEventListener("click", function(e) {
+  var wrap = document.getElementById("exportWrap");
+  if (wrap && !wrap.contains(e.target)) wrap.classList.remove("open");
+});
+
+function exportDayData() {
+  var rawNotes = ta.value || "";
+  var notes = filterMetrics(rawNotes).trim();
+  var f = {};
+  document.querySelectorAll("[data-field]").forEach(function(el) {
+    var key = el.getAttribute("data-field");
+    if (el.type === "checkbox") { if (el.checked) f[key] = true; }
+    else if (el.value && el.value.trim() && el.value.trim() !== "-") f[key] = el.value.trim();
+  });
+  var scoreRow = function(label, val, max) {
+    max = max || 10;
+    if (!val) return "";
+    var n = Math.round(parseFloat(val));
+    var pct = Math.min(100, (n / max) * 100);
+    var color = n <= 3 ? "#e74c3c" : n <= 6 ? "#f39c12" : "#27ae60";
+    return "<tr><td>" + label + "</td><td><strong>" + val + "/" + max + "</strong></td><td style='width:100px'><div style='background:#eee;border-radius:4px;height:12px'><div style='background:" + color + ";width:" + pct + "%;height:100%;border-radius:4px'></div></div></td></tr>";
+  };
+  var info = formatDateDisplay(day);
+  var html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Journal " + day + "</title>";
+  html += "<style>body{font-family:Arial,sans-serif;max-width:700px;margin:40px auto;padding:20px;color:#333;line-height:1.6}";
+  html += "h1{color:#2c3e50;border-bottom:3px solid #3498db;padding-bottom:10px}";
+  html += "h2{color:#34495e;font-size:1.1em;margin:25px 0 10px;padding:8px 12px;background:#ecf0f1;border-left:4px solid #3498db;border-radius:0 4px 4px 0}";
+  html += "table{width:100%;border-collapse:collapse;margin:10px 0}td{padding:6px 10px;border-bottom:1px solid #eee}td:first-child{color:#7f8c8d;width:120px}";
+  html += ".notes{background:#fffbeb;border:1px solid #f1c40f;border-radius:6px;padding:15px;margin:15px 0;white-space:pre-wrap}";
+  html += ".footer{margin-top:30px;padding-top:15px;border-top:1px solid #ddd;color:#95a5a6;font-size:0.85em;text-align:center}";
+  html += "</style></head><body>";
+  html += "<h1>Journal - " + info.dayName + " " + day + "</h1>";
+  if (notes) { html += "<h2>Notes</h2><div class='notes'>" + notes.replace(/\n/g, "<br>") + "</div>"; }
+  if (f.qualite || f.energie || f.motivation || f.douleur) {
+    html += "<h2>Check-in Matin</h2><table>" + scoreRow("Sommeil",f.qualite) + scoreRow("Energie",f.energie) + scoreRow("Motivation",f.motivation) + scoreRow("Douleur",f.douleur) + "</table>";
+  }
+  if (f.humeur || f.anxiete || f.irritabilite || f.clarte) {
+    html += "<h2>Etat Mental</h2><table>" + scoreRow("Humeur",f.humeur) + scoreRow("Anxiete",f.anxiete) + scoreRow("Irritabilite",f.irritabilite) + scoreRow("Clarte",f.clarte) + "</table>";
+  }
+  if (f.humeur_soir || f.stress || f.focus || f.fatigue || f.fierte) {
+    html += "<h2>Journal Soir</h2><table>" + scoreRow("Humeur",f.humeur_soir) + scoreRow("Stress",f.stress) + scoreRow("Focus",f.focus) + scoreRow("Fatigue",f.fatigue) + scoreRow("Fierte",f.fierte) + "</table>";
+  }
+  if (f.intensite || f.declencheur) {
+    html += "<h2>Colere</h2><table>" + scoreRow("Intensite",f.intensite);
+    if (f.declencheur) html += "<tr><td>Declencheur</td><td colspan='2'>" + f.declencheur + "</td></tr>";
+    html += "</table>";
+  }
+  if (f.emotion || f.pensee || f.alternative) {
+    html += "<h2>CBT Rapide</h2><table>" + scoreRow("Emotion",f.emotion);
+    if (f.pensee) html += "<tr><td>Pensee</td><td colspan='2'>" + f.pensee + "</td></tr>";
+    if (f.alternative) html += "<tr><td>Alternative</td><td colspan='2'>" + f.alternative + "</td></tr>";
+    html += "</table>";
+  }
+  if (f.ideesnoires) { html += "<h2>Garde-fou</h2><table>" + scoreRow("Idees noires",f.ideesnoires) + "</table>"; }
+  if (f.score || f.relations) { html += "<h2>Bilan</h2><table>" + scoreRow("Score global",f.score) + scoreRow("Relations",f.relations,6) + "</table>"; }
+  html += "<div class='footer'>Exporte le " + new Date().toLocaleString("fr-FR") + "</div></body></html>";
+  var blob = new Blob([html], {type:"text/html;charset=utf-8"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = "journal_" + day + ".html";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast("Exporte: journal_" + day + ".html", "success", "Export");
+}
+
+async function exportAllData() {
+  showToast("Chargement...", "warn", "Export");
+  try {
+    var resp = await fetch("/api/notes/all");
+    var data = await resp.json();
+    if (!data.ok || !data.notes || data.notes.length === 0) { showToast("Aucune donnee", "error", "Export"); return; }
+    var html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Journal Complet</title>";
+    html += "<style>body{font-family:Arial,sans-serif;max-width:700px;margin:40px auto;padding:20px;color:#333;line-height:1.6}";
+    html += "h1{color:#2c3e50;border-bottom:3px solid #3498db;padding-bottom:10px;text-align:center}";
+    html += ".day-section{margin-bottom:40px;padding:20px;background:#f8f9fa;border-radius:8px;border-left:4px solid #3498db;page-break-inside:avoid}";
+    html += ".day-title{color:#2c3e50;font-size:1.2em;margin:0 0 15px;padding-bottom:10px;border-bottom:1px solid #ddd}";
+    html += ".notes{background:#fffbeb;border:1px solid #f1c40f;border-radius:6px;padding:12px;margin:10px 0;white-space:pre-wrap}";
+    html += ".footer{margin-top:40px;padding-top:15px;border-top:2px solid #ddd;color:#95a5a6;font-size:0.85em;text-align:center}";
+    html += "</style></head><body><h1>Journal Complet</h1>";
+    for (var i = 0; i < data.notes.length; i++) {
+      var note = data.notes[i];
+      var info = formatDateDisplay(note.day);
+      html += "<div class='day-section'><h2 class='day-title'>" + info.dayName + " " + info.dateDisplay + "</h2>";
+      html += "<div class='notes'>" + (note.content || "").replace(/\n/g, "<br>") + "</div></div>";
+    }
+    html += "<div class='footer'>Exporte le " + new Date().toLocaleString("fr-FR") + " - " + data.notes.length + " jours</div></body></html>";
+    var blob = new Blob([html], {type:"text/html;charset=utf-8"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "journal_complet_" + todayStr() + ".html";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("Exporte: " + data.notes.length + " jours", "success", "Export");
+  } catch(err) {
+    showToast("Erreur: " + err.message, "error", "Export");
+  }
+}
+
+/* ===== INIT ===== */
+initRippleEffects();
+initRatingSteppers();
+initInputListeners();
+loadNote();
+loadDayStats();
+</script>
+</body></html>

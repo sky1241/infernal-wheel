@@ -13,6 +13,7 @@ import 'data_store.dart';
 class LocalServer {
   HttpServer? _server;
   String? _cachedHtml;
+  String? _cachedNotesHtml;
   int _port = 0;
 
   final _engine = TimerEngine();
@@ -45,10 +46,13 @@ class LocalServer {
     // Charger le HTML
     _cachedHtml ??= await rootBundle.loadString('assets/web/index.html');
 
+    // Charger la page notes
+    _cachedNotesHtml ??= await rootBundle.loadString('assets/web/notes.html');
+
     final router = Router()
       ..get('/', _handleIndex)
-      ..get('/notes', _handleIndex)
-      ..get('/notes/', _handleIndex)
+      ..get('/notes', _handleNotes)
+      ..get('/notes/', _handleNotes)
       // GET endpoints
       ..get('/api/state', _handleApiState)
       ..get('/api/settings', _handleApiSettings)
@@ -142,6 +146,10 @@ class LocalServer {
 
   Response _handleIndex(Request request) {
     return Response.ok(_cachedHtml!, headers: {'Content-Type': 'text/html; charset=utf-8'});
+  }
+
+  Response _handleNotes(Request request) {
+    return Response.ok(_cachedNotesHtml!, headers: {'Content-Type': 'text/html; charset=utf-8'});
   }
 
   Response _jsonOk(Object data) {
