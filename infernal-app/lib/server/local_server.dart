@@ -47,6 +47,8 @@ class LocalServer {
 
     final router = Router()
       ..get('/', _handleIndex)
+      ..get('/notes', _handleIndex)
+      ..get('/notes/', _handleIndex)
       // GET endpoints
       ..get('/api/state', _handleApiState)
       ..get('/api/settings', _handleApiSettings)
