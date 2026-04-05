@@ -104,6 +104,12 @@ class MainActivity : ComponentActivity() {
                 isMonitoring = isMonitoring,
                 lastDetection = lastDetection,
                 onLogCigarette = {
+                    // Auto-start detection on first log
+                    if (!isMonitoring && hasPermissions()) {
+                        DetectionService.start(this@MainActivity)
+                        isMonitoring = true
+                        Log.d(TAG, "Auto-started monitoring on first cigarette log")
+                    }
                     database.insertDetection(
                         confidence = 1.0f,
                         gpsCluster = -1,
@@ -116,10 +122,16 @@ class MainActivity : ComponentActivity() {
                     todayCount = database.getCountLastNDays(1)
                     totalCount = database.getTotalCount()
                     avgPerDay = database.getAvgCigarettesPerDay()
-                    lastDetection = "Cigarette loguée"
-                    Log.d(TAG, "Manual cigarette logged. Today: $todayCount, Total: $totalCount")
+                    lastDetection = "🚬 +1"
+                    Log.d(TAG, "Manual cigarette logged. Today: $todayCount")
                 },
-                onLogDrink = {
+                onLogDrink = { drinkType ->
+                    // Auto-start detection on first log
+                    if (!isMonitoring && hasPermissions()) {
+                        DetectionService.start(this@MainActivity)
+                        isMonitoring = true
+                        Log.d(TAG, "Auto-started monitoring on first drink log")
+                    }
                     database.insertDrinkDetection(
                         confidence = 1.0f,
                         gpsCluster = -1,
@@ -127,11 +139,12 @@ class MainActivity : ComponentActivity() {
                         hrCurrent = 0f,
                         features = FloatArray(30),
                         wristLocation = if (isLeftWrist) "left" else "right",
-                        smokingHand = smokingHand
+                        smokingHand = drinkType
                     )
                     todayDrinkCount = database.getDrinkCountLastNDays(1)
-                    lastDetection = "Verre logué"
-                    Log.d(TAG, "Manual drink logged. Today: $todayDrinkCount")
+                    val emoji = when(drinkType) { "beer" -> "🍺"; "wine" -> "🍷"; "strong" -> "🥃"; else -> "🍺" }
+                    lastDetection = "$emoji +1"
+                    Log.d(TAG, "Manual $drinkType logged. Today: $todayDrinkCount")
                 },
                 onToggleMonitor = {
                     if (!hasPermissions()) {

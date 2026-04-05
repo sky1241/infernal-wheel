@@ -2,33 +2,44 @@ package com.infernal.smokingdetector.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.*
 
 /**
- * Main Screen - Simplified UX per WEARABLE.md rules:
+ * Main Screen — UX Bible WEARABLE.md rules:
  *
- * Layout (ScalingLazyColumn for round screen):
- * 1. Counter display (big number, primary focus)
- * 2. Status indicator (monitoring on/off)
- * 3. Primary CTA: "+1 Cigarette" (manual log)
- * 4. Secondary: Start/Stop Monitor toggle
- * 5. Tertiary: Open on Phone + Settings
+ * - OLED black bg, 85%+ black surface (WO-V13, section E)
+ * - 48dp touch targets minimum (section B)
+ * - ScalingLazyColumn for round screens (section 8c)
+ * - Horologist 26.5dp responsive padding (section 8)
+ * - Max 5-7 elements visible without scroll (section AW)
+ * - 1 primary CTA per screen (section B)
+ * - 30-40% negative space (section A)
+ * - displayLarge for glanceable counter (section 9)
  *
- * Rules applied:
- * - 1 CTA primary per screen (WEARABLE B, MOBILE CS)
- * - Touch targets 48dp minimum (WEARABLE B)
- * - Max 5-7 elements visible without scroll (WEARABLE AW)
- * - ScalingLazyColumn not LazyColumn (WEARABLE 8c)
- * - Horologist responsive padding for round screen
- * - OLED black background (WEARABLE E)
+ * Layout:
+ * 1. Status dot (monitoring)
+ * 2. Double counter: 🚬 X | 🍺 Y
+ * 3. +1 Clope (primary red)
+ * 4. +1 Biere / +1 Vin / +1 Fort (row of 3, amber)
+ * 5. Reglages (text link)
+ *
+ * Detection auto-starts on first manual log.
  */
+
+// Drink type colors
+private val BeerColor = Color(0xFFFFC107)   // Amber
+private val WineColor = Color(0xFFCE4257)   // Wine red
+private val StrongColor = Color(0xFF8B5CF6) // Purple
 
 @Composable
 fun MainScreen(
@@ -39,7 +50,7 @@ fun MainScreen(
     isMonitoring: Boolean,
     lastDetection: String?,
     onLogCigarette: () -> Unit,
-    onLogDrink: () -> Unit = {},
+    onLogDrink: (String) -> Unit = {},  // type: "beer", "wine", "strong"
     onToggleMonitor: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -57,39 +68,70 @@ fun MainScreen(
             top = 40.dp,
             bottom = 40.dp
         ),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // -- Counter: today's counts (clopes + verres) --
+        // -- Status dot: monitoring active/off --
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(
+                            if (isMonitoring) StatusSuccess else TextDisabled,
+                            shape = CircleShape
+                        )
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (isMonitoring) "Auto" else "Manuel",
+                    style = InfernalTypography.bodySmall,
+                    color = if (isMonitoring) StatusSuccess else TextSecondary,
+                )
+            }
+        }
+
+        // -- Double counter: 🚬 X   🍺 Y --
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Cigarette counter
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "🚬 $todayCount",
+                        text = "🚬",
+                        fontSize = 20.sp,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = "$todayCount",
                         style = InfernalTypography.displayLarge,
                         color = InfernalRed,
                         textAlign = TextAlign.Center,
                     )
                 }
+                // Drink counter
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "🍺 $todayDrinkCount",
+                        text = "🍺",
+                        fontSize = 20.sp,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = "$todayDrinkCount",
                         style = InfernalTypography.displayLarge,
-                        color = StatusWarning,
+                        color = BeerColor,
                         textAlign = TextAlign.Center,
                     )
                 }
             }
-        }
-        item {
-            Text(
-                text = "aujourd'hui",
-                style = InfernalTypography.bodySmall,
-                color = TextSecondary,
-                textAlign = TextAlign.Center,
-            )
         }
 
         // -- Stats row: total + avg --
@@ -117,7 +159,7 @@ fun MainScreen(
                         color = TextPrimary,
                     )
                     Text(
-                        text = "moy/jour",
+                        text = "moy/j",
                         style = InfernalTypography.bodySmall,
                         color = TextSecondary,
                     )
@@ -125,46 +167,20 @@ fun MainScreen(
             }
         }
 
-        // -- Monitoring status indicator --
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(
-                            if (isMonitoring) StatusSuccess else TextDisabled,
-                            shape = androidx.compose.foundation.shape.CircleShape
-                        )
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (isMonitoring) "Detection active" else "Detection off",
-                    style = InfernalTypography.bodySmall,
-                    color = if (isMonitoring) StatusSuccess else TextSecondary,
-                )
-            }
-        }
-
-        // -- Last detection info (if any) --
+        // -- Last detection feedback --
         if (lastDetection != null) {
             item {
                 Text(
                     text = lastDetection,
                     style = InfernalTypography.bodySmall,
-                    color = StatusWarning,
+                    color = StatusSuccess,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         }
 
-        // -- PRIMARY CTA: Log cigarette (1 seul bouton primary par ecran) --
+        // -- PRIMARY CTA: +1 Clope --
         item {
             Button(
                 onClick = onLogCigarette,
@@ -173,53 +189,75 @@ fun MainScreen(
                     .height(48.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = InfernalRed,
-                    contentColor = androidx.compose.ui.graphics.Color.White,
+                    contentColor = Color.White,
                 ),
             ) {
                 Text(
-                    text = "+1 Cigarette",
+                    text = "+1 Clope",
                     style = InfernalTypography.labelLarge,
-                    color = androidx.compose.ui.graphics.Color.White,
+                    color = Color.White,
                 )
             }
         }
 
-        // -- SECONDARY: Toggle monitoring (outlined = secondary hierarchy) --
+        // -- DRINK ROW: 3 buttons side by side (Biere / Vin / Fort) --
         item {
-            OutlinedButton(
-                onClick = onToggleMonitor,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text(
-                    text = if (isMonitoring) "Stop Detection" else "Demarrer Detection",
-                    style = InfernalTypography.labelLarge,
-                )
+                // Biere
+                Button(
+                    onClick = { onLogDrink("beer") },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = BeerColor,
+                        contentColor = Color.Black,
+                    ),
+                ) {
+                    Text(
+                        text = "🍺",
+                        fontSize = 18.sp,
+                    )
+                }
+                // Vin
+                Button(
+                    onClick = { onLogDrink("wine") },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = WineColor,
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    Text(
+                        text = "🍷",
+                        fontSize = 18.sp,
+                    )
+                }
+                // Fort
+                Button(
+                    onClick = { onLogDrink("strong") },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = StrongColor,
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    Text(
+                        text = "🥃",
+                        fontSize = 18.sp,
+                    )
+                }
             }
         }
 
-        // -- SECONDARY: Log drink --
-        item {
-            Button(
-                onClick = onLogDrink,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = StatusWarning,
-                    contentColor = androidx.compose.ui.graphics.Color.Black,
-                ),
-            ) {
-                Text(
-                    text = "+1 Verre",
-                    style = InfernalTypography.labelLarge,
-                    color = androidx.compose.ui.graphics.Color.Black,
-                )
-            }
-        }
-
-        // -- TERTIARY: Settings --
+        // -- Reglages (text link, tertiary) --
         item {
             TextButton(
                 onClick = onOpenSettings,
