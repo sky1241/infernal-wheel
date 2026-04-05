@@ -88,9 +88,9 @@ fun MainScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
+                    .clip(RoundedCornerShape(20.dp))
                     .background(SurfaceElevated)
-                    .padding(vertical = 16.dp, horizontal = 12.dp),
+                    .padding(vertical = 14.dp, horizontal = 12.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {

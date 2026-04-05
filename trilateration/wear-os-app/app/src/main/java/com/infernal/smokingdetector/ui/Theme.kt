@@ -10,54 +10,54 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
- * Design System — WEARABLE.md bible rules:
+ * Design System — Harmonized palette (web + phone + watch)
  *
- * Colors (section 29):
- * - OLED black #000000 background (pixels off = 0 power)
- * - Desaturated vs mobile (small screen = perceived brighter)
- * - Max 4-5 colors total (section 29b)
- * - Contrast 4.5:1 text, 3:1 UI minimum
- * - 60-30-10 rule: 60% black, 30% neutral, 10% accent
+ * Source of truth: web dashboard CSS variables (index.html :root)
+ * Watch adaptation: OLED black bg, desaturated accents per WEARABLE.md section 29
  *
- * Typography (section 14):
- * - Min 12sp body text
- * - Max 2-3 lines per block
- * - Display for glanceable counters
- *
- * Layout (section B, 8):
- * - 48dp touch targets minimum
- * - Horologist 26.5dp padding
- * - Card min 52dp height, 24dp radius
+ * Palette unifiee:
+ * - Background: #000000 (OLED) / #0E1319 (web/phone)
+ * - Surface:    #121820 / #141C25
+ * - Border:     #24303C
+ * - Text:       #E7EDF3 / #A7B3BF
+ * - Accent:     #35D99A (brand green)
+ * - Danger:     #FF7A7A / Warning: #F7BF54 / Blue: #6BBCFF
+ * - Cigarette:  #E57373 (coral)
+ * - Alcohol:    #FFB74D / #CE93D8 / #9575CD
  */
 
-// Brand — green accent (matches phone app #35D99A, desaturated for OLED)
-val AccentGreen = Color(0xFF35D99A)            // Primary brand (phone match)
-val AccentGreenDim = Color(0xFF2AAF7E)         // Dimmed variant
-val AccentGreenContainer = Color(0xFF1A3D2E)   // Container bg
+// Brand — green accent (unified across all platforms)
+val AccentGreen = Color(0xFF35D99A)
+val AccentGreenDim = Color(0xFF2AAF7E)
+val AccentGreenContainer = Color(0xFF0E2E1F)  // Darker, closer to bg
 
-// Semantic — cigarette (warm coral, not pure red for OLED)
-val CigaretteColor = Color(0xFFE57373)         // Desaturated coral
-val CigaretteContainer = Color(0xFF3D1A1A)     // Dark container
+// Semantic — cigarette
+val CigaretteColor = Color(0xFFE57373)
+val CigaretteContainer = Color(0xFF2A1215)    // Subtle dark container
 
-// Semantic — alcohol types (one hue family, desaturated)
-val AlcoholAmber = Color(0xFFFFB74D)           // Beer — warm amber
-val AlcoholWine = Color(0xFFCE93D8)            // Wine — soft purple-pink
-val AlcoholStrong = Color(0xFF9575CD)          // Strong — medium purple
+// Semantic — alcohol (harmonized family)
+val AlcoholAmber = Color(0xFFFFB74D)           // Beer
+val AlcoholWine = Color(0xFFCE93D8)            // Wine
+val AlcoholStrong = Color(0xFF9575CD)          // Strong
 
-// Status (universal, desaturated for OLED)
-val StatusSuccess = Color(0xFF66BB6A)          // Green
-val StatusWarning = Color(0xFFFFB74D)          // Amber
-val StatusError = Color(0xFFEF5350)            // Red
+// Status (unified with web/phone)
+val StatusSuccess = Color(0xFF35D99A)          // Same as accent
+val StatusWarning = Color(0xFFF7BF54)          // Unified --warn
+val StatusError = Color(0xFFFF7A7A)            // Unified --danger
 
-// Neutral scale (90% of the UI — section 29: 60% black, 30% neutral)
-val SurfaceBlack = Color(0xFF000000)           // OLED background
-val SurfaceDark = Color(0xFF121212)            // Elevation 0
-val SurfaceElevated = Color(0xFF1E1E1E)        // Elevation 1 — cards
-val SurfaceMedium = Color(0xFF272727)          // Elevation 4 — interactive
-val BorderDark = Color(0xFF333333)             // Borders
-val TextPrimary = Color(0xFFE0E0E0)            // Body text (#E0E0E0 per bible)
-val TextSecondary = Color(0xFF9E9E9E)          // Labels (#9E9E9E per bible)
-val TextDisabled = Color(0xFF616161)           // Disabled
+// Blue accent (secondary, from web)
+val AccentBlue = Color(0xFF6BBCFF)             // Unified --blue
+
+// Neutral scale — OLED optimized (watch uses true black)
+// Web/phone use #0E1319 but watch MUST use #000000 for OLED (section E)
+val SurfaceBlack = Color(0xFF000000)           // OLED bg
+val SurfaceDark = Color(0xFF0E1319)            // Matches web --bg
+val SurfaceElevated = Color(0xFF121820)        // Matches web --panel
+val SurfaceMedium = Color(0xFF141C25)          // Matches web --panel-2
+val BorderDark = Color(0xFF24303C)             // Matches web --border
+val TextPrimary = Color(0xFFE7EDF3)            // Matches web --text
+val TextSecondary = Color(0xFFA7B3BF)          // Matches web --muted
+val TextDisabled = Color(0xFF6B7280)           // Matches phone muted
 
 val InfernalColorScheme = ColorScheme(
     primary = AccentGreen,
@@ -78,35 +78,30 @@ val InfernalColorScheme = ColorScheme(
 )
 
 val InfernalTypography = Typography(
-    // Title: screen header (18sp, medium — section 14)
     titleLarge = TextStyle(
         fontSize = 18.sp,
         fontWeight = FontWeight.Medium,
         lineHeight = 22.sp,
         color = TextPrimary
     ),
-    // Body: main content (15sp — section 14: min 12sp)
     bodyLarge = TextStyle(
         fontSize = 15.sp,
         fontWeight = FontWeight.Normal,
         lineHeight = 20.sp,
         color = TextPrimary
     ),
-    // Label: buttons, chips (13sp, medium)
     labelLarge = TextStyle(
         fontSize = 13.sp,
         fontWeight = FontWeight.Medium,
         lineHeight = 16.sp,
         color = TextPrimary
     ),
-    // Caption: secondary info (12sp — minimum per bible)
     bodySmall = TextStyle(
         fontSize = 12.sp,
         fontWeight = FontWeight.Normal,
         lineHeight = 16.sp,
         color = TextSecondary
     ),
-    // Display: large counter numbers (glanceable — section 9)
     displayLarge = TextStyle(
         fontSize = 44.sp,
         fontWeight = FontWeight.Bold,
