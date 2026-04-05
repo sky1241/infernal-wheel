@@ -180,79 +180,70 @@ fun MainScreen(
             }
         }
 
-        // -- PRIMARY CTA: +1 Clope --
+        // -- ALL 4 LOG BUTTONS: 2x2 grid --
         item {
-            Button(
-                onClick = onLogCigarette,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = InfernalRed,
-                    contentColor = Color.White,
-                ),
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text(
-                    text = "+1 Clope",
-                    style = InfernalTypography.labelLarge,
-                    color = Color.White,
-                )
-            }
-        }
-
-        // -- DRINK ROW: 3 buttons side by side (Biere / Vin / Fort) --
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                // Biere
-                Button(
-                    onClick = { onLogDrink("beer") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = BeerColor,
-                        contentColor = Color.Black,
-                    ),
+                // Row 1: Clope + Biere
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Text(
-                        text = "🍺",
-                        fontSize = 18.sp,
-                    )
+                    Button(
+                        onClick = onLogCigarette,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = InfernalRed,
+                            contentColor = Color.White,
+                        ),
+                    ) {
+                        Text(text = "🚬", fontSize = 22.sp)
+                    }
+                    Button(
+                        onClick = { onLogDrink("beer") },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = BeerColor,
+                            contentColor = Color.Black,
+                        ),
+                    ) {
+                        Text(text = "🍺", fontSize = 22.sp)
+                    }
                 }
-                // Vin
-                Button(
-                    onClick = { onLogDrink("wine") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = WineColor,
-                        contentColor = Color.White,
-                    ),
+                // Row 2: Vin + Fort
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Text(
-                        text = "🍷",
-                        fontSize = 18.sp,
-                    )
-                }
-                // Fort
-                Button(
-                    onClick = { onLogDrink("strong") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = StrongColor,
-                        contentColor = Color.White,
-                    ),
-                ) {
-                    Text(
-                        text = "🥃",
-                        fontSize = 18.sp,
-                    )
+                    Button(
+                        onClick = { onLogDrink("wine") },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = WineColor,
+                            contentColor = Color.White,
+                        ),
+                    ) {
+                        Text(text = "🍷", fontSize = 22.sp)
+                    }
+                    Button(
+                        onClick = { onLogDrink("strong") },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = StrongColor,
+                            contentColor = Color.White,
+                        ),
+                    ) {
+                        Text(text = "🥃", fontSize = 22.sp)
+                    }
                 }
             }
         }
