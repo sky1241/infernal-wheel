@@ -79,9 +79,6 @@ dependencies {
     // Sensors & Health Services
     implementation("androidx.health:health-services-client:1.0.0-beta03")
 
-    // Wear Remote Interactions (open URLs on phone via Bluetooth)
-    implementation("androidx.wear:wear-remote-interactions:1.0.0")
-
     // Wear Data Layer API (watch ↔ phone sync)
     implementation("com.google.android.gms:play-services-wearable:18.1.0")
 

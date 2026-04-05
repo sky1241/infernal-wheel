@@ -35,6 +35,7 @@ class WearSyncManager(private val context: Context) {
 
         // Data Layer paths
         private const val PATH_DETECTION = "/smoke_detections"
+        private const val PATH_DRINK_DETECTION = "/drink_detections"
         private const val PATH_DAILY_SUMMARY = "/daily_summary"
 
         // DataMap keys for detection items
@@ -52,6 +53,7 @@ class WearSyncManager(private val context: Context) {
         private const val KEY_CIGARETTE_COUNT = "cigarette_count"
         private const val KEY_TOTAL_DETECTIONS = "total_detections"
         private const val KEY_LAST_DETECTION_TIME = "last_detection_time"
+        private const val KEY_DRINK_COUNT = "drink_count"
     }
 
     private val dataClient = Wearable.getDataClient(context)
@@ -85,6 +87,30 @@ class WearSyncManager(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to sync detection: timestamp=${detection.timestamp}", e)
             // Detection stays 'pending' in DB — batch sync will retry
+        }
+    }
+
+    /**
+     * Sync a single drink detection to the phone immediately.
+     */
+    suspend fun syncDrinkDetection(detection: DatabaseManager.Detection) {
+        try {
+            val path = "$PATH_DRINK_DETECTION/${detection.timestamp}"
+            val request = PutDataMapRequest.create(path).apply {
+                dataMap.putLong(KEY_TIMESTAMP, detection.timestamp)
+                dataMap.putFloat(KEY_CONFIDENCE, detection.confidence)
+                dataMap.putInt(KEY_GPS_CLUSTER, detection.gpsCluster)
+                dataMap.putFloat(KEY_HR_BASELINE, detection.hrBaseline)
+                dataMap.putFloat(KEY_HR_CURRENT, detection.hrCurrent)
+                dataMap.putFloat(KEY_HR_DELTA, detection.hrDelta)
+                dataMap.putString(KEY_WRIST_LOCATION, detection.wristLocation)
+                dataMap.putString(KEY_SMOKING_HAND, detection.smokingHand)
+            }.asPutDataRequest().setUrgent()
+
+            dataClient.putDataItem(request).await()
+            Log.d(TAG, "Drink detection synced: timestamp=${detection.timestamp}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to sync drink detection", e)
         }
     }
 
@@ -148,12 +174,14 @@ class WearSyncManager(private val context: Context) {
         try {
             val todayKey = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
             val cigaretteCount = database.getCountLastNDays(1)
+            val drinkCount = database.getDrinkCountLastNDays(1)
             val totalDetections = database.getTotalCount()
             val lastDetectionTime = database.getLastDetectionTime()
 
             val request = PutDataMapRequest.create(PATH_DAILY_SUMMARY).apply {
                 dataMap.putString(KEY_DATE, todayKey)
                 dataMap.putInt(KEY_CIGARETTE_COUNT, cigaretteCount)
+                dataMap.putInt(KEY_DRINK_COUNT, drinkCount)
                 dataMap.putInt(KEY_TOTAL_DETECTIONS, totalDetections)
                 dataMap.putLong(KEY_LAST_DETECTION_TIME, lastDetectionTime)
                 // Force update even if values haven't changed (timestamp makes it unique)

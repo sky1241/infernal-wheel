@@ -11,7 +11,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.wear.remote.interactions.RemoteActivityHelper
 import com.infernal.smokingdetector.ui.InfernalWearTheme
 import com.infernal.smokingdetector.ui.MainScreen
 import com.infernal.smokingdetector.ui.SettingsScreen
@@ -33,19 +32,16 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val PERMISSION_REQUEST_CODE = 100
-        private const val PHONE_APP_URL = "https://infernal-wheel.web.app"
     }
 
     private lateinit var database: DatabaseManager
     private lateinit var prefs: SharedPreferences
-    private lateinit var remoteActivityHelper: RemoteActivityHelper
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         database = DatabaseManager(this)
         prefs = getSharedPreferences("smoking_detector_prefs", Context.MODE_PRIVATE)
-        remoteActivityHelper = RemoteActivityHelper(this, Dispatchers.IO.asExecutor())
 
         if (!hasPermissions()) {
             requestPermissions()
@@ -63,6 +59,7 @@ class MainActivity : ComponentActivity() {
         var currentScreen by remember { mutableStateOf("main") }
         var isMonitoring by remember { mutableStateOf(isServiceRunning()) }
         var todayCount by remember { mutableIntStateOf(database.getCountLastNDays(1)) }
+        var todayDrinkCount by remember { mutableIntStateOf(database.getDrinkCountLastNDays(1)) }
         var totalCount by remember { mutableIntStateOf(database.getTotalCount()) }
         var avgPerDay by remember { mutableFloatStateOf(database.getAvgCigarettesPerDay()) }
         var lastDetection by remember { mutableStateOf<String?>(null) }
@@ -77,18 +74,20 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(currentScreen) {
             if (currentScreen == "main") {
                 todayCount = database.getCountLastNDays(1)
+                todayDrinkCount = database.getDrinkCountLastNDays(1)
                 totalCount = database.getTotalCount()
                 avgPerDay = database.getAvgCigarettesPerDay()
                 isMonitoring = isServiceRunning()
             }
         }
 
-        // Periodic refresh while on main screen (service may detect cigarettes in background)
+        // Periodic refresh while on main screen
         LaunchedEffect(currentScreen) {
             if (currentScreen == "main") {
                 while (true) {
                     delay(10_000)
                     todayCount = database.getCountLastNDays(1)
+                    todayDrinkCount = database.getDrinkCountLastNDays(1)
                     totalCount = database.getTotalCount()
                     avgPerDay = database.getAvgCigarettesPerDay()
                     isMonitoring = isServiceRunning()
@@ -99,6 +98,7 @@ class MainActivity : ComponentActivity() {
         when (currentScreen) {
             "main" -> MainScreen(
                 todayCount = todayCount,
+                todayDrinkCount = todayDrinkCount,
                 totalCount = totalCount,
                 avgPerDay = avgPerDay,
                 isMonitoring = isMonitoring,
@@ -116,8 +116,22 @@ class MainActivity : ComponentActivity() {
                     todayCount = database.getCountLastNDays(1)
                     totalCount = database.getTotalCount()
                     avgPerDay = database.getAvgCigarettesPerDay()
-                    lastDetection = "Cigarette loguee"
+                    lastDetection = "Cigarette loguée"
                     Log.d(TAG, "Manual cigarette logged. Today: $todayCount, Total: $totalCount")
+                },
+                onLogDrink = {
+                    database.insertDrinkDetection(
+                        confidence = 1.0f,
+                        gpsCluster = -1,
+                        hrBaseline = 0f,
+                        hrCurrent = 0f,
+                        features = FloatArray(30),
+                        wristLocation = if (isLeftWrist) "left" else "right",
+                        smokingHand = smokingHand
+                    )
+                    todayDrinkCount = database.getDrinkCountLastNDays(1)
+                    lastDetection = "Verre logué"
+                    Log.d(TAG, "Manual drink logged. Today: $todayDrinkCount")
                 },
                 onToggleMonitor = {
                     if (!hasPermissions()) {
@@ -135,9 +149,6 @@ class MainActivity : ComponentActivity() {
                 },
                 onOpenSettings = {
                     currentScreen = "settings"
-                },
-                onOpenOnPhone = {
-                    openOnPhone()
                 },
             )
 
@@ -171,22 +182,6 @@ class MainActivity : ComponentActivity() {
      */
     private fun isServiceRunning(): Boolean {
         return DetectionService.isRunning
-    }
-
-    /**
-     * Open companion website on phone via Bluetooth (RemoteIntent)
-     */
-    private fun openOnPhone() {
-        try {
-            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
-                .addCategory(android.content.Intent.CATEGORY_BROWSABLE)
-                .setData(android.net.Uri.parse(PHONE_APP_URL))
-
-            remoteActivityHelper.startRemoteActivity(intent)
-            Log.d(TAG, "Opening on phone: $PHONE_APP_URL")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to open on phone", e)
-        }
     }
 
     private fun hasPermissions(): Boolean {

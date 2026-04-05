@@ -33,14 +33,15 @@ import androidx.wear.compose.material3.*
 @Composable
 fun MainScreen(
     todayCount: Int,
+    todayDrinkCount: Int = 0,
     totalCount: Int,
     avgPerDay: Float,
     isMonitoring: Boolean,
     lastDetection: String?,
     onLogCigarette: () -> Unit,
+    onLogDrink: () -> Unit = {},
     onToggleMonitor: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenOnPhone: () -> Unit,
 ) {
     val listState = rememberScalingLazyListState()
 
@@ -58,25 +59,37 @@ fun MainScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // -- Counter: today's count (primary info, glanceable) --
+        // -- Counter: today's counts (clopes + verres) --
         item {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(bottom = 4.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Text(
-                    text = "$todayCount",
-                    style = InfernalTypography.displayLarge,
-                    color = InfernalRed,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    text = "aujourd'hui",
-                    style = InfernalTypography.bodySmall,
-                    color = TextSecondary,
-                    textAlign = TextAlign.Center,
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "🚬 $todayCount",
+                        style = InfernalTypography.displayLarge,
+                        color = InfernalRed,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "🍺 $todayDrinkCount",
+                        style = InfernalTypography.displayLarge,
+                        color = StatusWarning,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
+        }
+        item {
+            Text(
+                text = "aujourd'hui",
+                style = InfernalTypography.bodySmall,
+                color = TextSecondary,
+                textAlign = TextAlign.Center,
+            )
         }
 
         // -- Stats row: total + avg --
@@ -186,18 +199,22 @@ fun MainScreen(
             }
         }
 
-        // -- TERTIARY: Open on phone via Bluetooth --
+        // -- SECONDARY: Log drink --
         item {
-            TextButton(
-                onClick = onOpenOnPhone,
+            Button(
+                onClick = onLogDrink,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = StatusWarning,
+                    contentColor = androidx.compose.ui.graphics.Color.Black,
+                ),
             ) {
                 Text(
-                    text = "Voir sur le tel",
+                    text = "+1 Verre",
                     style = InfernalTypography.labelLarge,
-                    color = TextSecondary,
+                    color = androidx.compose.ui.graphics.Color.Black,
                 )
             }
         }

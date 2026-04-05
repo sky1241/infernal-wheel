@@ -91,7 +91,10 @@ class DetectionService : Service() {
     private var isLeftWrist = false
     private var smokingHand = "auto"
     private var cigarettesDetected = 0
+    private var drinksDetected = 0
     private var lastDetectionTime = 0L
+    private var lastDrinkDetectionTime = 0L
+    private val DRINK_THRESHOLD = 0.6f
     // BUG 10 FIX: Guard against double-start
     private var isMonitoring = false
 
@@ -206,8 +209,9 @@ class DetectionService : Service() {
         if (isMonitoring) return
         isMonitoring = true
 
-        // BUG 21 FIX: Initialize cigarettesDetected from database so it doesn't reset on service restart
+        // BUG 21 FIX: Initialize counters from database so they don't reset on service restart
         cigarettesDetected = database.getCountLastNDays(1)
+        drinksDetected = database.getDrinkCountLastNDays(1)
 
         // Start sensor collection with current boost mode rate
         val started = sensorCollector.start(boostManager.getCurrentRate())
@@ -304,12 +308,14 @@ class DetectionService : Service() {
                 val threshold = getDetectionThreshold()
                 val probabilities = detector.predict(features)
                 val isCigarette = probabilities[SmokingDetector.CLASS_CIGARETTE] > threshold
+                val isDrinking = probabilities[SmokingDetector.CLASS_DRINKING] > DRINK_THRESHOLD
 
-                Log.d(TAG, "Inference complete: cigarette=$isCigarette (threshold=$threshold), probabilities=${probabilities.contentToString()}")
+                Log.d(TAG, "Inference: cig=$isCigarette drink=$isDrinking (threshold=$threshold), probs=${probabilities.contentToString()}")
 
                 // Update notification
                 updateNotification(
                     isCigarette = isCigarette,
+                    isDrinking = isDrinking,
                     probabilities = probabilities
                 )
 
@@ -319,8 +325,14 @@ class DetectionService : Service() {
                         confidence = probabilities[0],
                         features = features
                     )
-                } else {
-                    // No cigarette detected
+                }
+
+                // Handle drink detection
+                if (isDrinking) {
+                    handleDrinkDetected(
+                        confidence = probabilities[SmokingDetector.CLASS_DRINKING],
+                        features = features
+                    )
                 }
 
             } catch (e: Exception) {
@@ -389,6 +401,62 @@ class DetectionService : Service() {
     }
 
     /**
+     * Handle drink detection
+     */
+    private fun handleDrinkDetected(confidence: Float, features: FloatArray) {
+        val currentTime = System.currentTimeMillis()
+
+        // Debounce: Ignore if detected within last 2 minutes
+        if (currentTime - lastDrinkDetectionTime < 120_000) {
+            Log.d(TAG, "Drink detected but debounced (too recent)")
+            return
+        }
+
+        lastDrinkDetectionTime = currentTime
+        drinksDetected++
+
+        Log.d(TAG, "🍺 DRINK DETECTED! Count: $drinksDetected, Confidence: ${(confidence * 100).toInt()}%")
+
+        // Save to database
+        val id = database.insertDrinkDetection(
+            confidence = confidence,
+            gpsCluster = gpsManager.getCurrentCluster(),
+            hrBaseline = healthServices.getBaselineHR(),
+            hrCurrent = healthServices.getCurrentHR(),
+            features = features,
+            wristLocation = if (isLeftWrist) "left" else "right",
+            smokingHand = smokingHand
+        )
+        Log.d(TAG, "Drink detection saved to database: id=$id")
+
+        // Sync to phone
+        val detection = DatabaseManager.Detection(
+            timestamp = currentTime,
+            confidence = confidence,
+            gpsCluster = gpsManager.getCurrentCluster(),
+            hrBaseline = healthServices.getBaselineHR(),
+            hrCurrent = healthServices.getCurrentHR(),
+            hrDelta = healthServices.getCurrentHR() - healthServices.getBaselineHR(),
+            wristLocation = if (isLeftWrist) "left" else "right",
+            smokingHand = smokingHand
+        )
+        serviceScope.launch {
+            try {
+                wearSync.syncDrinkDetection(detection)
+                wearSync.syncDailySummary(database)
+            } catch (e: Exception) {
+                Log.e(TAG, "Drink sync failed", e)
+            }
+        }
+
+        // Send notification
+        sendDrinkNotification(confidence)
+
+        // Trigger boost sampling
+        boostManager.triggerBoost("drink_detected")
+    }
+
+    /**
      * Get detection threshold based on smoking hand vs watch hand.
      *
      * Logic:
@@ -410,11 +478,11 @@ class DetectionService : Service() {
     /**
      * Update ongoing notification with detection status
      */
-    private fun updateNotification(isCigarette: Boolean, probabilities: FloatArray) {
-        val text = if (isCigarette) {
-            "🚬 Cigarette detected! (${(probabilities[0] * 100).toInt()}%)"
-        } else {
-            "✓ No smoking | Count: $cigarettesDetected"
+    private fun updateNotification(isCigarette: Boolean, isDrinking: Boolean = false, probabilities: FloatArray) {
+        val text = when {
+            isCigarette -> "🚬 Détecté! (${(probabilities[0] * 100).toInt()}%)"
+            isDrinking -> "🍺 Détecté! (${(probabilities[2] * 100).toInt()}%)"
+            else -> "✓ 🚬 $cigarettesDetected | 🍺 $drinksDetected"
         }
 
         val notification = createNotification(
@@ -438,6 +506,20 @@ class DetectionService : Service() {
         )
 
         notificationManager.notify(NOTIFICATION_ID + 1, notification)
+    }
+
+    /**
+     * Send drink detection alert notification
+     */
+    private fun sendDrinkNotification(confidence: Float) {
+        val notification = createNotification(
+            title = "🍺 Boisson détectée!",
+            text = "Confiance: ${(confidence * 100).toInt()}% | Total: $drinksDetected",
+            ongoing = false,
+            priority = NotificationCompat.PRIORITY_HIGH
+        )
+
+        notificationManager.notify(NOTIFICATION_ID + 2, notification)
     }
 
     /**
