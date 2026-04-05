@@ -284,6 +284,7 @@ class LocalServer {
       return _jsonOk({
         'ok': true,
         'cigaretteCount': summary['cigaretteCount'] ?? 0,
+        'drinkCount': summary['drinkCount'] ?? 0,
         'totalDetections': summary['totalDetections'] ?? 0,
         'date': summary['date'] ?? '',
         'lastSyncAt': summary['receivedAt'] ?? 0,

@@ -26,7 +26,7 @@ class WearSyncService {
   }
 
   /// Returns today's daily summary from the watch.
-  /// Keys: date, cigaretteCount, totalDetections, receivedAt
+  /// Keys: date, cigaretteCount, drinkCount, totalDetections, receivedAt
   Future<Map<String, dynamic>> getDailySummary() async {
     final result = await _channel.invokeMethod<Map>('getDailySummary');
     return Map<String, dynamic>.from(result ?? {});
@@ -36,6 +36,15 @@ class WearSyncService {
   /// Each map has: timestamp, confidence, gpsCluster, hrBaseline, hrCurrent, hrDelta, receivedAt
   Future<List<Map<String, dynamic>>> getDetectionHistory() async {
     final result = await _channel.invokeMethod<List>('getDetectionHistory');
+    if (result == null) return [];
+    return result
+        .map((item) => Map<String, dynamic>.from(item as Map))
+        .toList();
+  }
+
+  /// Returns all synced drink detections as a list of maps.
+  Future<List<Map<String, dynamic>>> getDrinkHistory() async {
+    final result = await _channel.invokeMethod<List>('getDrinkHistory');
     if (result == null) return [];
     return result
         .map((item) => Map<String, dynamic>.from(item as Map))

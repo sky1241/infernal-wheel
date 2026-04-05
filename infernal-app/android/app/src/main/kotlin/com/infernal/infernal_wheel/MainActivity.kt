@@ -22,6 +22,7 @@ class MainActivity : FlutterActivity() {
                     "getLatestSync" -> result.success(getLatestSync())
                     "getDailySummary" -> result.success(getDailySummary())
                     "getDetectionHistory" -> result.success(getDetectionHistory())
+                    "getDrinkHistory" -> result.success(getDrinkHistory())
                     else -> result.notImplemented()
                 }
             }
@@ -63,6 +64,7 @@ class MainActivity : FlutterActivity() {
             mapOf(
                 "date" to "",
                 "cigaretteCount" to 0,
+                "drinkCount" to 0,
                 "totalDetections" to 0,
                 "receivedAt" to 0L
             )
@@ -79,6 +81,28 @@ class MainActivity : FlutterActivity() {
             result.add(jsonObjectToMap(detections.getJSONObject(i)))
         }
         return result
+    }
+
+    private fun getDrinkHistory(): List<Map<String, Any?>> {
+        val detections = readDrinkDetections()
+        val result = mutableListOf<Map<String, Any?>>()
+        for (i in 0 until detections.length()) {
+            result.add(jsonObjectToMap(detections.getJSONObject(i)))
+        }
+        return result
+    }
+
+    private fun readDrinkDetections(): JSONArray {
+        val file = WearDataReceiver.getDrinkDetectionsFile(this)
+        return if (file.exists()) {
+            try {
+                JSONArray(file.readText())
+            } catch (e: Exception) {
+                JSONArray()
+            }
+        } else {
+            JSONArray()
+        }
     }
 
     private fun readDetections(): JSONArray {

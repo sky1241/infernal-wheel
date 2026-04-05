@@ -21,12 +21,15 @@ class WearDataReceiver : WearableListenerService() {
     companion object {
         private const val TAG = "WearDataReceiver"
         private const val DETECTIONS_FILE = "watch_detections.json"
+        private const val DRINK_DETECTIONS_FILE = "watch_drink_detections.json"
         private const val SUMMARY_FILE = "watch_daily_summary.json"
         private const val CHANNEL_NAME = "com.infernal.wheel/wear_sync"
 
-        // Shared reference so MainActivity can read the same files
         fun getDetectionsFile(context: Context): File =
             File(context.filesDir, DETECTIONS_FILE)
+
+        fun getDrinkDetectionsFile(context: Context): File =
+            File(context.filesDir, DRINK_DETECTIONS_FILE)
 
         fun getSummaryFile(context: Context): File =
             File(context.filesDir, SUMMARY_FILE)
@@ -42,7 +45,8 @@ class WearDataReceiver : WearableListenerService() {
             val path = dataItem.uri.path ?: continue
 
             when {
-                path.startsWith("/smoke_detections/") -> handleDetection(dataItem)
+                path.startsWith("/smoke_detections/") -> handleDetection(dataItem, "smoke")
+                path.startsWith("/drink_detections/") -> handleDetection(dataItem, "drink")
                 path == "/daily_summary" -> handleDailySummary(dataItem)
                 else -> Log.d(TAG, "Unknown path: $path")
             }
@@ -51,7 +55,7 @@ class WearDataReceiver : WearableListenerService() {
         notifyFlutter()
     }
 
-    private fun handleDetection(dataItem: com.google.android.gms.wearable.DataItem) {
+    private fun handleDetection(dataItem: com.google.android.gms.wearable.DataItem, type: String) {
         try {
             val dataMap = DataMapItem.fromDataItem(dataItem).dataMap
 
@@ -62,11 +66,12 @@ class WearDataReceiver : WearableListenerService() {
                 put("hrBaseline", dataMap.getInt("hrBaseline", 0))
                 put("hrCurrent", dataMap.getInt("hrCurrent", 0))
                 put("hrDelta", dataMap.getInt("hrDelta", 0))
+                put("type", type)
                 put("receivedAt", System.currentTimeMillis())
             }
 
-            // Append to detections file
-            val file = getDetectionsFile(this)
+            // Append to correct file based on type
+            val file = if (type == "drink") getDrinkDetectionsFile(this) else getDetectionsFile(this)
             val detections = if (file.exists()) {
                 JSONArray(file.readText())
             } else {
@@ -87,8 +92,9 @@ class WearDataReceiver : WearableListenerService() {
 
             val summary = JSONObject().apply {
                 put("date", dataMap.getString("date", ""))
-                put("cigaretteCount", dataMap.getInt("cigaretteCount", 0))
-                put("totalDetections", dataMap.getInt("totalDetections", 0))
+                put("cigaretteCount", dataMap.getInt("cigarette_count", 0))
+                put("drinkCount", dataMap.getInt("drink_count", 0))
+                put("totalDetections", dataMap.getInt("total_detections", 0))
                 put("receivedAt", System.currentTimeMillis())
             }
 
