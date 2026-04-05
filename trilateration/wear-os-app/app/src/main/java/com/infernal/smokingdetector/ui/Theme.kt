@@ -10,42 +10,63 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
- * Design System - Based on WEARABLE.md rules:
- * - OLED black background (#000) for battery saving
- * - Single accent color (coral red = brand)
- * - Neutral text (#E5E5E5 body, #A3A3A3 secondary)
- * - Touch targets 48dp minimum
- * - Horologist padding 26.5dp for round screens
- * - Max 2-3 lines of text per block
+ * Design System — WEARABLE.md bible rules:
+ *
+ * Colors (section 29):
+ * - OLED black #000000 background (pixels off = 0 power)
+ * - Desaturated vs mobile (small screen = perceived brighter)
+ * - Max 4-5 colors total (section 29b)
+ * - Contrast 4.5:1 text, 3:1 UI minimum
+ * - 60-30-10 rule: 60% black, 30% neutral, 10% accent
+ *
+ * Typography (section 14):
+ * - Min 12sp body text
+ * - Max 2-3 lines per block
+ * - Display for glanceable counters
+ *
+ * Layout (section B, 8):
+ * - 48dp touch targets minimum
+ * - Horologist 26.5dp padding
+ * - Card min 52dp height, 24dp radius
  */
 
-// Brand palette - 1 primary color + neutrals (rule: 60-30-10)
-val InfernalRed = Color(0xFFFF6B6B)          // Primary accent (10%)
-val InfernalRedDark = Color(0xFFE05555)       // Primary pressed/container
-val InfernalRedSubtle = Color(0x1AFF6B6B)     // Primary subtle bg (10% opacity)
+// Brand — green accent (matches phone app #35D99A, desaturated for OLED)
+val AccentGreen = Color(0xFF35D99A)            // Primary brand (phone match)
+val AccentGreenDim = Color(0xFF2AAF7E)         // Dimmed variant
+val AccentGreenContainer = Color(0xFF1A3D2E)   // Container bg
 
-// Semantic colors (universal standards)
-val StatusSuccess = Color(0xFF4CAF50)
-val StatusWarning = Color(0xFFFFC107)
-val StatusError = Color(0xFFEF4444)
+// Semantic — cigarette (warm coral, not pure red for OLED)
+val CigaretteColor = Color(0xFFE57373)         // Desaturated coral
+val CigaretteContainer = Color(0xFF3D1A1A)     // Dark container
 
-// Neutral scale (90% of the UI)
-val SurfaceBlack = Color(0xFF000000)          // OLED background
-val SurfaceDark = Color(0xFF1A1A1A)           // Elevated surfaces (cards)
-val SurfaceMedium = Color(0xFF2A2A2A)         // Input/interactive surfaces
-val BorderDark = Color(0xFF333333)            // Borders, dividers
-val TextPrimary = Color(0xFFE5E5E5)           // Body text
-val TextSecondary = Color(0xFFA3A3A3)         // Labels, metadata
-val TextDisabled = Color(0xFF666666)          // Disabled state
+// Semantic — alcohol types (one hue family, desaturated)
+val AlcoholAmber = Color(0xFFFFB74D)           // Beer — warm amber
+val AlcoholWine = Color(0xFFCE93D8)            // Wine — soft purple-pink
+val AlcoholStrong = Color(0xFF9575CD)          // Strong — medium purple
+
+// Status (universal, desaturated for OLED)
+val StatusSuccess = Color(0xFF66BB6A)          // Green
+val StatusWarning = Color(0xFFFFB74D)          // Amber
+val StatusError = Color(0xFFEF5350)            // Red
+
+// Neutral scale (90% of the UI — section 29: 60% black, 30% neutral)
+val SurfaceBlack = Color(0xFF000000)           // OLED background
+val SurfaceDark = Color(0xFF121212)            // Elevation 0
+val SurfaceElevated = Color(0xFF1E1E1E)        // Elevation 1 — cards
+val SurfaceMedium = Color(0xFF272727)          // Elevation 4 — interactive
+val BorderDark = Color(0xFF333333)             // Borders
+val TextPrimary = Color(0xFFE0E0E0)            // Body text (#E0E0E0 per bible)
+val TextSecondary = Color(0xFF9E9E9E)          // Labels (#9E9E9E per bible)
+val TextDisabled = Color(0xFF616161)           // Disabled
 
 val InfernalColorScheme = ColorScheme(
-    primary = InfernalRed,
-    onPrimary = Color.White,
-    primaryContainer = InfernalRedDark,
-    onPrimaryContainer = Color.White,
+    primary = AccentGreen,
+    onPrimary = Color.Black,
+    primaryContainer = AccentGreenContainer,
+    onPrimaryContainer = AccentGreen,
     secondary = SurfaceMedium,
     onSecondary = TextPrimary,
-    secondaryContainer = SurfaceDark,
+    secondaryContainer = SurfaceElevated,
     onSecondaryContainer = TextPrimary,
     background = SurfaceBlack,
     onBackground = TextPrimary,
@@ -57,39 +78,39 @@ val InfernalColorScheme = ColorScheme(
 )
 
 val InfernalTypography = Typography(
-    // Title: screen title (18sp, medium weight)
+    // Title: screen header (18sp, medium — section 14)
     titleLarge = TextStyle(
         fontSize = 18.sp,
         fontWeight = FontWeight.Medium,
         lineHeight = 22.sp,
         color = TextPrimary
     ),
-    // Body: main content (15sp, regular) - WEARABLE.md minimum
+    // Body: main content (15sp — section 14: min 12sp)
     bodyLarge = TextStyle(
         fontSize = 15.sp,
         fontWeight = FontWeight.Normal,
         lineHeight = 20.sp,
         color = TextPrimary
     ),
-    // Label: buttons, chips, metadata (13sp, medium)
+    // Label: buttons, chips (13sp, medium)
     labelLarge = TextStyle(
         fontSize = 13.sp,
         fontWeight = FontWeight.Medium,
         lineHeight = 16.sp,
         color = TextPrimary
     ),
-    // Caption: secondary info, timestamps (12sp)
+    // Caption: secondary info (12sp — minimum per bible)
     bodySmall = TextStyle(
         fontSize = 12.sp,
         fontWeight = FontWeight.Normal,
         lineHeight = 16.sp,
         color = TextSecondary
     ),
-    // Display: large numbers (counter)
+    // Display: large counter numbers (glanceable — section 9)
     displayLarge = TextStyle(
-        fontSize = 48.sp,
+        fontSize = 44.sp,
         fontWeight = FontWeight.Bold,
-        lineHeight = 52.sp,
+        lineHeight = 48.sp,
         color = TextPrimary
     ),
 )
