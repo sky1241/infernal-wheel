@@ -15,6 +15,7 @@ import com.infernal.smokingdetector.ui.InfernalWearTheme
 import com.infernal.smokingdetector.ui.MainScreen
 import com.infernal.smokingdetector.ui.SettingsScreen
 import kotlinx.coroutines.*
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * Main Activity for Wear OS Smoking Detection App
@@ -36,12 +37,15 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var database: DatabaseManager
     private lateinit var prefs: SharedPreferences
+    private lateinit var wearSync: WearSyncManager
+    private val syncScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         database = DatabaseManager(this)
         prefs = getSharedPreferences("smoking_detector_prefs", Context.MODE_PRIVATE)
+        wearSync = WearSyncManager(this)
 
         if (!hasPermissions()) {
             requestPermissions()
@@ -124,6 +128,23 @@ class MainActivity : ComponentActivity() {
                     avgPerDay = database.getAvgCigarettesPerDay()
                     lastDetection = "🚬 +1"
                     Log.d(TAG, "Manual cigarette logged. Today: $todayCount")
+                    // Sync to phone
+                    syncScope.launch {
+                        try {
+                            val det = DatabaseManager.Detection(
+                                timestamp = System.currentTimeMillis(),
+                                confidence = 1.0f, gpsCluster = -1,
+                                hrBaseline = 0f, hrCurrent = 0f, hrDelta = 0f,
+                                wristLocation = if (isLeftWrist) "left" else "right",
+                                smokingHand = smokingHand
+                            )
+                            wearSync.syncDetection(det)
+                            wearSync.syncDailySummary(database)
+                            Log.d(TAG, "Manual cigarette synced to phone")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Sync failed", e)
+                        }
+                    }
                 },
                 onLogDrink = { drinkType ->
                     // Auto-start detection on first log
@@ -145,6 +166,23 @@ class MainActivity : ComponentActivity() {
                     val emoji = when(drinkType) { "beer" -> "🍺"; "wine" -> "🍷"; "strong" -> "🥃"; else -> "🍺" }
                     lastDetection = "$emoji +1"
                     Log.d(TAG, "Manual $drinkType logged. Today: $todayDrinkCount")
+                    // Sync to phone
+                    syncScope.launch {
+                        try {
+                            val det = DatabaseManager.Detection(
+                                timestamp = System.currentTimeMillis(),
+                                confidence = 1.0f, gpsCluster = -1,
+                                hrBaseline = 0f, hrCurrent = 0f, hrDelta = 0f,
+                                wristLocation = if (isLeftWrist) "left" else "right",
+                                smokingHand = drinkType
+                            )
+                            wearSync.syncDrinkDetection(det)
+                            wearSync.syncDailySummary(database)
+                            Log.d(TAG, "Manual $drinkType synced to phone")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Drink sync failed", e)
+                        }
+                    }
                 },
                 onToggleMonitor = {
                     if (!hasPermissions()) {

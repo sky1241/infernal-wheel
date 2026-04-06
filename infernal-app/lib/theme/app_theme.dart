@@ -10,7 +10,7 @@ class AppTheme {
       brightness: Brightness.dark,
 
       // Couleurs
-      colorScheme: ColorScheme.dark(
+      colorScheme: const ColorScheme.dark(
         surface: AppColors.surface,
         primary: AppColors.accent,
         secondary: AppColors.accent,
@@ -22,7 +22,7 @@ class AppTheme {
       scaffoldBackgroundColor: AppColors.background,
 
       // AppBar
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.text,
         elevation: 0,
@@ -35,7 +35,7 @@ class AppTheme {
       ),
 
       // BottomNav
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: AppColors.surface,
         selectedItemColor: AppColors.accent,
         unselectedItemColor: AppColors.muted,
@@ -49,7 +49,7 @@ class AppTheme {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(Spacing.radiusLg),
-          side: BorderSide(color: AppColors.border, width: 1),
+          side: const BorderSide(color: AppColors.border, width: 1),
         ),
         margin: EdgeInsets.zero,
       ),
@@ -60,17 +60,17 @@ class AppTheme {
         fillColor: AppColors.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Spacing.radiusMd),
-          borderSide: BorderSide(color: AppColors.border),
+          borderSide: const BorderSide(color: AppColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Spacing.radiusMd),
-          borderSide: BorderSide(color: AppColors.border),
+          borderSide: const BorderSide(color: AppColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Spacing.radiusMd),
-          borderSide: BorderSide(color: AppColors.accent, width: 2),
+          borderSide: const BorderSide(color: AppColors.accent, width: 2),
         ),
-        contentPadding: EdgeInsets.symmetric(
+        contentPadding: const EdgeInsets.symmetric(
           horizontal: Spacing.md,
           vertical: Spacing.sm,
         ),
@@ -81,11 +81,11 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.accent,
           foregroundColor: AppColors.background,
-          minimumSize: Size(double.infinity, Spacing.touchTarget),
+          minimumSize: const Size(double.infinity, Spacing.touchTarget),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(Spacing.radiusMd),
           ),
-          textStyle: TextStyle(
+          textStyle: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -93,7 +93,7 @@ class AppTheme {
       ),
 
       // Text
-      textTheme: TextTheme(
+      textTheme: const TextTheme(
         headlineLarge: TextStyle(
           color: AppColors.text,
           fontSize: 28,
