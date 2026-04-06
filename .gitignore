@@ -1,26 +1,43 @@
-# Claude Code config
+# === Runtime / Personal Data (NEVER commit) ===
+data/
+logs/
+notes/
+.muninn/
+commands.in
+commands.log
+commands.sent.log
+drinks.csv
+drinks.log
+log.csv
+records.json
+settings.json
+heartbeat.txt
+
+# === IDE Artifacts ===
+.idea/
+.metadata
+*.iml
 .claude/
 
-# Fichiers temporaires
+# === Build Artifacts ===
+build/
+*.apk
+local.properties
+
+# === Temp Files ===
 *.tmp
 *.tmp.*
 *.bak
 *.broken.*
-nul
-
-# Fichiers de runtime/PID
 *.pid
+*.log
+nul
 dashboard.port
+screen*.png
+icon_preview.html
 
-# Logs d'erreur systeme
-dashboard_error.log
-onedrive_to_e.log
-
-# Exports et bundles temporaires
+# === Exports / Bundles ===
 gpt_export_*/
 gpt_csv_*/
 chatgpt_bundle/
 project_summary/
-screen*.png
-icon_preview.html
-*.log

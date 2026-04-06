@@ -1,9 +1,0 @@
-﻿Qualité sommeil: 1
-Énergie: 10
-Motivation: 10
-Douleur: 10
-Humeur: 10
-Anxiété: 1
-Irritabilité: 1
-Clarté: 10
-Score global: 7.4

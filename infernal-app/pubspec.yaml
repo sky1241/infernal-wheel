@@ -1,5 +1,5 @@
 name: infernal_wheel
-description: App de suivi d'addictions avec integration montres connectees
+description: "-1+ — habit tracker & addiction monitor"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -12,46 +12,26 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
-  # UI
-  cupertino_icons: ^1.0.6
-
-  # Health data (HealthKit + Health Connect)
-  health: ^13.1.4
-
-  # Storage local
-  hive: ^2.2.3
-  hive_flutter: ^1.1.0
-  path_provider: ^2.1.1
-
-  # State management
-  provider: ^6.1.1
-
-  # Utils
-  intl: any
-  share_plus: ^7.2.1
-
-  # Local HTTP server + WebView
+  # Local HTTP server + WebView (core architecture)
   shelf: ^1.4.2
   shelf_router: ^1.1.4
   webview_flutter: ^4.10.0
 
-  # Security — AES-256 encryption + secure key storage
+  # Security — AES-256-GCM + Android Keystore
   flutter_secure_storage: ^9.2.2
   pointycastle: ^3.9.1
   crypto: ^3.0.5
 
-  # Background service (timer must survive app backgrounding)
-  flutter_foreground_task: ^8.10.0
+  # Storage
+  path_provider: ^2.1.1
 
-  # Local notifications (timer expired alerts)
-  flutter_local_notifications: ^18.0.1
+  # Utils
+  intl: any
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.1
-  hive_generator: ^2.0.1
-  build_runner: ^2.4.7
 
 flutter:
   generate: true
@@ -60,8 +40,3 @@ flutter:
   assets:
     - assets/icons/
     - assets/web/
-
-  # fonts:
-  #   - family: CustomFont
-  #     fonts:
-  #       - asset: assets/fonts/CustomFont-Regular.ttf
