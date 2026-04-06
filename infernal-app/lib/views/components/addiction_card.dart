@@ -44,7 +44,7 @@ class AddictionCard extends StatelessWidget {
                 const SizedBox(height: Spacing.xxs),
                 Text(
                   type.label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AppColors.muted,
                     fontSize: 12,
                   ),
@@ -58,7 +58,7 @@ class AddictionCard extends StatelessWidget {
             children: [
               Text(
                 '$count',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
                   color: AppColors.text,

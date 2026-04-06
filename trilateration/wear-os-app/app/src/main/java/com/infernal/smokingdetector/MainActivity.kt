@@ -37,7 +37,8 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var database: DatabaseManager
     private lateinit var prefs: SharedPreferences
-    private lateinit var wearSync: WearSyncManager
+    private lateinit var messageSync: MessageSyncManager
+    private lateinit var httpSync: HttpSyncManager
     private val syncScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,7 +46,8 @@ class MainActivity : ComponentActivity() {
 
         database = DatabaseManager(this)
         prefs = getSharedPreferences("smoking_detector_prefs", Context.MODE_PRIVATE)
-        wearSync = WearSyncManager(this)
+        messageSync = MessageSyncManager(this)
+        httpSync = HttpSyncManager(this)
 
         if (!hasPermissions()) {
             requestPermissions()
@@ -128,21 +130,18 @@ class MainActivity : ComponentActivity() {
                     avgPerDay = database.getAvgCigarettesPerDay()
                     lastDetection = "🚬 +1"
                     Log.d(TAG, "Manual cigarette logged. Today: $todayCount")
-                    // Sync to phone
+                    // Sync to phone: HTTP first, MessageClient fallback
                     syncScope.launch {
-                        try {
-                            val det = DatabaseManager.Detection(
-                                timestamp = System.currentTimeMillis(),
-                                confidence = 1.0f, gpsCluster = -1,
-                                hrBaseline = 0f, hrCurrent = 0f, hrDelta = 0f,
-                                wristLocation = if (isLeftWrist) "left" else "right",
-                                smokingHand = smokingHand
-                            )
-                            wearSync.syncDetection(det)
-                            wearSync.syncDailySummary(database)
-                            Log.d(TAG, "Manual cigarette synced to phone")
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Sync failed", e)
+                        val httpOk = httpSync.syncDetection(
+                            type = "cigarette",
+                            timestamp = System.currentTimeMillis(),
+                            confidence = 1.0f
+                        )
+                        if (httpOk) {
+                            Log.d(TAG, "Cigarette synced via HTTP")
+                        } else {
+                            messageSync.sendCigarette()
+                            Log.d(TAG, "Cigarette synced via MessageClient")
                         }
                     }
                 },
@@ -166,21 +165,19 @@ class MainActivity : ComponentActivity() {
                     val emoji = when(drinkType) { "beer" -> "🍺"; "wine" -> "🍷"; "strong" -> "🥃"; else -> "🍺" }
                     lastDetection = "$emoji +1"
                     Log.d(TAG, "Manual $drinkType logged. Today: $todayDrinkCount")
-                    // Sync to phone
+                    // Sync to phone: HTTP first, MessageClient fallback
                     syncScope.launch {
-                        try {
-                            val det = DatabaseManager.Detection(
-                                timestamp = System.currentTimeMillis(),
-                                confidence = 1.0f, gpsCluster = -1,
-                                hrBaseline = 0f, hrCurrent = 0f, hrDelta = 0f,
-                                wristLocation = if (isLeftWrist) "left" else "right",
-                                smokingHand = drinkType
-                            )
-                            wearSync.syncDrinkDetection(det)
-                            wearSync.syncDailySummary(database)
-                            Log.d(TAG, "Manual $drinkType synced to phone")
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Drink sync failed", e)
+                        val httpOk = httpSync.syncDetection(
+                            type = "drink",
+                            timestamp = System.currentTimeMillis(),
+                            confidence = 1.0f,
+                            drinkType = drinkType
+                        )
+                        if (httpOk) {
+                            Log.d(TAG, "$drinkType synced via HTTP")
+                        } else {
+                            messageSync.sendDrink(drinkType = drinkType)
+                            Log.d(TAG, "$drinkType synced via MessageClient")
                         }
                     }
                 },

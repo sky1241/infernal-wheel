@@ -62,7 +62,7 @@ class ReportSummary {
   final int info;
 
   const ReportSummary({
-    required this.total,
+    re etquired this.total,
     required this.critical,
     required this.error,
     required this.warning,
@@ -409,9 +409,7 @@ Future<DailyBugReport?> maybeGenerateDailyBugReport({
   final storage = BugReportStorage(storagePath);
 
   // Restore _lastReportDate from storage if null (e.g. after app restart)
-  if (generator._lastReportDate == null) {
-    generator._lastReportDate = await storage.getLastReportDate();
-  }
+  generator._lastReportDate ??= await storage.getLastReportDate();
 
   // Verifier si on peut generer
   if (!generator.canGenerateReport()) {

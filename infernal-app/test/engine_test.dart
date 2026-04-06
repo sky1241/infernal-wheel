@@ -19,20 +19,20 @@ void main() {
     });
 
     test('previous and next', () {
-      final day = InfernalDay(2026, 3, 30);
+      const day = InfernalDay(2026, 3, 30);
       expect(day.previous.key, '2026-03-29');
       expect(day.next.key, '2026-03-31');
     });
 
     test('previous/next across month boundary', () {
-      final day = InfernalDay(2026, 4, 1);
+      const day = InfernalDay(2026, 4, 1);
       expect(day.previous.key, '2026-03-31');
-      final day2 = InfernalDay(2026, 3, 31);
+      const day2 = InfernalDay(2026, 3, 31);
       expect(day2.next.key, '2026-04-01');
     });
 
     test('key format', () {
-      final day = InfernalDay(2026, 1, 5);
+      const day = InfernalDay(2026, 1, 5);
       expect(day.key, '2026-01-05');
     });
 
@@ -50,14 +50,14 @@ void main() {
     });
 
     test('display methods', () {
-      final day = InfernalDay(2026, 3, 30); // Monday
+      const day = InfernalDay(2026, 3, 30); // Monday
       expect(day.dayName, 'Lundi');
       expect(day.formattedDate, '30 mars 2026');
     });
 
     test('equality', () {
-      expect(InfernalDay(2026, 3, 30), equals(InfernalDay(2026, 3, 30)));
-      expect(InfernalDay(2026, 3, 30), isNot(equals(InfernalDay(2026, 3, 31))));
+      expect(const InfernalDay(2026, 3, 30), equals(const InfernalDay(2026, 3, 30)));
+      expect(const InfernalDay(2026, 3, 30), isNot(equals(const InfernalDay(2026, 3, 31))));
     });
   });
 

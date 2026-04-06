@@ -284,5 +284,5 @@ class DayEntry {
   }
 
   @override
-  String toString() => 'DayEntry($dayKey, addictions: ${totalAddictions})';
+  String toString() => 'DayEntry($dayKey, addictions: $totalAddictions)';
 }

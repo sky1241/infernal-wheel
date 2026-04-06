@@ -8,7 +8,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.infernal.smokingdetector"
+        applicationId = "com.infernal.wheel"
         minSdk = 30  // Wear OS 3.0+
         targetSdk = 34
         versionCode = 1

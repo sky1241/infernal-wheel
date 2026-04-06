@@ -31,14 +31,14 @@ class SleepCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(Spacing.radiusLg),
           border: Border.all(color: AppColors.border, width: 1),
         ),
-        child: Column(
+        child: const Column(
           children: [
             Icon(
               Icons.bedtime_outlined,
               size: Spacing.iconXl,
               color: AppColors.muted,
             ),
-            const SizedBox(height: Spacing.sm),
+            SizedBox(height: Spacing.sm),
             Text(
               'Pas de donnees sommeil',
               style: TextStyle(
@@ -46,7 +46,7 @@ class SleepCard extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: Spacing.xxs),
+            SizedBox(height: Spacing.xxs),
             Text(
               'Touche pour saisir manuellement',
               style: TextStyle(
@@ -93,7 +93,7 @@ class SleepCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Sommeil',
                   style: TextStyle(
                     color: AppColors.text,
@@ -152,14 +152,14 @@ class SleepCard extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             color: AppColors.muted,
             fontSize: 11,
           ),
         ),
         Text(
           value,
-          style: TextStyle(
+          style: const TextStyle(
             color: AppColors.text,
             fontWeight: FontWeight.w600,
           ),

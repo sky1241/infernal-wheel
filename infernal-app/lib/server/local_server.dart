@@ -6,6 +6,7 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 import '../core/infernal_day.dart';
 import '../engine/timer_engine.dart';
+import 'package:path_provider/path_provider.dart';
 import 'data_store.dart';
 import '../services/wear_sync_service.dart';
 
@@ -77,14 +78,16 @@ class LocalServer {
       ..post('/api/goal', _handleApiGoal)
       ..post('/api/settings/custom-actions', _handleApiCustomActions)
       ..post('/api/settings/remove-action', _handleApiRemoveAction)
-      ..post('/api/settings/alcohol-volumes', _handleApiAlcoholVolumes);
+      ..post('/api/settings/alcohol-volumes', _handleApiAlcoholVolumes)
+      ..post('/api/watch/sync', _handleApiWatchSync);
 
     final handler = const Pipeline()
         .addMiddleware(_corsMiddleware())
         .addMiddleware(_noCacheMiddleware())
         .addHandler(router.call);
 
-    _server = await shelf_io.serve(handler, '127.0.0.1', 0);
+    // Fixed port 8011, listen on all interfaces so watch can reach us
+    _server = await shelf_io.serve(handler, '0.0.0.0', 8011);
     _port = _server!.port;
   }
 
@@ -301,6 +304,68 @@ class LocalServer {
         'watchConnected': false,
         'error': e.toString(),
       });
+    }
+  }
+
+  /// Watch HTTP sync endpoint — receives detections directly from watch via HTTP
+  /// Bypasses Wear Data Layer (works on any phone brand)
+  Future<Response> _handleApiWatchSync(Request request) async {
+    try {
+      final data = await _readBody(request);
+      if (data == null) return _jsonError(400, 'Invalid body');
+
+      final type = data['type'] as String? ?? 'cigarette';
+      final timestamp = data['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch;
+      final confidence = (data['confidence'] as num?)?.toDouble() ?? 1.0;
+
+      // Store detection
+      final appDir = await getApplicationDocumentsDirectory();
+      final dir = '${appDir.path}/infernal_data';
+      final fileName = type == 'drink' ? 'watch_drink_detections.json' : 'watch_detections.json';
+      final file = File('$dir/$fileName');
+
+      List<dynamic> detections = [];
+      if (await file.exists()) {
+        try {
+          detections = jsonDecode(await file.readAsString()) as List<dynamic>;
+        } catch (_) {}
+      }
+      detections.add({
+        'timestamp': timestamp,
+        'confidence': confidence,
+        'type': type,
+        'gpsCluster': data['gpsCluster'] ?? -1,
+        'hrBaseline': data['hrBaseline'] ?? 0,
+        'hrCurrent': data['hrCurrent'] ?? 0,
+        'hrDelta': data['hrDelta'] ?? 0,
+        'receivedAt': DateTime.now().millisecondsSinceEpoch,
+      });
+      await file.writeAsString(jsonEncode(detections));
+
+      // Update daily summary
+      final summaryFile = File('$dir/watch_daily_summary.json');
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      Map<String, dynamic> summary = {};
+      if (await summaryFile.exists()) {
+        try {
+          summary = jsonDecode(await summaryFile.readAsString()) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+      if (summary['date'] != today) {
+        summary = {'date': today, 'cigaretteCount': 0, 'drinkCount': 0, 'totalDetections': 0};
+      }
+      if (type == 'drink') {
+        summary['drinkCount'] = (summary['drinkCount'] as int? ?? 0) + 1;
+      } else {
+        summary['cigaretteCount'] = (summary['cigaretteCount'] as int? ?? 0) + 1;
+      }
+      summary['totalDetections'] = (summary['totalDetections'] as int? ?? 0) + 1;
+      summary['receivedAt'] = DateTime.now().millisecondsSinceEpoch;
+      await summaryFile.writeAsString(jsonEncode(summary));
+
+      return _jsonOk({'ok': true, 'received': type, 'timestamp': timestamp});
+    } catch (e) {
+      return _jsonError(500, 'Sync error: $e');
     }
   }
 

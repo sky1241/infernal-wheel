@@ -73,7 +73,7 @@ class NotificationService {
     await _plugin.show(
       101, // ID fixe pour overtime
       'Overtime: ${overtimeMinutes}min',
-      'Tu es en depassement depuis ${overtimeMinutes} minutes',
+      'Tu es en depassement depuis $overtimeMinutes minutes',
       details,
     );
   }

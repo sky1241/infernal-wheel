@@ -199,5 +199,5 @@ class SleepData {
   }
 
   @override
-  String toString() => 'SleepData($source, ${durationFormatted}, ${quality.label})';
+  String toString() => 'SleepData($source, $durationFormatted, ${quality.label})';
 }

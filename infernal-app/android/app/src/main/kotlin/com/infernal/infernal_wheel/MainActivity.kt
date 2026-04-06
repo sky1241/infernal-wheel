@@ -1,19 +1,122 @@
 package com.infernal.infernal_wheel
 
+import android.os.Bundle
+import android.util.Log
+import com.google.android.gms.wearable.MessageClient
+import com.google.android.gms.wearable.MessageEvent
+import com.google.android.gms.wearable.Wearable
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import org.json.JSONArray
 import org.json.JSONObject
 
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener {
+
+    companion object {
+        private const val TAG = "MainActivity"
+    }
 
     private val CHANNEL = "com.infernal.wheel/wear_sync"
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Register as MessageClient listener directly (bypass manifest issues)
+        Wearable.getMessageClient(this).addListener(this)
+        Log.d(TAG, "MessageClient listener registered")
+    }
+
+    override fun onDestroy() {
+        Wearable.getMessageClient(this).removeListener(this)
+        FlutterEngineHolder.engine = null
+        super.onDestroy()
+    }
+
+    override fun onMessageReceived(messageEvent: MessageEvent) {
+        val path = messageEvent.path
+        val data = String(messageEvent.data)
+        Log.d(TAG, "Watch message received: path=$path, size=${data.length}")
+
+        try {
+            val json = JSONObject(data)
+            val type = json.optString("type", "cigarette")
+
+            // Store detection
+            val detection = JSONObject().apply {
+                put("timestamp", json.optLong("timestamp", System.currentTimeMillis()))
+                put("confidence", json.optDouble("confidence", 1.0))
+                put("type", type)
+                put("drinkType", json.optString("drinkType", ""))
+                put("gpsCluster", json.optInt("gpsCluster", -1))
+                put("hrBaseline", json.optDouble("hrBaseline", 0.0))
+                put("hrCurrent", json.optDouble("hrCurrent", 0.0))
+                put("hrDelta", json.optDouble("hrDelta", 0.0))
+                put("receivedAt", System.currentTimeMillis())
+            }
+
+            val file = if (type == "drink") {
+                WatchMessageReceiver.getDrinkDetectionsFile(this)
+            } else {
+                WatchMessageReceiver.getDetectionsFile(this)
+            }
+
+            val detections = if (file.exists()) {
+                try { JSONArray(file.readText()) } catch (_: Exception) { JSONArray() }
+            } else {
+                JSONArray()
+            }
+            detections.put(detection)
+            file.writeText(detections.toString())
+
+            // Update daily summary
+            updateDailySummary(type)
+
+            // Notify Flutter
+            val engine = FlutterEngineHolder.engine
+            if (engine != null) {
+                val channel = MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
+                runOnUiThread {
+                    channel.invokeMethod("onWatchDataChanged", null)
+                }
+            }
+
+            Log.d(TAG, "Watch $type stored + Flutter notified")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error processing watch message", e)
+        }
+    }
+
+    private fun updateDailySummary(type: String) {
+        val file = WatchMessageReceiver.getSummaryFile(this)
+        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+            .format(java.util.Date())
+
+        val summary = if (file.exists()) {
+            try { JSONObject(file.readText()) } catch (_: Exception) { JSONObject() }
+        } else {
+            JSONObject()
+        }
+
+        if (summary.optString("date") != today) {
+            summary.put("date", today)
+            summary.put("cigaretteCount", 0)
+            summary.put("drinkCount", 0)
+            summary.put("totalDetections", 0)
+        }
+
+        if (type == "drink") {
+            summary.put("drinkCount", summary.optInt("drinkCount", 0) + 1)
+        } else {
+            summary.put("cigaretteCount", summary.optInt("cigaretteCount", 0) + 1)
+        }
+        summary.put("totalDetections", summary.optInt("totalDetections", 0) + 1)
+        summary.put("receivedAt", System.currentTimeMillis())
+        file.writeText(summary.toString())
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        // Share engine reference so WearDataReceiver can notify Flutter
         FlutterEngineHolder.engine = flutterEngine
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
@@ -28,10 +131,6 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    override fun onDestroy() {
-        FlutterEngineHolder.engine = null
-        super.onDestroy()
-    }
 
     /**
      * Returns the most recent detection and summary as a combined map.
@@ -93,7 +192,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun readDrinkDetections(): JSONArray {
-        val file = WearDataReceiver.getDrinkDetectionsFile(this)
+        val file = WatchMessageReceiver.getDrinkDetectionsFile(this)
         return if (file.exists()) {
             try {
                 JSONArray(file.readText())
@@ -106,7 +205,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun readDetections(): JSONArray {
-        val file = WearDataReceiver.getDetectionsFile(this)
+        val file = WatchMessageReceiver.getDetectionsFile(this)
         return if (file.exists()) {
             try {
                 JSONArray(file.readText())
@@ -119,7 +218,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun readSummary(): JSONObject? {
-        val file = WearDataReceiver.getSummaryFile(this)
+        val file = WatchMessageReceiver.getSummaryFile(this)
         return if (file.exists()) {
             try {
                 JSONObject(file.readText())
