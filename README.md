@@ -1,82 +1,114 @@
-# InfernalWheel
+# -1+ (Minus One Plus)
 
-Dashboard personnel de suivi quotidien construit en PowerShell avec interface web HTML/CSS/JS.
+Habit tracker & addiction monitor — cigarettes, alcohol, sleep, work.
+Mobile app (Android) + smartwatch (Wear OS) + web dashboard.
 
-## Fonctionnalites
+**100% local. Zero servers. Your data stays on your phone.**
 
-- **Suivi du temps** : Work, Sleep, Breaks avec timeline visuelle
-- **Tracking d'habitudes** : Cigarettes, alcool, sport, etc.
-- **Notes quotidiennes** : Template de check-in matin/soir avec scores /10
-- **Statistiques mensuelles** : Graphiques et KPIs
-- **Records personnels** : Suivi des meilleurs scores
-- **100% local** : Aucune donnee envoyee, tout reste sur votre machine
+## What it does
 
-## Structure
+- **Cigarette tracking** — manual +1 button on watch + ML auto-detection (TFLite)
+- **Alcohol tracking** — beer, wine, strong — manual buttons on watch
+- **Time tracking** — work, sleep, breaks, sport with live timer
+- **Daily notes** — morning/evening check-in with mood, anxiety, CBT, anger management
+- **Monthly stats** — calendar heatmap, trends, records
+- **Watch → Phone sync** — Bluetooth MessageClient, works offline with auto-flush
+
+## Architecture
 
 ```
-hellwell/
-  InfernalDashboard.ps1   # Serveur web principal
-  InfernalWheel.ps1       # Moteur de tracking
-  InfernalIO.psm1         # Module I/O atomique
-  dashboard/
-    Dashboard.Page.ps1    # Generation HTML/CSS/JS
-    Dashboard.Functions.ps1
-  engine/
-    Engine.Functions.ps1
+Watch (Wear OS)                     Phone (Flutter)
++------------------+                +------------------+
+| +1 Clope button  |  Bluetooth     | WatchMessageRcvr |
+| +1 Beer/Wine/Fort|  MessageClient | MainActivity     |
+| ML Detection     | ------------> | Shelf server:8011|
+| Offline buffer   |                | WebView dashboard|
+| PhoneConnListener|                | AES-256 storage  |
++------------------+                +------------------+
 ```
 
-## Demarrage
+## Project structure
 
-```powershell
-# Lancer le dashboard (port 8011)
-pwsh -NoProfile -ExecutionPolicy Bypass -File hellwell/InfernalDashboard.ps1
+```
+infernal-app/          # Flutter mobile app (Android)
+  lib/
+    server/            # Shelf HTTP server + API (20 endpoints)
+    engine/            # Timer engine (work/sleep/break segments)
+    security/          # AES-256-GCM + Android Keystore
+    views/             # Onboarding, WebView, PIN screen
+  assets/web/          # Dashboard HTML (5200 lines) + Notes page
+  android/             # Kotlin: WatchMessageReceiver, MainActivity
 
-# Lancer le moteur de tracking
-pwsh -NoProfile -ExecutionPolicy Bypass -File hellwell/InfernalWheel.ps1
+trilateration/
+  wear-os-app/         # Wear OS watch app (Kotlin + Compose)
+    smokingdetector/   # ML detection + sensor collection
+      MainActivity.kt  # UI + manual logging + Bluetooth sync
+      DetectionService  # Foreground service, 30s inference loop
+      MessageSyncMgr    # Bluetooth sync + offline buffer
+      SmokingDetector   # TFLite model (23KB, 4 classes)
+      FeatureExtractor  # 30 biomechanical features
+      DatabaseManager   # SQLite (cigarettes + drinks)
+
+hellwell/              # Legacy PowerShell dashboard (desktop)
+  InfernalDashboard    # HTTP server (port 8011)
+  InfernalWheel        # Timer engine
+  dashboard/           # HTML/CSS/JS generation
+
+ux_resources/          # UX bible (~45K lines)
+  WEB.md               # Web UX rules (15,669 lines)
+  MOBILE.md            # Mobile UX rules (15,508 lines)
+  WEARABLE.md          # Wearable UX rules (13,132 lines)
+  ICONS.md             # App icon design bible (307 lines)
 ```
 
-Ouvrir http://127.0.0.1:8011/ dans le navigateur.
+## Tech stack
 
-## UX/UI Standards
+| Component | Technology |
+|-----------|-----------|
+| Mobile app | Flutter (Dart) + WebView |
+| Watch app | Kotlin + Compose for Wear OS |
+| ML model | TensorFlow Lite (int8, 23KB) |
+| Local server | shelf (Dart HTTP) |
+| Storage | SQLite (watch) + JSON (phone) |
+| Encryption | AES-256-GCM + Android Keystore |
+| Sync | Wear OS MessageClient (Bluetooth) |
+| Dashboard | Vanilla HTML/CSS/JS (no framework) |
 
-Le projet suit les standards d'accessibilite et UX documentes dans les PDFs inclus :
+## ML Detection
 
-- `Color Cheatsheet.pdf` - Guide des variations de couleurs HSB
-- `universal_ui_rulebook_v1_audit_matrice_v3.pdf` - Regles WCAG (Web, iOS, Android)
-- `UX_Behavioral_Patterns_2024-2025_Checklist_FULL_v3.pdf` - Patterns UX comportementaux
-- `ux_checklist/` - Checklist detaillee
+The watch runs a TFLite model that classifies hand gestures:
 
-### Standards appliques
+| Class | Index | Description |
+|-------|-------|-------------|
+| Cigarette | 0 | Smoking gesture (hand-to-mouth) |
+| Eating | 1 | Eating gesture |
+| Drinking | 2 | Drinking gesture |
+| Other | 3 | No addiction activity |
 
-- **Spacing** : Systeme 4px (4, 8, 12, 16, 20, 24, 32, 48)
-- **Touch targets** : 44px minimum (WCAG 2.5.8)
-- **Focus styles** : Outline 2px + offset 2px (WCAG 2.4.7, 2.4.11, 2.4.13)
-- **Motion** : Respect de `prefers-reduced-motion`
-- **Contrast** : Support du mode contraste eleve
-- **Landmarks** : Navigation, main, footer avec ARIA
+**Features:** 30 biomechanical signals (accelerometer, gyroscope, heart rate, GPS cluster, time-of-day).
+**Inference:** every 30 seconds, <50ms per run.
 
-## Commandes
+## Security
 
-Les commandes sont envoyees via l'interface web ou le fichier `commands.in` :
+- AES-256-GCM encryption (key auto-generated, stored in Android Keystore)
+- No server, no account, no cloud — data never leaves the device
+- Android app sandboxing + full-disk encryption
+- Path traversal protection on all API endpoints
 
-- `start` - Demarrer la journee
-- `work` - Commencer a travailler
-- `dodo` - Mode sommeil
-- `clope` - Pause cigarette
-- `manger` - Pause repas
-- `sport` - Session sport
-- `ok` - Terminer l'action en cours
+## Build
 
-## Donnees
+```bash
+# Phone app
+cd infernal-app && flutter build apk --debug
 
-Toutes les donnees sont stockees localement dans `~/.infernal_wheel/` :
+# Watch app
+cd trilateration/wear-os-app && ./gradlew assembleDebug
 
-- `state.json` - Etat actuel
-- `settings.json` - Configuration
-- `log.csv` - Historique des actions
-- `drinks.csv` - Suivi alcool
-- `notes/` - Notes quotidiennes
+# Install
+adb install infernal-app/build/app/outputs/flutter-apk/app-debug.apk
+adb -s WATCH_IP:PORT install trilateration/wear-os-app/app/build/outputs/apk/debug/app-debug.apk
+```
 
-## Licence
+## License
 
-Usage personnel.
+Personal use.
