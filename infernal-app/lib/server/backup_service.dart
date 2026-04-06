@@ -65,7 +65,7 @@ class BackupService {
 
   /// Partage le fichier de backup (via le share sheet Android)
   Future<void> shareBackup(String filePath) async {
-    await Share.shareXFiles([XFile(filePath)], text: 'InfernalWheel Backup');
+    await Share.shareXFiles([XFile(filePath)], text: '-1+ Backup');
   }
 
   /// Importe un backup depuis un fichier

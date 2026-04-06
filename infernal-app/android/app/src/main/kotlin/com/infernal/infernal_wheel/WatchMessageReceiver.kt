@@ -148,3 +148,10 @@ class WatchMessageReceiver : WearableListenerService() {
         }
     }
 }
+
+/**
+ * Shares the FlutterEngine reference between MainActivity and background services.
+ */
+object FlutterEngineHolder {
+    var engine: io.flutter.embedding.engine.FlutterEngine? = null
+}

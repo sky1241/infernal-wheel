@@ -80,7 +80,8 @@ class DetectionService : Service() {
     private lateinit var healthServices: HealthServicesManager
     private lateinit var database: DatabaseManager
     private lateinit var boostManager: BoostSamplingManager
-    private lateinit var wearSync: WearSyncManager
+    private lateinit var messageSync: MessageSyncManager
+    private lateinit var phoneListener: PhoneConnectionListener
     private lateinit var notificationManager: NotificationManager
 
     private var serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -124,7 +125,8 @@ class DetectionService : Service() {
         healthServices = HealthServicesManager(this)
         database = DatabaseManager(this)
         boostManager = BoostSamplingManager(this)
-        wearSync = WearSyncManager(this)
+        messageSync = MessageSyncManager(this)
+        phoneListener = PhoneConnectionListener(this, messageSync)
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         // Read wrist/hand preferences + listen for runtime changes
@@ -248,14 +250,17 @@ class DetectionService : Service() {
             while (isActive) {
                 delay(SYNC_INTERVAL_MS)
                 try {
-                    wearSync.syncBatch(database)
-                    wearSync.syncDailySummary(database)
+                    messageSync.flushBuffer()
                 } catch (e: Exception) {
                     Log.e(TAG, "Periodic sync failed", e)
                 }
             }
         }
         Log.d(TAG, "Periodic sync started (every ${SYNC_INTERVAL_MS / 60000} min)")
+
+        // Start phone connection listener (auto-flush buffer on reconnect)
+        phoneListener.start(serviceScope)
+        Log.d(TAG, "Phone connection listener started")
     }
 
     /**
@@ -265,6 +270,7 @@ class DetectionService : Service() {
         isMonitoring = false // BUG 10 FIX
         inferenceJob?.cancel()
         syncJob?.cancel()
+        phoneListener.stop()
         sensorCollector.stop()
         gpsManager.stop()
         healthServices.stop()
@@ -370,24 +376,18 @@ class DetectionService : Service() {
         )
         Log.d(TAG, "Detection saved to database: id=$id")
 
-        // Sync detection to phone via Wear Data Layer
-        val detection = DatabaseManager.Detection(
-            timestamp = currentTime,
-            confidence = confidence,
-            gpsCluster = gpsManager.getCurrentCluster(),
-            hrBaseline = healthServices.getBaselineHR(),
-            hrCurrent = healthServices.getCurrentHR(),
-            hrDelta = healthServices.getCurrentHR() - healthServices.getBaselineHR(),
-            wristLocation = if (isLeftWrist) "left" else "right",
-            smokingHand = smokingHand
-        )
+        // Sync to phone via Bluetooth MessageClient
         serviceScope.launch {
             try {
-                wearSync.syncDetection(detection)
-                database.markAsSynced(currentTime)
-                wearSync.syncDailySummary(database)
+                messageSync.sendCigarette(
+                    timestamp = currentTime,
+                    confidence = confidence,
+                    gpsCluster = gpsManager.getCurrentCluster(),
+                    hrBaseline = healthServices.getBaselineHR(),
+                    hrCurrent = healthServices.getCurrentHR()
+                )
             } catch (e: Exception) {
-                Log.e(TAG, "Immediate sync failed, will retry in batch", e)
+                Log.e(TAG, "Sync failed, buffered for later", e)
             }
         }
 
@@ -429,23 +429,19 @@ class DetectionService : Service() {
         )
         Log.d(TAG, "Drink detection saved to database: id=$id")
 
-        // Sync to phone
-        val detection = DatabaseManager.Detection(
-            timestamp = currentTime,
-            confidence = confidence,
-            gpsCluster = gpsManager.getCurrentCluster(),
-            hrBaseline = healthServices.getBaselineHR(),
-            hrCurrent = healthServices.getCurrentHR(),
-            hrDelta = healthServices.getCurrentHR() - healthServices.getBaselineHR(),
-            wristLocation = if (isLeftWrist) "left" else "right",
-            smokingHand = smokingHand
-        )
+        // Sync to phone via Bluetooth MessageClient
         serviceScope.launch {
             try {
-                wearSync.syncDrinkDetection(detection)
-                wearSync.syncDailySummary(database)
+                messageSync.sendDrink(
+                    drinkType = "auto",
+                    timestamp = currentTime,
+                    confidence = confidence,
+                    gpsCluster = gpsManager.getCurrentCluster(),
+                    hrBaseline = healthServices.getBaselineHR(),
+                    hrCurrent = healthServices.getCurrentHR()
+                )
             } catch (e: Exception) {
-                Log.e(TAG, "Drink sync failed", e)
+                Log.e(TAG, "Drink sync failed, buffered for later", e)
             }
         }
 

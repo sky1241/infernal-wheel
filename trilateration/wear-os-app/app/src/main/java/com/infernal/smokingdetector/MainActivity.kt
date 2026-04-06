@@ -38,7 +38,6 @@ class MainActivity : ComponentActivity() {
     private lateinit var database: DatabaseManager
     private lateinit var prefs: SharedPreferences
     private lateinit var messageSync: MessageSyncManager
-    private lateinit var httpSync: HttpSyncManager
     private val syncScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,7 +46,6 @@ class MainActivity : ComponentActivity() {
         database = DatabaseManager(this)
         prefs = getSharedPreferences("smoking_detector_prefs", Context.MODE_PRIVATE)
         messageSync = MessageSyncManager(this)
-        httpSync = HttpSyncManager(this)
 
         if (!hasPermissions()) {
             requestPermissions()
@@ -130,19 +128,10 @@ class MainActivity : ComponentActivity() {
                     avgPerDay = database.getAvgCigarettesPerDay()
                     lastDetection = "🚬 +1"
                     Log.d(TAG, "Manual cigarette logged. Today: $todayCount")
-                    // Sync to phone: HTTP first, MessageClient fallback
+                    // Sync to phone via Bluetooth
                     syncScope.launch {
-                        val httpOk = httpSync.syncDetection(
-                            type = "cigarette",
-                            timestamp = System.currentTimeMillis(),
-                            confidence = 1.0f
-                        )
-                        if (httpOk) {
-                            Log.d(TAG, "Cigarette synced via HTTP")
-                        } else {
-                            messageSync.sendCigarette()
-                            Log.d(TAG, "Cigarette synced via MessageClient")
-                        }
+                        messageSync.sendCigarette()
+                        Log.d(TAG, "Cigarette synced to phone")
                     }
                 },
                 onLogDrink = { drinkType ->
@@ -165,20 +154,10 @@ class MainActivity : ComponentActivity() {
                     val emoji = when(drinkType) { "beer" -> "🍺"; "wine" -> "🍷"; "strong" -> "🥃"; else -> "🍺" }
                     lastDetection = "$emoji +1"
                     Log.d(TAG, "Manual $drinkType logged. Today: $todayDrinkCount")
-                    // Sync to phone: HTTP first, MessageClient fallback
+                    // Sync to phone via Bluetooth
                     syncScope.launch {
-                        val httpOk = httpSync.syncDetection(
-                            type = "drink",
-                            timestamp = System.currentTimeMillis(),
-                            confidence = 1.0f,
-                            drinkType = drinkType
-                        )
-                        if (httpOk) {
-                            Log.d(TAG, "$drinkType synced via HTTP")
-                        } else {
-                            messageSync.sendDrink(drinkType = drinkType)
-                            Log.d(TAG, "$drinkType synced via MessageClient")
-                        }
+                        messageSync.sendDrink(drinkType = drinkType)
+                        Log.d(TAG, "$drinkType synced to phone")
                     }
                 },
                 onToggleMonitor = {
