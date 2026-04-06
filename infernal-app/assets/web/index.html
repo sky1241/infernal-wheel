@@ -5198,6 +5198,28 @@ async function initPage() {
 
 document.addEventListener('DOMContentLoaded', initPage);
 
+// Watch sync: update addiction counters from watch data
+async function refreshWatchData() {
+  try {
+    const r = await fetch("/api/watch/summary");
+    if (!r.ok) return;
+    const w = await r.json();
+    if (!w.ok) return;
+    const cig = w.cigaretteCount || 0;
+    const drink = w.drinkCount || 0;
+    // Find the bilan addiction card and update values
+    const rows = document.querySelectorAll('.bilan__card--addict .bilan__row');
+    if (rows.length >= 2) {
+      // First row = clopes, second row = alcool
+      const clopeVal = rows[0].querySelector('.bilan__val');
+      const alcVal = rows[1].querySelector('.bilan__val');
+      if (clopeVal && cig > 0) clopeVal.textContent = cig.toFixed(1);
+      if (alcVal && drink > 0) alcVal.textContent = drink.toFixed(1);
+    }
+  } catch(_) {}
+}
+setInterval(refreshWatchData, 2000);
+
 </script>
 
 <!-- Alcohol Volume Config Modal -->

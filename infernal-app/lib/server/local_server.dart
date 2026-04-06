@@ -182,7 +182,7 @@ class LocalServer {
   // GET ENDPOINTS
   // =======================================================
 
-  Response _handleApiState(Request request) {
+  Future<Response> _handleApiState(Request request) async {
     final s = _engine.state;
     final now = DateTime.now();
     final todayKey = InfernalDay.from(now).key;
@@ -192,6 +192,38 @@ class LocalServer {
     final remainSec = s.current.endsAt != null
         ? s.current.endsAt!.difference(now).inSeconds.clamp(0, 999999)
         : 0;
+
+    // Read watch sync data from app_flutter dir (Kotlin writes here)
+    int watchClopeCount = s.dayClopeCount;
+    int watchBeerCount = 0;
+    int watchWineCount = 0;
+    int watchStrongCount = 0;
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+
+      final summaryFile = File('${appDir.path}/watch_daily_summary.json');
+      if (summaryFile.existsSync()) {
+        final summary = jsonDecode(summaryFile.readAsStringSync()) as Map<String, dynamic>;
+        if (summary['date'] == todayKey) {
+          watchClopeCount = (summary['cigaretteCount'] as int? ?? 0) + s.dayClopeCount;
+        }
+      }
+
+      final drinkFile = File('${appDir.path}/watch_drink_detections.json');
+      if (drinkFile.existsSync()) {
+        final drinks = jsonDecode(drinkFile.readAsStringSync()) as List<dynamic>;
+        final todayStart = DateTime(now.year, now.month, now.day, 4).millisecondsSinceEpoch;
+        for (final d in drinks) {
+          final ts = (d['timestamp'] as num?)?.toInt() ?? 0;
+          if (ts >= todayStart) {
+            final dt = (d['drinkType'] as String?) ?? 'beer';
+            if (dt == 'wine') { watchWineCount++; }
+            else if (dt == 'strong') { watchStrongCount++; }
+            else { watchBeerCount++; }
+          }
+        }
+      }
+    } catch (_) {}
 
     return _jsonOk({
       'ok': true,
@@ -204,7 +236,7 @@ class LocalServer {
       'daySleepSec': s.daySleepSeconds,
       'dayBreakSec': s.dayBreakSeconds,
       'dayClopeSec': s.dayClopeSeconds,
-      'dayClopeCount': s.dayClopeCount,
+      'dayClopeCount': watchClopeCount,
       'elapsedSec': elapsedSec,
       'started': s.started,
       'awaitOk': s.awaitOk,
@@ -213,7 +245,7 @@ class LocalServer {
       'overtimeStartedAt': s.current.overtimeStartedAt?.toIso8601String(),
       'todayKey': todayKey,
       'yesterdayKey': yesterdayKey,
-      'dailyAlcohol': {'wine': 0, 'beer': 0, 'strong': 0},
+      'dailyAlcohol': {'wine': watchWineCount, 'beer': watchBeerCount, 'strong': watchStrongCount},
       'yesterdayAlcohol': {'wine': 0, 'beer': 0, 'strong': 0},
       'dailyActions': [],
       'recentDrinks': [],

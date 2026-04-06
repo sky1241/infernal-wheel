@@ -54,10 +54,13 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
                 put("receivedAt", System.currentTimeMillis())
             }
 
+            // Write to app_flutter dir so Dart can read it
+            val flutterDir = java.io.File(filesDir.parentFile, "app_flutter")
+            flutterDir.mkdirs()
             val file = if (type == "drink") {
-                WatchMessageReceiver.getDrinkDetectionsFile(this)
+                java.io.File(flutterDir, "watch_drink_detections.json")
             } else {
-                WatchMessageReceiver.getDetectionsFile(this)
+                java.io.File(flutterDir, "watch_detections.json")
             }
 
             val detections = if (file.exists()) {
@@ -87,7 +90,9 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
     }
 
     private fun updateDailySummary(type: String) {
-        val file = WatchMessageReceiver.getSummaryFile(this)
+        val flutterDir2 = java.io.File(filesDir.parentFile, "app_flutter")
+        flutterDir2.mkdirs()
+        val file = java.io.File(flutterDir2, "watch_daily_summary.json")
         val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
             .format(java.util.Date())
 
@@ -218,7 +223,9 @@ class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener 
     }
 
     private fun readSummary(): JSONObject? {
-        val file = WatchMessageReceiver.getSummaryFile(this)
+        val flutterDir2 = java.io.File(filesDir.parentFile, "app_flutter")
+        flutterDir2.mkdirs()
+        val file = java.io.File(flutterDir2, "watch_daily_summary.json")
         return if (file.exists()) {
             try {
                 JSONObject(file.readText())

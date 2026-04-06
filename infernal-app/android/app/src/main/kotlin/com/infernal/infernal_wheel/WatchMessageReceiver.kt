@@ -29,14 +29,20 @@ class WatchMessageReceiver : WearableListenerService() {
         private const val CHANNEL_NAME = "com.infernal.wheel/wear_sync"
         private const val MAX_DETECTIONS = 10000 // Cap file size
 
+        private fun flutterDir(context: Context): File {
+            val dir = File(context.filesDir.parentFile, "app_flutter")
+            dir.mkdirs()
+            return dir
+        }
+
         fun getDetectionsFile(context: Context): File =
-            File(context.filesDir, DETECTIONS_FILE)
+            File(flutterDir(context), DETECTIONS_FILE)
 
         fun getDrinkDetectionsFile(context: Context): File =
-            File(context.filesDir, DRINK_DETECTIONS_FILE)
+            File(flutterDir(context), DRINK_DETECTIONS_FILE)
 
         fun getSummaryFile(context: Context): File =
-            File(context.filesDir, SUMMARY_FILE)
+            File(flutterDir(context), SUMMARY_FILE)
     }
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
