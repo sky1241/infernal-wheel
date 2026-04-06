@@ -6,152 +6,137 @@ import android.util.Log
 import kotlinx.coroutines.*
 
 /**
- * Boost Sampling Manager for Adaptive Sampling Strategy
+ * Boost Sampling Manager — Adaptive detection after manual trigger
  *
- * Switches between normal and high-frequency sampling to balance
- * battery life and detection accuracy.
+ * Flow when user presses +1:
+ * 1. DELAY phase: Wait 15 seconds (user lights cigarette)
+ * 2. BOOST phase: Inference every 15 seconds for 7 minutes (28 measurements)
+ *    - Each measurement = 4.5s window at 50Hz → CNN inference
+ *    - Raw windows stored for personal fine-tuning
+ * 3. NORMAL phase: Back to inference every 30 seconds
  *
- * Strategy:
- * - Normal mode: 50 Hz continuous (baseline monitoring)
- * - Boost mode: 100 Hz for 5 minutes (after trigger events)
- * - Triggers: User action (button press) or cigarette detection
- *
- * Battery Impact:
- * - Normal: ~2-3% battery/day @ 50Hz
- * - Boost: ~5-6% battery/day @ 100Hz
- * - Average: ~2.5% battery/day (boost only 10% of time)
- *
- * Use Cases:
- * - User smokes → Boost for 5min (detect consecutive cigarettes)
- * - User manually triggers detection → Boost for 5min (high precision)
- * - Idle for 5min → Return to normal mode
+ * This gives us ~28 high-quality labeled windows per cigarette.
+ * After 1 day (~20 cigs) = ~560 personal training windows.
  */
 class BoostSamplingManager(private val context: Context) {
 
     companion object {
         private const val TAG = "BoostSamplingManager"
 
-        // Sampling rates (microseconds between samples)
-        const val RATE_NORMAL = SensorManager.SENSOR_DELAY_GAME // ~50 Hz (20ms)
-        const val RATE_BOOST = SensorManager.SENSOR_DELAY_FASTEST // ~100 Hz (10ms)
+        // Sampling rates
+        const val RATE_NORMAL = SensorManager.SENSOR_DELAY_GAME    // ~50 Hz
+        const val RATE_BOOST = SensorManager.SENSOR_DELAY_FASTEST  // ~100 Hz
 
-        // Boost duration
-        private const val BOOST_DURATION_MS = 5 * 60 * 1000L // 5 minutes
+        // Boost timing
+        private const val DELAY_BEFORE_BOOST_MS = 15_000L      // 15s wait (light up)
+        private const val BOOST_INFERENCE_INTERVAL_MS = 15_000L // 15s between measurements
+        private const val BOOST_DURATION_MS = 7 * 60 * 1000L   // 7 minutes total
+        private const val BOOST_MEASUREMENTS = 28               // ~7min / 15s
+
+        // Normal timing
+        const val NORMAL_INFERENCE_INTERVAL_MS = 30_000L        // 30s between measurements
     }
 
     private var currentMode: SamplingMode = SamplingMode.NORMAL
-    private var boostEndTime = 0L
     private var boostJob: Job? = null
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     private var onModeChanged: ((SamplingMode) -> Unit)? = null
+    private var onBoostInference: (() -> Unit)? = null
+    private var boostMeasurementCount = 0
 
     enum class SamplingMode {
-        NORMAL,  // 50 Hz
-        BOOST    // 100 Hz
+        NORMAL,     // 50 Hz, inference every 30s
+        DELAY,      // Waiting 15s for user to light up
+        BOOST       // 100 Hz, inference every 15s for 7 min
     }
 
-    /**
-     * Set callback for mode changes
-     */
     fun setOnModeChangedListener(listener: (SamplingMode) -> Unit) {
         onModeChanged = listener
     }
 
     /**
-     * Get current sampling mode
+     * Set callback for boost-mode inference triggers.
+     * DetectionService will run inference when this fires.
      */
-    fun getCurrentMode(): SamplingMode {
-        return currentMode
+    fun setOnBoostInferenceListener(listener: () -> Unit) {
+        onBoostInference = listener
     }
 
-    /**
-     * Get current sampling rate (for SensorManager.registerListener)
-     */
-    fun getCurrentRate(): Int {
-        return when (currentMode) {
-            SamplingMode.NORMAL -> RATE_NORMAL
-            SamplingMode.BOOST -> RATE_BOOST
-        }
+    fun getCurrentMode(): SamplingMode = currentMode
+    fun getCurrentRate(): Int = when (currentMode) {
+        SamplingMode.NORMAL -> RATE_NORMAL
+        SamplingMode.BOOST -> RATE_BOOST
+        SamplingMode.DELAY -> RATE_NORMAL // Keep normal during delay
     }
 
+    fun getBoostMeasurementCount(): Int = boostMeasurementCount
+
     /**
-     * Trigger boost mode for 5 minutes
-     * Can be called from:
-     * - User button press (manual detection)
-     * - Cigarette detection event
+     * Trigger the full boost sequence: DELAY → BOOST → NORMAL
+     * Called when user presses +1 cigarette or +1 drink.
      */
     fun triggerBoost(reason: String) {
-        val now = System.currentTimeMillis()
-
-        // BUG 7 FIX: If already in boost mode, cancel old job and launch new one with extended time
-        if (currentMode == SamplingMode.BOOST) {
-            boostEndTime = now + BOOST_DURATION_MS
-            boostJob?.cancel()
-            boostJob = coroutineScope.launch {
-                delay(boostEndTime - System.currentTimeMillis())
-                returnToNormal()
-            }
-            Log.d(TAG, "Boost extended: reason=$reason, duration=${BOOST_DURATION_MS / 1000}s")
-            return
-        }
-
-        // Switch to boost mode
-        currentMode = SamplingMode.BOOST
-        boostEndTime = now + BOOST_DURATION_MS
-
-        Log.d(TAG, "Boost activated: reason=$reason, duration=${BOOST_DURATION_MS / 1000}s")
-
-        // Notify listener (to restart sensors with new rate)
-        onModeChanged?.invoke(SamplingMode.BOOST)
-
-        // Schedule return to normal mode
+        // Cancel any existing boost
         boostJob?.cancel()
+        boostMeasurementCount = 0
+
+        // Phase 1: DELAY (15s)
+        currentMode = SamplingMode.DELAY
+        Log.d(TAG, "DELAY phase started: waiting ${DELAY_BEFORE_BOOST_MS/1000}s ($reason)")
+
         boostJob = coroutineScope.launch {
-            delay(BOOST_DURATION_MS)
+            // Wait for user to light up
+            delay(DELAY_BEFORE_BOOST_MS)
+
+            // Phase 2: BOOST (7 min, inference every 15s)
+            currentMode = SamplingMode.BOOST
+            onModeChanged?.invoke(SamplingMode.BOOST)
+            Log.d(TAG, "BOOST phase started: ${BOOST_MEASUREMENTS} measurements over ${BOOST_DURATION_MS/60000}min")
+
+            for (i in 1..BOOST_MEASUREMENTS) {
+                if (!isActive) break
+
+                boostMeasurementCount = i
+                Log.d(TAG, "Boost measurement $i/$BOOST_MEASUREMENTS")
+
+                // Trigger inference in DetectionService
+                onBoostInference?.invoke()
+
+                // Wait 15s before next measurement
+                if (i < BOOST_MEASUREMENTS) {
+                    delay(BOOST_INFERENCE_INTERVAL_MS)
+                }
+            }
+
+            // Phase 3: Return to NORMAL
             returnToNormal()
         }
     }
 
-    /**
-     * Return to normal sampling mode
-     */
     private fun returnToNormal() {
-        if (currentMode == SamplingMode.NORMAL) {
-            return
-        }
+        if (currentMode == SamplingMode.NORMAL) return
 
         currentMode = SamplingMode.NORMAL
-        boostEndTime = 0L
-
-        Log.d(TAG, "Returned to normal mode (50Hz)")
-
-        // Notify listener (to restart sensors with new rate)
+        boostMeasurementCount = 0
+        Log.d(TAG, "Returned to NORMAL mode (30s interval)")
         onModeChanged?.invoke(SamplingMode.NORMAL)
     }
 
-    /**
-     * Manually return to normal mode (cancel boost)
-     */
     fun cancelBoost() {
         boostJob?.cancel()
         returnToNormal()
     }
 
-    /**
-     * Get remaining boost time (ms)
-     */
+    fun isInBoostMode(): Boolean = currentMode == SamplingMode.BOOST
+    fun isInDelayMode(): Boolean = currentMode == SamplingMode.DELAY
+
     fun getRemainingBoostTime(): Long {
-        if (currentMode != SamplingMode.BOOST) {
-            return 0L
-        }
-        val remaining = boostEndTime - System.currentTimeMillis()
-        return remaining.coerceAtLeast(0L)
+        if (currentMode != SamplingMode.BOOST) return 0L
+        val elapsed = boostMeasurementCount * BOOST_INFERENCE_INTERVAL_MS
+        return (BOOST_DURATION_MS - elapsed).coerceAtLeast(0L)
     }
 
-    /**
-     * Cleanup
-     */
     fun stop() {
         boostJob?.cancel()
         coroutineScope.cancel()

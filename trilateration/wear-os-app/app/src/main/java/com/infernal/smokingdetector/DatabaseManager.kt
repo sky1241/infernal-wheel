@@ -37,12 +37,16 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
     companion object {
         private const val TAG = "DatabaseManager"
         private const val DATABASE_NAME = "smoking_detector.db"
-        private const val DATABASE_VERSION = 4
+        private const val DATABASE_VERSION = 5
 
         // Table: cigarette_detections
         private const val TABLE_DETECTIONS = "cigarette_detections"
         // Table: drink_detections
         private const val TABLE_DRINK_DETECTIONS = "drink_detections"
+        // Table: training_samples (raw windows for personal fine-tuning)
+        private const val TABLE_TRAINING = "training_samples"
+        // Table: smoking_patterns (24h time patterns)
+        private const val TABLE_PATTERNS = "smoking_patterns"
         private const val COL_ID = "id"
         private const val COL_TIMESTAMP = "timestamp"
         private const val COL_CONFIDENCE = "confidence"
@@ -101,6 +105,30 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
         db.execSQL("CREATE INDEX idx_timestamp ON $TABLE_DETECTIONS($COL_TIMESTAMP)")
         db.execSQL("CREATE INDEX idx_drink_timestamp ON $TABLE_DRINK_DETECTIONS($COL_TIMESTAMP)")
 
+        // Training samples for personal fine-tuning
+        db.execSQL("""
+            CREATE TABLE $TABLE_TRAINING (
+                $COL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COL_TIMESTAMP INTEGER NOT NULL,
+                label TEXT NOT NULL,
+                raw_data TEXT NOT NULL,
+                inference_result TEXT,
+                boost_measurement INTEGER DEFAULT 0
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX idx_training_ts ON $TABLE_TRAINING($COL_TIMESTAMP)")
+
+        // 24h smoking patterns
+        db.execSQL("""
+            CREATE TABLE $TABLE_PATTERNS (
+                $COL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                hour INTEGER NOT NULL,
+                day_of_week INTEGER NOT NULL,
+                count INTEGER DEFAULT 0,
+                last_updated INTEGER NOT NULL
+            )
+        """.trimIndent())
+
         Log.d(TAG, "Database created: $DATABASE_NAME")
     }
 
@@ -133,7 +161,30 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_drink_timestamp ON $TABLE_DRINK_DETECTIONS($COL_TIMESTAMP)")
             Log.d(TAG, "Database migrated: added drink_detections table")
         }
-        Log.d(TAG, "Database upgraded: $oldVersion → $newVersion")
+        if (oldVersion < 5) {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS $TABLE_TRAINING (
+                    $COL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    $COL_TIMESTAMP INTEGER NOT NULL,
+                    label TEXT NOT NULL,
+                    raw_data TEXT NOT NULL,
+                    inference_result TEXT,
+                    boost_measurement INTEGER DEFAULT 0
+                )
+            """.trimIndent())
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_training_ts ON $TABLE_TRAINING($COL_TIMESTAMP)")
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS $TABLE_PATTERNS (
+                    $COL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    hour INTEGER NOT NULL,
+                    day_of_week INTEGER NOT NULL,
+                    count INTEGER DEFAULT 0,
+                    last_updated INTEGER NOT NULL
+                )
+            """.trimIndent())
+            Log.d(TAG, "Database migrated: added training_samples + smoking_patterns")
+        }
+        Log.d(TAG, "Database upgraded: $oldVersion -> $newVersion")
     }
 
     /**
@@ -422,6 +473,136 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
     /**
      * Clear all data (for testing/reset)
      */
+    // ===== TRAINING SAMPLES =====
+
+    /**
+     * Save a raw sensor window for personal fine-tuning.
+     * Called during boost mode after each inference.
+     * rawData: 6-channel signal as comma-separated string (225 x 6 = 1350 values)
+     * label: "cigarette", "drink", "other", "unknown"
+     * inferenceResult: model output probabilities
+     */
+    fun insertTrainingSample(
+        label: String,
+        rawData: String,
+        inferenceResult: String = "",
+        boostMeasurement: Int = 0
+    ): Long {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put(COL_TIMESTAMP, System.currentTimeMillis())
+            put("label", label)
+            put("raw_data", rawData)
+            put("inference_result", inferenceResult)
+            put("boost_measurement", boostMeasurement)
+        }
+        val id = db.insert(TABLE_TRAINING, null, values)
+        Log.d(TAG, "Training sample saved: id=$id, label=$label, measurement=$boostMeasurement")
+        return id
+    }
+
+    fun getTrainingSampleCount(): Int {
+        val db = readableDatabase
+        return db.rawQuery("SELECT COUNT(*) FROM $TABLE_TRAINING", null).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getInt(0) else 0
+        }
+    }
+
+    fun getTrainingSampleCountByLabel(label: String): Int {
+        val db = readableDatabase
+        return db.rawQuery(
+            "SELECT COUNT(*) FROM $TABLE_TRAINING WHERE label = ?",
+            arrayOf(label)
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getInt(0) else 0
+        }
+    }
+
+    // ===== SMOKING PATTERNS (24h) =====
+
+    /**
+     * Record a smoking event for pattern learning.
+     * Increments the count for the current hour + day_of_week.
+     */
+    fun recordSmokingPattern() {
+        val db = writableDatabase
+        val now = java.util.Calendar.getInstance()
+        val hour = now.get(java.util.Calendar.HOUR_OF_DAY)
+        val dow = now.get(java.util.Calendar.DAY_OF_WEEK) // 1=Sun, 7=Sat
+        val timestamp = System.currentTimeMillis()
+
+        // Check if entry exists
+        val existing = db.rawQuery(
+            "SELECT $COL_ID, count FROM $TABLE_PATTERNS WHERE hour = ? AND day_of_week = ?",
+            arrayOf(hour.toString(), dow.toString())
+        ).use { cursor ->
+            if (cursor.moveToFirst()) Pair(cursor.getInt(0), cursor.getInt(1)) else null
+        }
+
+        if (existing != null) {
+            val values = ContentValues().apply {
+                put("count", existing.second + 1)
+                put("last_updated", timestamp)
+            }
+            db.update(TABLE_PATTERNS, values, "$COL_ID = ?", arrayOf(existing.first.toString()))
+        } else {
+            val values = ContentValues().apply {
+                put("hour", hour)
+                put("day_of_week", dow)
+                put("count", 1)
+                put("last_updated", timestamp)
+            }
+            db.insert(TABLE_PATTERNS, null, values)
+        }
+        Log.d(TAG, "Pattern recorded: hour=$hour, dow=$dow")
+    }
+
+    /**
+     * Get the smoking pattern for a specific hour.
+     * Returns the average count for that hour across all days.
+     */
+    fun getPatternForHour(hour: Int): Float {
+        val db = readableDatabase
+        return db.rawQuery(
+            "SELECT AVG(count) FROM $TABLE_PATTERNS WHERE hour = ?",
+            arrayOf(hour.toString())
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getFloat(0) else 0f
+        }
+    }
+
+    /**
+     * Get all patterns as hour→count map.
+     * Used for threshold adjustment: high-count hours get lower threshold.
+     */
+    fun getAllPatterns(): Map<Int, Float> {
+        val db = readableDatabase
+        val patterns = mutableMapOf<Int, Float>()
+        db.rawQuery(
+            "SELECT hour, AVG(count) as avg_count FROM $TABLE_PATTERNS GROUP BY hour",
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                patterns[cursor.getInt(0)] = cursor.getFloat(1)
+            }
+        }
+        return patterns
+    }
+
+    /**
+     * Check if current hour is a high-smoking hour (top 30%).
+     * Returns true if the threshold should be lowered.
+     */
+    fun isHighSmokingHour(): Boolean {
+        val patterns = getAllPatterns()
+        if (patterns.isEmpty()) return false
+        val currentHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        val currentAvg = patterns[currentHour] ?: 0f
+        val allAvgs = patterns.values.sorted()
+        val threshold70 = if (allAvgs.size > 2) allAvgs[(allAvgs.size * 0.7).toInt()] else 0f
+        return currentAvg >= threshold70
+    }
+
     fun clearAll() {
         val db = writableDatabase
         db.delete(TABLE_DETECTIONS, null, null)

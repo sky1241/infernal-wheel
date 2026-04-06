@@ -143,6 +143,13 @@ class DetectionService : Service() {
             Log.d(TAG, "Sampling mode changed: $mode (rate=$newRate)")
         }
 
+        // Boost inference listener: run inference when boost triggers it
+        boostManager.setOnBoostInferenceListener {
+            serviceScope.launch {
+                runInference(isBoostMeasurement = true)
+            }
+        }
+
         // Load TFLite model
         if (!detector.loadModel()) {
             Log.e(TAG, "Failed to load TFLite model")
@@ -281,7 +288,7 @@ class DetectionService : Service() {
     /**
      * Run inference on recent sensor data
      */
-    private suspend fun runInference() {
+    private suspend fun runInference(isBoostMeasurement: Boolean = false) {
         withContext(Dispatchers.Default) {
             try {
                 Log.d(TAG, "Running inference...")
@@ -310,11 +317,30 @@ class DetectionService : Service() {
                     proximitySmoking = 0.1f  // TODO: Get from geofencing
                 )
 
-                // Run TFLite inference with dynamic threshold
-                val threshold = getDetectionThreshold()
+                // Run TFLite inference with adaptive threshold
+                var threshold = getDetectionThreshold()
+                // Pattern-based threshold: lower during high-smoking hours
+                if (database.isHighSmokingHour()) {
+                    threshold = (threshold - 0.15f).coerceAtLeast(0.4f)
+                    Log.d(TAG, "High-smoking hour: threshold lowered to $threshold")
+                }
                 val probabilities = detector.predict(features)
                 val isCigarette = probabilities[SmokingDetector.CLASS_CIGARETTE] > threshold
                 val isDrinking = probabilities[SmokingDetector.CLASS_DRINKING] > DRINK_THRESHOLD
+
+                // Save raw window as training sample during boost mode
+                if (isBoostMeasurement) {
+                    val rawStr = sensorData.accelerometer.zip(sensorData.gyroscope)
+                        .joinToString(",") { (a, g) -> "${a[0]},${a[1]},${a[2]},${g[0]},${g[1]},${g[2]}" }
+                    val resultStr = probabilities.contentToString()
+                    val label = if (boostManager.isInBoostMode()) "cigarette" else "unknown"
+                    database.insertTrainingSample(
+                        label = label,
+                        rawData = rawStr,
+                        inferenceResult = resultStr,
+                        boostMeasurement = boostManager.getBoostMeasurementCount()
+                    )
+                }
 
                 Log.d(TAG, "Inference: cig=$isCigarette drink=$isDrinking (threshold=$threshold), probs=${probabilities.contentToString()}")
 
@@ -376,6 +402,9 @@ class DetectionService : Service() {
         )
         Log.d(TAG, "Detection saved to database: id=$id")
 
+        // Record pattern for 24h learning
+        database.recordSmokingPattern()
+
         // Sync to phone via Bluetooth MessageClient
         serviceScope.launch {
             try {
@@ -428,6 +457,7 @@ class DetectionService : Service() {
             smokingHand = smokingHand
         )
         Log.d(TAG, "Drink detection saved to database: id=$id")
+        database.recordSmokingPattern() // Also track drink patterns
 
         // Sync to phone via Bluetooth MessageClient
         serviceScope.launch {

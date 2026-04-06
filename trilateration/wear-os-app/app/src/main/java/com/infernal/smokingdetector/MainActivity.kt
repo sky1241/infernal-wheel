@@ -128,6 +128,7 @@ class MainActivity : ComponentActivity() {
                     avgPerDay = database.getAvgCigarettesPerDay()
                     lastDetection = "🚬 +1"
                     Log.d(TAG, "Manual cigarette logged. Today: $todayCount")
+                    database.recordSmokingPattern()
                     // Sync to phone via Bluetooth
                     syncScope.launch {
                         messageSync.sendCigarette()
@@ -154,6 +155,7 @@ class MainActivity : ComponentActivity() {
                     val emoji = when(drinkType) { "beer" -> "🍺"; "wine" -> "🍷"; "strong" -> "🥃"; else -> "🍺" }
                     lastDetection = "$emoji +1"
                     Log.d(TAG, "Manual $drinkType logged. Today: $todayDrinkCount")
+                    database.recordSmokingPattern()
                     // Sync to phone via Bluetooth
                     syncScope.launch {
                         messageSync.sendDrink(drinkType = drinkType)
