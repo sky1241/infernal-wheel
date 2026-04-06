@@ -129,6 +129,8 @@ class MainActivity : ComponentActivity() {
                     lastDetection = "🚬 +1"
                     Log.d(TAG, "Manual cigarette logged. Today: $todayCount")
                     database.recordSmokingPattern()
+                    // Trigger boost mode (15s delay → 7 min scanning)
+                    DetectionService.triggerBoost(this@MainActivity, "manual_cigarette")
                     // Sync to phone via Bluetooth
                     syncScope.launch {
                         messageSync.sendCigarette()
@@ -156,6 +158,7 @@ class MainActivity : ComponentActivity() {
                     lastDetection = "$emoji +1"
                     Log.d(TAG, "Manual $drinkType logged. Today: $todayDrinkCount")
                     database.recordSmokingPattern()
+                    DetectionService.triggerBoost(this@MainActivity, "manual_$drinkType")
                     // Sync to phone via Bluetooth
                     syncScope.launch {
                         messageSync.sendDrink(drinkType = drinkType)

@@ -43,6 +43,19 @@ class DetectionService : Service() {
         // Service actions
         const val ACTION_START = "com.infernal.smokingdetector.START"
         const val ACTION_STOP = "com.infernal.smokingdetector.STOP"
+        const val ACTION_BOOST = "com.infernal.smokingdetector.BOOST"
+
+        /**
+         * Trigger boost mode from outside (e.g., manual +1 button)
+         */
+        fun triggerBoost(context: Context, reason: String) {
+            if (!isRunning) return
+            val intent = Intent(context, DetectionService::class.java).apply {
+                action = ACTION_BOOST
+                putExtra("reason", reason)
+            }
+            context.startService(intent)
+        }
 
         // BUG 18 FIX: Static flag for service running state (replaces deprecated ActivityManager query)
         @Volatile
@@ -173,6 +186,11 @@ class DetectionService : Service() {
                 Log.d(TAG, "Stopping detection service")
                 stopMonitoring()
                 stopSelf()
+            }
+            ACTION_BOOST -> {
+                val reason = intent?.getStringExtra("reason") ?: "manual"
+                Log.d(TAG, "Boost triggered: $reason")
+                boostManager.triggerBoost(reason)
             }
             null -> {
                 // System restarted the service — ensure foreground notification is shown
