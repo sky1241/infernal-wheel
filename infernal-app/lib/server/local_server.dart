@@ -264,9 +264,13 @@ class LocalServer {
     return _jsonOk({'ok': true, 'data': data});
   }
 
-  Response _handleApiDrinksWeeks(Request request) {
-    // Weekly aggregates from drinks.csv will be computed here
-    return _jsonOk([]);
+  Future<Response> _handleApiDrinksWeeks(Request request) async {
+    try {
+      final weeks = await _store.getDrinksWeeks();
+      return _jsonOk(weeks);
+    } catch (_) {
+      return _jsonOk([]);
+    }
   }
 
   Response _handleApiMonthlySummary(Request request) {

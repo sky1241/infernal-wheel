@@ -199,6 +199,75 @@ class DataStore {
     return result;
   }
 
+  /// Weekly alcohol aggregates for the dashboard table
+  Future<Map<String, dynamic>> getDrinksWeeks() async {
+    try {
+      if (!await _drinksFile.exists()) return {'ok': true, 'weeks': []};
+
+      // ABV constants (same as PowerShell)
+      const beerAbv = 0.055, wineAbv = 0.135, strongAbv = 0.425;
+      const beerL = 0.5, wineL = 0.2, strongL = 0.2;
+
+      // Aggregate by ISO week
+      final byWeek = <String, Map<String, dynamic>>{};
+      final lines = (await _drinksFile.readAsString()).split('\n');
+      for (final line in lines.skip(1)) {
+        final parts = line.split(',');
+        if (parts.length < 5) continue;
+        final dayStr = parts[1].trim();
+        if (dayStr.isEmpty) continue;
+        final dt = DateTime.tryParse(dayStr);
+        if (dt == null) continue;
+
+        // ISO week key
+        final dayOfYear = dt.difference(DateTime(dt.year, 1, 1)).inDays;
+        final weekNum = ((dayOfYear - dt.weekday + 10) / 7).floor();
+        final weekKey = '${dt.year}-W${weekNum.toString().padLeft(2, '0')}';
+
+        if (!byWeek.containsKey(weekKey)) {
+          final monday = dt.subtract(Duration(days: dt.weekday - 1));
+          final sunday = monday.add(const Duration(days: 6));
+          String fmt(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+          byWeek[weekKey] = <String, dynamic>{
+            'weekKey': weekKey,
+            'weekRange': '${fmt(monday)} - ${fmt(sunday)}',
+            'beer': 0, 'wine': 0, 'strong': 0,
+          };
+        }
+
+        byWeek[weekKey]!['beer'] = byWeek[weekKey]!['beer'] + (int.tryParse(parts[3]) ?? 0);
+        byWeek[weekKey]!['wine'] = byWeek[weekKey]!['wine'] + (int.tryParse(parts[2]) ?? 0);
+        byWeek[weekKey]!['strong'] = byWeek[weekKey]!['strong'] + (int.tryParse(parts[4]) ?? 0);
+      }
+
+      // Compute pure alcohol + deltas
+      final weeks = byWeek.values.toList();
+      weeks.sort((a, b) => (b['weekKey'] as String).compareTo(a['weekKey'] as String));
+
+      for (int i = 0; i < weeks.length; i++) {
+        final w = weeks[i];
+        final pure = (w['beer'] as int) * beerL * beerAbv +
+            (w['wine'] as int) * wineL * wineAbv +
+            (w['strong'] as int) * strongL * strongAbv;
+        w['beerCans'] = w['beer'];
+        w['wineGlasses'] = w['wine'];
+        w['strongGlasses'] = w['strong'];
+        w['pureLiters'] = double.parse(pure.toStringAsFixed(3));
+
+        if (i + 1 < weeks.length) {
+          final prevPure = weeks[i + 1]['pureLiters'] as double? ?? 0;
+          w['deltaPure'] = double.parse((pure - prevPure).toStringAsFixed(3));
+        } else {
+          w['deltaPure'] = 0.0;
+        }
+      }
+
+      return {'ok': true, 'weeks': weeks};
+    } catch (_) {
+      return {'ok': true, 'weeks': []};
+    }
+  }
+
   // --- Log (CSV) ---
 
   File get _logFile => File('${_dataDir.path}/log.csv');
