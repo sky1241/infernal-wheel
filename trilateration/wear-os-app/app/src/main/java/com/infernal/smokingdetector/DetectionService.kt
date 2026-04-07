@@ -130,7 +130,18 @@ class DetectionService : Service() {
         isRunning = true // BUG 18 FIX
         Log.d(TAG, "Service created")
 
-        // Initialize components
+        // CRITICAL: call startForeground IMMEDIATELY (must be within 5s on separate process)
+        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        createNotificationChannel()
+        val earlyNotification = createNotification(
+            title = "Detection starting...",
+            text = "Initializing sensors",
+            ongoing = true
+        )
+        startForeground(NOTIFICATION_ID, earlyNotification)
+        Log.d(TAG, "Early foreground started")
+
+        // Initialize components (can take time, but foreground is already set)
         detector = SmokingDetector(this)
         sensorCollector = SensorDataCollector(this)
         featureExtractor = FeatureExtractor()
@@ -140,7 +151,6 @@ class DetectionService : Service() {
         boostManager = BoostSamplingManager(this)
         messageSync = MessageSyncManager(this)
         phoneListener = PhoneConnectionListener(this, messageSync)
-        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         // Read wrist/hand preferences + listen for runtime changes
         prefs = getSharedPreferences("smoking_detector_prefs", Context.MODE_PRIVATE)
@@ -170,8 +180,6 @@ class DetectionService : Service() {
             return
         }
 
-        // Create notification channel
-        createNotificationChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -218,14 +226,15 @@ class DetectionService : Service() {
      * Start foreground service with persistent notification
      */
     private fun startForegroundService() {
+        // Already called startForeground in onCreate (for 5s deadline)
+        // Just update the notification text
         val notification = createNotification(
-            title = "Smoking Detection Active",
+            title = "Detection active",
             text = "Monitoring sensors...",
             ongoing = true
         )
-
-        startForeground(NOTIFICATION_ID, notification)
-        Log.d(TAG, "Foreground service started")
+        notificationManager.notify(NOTIFICATION_ID, notification)
+        Log.d(TAG, "Foreground notification updated")
     }
 
     /**
