@@ -9,6 +9,7 @@ import '../engine/timer_engine.dart';
 import 'package:path_provider/path_provider.dart';
 import 'data_store.dart';
 import '../services/wear_sync_service.dart';
+import '../services/sleep_service.dart';
 
 /// Serveur HTTP local qui sert le dashboard + API
 /// Tourne sur localhost, port auto (0 = l'OS choisit)
@@ -21,6 +22,7 @@ class LocalServer {
   final _engine = TimerEngine();
   final _store = DataStore();
   final _wearSync = WearSyncService();
+  final _sleepService = SleepService();
 
   bool get isRunning => _server != null;
   int get port => _port;
@@ -66,6 +68,9 @@ class LocalServer {
       ..get('/api/notes/all', _handleApiNotesAll)
       ..get('/api/quicknote', _handleApiQuickNote)
       ..get('/api/actionnote', _handleApiActionNote)
+      // Sleep endpoints
+      ..get('/api/sleep/last', _handleApiSleepLast)
+      ..get('/api/sleep/history', _handleApiSleepHistory)
       // Watch endpoints
       ..get('/api/watch/summary', _handleApiWatchSummary)
       // POST endpoints
@@ -234,6 +239,7 @@ class LocalServer {
       'overrunSec': s.totalOverrunSeconds,
       'dayWorkSec': s.dayWorkSeconds,
       'daySleepSec': s.daySleepSeconds,
+      'healthSleep': await _getHealthSleep(),
       'dayBreakSec': s.dayBreakSeconds,
       'dayClopeSec': s.dayClopeSeconds,
       'dayClopeCount': watchClopeCount,
@@ -310,6 +316,41 @@ class LocalServer {
   Future<Response> _handleApiActionNote(Request request) async {
     final content = await _store.loadActionNote();
     return _jsonOk({'ok': true, 'content': content});
+  }
+
+  // =======================================================
+  Future<Map<String, dynamic>> _getHealthSleep() async {
+    try {
+      return await _sleepService.getLastNightSleep();
+    } catch (_) {
+      return {'ok': false, 'durationMinutes': 0};
+    }
+  }
+
+  // SLEEP ENDPOINTS
+  // =======================================================
+
+  Future<Response> _handleApiSleepLast(Request request) async {
+    try {
+      final sleep = await _sleepService.getLastNightSleep();
+      return _jsonOk(sleep);
+    } catch (e) {
+      return _jsonOk({
+        'ok': false,
+        'reason': e.toString(),
+        'durationMinutes': 0,
+      });
+    }
+  }
+
+  Future<Response> _handleApiSleepHistory(Request request) async {
+    try {
+      final days = int.tryParse(request.url.queryParameters['days'] ?? '7') ?? 7;
+      final history = await _sleepService.getSleepHistory(days);
+      return _jsonOk({'ok': true, 'days': days, 'sleep': history});
+    } catch (e) {
+      return _jsonOk({'ok': false, 'sleep': []});
+    }
   }
 
   // =======================================================

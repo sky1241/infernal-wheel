@@ -22,6 +22,9 @@ dependencies:
   pointycastle: ^3.9.1
   crypto: ^3.0.5
 
+  # Health Connect (sleep data from Samsung Health)
+  health: 13.1.4
+
   # Storage
   path_provider: ^2.1.1
 
