@@ -267,7 +267,59 @@ class LocalServer {
 
   Future<Response> _handleApiConsumptionAll(Request request) async {
     final data = await _store.getAllConsumption();
-    return _jsonOk({'ok': true, 'data': data});
+
+    // Merge watch detection data into consumption
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final detectFile = File('${appDir.path}/watch_detections.json');
+      final drinkFile = File('${appDir.path}/watch_drink_detections.json');
+
+      final byDay = <String, Map<String, dynamic>>{};
+
+      // Initialize from existing data
+      for (final d in data) {
+        final day = d['day'] as String? ?? '';
+        if (day.isNotEmpty) byDay[day] = Map<String, dynamic>.from(d);
+      }
+
+      // Add watch cigarette detections
+      if (detectFile.existsSync()) {
+        final detections = jsonDecode(detectFile.readAsStringSync()) as List;
+        for (final d in detections) {
+          final ts = (d['timestamp'] as num?)?.toInt() ?? 0;
+          if (ts > 0) {
+            final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+            // Use InfernalDay (4am rollover)
+            final dayDt = dt.hour < 4 ? dt.subtract(const Duration(days: 1)) : dt;
+            final dayKey = '${dayDt.year}-${dayDt.month.toString().padLeft(2,'0')}-${dayDt.day.toString().padLeft(2,'0')}';
+            byDay.putIfAbsent(dayKey, () => {'day': dayKey, 'smokes': 0, 'wine': 0, 'beer': 0, 'strong': 0});
+            byDay[dayKey]!['smokes'] = (byDay[dayKey]!['smokes'] as int? ?? 0) + 1;
+          }
+        }
+      }
+
+      // Add watch drink detections
+      if (drinkFile.existsSync()) {
+        final drinks = jsonDecode(drinkFile.readAsStringSync()) as List;
+        for (final d in drinks) {
+          final ts = (d['timestamp'] as num?)?.toInt() ?? 0;
+          if (ts > 0) {
+            final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+            final dayDt = dt.hour < 4 ? dt.subtract(const Duration(days: 1)) : dt;
+            final dayKey = '${dayDt.year}-${dayDt.month.toString().padLeft(2,'0')}-${dayDt.day.toString().padLeft(2,'0')}';
+            byDay.putIfAbsent(dayKey, () => {'day': dayKey, 'smokes': 0, 'wine': 0, 'beer': 0, 'strong': 0});
+            final drinkType = (d['drinkType'] as String?) ?? 'beer';
+            byDay[dayKey]![drinkType] = (byDay[dayKey]![drinkType] as int? ?? 0) + 1;
+          }
+        }
+      }
+
+      final merged = byDay.values.toList();
+      merged.sort((a, b) => (b['day'] as String).compareTo(a['day'] as String));
+      return _jsonOk({'ok': true, 'data': merged});
+    } catch (_) {
+      return _jsonOk({'ok': true, 'data': data});
+    }
   }
 
   Future<Response> _handleApiDrinksWeeks(Request request) async {
@@ -279,8 +331,75 @@ class LocalServer {
     }
   }
 
-  Response _handleApiMonthlySummary(Request request) {
+  Future<Response> _handleApiMonthlySummary(Request request) async {
     final ym = request.url.queryParameters['m'] ?? DateTime.now().toIso8601String().substring(0, 7);
+
+    // Build daily data from watch detections
+    int totalClope = 0;
+    int totalDrinks = 0;
+    int activeDays = 0;
+    final daily = <Map<String, dynamic>>[];
+
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final byDay = <String, Map<String, int>>{};
+
+      // Count cigarettes per day
+      final detectFile = File('${appDir.path}/watch_detections.json');
+      if (detectFile.existsSync()) {
+        final detections = jsonDecode(detectFile.readAsStringSync()) as List;
+        for (final d in detections) {
+          final ts = (d['timestamp'] as num?)?.toInt() ?? 0;
+          if (ts > 0) {
+            final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+            final dayDt = dt.hour < 4 ? dt.subtract(const Duration(days: 1)) : dt;
+            final dayKey = '${dayDt.year}-${dayDt.month.toString().padLeft(2,'0')}-${dayDt.day.toString().padLeft(2,'0')}';
+            if (dayKey.startsWith(ym)) {
+              byDay.putIfAbsent(dayKey, () => {'clope': 0, 'beer': 0, 'wine': 0, 'strong': 0, 'work': 0, 'sleep': 0});
+              byDay[dayKey]!['clope'] = (byDay[dayKey]!['clope'] ?? 0) + 1;
+              totalClope++;
+            }
+          }
+        }
+      }
+
+      // Count drinks per day
+      final drinkFile = File('${appDir.path}/watch_drink_detections.json');
+      if (drinkFile.existsSync()) {
+        final drinks = jsonDecode(drinkFile.readAsStringSync()) as List;
+        for (final d in drinks) {
+          final ts = (d['timestamp'] as num?)?.toInt() ?? 0;
+          if (ts > 0) {
+            final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+            final dayDt = dt.hour < 4 ? dt.subtract(const Duration(days: 1)) : dt;
+            final dayKey = '${dayDt.year}-${dayDt.month.toString().padLeft(2,'0')}-${dayDt.day.toString().padLeft(2,'0')}';
+            if (dayKey.startsWith(ym)) {
+              byDay.putIfAbsent(dayKey, () => {'clope': 0, 'beer': 0, 'wine': 0, 'strong': 0, 'work': 0, 'sleep': 0});
+              final type = (d['drinkType'] as String?) ?? 'beer';
+              byDay[dayKey]![type] = (byDay[dayKey]![type] ?? 0) + 1;
+              totalDrinks++;
+            }
+          }
+        }
+      }
+
+      activeDays = byDay.length;
+      for (final entry in byDay.entries) {
+        daily.add({
+          'day': entry.key,
+          'workMin': entry.value['work'] ?? 0,
+          'sleepMin': entry.value['sleep'] ?? 0,
+          'clope': entry.value['clope'] ?? 0,
+          'beer': entry.value['beer'] ?? 0,
+          'wine': entry.value['wine'] ?? 0,
+          'strong': entry.value['strong'] ?? 0,
+        });
+      }
+      daily.sort((a, b) => (a['day'] as String).compareTo(b['day'] as String));
+    } catch (_) {}
+
+    final daysInMonth = activeDays > 0 ? activeDays : 1;
+
     return _jsonOk({
       'ok': true,
       'month': ym,
@@ -288,12 +407,14 @@ class LocalServer {
       'totalSleepMin': (_engine.state.totalSleepSeconds / 60).round(),
       'avgWorkMin': 0,
       'avgSleepMin': 0,
-      'totalClope': _engine.state.totalClopeCount,
-      'avgClope': 0,
+      'totalClopeCount': totalClope,
+      'avgClopeCount': totalClope / daysInMonth,
+      'totalAlcoholCount': totalDrinks,
+      'avgAlcoholPerDay': totalDrinks / daysInMonth,
       'clopeFreeDays': 0,
       'alcoholFreeDays': 0,
-      'activeDays': 0,
-      'daily': [],
+      'activeDays': activeDays,
+      'daily': daily,
     });
   }
 
