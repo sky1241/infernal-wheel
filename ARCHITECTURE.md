@@ -1,374 +1,233 @@
-# InfernalWheel — Architecture Document
+# -1+ Architecture Document
 
-> **Last updated**: 2026-03-30 — Post-audit, pre-mobile migration
-> **Status**: Beta → Production migration in progress
+> **Last updated**: 2026-04-07
+> **Status**: Production — watch sync working, ML trained on real data
 
 ---
 
 ## 1. Project Overview
 
-InfernalWheel is a **cigarette/addiction tracking and smoking cessation app** with:
-- A **mobile app** (Flutter/Dart) targeting Google Play Store
-- A **Wear OS watch companion** (Kotlin) with ML-based cigarette detection
-- A **desktop dashboard** (PowerShell + HTML/CSS/JS) — legacy, being migrated into the mobile app
-- **ML training pipeline** (Python) for smoking gesture detection
+**-1+** is a cigarette/alcohol tracking and addiction cessation app with:
+- **Mobile app** (Flutter/Dart) — WebView + local shelf server
+- **Wear OS watch companion** (Kotlin) — ML detection + manual buttons
+- **ML pipeline** (Python/TFLite) — CNN 1D trained on real smoking data
+- **Desktop dashboard** (PowerShell) — legacy, migrated into mobile app
 
-**Core principle**: All data stays local on the user's device, encrypted AES-256.
+**Core principle**: 100% local. No servers. No accounts. Data encrypted AES-256-GCM.
 
 ---
 
-## 2. Architecture Diagram
+## 2. Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    MOBILE APP (Flutter)                  │
-│                                                         │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────────────┐ │
-│  │ WebView  │──│ shelf server │──│ Dashboard HTML/JS  │ │
-│  │          │  │ localhost:0  │  │ (from assets/)     │ │
-│  └──────────┘  └──────┬───────┘  └───────────────────┘ │
-│                       │                                  │
-│  ┌────────────────────┴────────────────────────────┐    │
-│  │              REST API (shelf_router)             │    │
-│  │  /api/state  /api/notes  /api/drinks  /api/cmd  │    │
-│  └────────────────────┬────────────────────────────┘    │
-│                       │                                  │
-│  ┌────────────────────┴────────────────────────────┐    │
-│  │              BUSINESS LOGIC (Dart)               │    │
-│  │  TimerEngine │ AddictionTracker │ HealthService  │    │
-│  └────────────────────┬────────────────────────────┘    │
-│                       │                                  │
-│  ┌────────────────────┴────────────────────────────┐    │
-│  │           ENCRYPTED STORAGE (AES-256)            │    │
-│  │  PIN-derived key │ JSON/CSV │ Android Keystore   │    │
-│  └─────────────────────────────────────────────────┘    │
-│                                                         │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │          ANDROID SERVICES                        │    │
-│  │  Foreground Service (timer) │ Notifications      │    │
-│  │  Wear Data Layer (watch sync)                    │    │
-│  └─────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────┘
-         │ Wear Data Layer API (Bluetooth)
-         ▼
-┌─────────────────────────────────────────────────────────┐
-│                  WEAR OS APP (Kotlin)                    │
-│                                                         │
-│  ┌───────────┐  ┌──────────────┐  ┌─────────────────┐  │
-│  │ Compose   │  │ Detection    │  │ Sensor Data     │  │
-│  │ M3 UI     │  │ Service      │  │ Collector       │  │
-│  └───────────┘  └──────┬───────┘  └────────┬────────┘  │
-│                        │                    │           │
-│  ┌─────────────────────┴────────────────────┘           │
-│  │          ML INFERENCE PIPELINE                       │
-│  │  SensorData → FeatureExtractor → SmokingDetector     │
-│  │  (50Hz)       (30 features)      (TFLite int8)       │
-│  └──────────────────────┬──────────────────────         │
-│                         │                               │
-│  ┌──────────────────────┴────────────────────┐          │
-│  │  SQLite DB │ GPS Clustering │ Health API   │          │
-│  └───────────────────────────────────────────┘          │
-└─────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────┐
-│              ML TRAINING PIPELINE (Python)               │
-│  train_baseline.py → feature_extraction.py →             │
-│  convert_to_tflite.py → smoking_detector.tflite          │
-└─────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────┐
-│            LEGACY DASHBOARD (PowerShell) ⚠️              │
-│  InfernalDashboard.ps1 → HTTP server → HTML/CSS/JS      │
-│  InfernalWheel.ps1 → Timer engine                        │
-│  STATUS: Being migrated into Flutter app                 │
-└─────────────────────────────────────────────────────────┘
+WATCH (Wear OS)                        PHONE (Flutter)
+┌──────────────────────┐               ┌──────────────────────┐
+│  UI (Compose M3)     │               │  WebView             │
+│  🚬 +1  🍺🍷🥃      │  Bluetooth    │  ┌──────────────────┐ │
+│                      │  MessageClient│  │ shelf server:8011 │ │
+│  DetectionService    │──────────────>│  │  20 API endpoints │ │
+│  (:detection process)│               │  └──────────────────┘ │
+│  - CNN inference     │               │                       │
+│  - Boost mode        │               │  Dashboard HTML/CSS/JS│
+│  - Pattern learning  │               │  (5200 lines)         │
+│  - Training samples  │               │                       │
+│                      │               │  AES-256-GCM storage  │
+│  MessageSyncManager  │               │  Android Keystore     │
+│  - Send or buffer    │               ├───────────────────────┤
+│  - Auto-flush on     │               │  WatchMessageReceiver │
+│    reconnect         │               │  MainActivity listener│
+└──────────────────────┘               └───────────────────────┘
 ```
 
 ---
 
-## 3. Directory Structure
+## 3. Watch Detection Pipeline
 
 ```
-infernal-wheel/
-│
-├── infernal-app/                 # Flutter mobile app (PRIMARY)
-│   ├── lib/
-│   │   ├── core/                 # InfernalDay, Logger, Result<T>
-│   │   ├── models/               # Addiction, DayEntry, SleepData, UserSettings
-│   │   ├── services/             # StorageService, HealthService, AddictionTracker
-│   │   ├── theme/                # AppTheme, Colors, Spacing
-│   │   ├── views/                # HomeScreen, JournalScreen, SettingsScreen
-│   │   │   └── components/       # AddictionCard, SleepCard
-│   │   ├── widgets/              # SafeWidgets
-│   │   ├── l10n/generated/       # Localization (AR, DE, EN, ES, FR, PT, ZH)
-│   │   ├── debug/                # Debug tools
-│   │   └── main.dart             # Entry point
-│   ├── test/                     # Tests (TODO: expand)
-│   ├── assets/                   # Icons, images
-│   └── pubspec.yaml              # Dependencies
-│
-├── trilateration/                # Wear OS + ML research
-│   ├── wear-os-app/              # Kotlin Wear OS app
-│   │   └── app/src/main/java/.../
-│   │       ├── MainActivity.kt           # Compose UI entry
-│   │       ├── DetectionService.kt       # Foreground service
-│   │       ├── SensorDataCollector.kt    # Accelerometer/gyro 50Hz
-│   │       ├── FeatureExtractor.kt       # 30-feature signal processing
-│   │       ├── SmokingDetector.kt        # TFLite inference (<50ms)
-│   │       ├── HealthServicesManager.kt  # Heart rate
-│   │       ├── GPSClusteringManager.kt   # DBSCAN location clustering
-│   │       ├── BoostSamplingManager.kt   # Battery-optimized sampling
-│   │       ├── DatabaseManager.kt        # SQLite local storage
-│   │       └── ui/                       # Compose screens + theme
-│   ├── models/                   # TFLite models (smoking_detector.tflite)
-│   ├── *.py                      # Python ML training scripts
-│   ├── apple-watch-app/          # SwiftUI (incomplete)
-│   ├── garmin-app/               # Garmin (incomplete)
-│   └── docs/                     # ML documentation
-│
-├── hellwell/                     # LEGACY — PowerShell desktop dashboard
-│   ├── InfernalDashboard.ps1     # HTTP server (3,530 lines)
-│   ├── InfernalWheel.ps1         # Timer engine (267 lines)
-│   ├── InfernalIO.psm1           # Atomic file I/O module
-│   ├── engine/
-│   │   └── Engine.Functions.ps1  # Timer logic (370 lines)
-│   └── dashboard/
-│       ├── Dashboard.Page.ps1    # HTML generator (5,322 lines)
-│       └── Dashboard.Functions.ps1 # Helper functions (1,687 lines)
-│
-├── ux_resources/                 # UX reference library (44,309 lines)
-│   ├── WEB.md                    # Web UX bible (15,669 lines)
-│   ├── MOBILE.md                 # Mobile UX bible (15,508 lines)
-│   ├── WEARABLE.md               # Wearable UX bible (13,132 lines)
-│   ├── DESIGN_TREE.md            # Decision tree (510 entries)
-│   └── prompts/                  # Claude AI prompts
-│
-├── data/                         # Historical data (CSV/JSON)
-├── docs/                         # Project documentation
-├── logs/                         # Runtime logs
-├── notes/                        # Project notes
-├── forge.py                      # Debug utility (2,252 lines)
-├── ARCHITECTURE.md               # THIS FILE
-└── .gitignore
+User presses +1 🚬
+  │
+  ├─ Immediate: counter +1, sync to phone, record pattern
+  │
+  ├─ 15 seconds DELAY (user lights cigarette)
+  │
+  ├─ BOOST MODE: 7 minutes, inference every 15 seconds
+  │   ├─ 28 measurements total
+  │   ├─ Each: 4.5s window @ 50Hz → 30 features → TFLite CNN
+  │   ├─ Raw windows saved as training data
+  │   └─ PARTIAL_WAKE_LOCK keeps CPU alive
+  │
+  └─ Return to NORMAL mode (inference every 30s)
+```
+
+### ML Model Versions
+
+| Model | Method | F1 | Precision | Recall | Size | Status |
+|-------|--------|---:|----------:|-------:|-----:|--------|
+| v1 | RF synthetic | 0.12 | — | — | 23KB | Replaced |
+| v2 | GBM+features (SED) | 0.42 | 0.52 | 0.35 | 20KB | **Deployed** |
+| v3 | GBM+features (SED+FL) | 0.33 | 0.20 | 0.85 | 23KB | High-recall |
+| v4 | CNN raw (SED+FL) | 0.39 | 0.26 | 0.81 | 41KB | Experimental |
+| v5 | CNN raw (SED only) | 0.75 | 0.63 | 0.92 | 39KB | Next deploy |
+
+Training data: SED dataset (Zenodo, 11 subjects, 276 puffs, 50Hz wrist IMU).
+
+### 24h Pattern Learning
+
+- Records hour + day_of_week for every cigarette/drink
+- After ~3 days: identifies high-smoking hours (top 30%)
+- Adaptive threshold: -0.15 during predicted smoking times
+- Reduces false negatives when user is likely to smoke
+
+---
+
+## 4. Watch → Phone Sync
+
+```
+Watch: MessageSyncManager
+  ├─ Try MessageClient.sendMessage() via Bluetooth
+  ├─ If no phone connected → buffer to pending_sync.json (max 500)
+  └─ PhoneConnectionListener polls every 60s → auto-flush on reconnect
+
+Phone: MainActivity.onMessageReceived()
+  ├─ Receives /detection or /drink messages
+  ├─ Stores in app_flutter/watch_detections.json
+  ├─ Updates app_flutter/watch_daily_summary.json
+  └─ Notifies Flutter via MethodChannel
+```
+
+**Why MessageClient (not DataClient):**
+DataClient requires same applicationId on both devices. Failed on Xiaomi + Samsung Watch.
+MessageClient works cross-package via Bluetooth — universal solution.
+
+---
+
+## 5. Phone App Structure
+
+```
+infernal-app/
+  lib/
+    main.dart                 # Entry point, AppLauncher
+    core/
+      infernal_day.dart       # Day system (4am rollover)
+      logger.dart             # Logging + perf measurement
+      result.dart             # Result<T> type
+    engine/
+      timer_engine.dart       # Work/sleep/break segments
+    security/
+      crypto_service.dart     # AES-256-GCM + Keystore
+    server/
+      local_server.dart       # shelf HTTP server (20 routes)
+      data_store.dart         # Local file storage (JSON/CSV)
+    services/
+      wear_sync_service.dart  # MethodChannel to native Kotlin
+    theme/
+      app_theme.dart          # Material theme
+      colors.dart             # Unified palette (web+phone+watch)
+      spacing.dart            # 4px spacing system
+    views/
+      onboarding_screen.dart  # First launch welcome
+      dashboard_webview.dart  # WebView → localhost:8011
+  assets/web/
+    index.html                # Dashboard (5200 lines)
+    notes.html                # Notes/journal page
+  android/
+    WatchMessageReceiver.kt   # Bluetooth message listener
+    MainActivity.kt           # MessageClient + MethodChannel
 ```
 
 ---
 
-## 4. Key Concepts
-
-### InfernalDay
-A custom calendar system where the **day starts at 4:00 AM** (not midnight). This matches the user's sleep patterns — going to bed at 2 AM is still "today", not "tomorrow".
+## 6. Watch App Structure
 
 ```
-InfernalDay "2026-03-30" = 2026-03-30 04:00:00 → 2026-03-31 03:59:59
-```
-
-### Segments
-The timer engine tracks time in **segments**: work, sleep, break (clope, manger, douche, etc.). Each segment has:
-- `Name` — segment type
-- `StartedAt` / `EndsAt` — timestamps
-- `IsWork` / `IsSleep` — flags for time accounting
-- `RequireOk` — whether user must acknowledge when timer expires
-- `Paused` / `PausedRemainSec` — pause state
-
-### Commands
-User actions are sent as text commands: `start`, `work`, `ok`, `dodo`, `clope`, `pause`, `resume`, `extend N`, `jpp` (overtime).
-
-### ML Detection Pipeline (Watch)
-```
-Sensors (50Hz) → Buffer (2s window) → FeatureExtractor (30 features)
-→ SmokingDetector (TFLite, <50ms) → [cigarette | eating | drinking | other]
-→ BoostSampling (adaptive rate) → Phone sync (Wear Data Layer)
+trilateration/wear-os-app/
+  app/src/main/java/.../smokingdetector/
+    MainActivity.kt           # Compose UI + manual buttons
+    DetectionService.kt       # Foreground service (:detection process)
+    SmokingDetector.kt        # TFLite model wrapper
+    SensorDataCollector.kt    # Accel + Gyro @ 50Hz
+    FeatureExtractor.kt       # 30 biomechanical features
+    BoostSamplingManager.kt   # 15s delay → 7min boost + wake lock
+    MessageSyncManager.kt     # Bluetooth send + offline buffer
+    PhoneConnectionListener.kt # Auto-flush on reconnect
+    DatabaseManager.kt        # SQLite (detections, drinks, training, patterns)
+    HealthServicesManager.kt  # HR monitoring (stub)
+    GPSClusteringManager.kt   # DBSCAN location clusters
+  app/src/main/assets/
+    smoking_detector.tflite   # Deployed ML model (v2, 20KB)
 ```
 
 ---
 
-## 5. Data Flow
+## 7. Key Design Decisions
 
-### Mobile App (Target Architecture)
-```
-User taps button in WebView
-  → JS fetch('/api/cmd', {cmd: 'clope'})
-  → shelf_router receives POST
-  → TimerEngine.processCommand('clope')
-  → State updated in memory
-  → Encrypted write to local storage (AES-256)
-  → Response JSON → JS updates UI
-  → Android notification if timer expires
-```
+| Decision | Why |
+|----------|-----|
+| WebView + shelf (not native Flutter UI) | Reuse existing 5200-line dashboard HTML |
+| MessageClient (not DataClient) | Works cross-package on any phone brand |
+| Separate :detection process | Survives Activity kill by Samsung power manager |
+| PARTIAL_WAKE_LOCK during boost | Prevents CPU sleep during 7-min scan |
+| AES-256-GCM auto (no PIN) | Zero friction, Keystore protects key |
+| Fixed port 8011 | Predictable for watch HTTP fallback |
+| Battery whitelist | Samsung Wear OS kills everything otherwise |
+| startForeground in onCreate | Must be within 5s on separate process |
 
-### Watch → Phone Sync
+---
+
+## 8. Unified Color Palette
+
+Source of truth: web dashboard CSS variables.
+
+| Color | Hex | Usage |
+|-------|-----|-------|
+| Background | #0E1319 | Phone/web base |
+| Surface | #121820 | Elevated panels |
+| Border | #24303C | Dividers |
+| Text | #E7EDF3 | Primary text |
+| Muted | #A7B3BF | Secondary text |
+| Accent | #35D99A | Brand green |
+| Danger | #FF7A7A | Errors, cigarette |
+| Warning | #F7BF54 | Warnings, beer |
+| Blue | #6BBCFF | Links |
+| Watch bg | #000000 | OLED black |
+
+---
+
+## 9. ML Training Pipeline
+
 ```
-Watch detects cigarette (ML)
-  → DatabaseManager stores event
-  → Wear Data Layer sends to phone
-  → Phone app receives event
-  → Updates local storage + dashboard
+datasets/sed/SED.pkl           # 11 subjects, 276 puffs, 50Hz (Zenodo)
+datasets/sed/SED-FL.pkl        # 7 subjects, 78h free-living (Zenodo)
+train_real_data.py             # GBM on 30 features → TFLite
+train_cnn.py                   # CNN 1D on raw signals → TFLite
+smoking_detector_v2.tflite     # Production model (GBM, F1=0.42)
+smoking_detector_v5.tflite     # Best model (CNN, F1=0.75)
+normalization_params_*.npz     # Feature normalization
+DATASETS.md                    # 13 datasets inventory
 ```
 
 ---
 
-## 6. Technology Stack
+## 10. API Endpoints (shelf server)
 
-| Component | Technology | Version |
-|-----------|-----------|---------|
-| Mobile app | Flutter (Dart) | SDK >=3.0.0 |
-| Mobile UI | WebView + HTML/CSS/JS | webview_flutter ^4.13 |
-| Local server | shelf + shelf_router | ^1.4.2 |
-| State mgmt | Provider | ^6.1.1 |
-| Local storage | Hive + encrypted files | ^2.2.3 |
-| Encryption | AES-256-GCM | dart:crypto + pointycastle |
-| Key storage | Android Keystore | Native |
-| Watch app | Kotlin + Compose M3 Wear | Kotlin 1.9.22 |
-| ML inference | TensorFlow Lite | 2.14.0 |
-| ML training | Python + scikit-learn | 3.x |
-| Legacy dashboard | PowerShell + HTML | 7.x |
-| Localization | intl (7 languages) | ^0.18.1 |
-
----
-
-## 7. Security Model
-
-### Encryption (Target)
-- **Key derivation**: User PIN (4-6 digits) + random salt → PBKDF2 → AES-256 key
-- **Key storage**: Android Keystore (hardware-backed, non-extractable)
-- **Data at rest**: All JSON/CSV files encrypted with AES-256-GCM
-- **Backup**: Encrypted export file, requires PIN to restore on new device
-- **Zero server**: No cloud, no accounts, no tracking
-
-### Current State
-- No encryption (plaintext JSON/CSV files)
-- No authentication
-- Local-only storage (good)
-
----
-
-## 8. Known Issues & Technical Debt
-
-### Fixed (2026-03-30 deep audit)
-- 56 bugs fixed across Flutter (21), Wear OS (21), PowerShell (14)
-- Duplicate InfernalDay class → merged into single source
-- Wear OS sensor buffer race condition → fixed (was causing 0 detections)
-- Feature normalization added to ML pipeline
-- Path traversal vulnerability in notes API → patched
-- .gitignore added for Wear OS build artifacts
-
-### Remaining
-| Issue | Location | Impact |
-|-------|----------|--------|
-| health_service.dart mostly TODO stubs | `lib/services/` | Health data integration incomplete |
-| 151 MB build artifacts in git history | `wear-os-app/app/build/` | Bloated repo (gitignored now, history not cleaned) |
-| 23 TODO/FIXME in Flutter code | `lib/` | Incomplete features |
-
-### MEDIUM
-| Issue | Location | Impact |
-|-------|----------|--------|
-| No requirements.txt (Python) | `trilateration/` | ML scripts not reproducible |
-| No DB schema docs (Wear OS) | `wear-os-app/` | Unmaintainable |
-| Unused platforms (Windows, Web) | `infernal-app/` | Dead code |
-
----
-
-## 9. API Contract (Target — shelf server)
-
-### GET Endpoints
-| Endpoint | Response | Description |
-|----------|----------|-------------|
-| `GET /` | HTML | Dashboard page |
-| `GET /api/state` | JSON | Current timer state + daily totals |
-| `GET /api/settings` | JSON | User settings + actions list |
-| `GET /api/note?d=YYYY-MM-DD` | JSON | Note for specific day |
-| `GET /api/notes/all` | JSON | All notes |
-| `GET /api/consumption/all` | JSON | All drinks + smokes by day |
-| `GET /api/quicknote` | JSON | Quick note content |
-| `GET /api/actionnote` | JSON | Action note content |
-| `GET /api/drinks/weeks` | JSON | Weekly alcohol totals |
-| `GET /api/monthly-summary?m=YYYY-MM` | JSON | Monthly aggregates |
-
-### POST Endpoints
-| Endpoint | Body | Description |
-|----------|------|-------------|
-| `POST /api/cmd` | `{cmd: "work"}` | Send command to timer engine |
-| `POST /api/goal` | `{hours: 500}` | Set work goal |
-| `POST /api/drinks/add` | `{type, n, day?}` | Log drink |
-| `POST /api/drinks/adjust` | `{type, total}` | Adjust drink total |
-| `POST /api/note` | `{day, content}` | Save daily note |
-| `POST /api/quicknote` | `{content}` | Save quick note |
-| `POST /api/actionnote` | `{content}` | Save action note |
-| `POST /api/settings/custom-actions` | `{actions[]}` | Update custom actions |
-| `POST /api/settings/remove-action` | `{key}` | Remove action |
-| `POST /api/settings/alcohol-volumes` | `{beer, wine, strong}` | Update drink volumes |
-
----
-
-## 10. Build & Run
-
-### Flutter App
-```bash
-cd infernal-app
-flutter pub get
-flutter run                    # Debug on connected device
-flutter build apk --release    # Release APK
-```
-
-### Wear OS App
-```bash
-cd trilateration/wear-os-app
-./gradlew assembleDebug        # Debug build
-./gradlew assembleRelease      # Release build
-```
-
-### Legacy Dashboard (PC only)
-```powershell
-cd hellwell
-.\Start-InfernalWheel.ps1      # Starts timer + dashboard on localhost:8011
-```
-
-### ML Training
-```bash
-cd trilateration
-pip install -r requirements.txt  # TODO: create this file
-python train_baseline.py
-python convert_to_tflite.py
-```
-
----
-
-## 11. Migration Roadmap
-
-**Summary**: The PowerShell dashboard (hellwell/) is being migrated into the Flutter app. The HTML/CSS/JS frontend is reused as-is, served locally via shelf on the phone. The PowerShell backend is replaced by Dart. All data is encrypted AES-256 with a user PIN.
-
-```
-BEFORE:  PC → PowerShell server → Browser → localhost:8011
-AFTER:   Phone → Dart shelf server → WebView → localhost:auto
-```
-
-### Progress (2026-03-30)
-
-| Bloc | Description | Status |
-|------|-------------|--------|
-| 0 | Extract HTML, make frontend full client-side | DONE |
-| 1 | Dart shelf server (port auto, CORS, no-cache) | DONE |
-| 2 | Serve HTML from Flutter assets | DONE |
-| 3 | WebView + AppLauncher lifecycle | DONE |
-| 4 | PIN + AES-256-GCM encrypted storage (PBKDF2 600k) | DONE |
-| 5 | Timer engine (segments, day rollover 4h, commands) | DONE |
-| 6 | Android foreground service + persistent notification | DONE |
-| 7 | GET API endpoints (state, settings, notes, consumption) | DONE |
-| 8 | POST API endpoints (cmd, drinks, notes, settings) | DONE |
-| 9 | Notifications on timer expiry (WAIT_OK alerts) | DONE |
-| 10 | Encrypted backup/restore (device migration) | DONE |
-| 11 | Onboarding welcome screen | DONE |
-| 12 | Play Store prep (API 34, privacy policy, app ID) | DONE |
-| 13 | Unit tests (22 tests, DST bugfix) | DONE |
-
-### Key files
-- `lib/server/local_server.dart` — shelf HTTP server, 20 API routes
-- `lib/server/data_store.dart` — local file storage (JSON, CSV, TXT)
-- `lib/engine/timer_engine.dart` — timer engine (port of InfernalWheel.ps1)
-- `lib/engine/foreground_service.dart` — Android foreground service wrapper
-- `lib/security/crypto_service.dart` — AES-256-GCM + PBKDF2 + Keystore
-- `lib/views/pin_screen.dart` — PIN entry (setup + unlock)
-- `lib/views/dashboard_webview.dart` — WebView widget
-- `lib/main.dart` — AppLauncher (PIN → server → WebView lifecycle)
-- `assets/web/index.html` — 5281-line static dashboard (224KB)
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /api/state | Live state (timer, counters, watch data) |
+| GET | /api/settings | User settings |
+| GET | /api/consumption/all | Historical data |
+| GET | /api/drinks/weeks | Weekly alcohol table |
+| GET | /api/monthly-summary | Monthly stats |
+| GET | /api/note?d=DATE | Note for a day |
+| GET | /api/notes/all | All notes |
+| GET | /api/quicknote | Quick note |
+| GET | /api/actionnote | Action note |
+| GET | /api/watch/summary | Watch sync summary |
+| POST | /api/cmd | Send command (start/work/sleep) |
+| POST | /api/drinks/add | Log drink |
+| POST | /api/drinks/adjust | Adjust drink count |
+| POST | /api/note | Save note |
+| POST | /api/quicknote | Save quick note |
+| POST | /api/actionnote | Save action note |
+| POST | /api/goal | Set work goal |
+| POST | /api/settings/* | Update settings |
+| POST | /api/watch/sync | Watch HTTP sync (fallback) |
