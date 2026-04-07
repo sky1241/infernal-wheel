@@ -9,7 +9,7 @@ import '../engine/timer_engine.dart';
 import 'package:path_provider/path_provider.dart';
 import 'data_store.dart';
 import '../services/wear_sync_service.dart';
-import '../services/sleep_service.dart';
+// import '../services/sleep_service.dart'; // Disabled: health plugin crashes
 
 /// Serveur HTTP local qui sert le dashboard + API
 /// Tourne sur localhost, port auto (0 = l'OS choisit)
@@ -22,7 +22,7 @@ class LocalServer {
   final _engine = TimerEngine();
   final _store = DataStore();
   final _wearSync = WearSyncService();
-  final _sleepService = SleepService();
+  // final _sleepService = SleepService(); // Disabled: health plugin crashes
 
   bool get isRunning => _server != null;
   int get port => _port;
@@ -239,7 +239,7 @@ class LocalServer {
       'overrunSec': s.totalOverrunSeconds,
       'dayWorkSec': s.dayWorkSeconds,
       'daySleepSec': s.daySleepSeconds,
-      'healthSleep': await _getHealthSleep(),
+      // 'healthSleep': await _getHealthSleep(), // Disabled: health plugin crashes
       'dayBreakSec': s.dayBreakSeconds,
       'dayClopeSec': s.dayClopeSeconds,
       'dayClopeCount': watchClopeCount,
@@ -385,14 +385,19 @@ class LocalServer {
 
       activeDays = byDay.length;
       for (final entry in byDay.entries) {
+        final v = entry.value;
+        final beer = v['beer'] ?? 0;
+        final wine = v['wine'] ?? 0;
+        final strong = v['strong'] ?? 0;
         daily.add({
           'day': entry.key,
-          'workMin': entry.value['work'] ?? 0,
-          'sleepMin': entry.value['sleep'] ?? 0,
-          'clope': entry.value['clope'] ?? 0,
-          'beer': entry.value['beer'] ?? 0,
-          'wine': entry.value['wine'] ?? 0,
-          'strong': entry.value['strong'] ?? 0,
+          'workMin': v['work'] ?? 0,
+          'sleepMin': v['sleep'] ?? 0,
+          'clopeCount': v['clope'] ?? 0,
+          'alcoholCount': beer + wine + strong,
+          'beer': beer,
+          'wine': wine,
+          'strong': strong,
         });
       }
       daily.sort((a, b) => (a['day'] as String).compareTo(b['day'] as String));
@@ -414,7 +419,7 @@ class LocalServer {
       'clopeFreeDays': 0,
       'alcoholFreeDays': 0,
       'activeDays': activeDays,
-      'daily': daily,
+      'days': daily,
     });
   }
 
@@ -440,38 +445,16 @@ class LocalServer {
   }
 
   // =======================================================
-  Future<Map<String, dynamic>> _getHealthSleep() async {
-    try {
-      return await _sleepService.getLastNightSleep();
-    } catch (_) {
-      return {'ok': false, 'durationMinutes': 0};
-    }
-  }
-
-  // SLEEP ENDPOINTS
+  // SLEEP ENDPOINTS (disabled — health plugin ClassCastException with FlutterActivity)
+  // Will be re-enabled when health plugin compatibility is fixed.
   // =======================================================
 
   Future<Response> _handleApiSleepLast(Request request) async {
-    try {
-      final sleep = await _sleepService.getLastNightSleep();
-      return _jsonOk(sleep);
-    } catch (e) {
-      return _jsonOk({
-        'ok': false,
-        'reason': e.toString(),
-        'durationMinutes': 0,
-      });
-    }
+    return _jsonOk({'ok': false, 'reason': 'Health plugin disabled', 'durationMinutes': 0});
   }
 
   Future<Response> _handleApiSleepHistory(Request request) async {
-    try {
-      final days = int.tryParse(request.url.queryParameters['days'] ?? '7') ?? 7;
-      final history = await _sleepService.getSleepHistory(days);
-      return _jsonOk({'ok': true, 'days': days, 'sleep': history});
-    } catch (e) {
-      return _jsonOk({'ok': false, 'sleep': []});
-    }
+    return _jsonOk({'ok': false, 'sleep': []});
   }
 
   // =======================================================
