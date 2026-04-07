@@ -47,6 +47,7 @@
             android:name=".DetectionService"
             android:enabled="true"
             android:exported="false"
+            android:process=":detection"
             android:foregroundServiceType="health" />
 
         <!-- Wear OS capabilities -->
