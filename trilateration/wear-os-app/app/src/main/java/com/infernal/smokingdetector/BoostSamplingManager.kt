@@ -2,6 +2,7 @@ package com.infernal.smokingdetector
 
 import android.content.Context
 import android.hardware.SensorManager
+import android.os.PowerManager
 import android.util.Log
 import kotlinx.coroutines.*
 
@@ -40,6 +41,7 @@ class BoostSamplingManager(private val context: Context) {
     private var currentMode: SamplingMode = SamplingMode.NORMAL
     private var boostJob: Job? = null
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var wakeLock: PowerManager.WakeLock? = null
 
     private var onModeChanged: ((SamplingMode) -> Unit)? = null
     private var onBoostInference: (() -> Unit)? = null
@@ -81,6 +83,9 @@ class BoostSamplingManager(private val context: Context) {
         boostJob?.cancel()
         boostMeasurementCount = 0
 
+        // Acquire wake lock to prevent CPU sleep during boost
+        acquireWakeLock()
+
         // Phase 1: DELAY (15s)
         currentMode = SamplingMode.DELAY
         Log.d(TAG, "DELAY phase started: waiting ${DELAY_BEFORE_BOOST_MS/1000}s ($reason)")
@@ -119,12 +124,35 @@ class BoostSamplingManager(private val context: Context) {
 
         currentMode = SamplingMode.NORMAL
         boostMeasurementCount = 0
+        releaseWakeLock()
         Log.d(TAG, "Returned to NORMAL mode (30s interval)")
         onModeChanged?.invoke(SamplingMode.NORMAL)
     }
 
+    private fun acquireWakeLock() {
+        if (wakeLock == null) {
+            val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = pm.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                "infernal:boost_sampling"
+            )
+        }
+        wakeLock?.acquire(BOOST_DURATION_MS + DELAY_BEFORE_BOOST_MS + 30_000) // auto-release safety
+        Log.d(TAG, "Wake lock acquired")
+    }
+
+    private fun releaseWakeLock() {
+        wakeLock?.let {
+            if (it.isHeld) {
+                it.release()
+                Log.d(TAG, "Wake lock released")
+            }
+        }
+    }
+
     fun cancelBoost() {
         boostJob?.cancel()
+        releaseWakeLock()
         returnToNormal()
     }
 
@@ -139,6 +167,7 @@ class BoostSamplingManager(private val context: Context) {
 
     fun stop() {
         boostJob?.cancel()
+        releaseWakeLock()
         coroutineScope.cancel()
         Log.d(TAG, "BoostSamplingManager stopped")
     }
