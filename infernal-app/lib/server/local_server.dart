@@ -416,20 +416,55 @@ class LocalServer {
 
     final daysInMonth = activeDays > 0 ? activeDays : 1;
 
+    final totalWorkMin = (_engine.state.totalWorkSeconds / 60).round();
+    final totalSleepMin = (_engine.state.totalSleepSeconds / 60).round();
+
+    // Compute pure alcohol grams per day for sparkline
+    const beerAbv = 0.055; const wineAbv = 0.135; const strongAbv = 0.425;
+    const beerL = 0.5; const wineL = 0.2; const strongL = 0.2;
+    const alcoholDensity = 789.0; // g/L
+    for (final d in daily) {
+      final pureG = ((d['beer'] as int? ?? 0) * beerL * beerAbv +
+          (d['wine'] as int? ?? 0) * wineL * wineAbv +
+          (d['strong'] as int? ?? 0) * strongL * strongAbv) * alcoholDensity;
+      d['pureAlcoholG'] = pureG.round();
+    }
+
+    // Total pure alcohol liters
+    double totalPureLiters = 0;
+    for (final d in daily) {
+      totalPureLiters += (d['pureAlcoholG'] as int? ?? 0) / alcoholDensity;
+    }
+
     return _jsonOk({
       'ok': true,
       'month': ym,
-      'totalWorkMin': (_engine.state.totalWorkSeconds / 60).round(),
-      'totalSleepMin': (_engine.state.totalSleepSeconds / 60).round(),
-      'avgWorkMin': 0,
-      'avgSleepMin': 0,
-      'totalClopeCount': totalClope,
-      'avgClopeCount': totalClope / daysInMonth,
-      'totalAlcoholCount': totalDrinks,
-      'avgAlcoholPerDay': totalDrinks / daysInMonth,
-      'clopeFreeDays': 0,
-      'alcoholFreeDays': 0,
-      'activeDays': activeDays,
+      // Nested structure matching what renderMonthlyBilan expects:
+      'summary': {
+        'totalWorkMin': totalWorkMin,
+        'totalSleepMin': totalSleepMin,
+        'avgWorkMin': daysInMonth > 0 ? (totalWorkMin / daysInMonth).round() : 0,
+        'avgSleepMin': daysInMonth > 0 ? (totalSleepMin / daysInMonth).round() : 0,
+        'avgWorkSessionMin': 0,
+        'avgSportMin': 0,
+        'totalClopeCount': totalClope,
+        'avgClopeCount': daysInMonth > 0 ? totalClope / daysInMonth : 0,
+        'clopeFreeDays': 0,
+        'alcoholFreeDays': 0,
+        'activeDays': activeDays,
+        'alcohol': {
+          'avgDrinksPerDay': daysInMonth > 0 ? totalDrinks / daysInMonth : 0,
+          'totalLiters': double.parse(totalPureLiters.toStringAsFixed(3)),
+        },
+      },
+      'delta': {
+        'avgWorkMin': 0,
+        'avgSleepMin': 0,
+        'avgClopeCount': 0,
+        'avgAlcoholPerDay': 0,
+        'avgSportMin': 0,
+      },
+      'insights': <String>[],
       'days': daily,
     });
   }

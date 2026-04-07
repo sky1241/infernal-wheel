@@ -195,7 +195,7 @@ class DataStore {
     final result = byDay.entries.map((e) => {
       'date': e.key, ...e.value,
     }).toList();
-    result.sort((a, b) => (b['day'] as String).compareTo(a['day'] as String));
+    result.sort((a, b) => ((b['date'] ?? b['day'] ?? '') as String).compareTo((a['date'] ?? a['day'] ?? '') as String));
     return result;
   }
 
