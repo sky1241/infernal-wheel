@@ -394,6 +394,19 @@ class LocalServer {
         }
       }
 
+      // Also merge drinks.csv (manual dashboard adds)
+      final csvAlcAll = await _store.getAllConsumption();
+      for (final d in csvAlcAll) {
+        final dayKey = (d['date'] as String?) ?? (d['day'] as String?) ?? '';
+        if (dayKey.startsWith(ym) && dayKey.isNotEmpty) {
+          byDay.putIfAbsent(dayKey, () => {'clope': 0, 'beer': 0, 'wine': 0, 'strong': 0, 'work': 0, 'sleep': 0});
+          byDay[dayKey]!['beer'] = (byDay[dayKey]!['beer'] ?? 0) + (d['beer'] as int? ?? 0);
+          byDay[dayKey]!['wine'] = (byDay[dayKey]!['wine'] ?? 0) + (d['wine'] as int? ?? 0);
+          byDay[dayKey]!['strong'] = (byDay[dayKey]!['strong'] ?? 0) + (d['strong'] as int? ?? 0);
+          totalDrinks += (d['beer'] as int? ?? 0) + (d['wine'] as int? ?? 0) + (d['strong'] as int? ?? 0);
+        }
+      }
+
       activeDays = byDay.length;
       for (final entry in byDay.entries) {
         final v = entry.value;
