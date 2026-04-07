@@ -248,7 +248,7 @@ class LocalServer {
       'daySleepSec': s.daySleepSeconds,
       'dayBreakSec': s.dayBreakSeconds,
       'dayClopeSec': s.dayClopeSeconds,
-      'dayClopeCount': watchClopeCount,
+      'dayClopeCount': watchClopeCount + s.dayClopeCount,
       'dailyClopeSec': s.dayClopeSeconds,
       'elapsedSec': elapsedSec,
       'remainSec': remainSec,
@@ -261,7 +261,7 @@ class LocalServer {
       'overtimeStartedAt': s.current.overtimeStartedAt?.toIso8601String(),
       'todayKey': todayKey,
       'yesterdayKey': yesterdayKey,
-      'dailyAlcohol': {'wine': watchWineCount, 'beer': watchBeerCount, 'strong': watchStrongCount},
+      'dailyAlcohol': await _mergedDailyAlcohol(todayKey, watchWineCount, watchBeerCount, watchStrongCount),
       'yesterdayAlcohol': {'wine': 0, 'beer': 0, 'strong': 0},
       'dailyActions': [],
       'recentDrinks': [],
@@ -491,6 +491,20 @@ class LocalServer {
   }
 
   // =======================================================
+  /// Merge drinks.csv (manual dashboard adds) + watch drink detections
+  Future<Map<String, int>> _mergedDailyAlcohol(String todayKey, int watchWine, int watchBeer, int watchStrong) async {
+    try {
+      final csvAlc = await _store.getDailyAlcohol(todayKey);
+      return {
+        'wine': watchWine + (csvAlc['wine'] ?? 0),
+        'beer': watchBeer + (csvAlc['beer'] ?? 0),
+        'strong': watchStrong + (csvAlc['strong'] ?? 0),
+      };
+    } catch (_) {
+      return {'wine': watchWine, 'beer': watchBeer, 'strong': watchStrong};
+    }
+  }
+
   // SLEEP ENDPOINTS (disabled — health plugin ClassCastException with FlutterActivity)
   // Will be re-enabled when health plugin compatibility is fixed.
   // =======================================================

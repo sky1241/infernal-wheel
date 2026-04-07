@@ -5213,8 +5213,8 @@ async function refreshWatchData() {
       // First row = clopes, second row = alcool
       const clopeVal = rows[0].querySelector('.bilan__val');
       const alcVal = rows[1].querySelector('.bilan__val');
-      if (clopeVal && cig > 0) clopeVal.textContent = cig.toFixed(1);
-      if (alcVal && drink > 0) alcVal.textContent = drink.toFixed(1);
+      if (clopeVal && cig > 0) clopeVal.textContent = Math.round(cig);
+      if (alcVal && drink > 0) alcVal.textContent = Math.round(drink);
     }
   } catch(_) {}
 }
