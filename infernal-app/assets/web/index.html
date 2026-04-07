@@ -3207,7 +3207,7 @@ if (retryBtn) {
 }
 async function postJSON(url, obj, canQueue=true){
   /* [OFFLINE] Si offline et action queueable, stocker localement */
-  const queueableUrls = ["/api/cmd", "/api/drinks/add", "/api/drinks/adjust", "/api/note/save", "/api/quicknote", "/api/actionnote"];
+  const queueableUrls = ["/api/cmd", "/api/drinks/add", "/api/drinks/adjust", "/api/note", "/api/quicknote", "/api/actionnote"];
   if (!navigator.onLine && canQueue && queueableUrls.some(u => url.includes(u))) {
     queueOfflineAction(url, obj);
     showToast("Action mise en file (hors ligne)", "warn", "Offline");
@@ -3484,7 +3484,7 @@ function caRemoveSlot(idx){
 }
 
 function caPickColor(el){
-  const row = el.closest(".ca-palette");
+  const row = el.closest(".ca-colors");
   row.querySelectorAll(".ca-swatch").forEach(s => s.classList.remove("selected"));
   el.classList.add("selected");
 }

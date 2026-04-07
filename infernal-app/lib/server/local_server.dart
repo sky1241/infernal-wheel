@@ -84,7 +84,8 @@ class LocalServer {
       ..post('/api/settings/custom-actions', _handleApiCustomActions)
       ..post('/api/settings/remove-action', _handleApiRemoveAction)
       ..post('/api/settings/alcohol-volumes', _handleApiAlcoholVolumes)
-      ..post('/api/watch/sync', _handleApiWatchSync);
+      ..post('/api/watch/sync', _handleApiWatchSync)
+      ..post('/api/engine/restart', _handleApiEngineRestart);
 
     final handler = const Pipeline()
         .addMiddleware(_corsMiddleware())
@@ -558,6 +559,15 @@ class LocalServer {
         'watchConnected': false,
         'error': e.toString(),
       });
+    }
+  }
+
+  Future<Response> _handleApiEngineRestart(Request request) async {
+    try {
+      _engine.processCommand('work');
+      return _jsonOk({'ok': true, 'message': 'Engine restarted'});
+    } catch (e) {
+      return _jsonError(500, 'Restart failed: $e');
     }
   }
 
