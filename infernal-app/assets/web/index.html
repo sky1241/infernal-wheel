@@ -3201,8 +3201,7 @@ const retryBtn = document.getElementById("offlineRetry");
 if (retryBtn) {
   retryBtn.addEventListener("click", ()=>{
     showToast("Tentative de reconnexion...", "warn", "Reseau");
-    refreshLive();
-    loadMonthlySummary();
+    refreshAll();
     loadSettings();
   });
 }
@@ -3303,8 +3302,8 @@ async function send(cmd, btn){
   setStatus(j.ok ? ("sent: " + cmd) : ("error: " + (j.error||"")));
   if (j && j.ok) { showToast("Commande envoyee : " + cmd, "success", "Action"); if(btn) pulseSuccess(btn); }
   else { showToast("Erreur commande : " + (j.error||"unknown"), "error", "Action"); }
-  refreshLive();
-  setTimeout(refreshLive, 1200);
+  refreshAll();
+  setTimeout(refreshAll, 1200);
 }
 function fmtMin(sec){ return Math.max(0, Math.round((sec||0)/60)); }
 
@@ -3682,8 +3681,8 @@ async function undoDrink(type, n, totals){
   if (j && j.ok) {
     setDrinkStatus("ok: undo");
     showToast("Annule : -" + n + " " + (key==="beer"?"biere":(key==="wine"?"vin":"alcool fort")), "success", "Alcool");
-    refreshLive();
-    setTimeout(refreshLive, 1200);
+    refreshAll();
+    setTimeout(refreshAll, 1200);
   } else {
     setDrinkStatus("error");
     showToast("Impossible d'annuler.", "error", "Alcool");
@@ -3719,8 +3718,8 @@ async function addDrink(type){
       const label = labelMap[type] || type;
       setDrinkStatus("ok: +" + n + " " + label + dayLabel + " (" + totals + ")");
       showToast("+" + n + " " + label + dayLabel, "success", "Alcool", "Annuler", ()=> undoDrink(type, n, t));
-      refreshLive();
-      setTimeout(refreshLive, 1200);
+      refreshAll();
+      setTimeout(refreshAll, 1200);
   } else {
     const err = (j && j.error) ? j.error : "unknown";
     setDrinkStatus("error: " + err);
@@ -5171,6 +5170,15 @@ function updateHeartbeat(status) {
   else if (status === 'STALE') dot.classList.add('stale');
   else dot.classList.add('offline');
   dot.title = 'Heartbeat: ' + status;
+}
+
+// ═══ Refresh all panels after data change ═══
+function refreshAll() {
+  refreshLive();
+  loadCalendar(currentYm);
+  loadAlcoholWeeks(currentYm);
+  loadMonthlySummary(currentYm);
+  refreshWatchData();
 }
 
 // ═══ Init page ═══
