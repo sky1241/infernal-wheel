@@ -288,7 +288,7 @@ class LocalServer {
 
       // Initialize from existing data
       for (final d in data) {
-        final day = d['day'] as String? ?? '';
+        final day = (d['date'] as String?) ?? (d['day'] as String?) ?? '';
         if (day.isNotEmpty) byDay[day] = Map<String, dynamic>.from(d);
       }
 
@@ -325,10 +325,11 @@ class LocalServer {
       }
 
       final merged = byDay.values.toList();
-      merged.sort((a, b) => (b['day'] as String).compareTo(a['day'] as String));
+      merged.sort((a, b) => (b['date'] as String).compareTo(a['date'] as String));
       return _jsonOk({'ok': true, 'days': merged});
-    } catch (_) {
-      return _jsonOk({'ok': true, 'data': data});
+    } catch (e) {
+      // Fallback: return store data wrapped in correct format
+      return _jsonOk({'ok': true, 'days': data});
     }
   }
 

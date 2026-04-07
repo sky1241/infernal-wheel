@@ -193,7 +193,7 @@ class DataStore {
     } catch (_) {}
     // Cigarette data from log.csv will be added here once implemented
     final result = byDay.entries.map((e) => {
-      'day': e.key, ...e.value,
+      'date': e.key, ...e.value,
     }).toList();
     result.sort((a, b) => (b['day'] as String).compareTo(a['day'] as String));
     return result;
