@@ -351,22 +351,29 @@ class DetectionService : Service() {
                     threshold = (threshold - 0.15f).coerceAtLeast(0.4f)
                     Log.d(TAG, "High-smoking hour: threshold lowered to $threshold")
                 }
-                val probabilities = detector.predict(features)
+                // Run inference: raw CNN (v5) or features (v2)
+                val probabilities = if (detector.isRawSignalModel()) {
+                    detector.predictRaw(sensorData.accelerometer, sensorData.gyroscope)
+                } else {
+                    detector.predict(features)
+                }
                 val isCigarette = probabilities[SmokingDetector.CLASS_CIGARETTE] > threshold
                 val isDrinking = probabilities[SmokingDetector.CLASS_DRINKING] > DRINK_THRESHOLD
 
-                // Save raw window as training sample during boost mode
+                // Save training sample during boost mode
+                // Store extracted features (120 bytes) instead of raw signals (5400 bytes)
+                // Raw signals are sent to phone for heavy retraining
                 if (isBoostMeasurement) {
-                    val rawStr = sensorData.accelerometer.zip(sensorData.gyroscope)
-                        .joinToString(",") { (a, g) -> "${a[0]},${a[1]},${a[2]},${g[0]},${g[1]},${g[2]}" }
+                    val featuresStr = features.joinToString(",")
                     val resultStr = probabilities.contentToString()
                     val label = if (boostManager.isInBoostMode()) "cigarette" else "unknown"
                     database.insertTrainingSample(
                         label = label,
-                        rawData = rawStr,
+                        rawData = featuresStr,
                         inferenceResult = resultStr,
                         boostMeasurement = boostManager.getBoostMeasurementCount()
                     )
+                    Log.d(TAG, "Training sample saved (features, measurement ${boostManager.getBoostMeasurementCount()})")
                 }
 
                 Log.d(TAG, "Inference: cig=$isCigarette drink=$isDrinking (threshold=$threshold), probs=${probabilities.contentToString()}")
