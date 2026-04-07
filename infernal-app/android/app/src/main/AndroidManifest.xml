@@ -6,8 +6,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
-    <!-- Health Connect (read sleep data from Samsung Health) -->
-    <uses-permission android:name="android.permission.health.READ_SLEEP"/>
+    <!-- Health Connect — disabled until health plugin compatibility fixed -->
+    <!-- <uses-permission android:name="android.permission.health.READ_SLEEP"/> -->
 
     <application
         android:label="-1+"

@@ -199,7 +199,7 @@ class LocalServer {
         : 0;
 
     // Read watch sync data from app_flutter dir (Kotlin writes here)
-    int watchClopeCount = s.dayClopeCount;
+    int watchClopeCount = 0; // Don't add engine count — watch data is the source of truth
     int watchBeerCount = 0;
     int watchWineCount = 0;
     int watchStrongCount = 0;
@@ -210,7 +210,7 @@ class LocalServer {
       if (summaryFile.existsSync()) {
         final summary = jsonDecode(summaryFile.readAsStringSync()) as Map<String, dynamic>;
         if (summary['date'] == todayKey) {
-          watchClopeCount = (summary['cigaretteCount'] as int? ?? 0) + s.dayClopeCount;
+          watchClopeCount = (summary['cigaretteCount'] as int? ?? 0);
         }
       }
 
@@ -230,21 +230,31 @@ class LocalServer {
       }
     } catch (_) {}
 
+    final totalWorkSec = s.totalWorkSeconds;
+    final totalOverrunSec = s.totalOverrunSeconds;
+    final totalBreakSec = s.totalBreakSeconds;
+    final remWorkSec = (s.goalWorkSeconds - totalWorkSec - totalOverrunSec).clamp(0, 9999999);
+
     return _jsonOk({
       'ok': true,
       'currentName': s.current.name,
-      'remainSec': remainSec,
-      'goalSec': s.goalWorkSeconds,
-      'doneSec': s.totalWorkSeconds + s.totalOverrunSeconds,
-      'overrunSec': s.totalOverrunSeconds,
+      // Field names matching what dashboard JS expects:
+      'remWorkSec': remWorkSec,
+      'goalWorkSec': s.goalWorkSeconds,
+      'totalWorkSec': totalWorkSec,
+      'totalOverrunSec': totalOverrunSec,
+      'totalBreakSec': totalBreakSec,
       'dayWorkSec': s.dayWorkSeconds,
       'daySleepSec': s.daySleepSeconds,
-      // 'healthSleep': await _getHealthSleep(), // Disabled: health plugin crashes
       'dayBreakSec': s.dayBreakSeconds,
       'dayClopeSec': s.dayClopeSeconds,
       'dayClopeCount': watchClopeCount,
+      'dailyClopeSec': s.dayClopeSeconds,
       'elapsedSec': elapsedSec,
+      'remainSec': remainSec,
+      'overtimeSec': totalOverrunSec,
       'started': s.started,
+      'startedAtStr': s.current.startedAt.toIso8601String().substring(11, 16),
       'awaitOk': s.awaitOk,
       'paused': s.current.paused,
       'pausedRemainSec': s.current.pausedRemainSec,
@@ -292,8 +302,8 @@ class LocalServer {
             // Use InfernalDay (4am rollover)
             final dayDt = dt.hour < 4 ? dt.subtract(const Duration(days: 1)) : dt;
             final dayKey = '${dayDt.year}-${dayDt.month.toString().padLeft(2,'0')}-${dayDt.day.toString().padLeft(2,'0')}';
-            byDay.putIfAbsent(dayKey, () => {'day': dayKey, 'smokes': 0, 'wine': 0, 'beer': 0, 'strong': 0});
-            byDay[dayKey]!['smokes'] = (byDay[dayKey]!['smokes'] as int? ?? 0) + 1;
+            byDay.putIfAbsent(dayKey, () => {'date': dayKey, 'clopeCount': 0, 'wine': 0, 'beer': 0, 'strong': 0});
+            byDay[dayKey]!['clopeCount'] = (byDay[dayKey]!['clopeCount'] as int? ?? 0) + 1;
           }
         }
       }
@@ -307,7 +317,7 @@ class LocalServer {
             final dt = DateTime.fromMillisecondsSinceEpoch(ts);
             final dayDt = dt.hour < 4 ? dt.subtract(const Duration(days: 1)) : dt;
             final dayKey = '${dayDt.year}-${dayDt.month.toString().padLeft(2,'0')}-${dayDt.day.toString().padLeft(2,'0')}';
-            byDay.putIfAbsent(dayKey, () => {'day': dayKey, 'smokes': 0, 'wine': 0, 'beer': 0, 'strong': 0});
+            byDay.putIfAbsent(dayKey, () => {'date': dayKey, 'clopeCount': 0, 'wine': 0, 'beer': 0, 'strong': 0});
             final drinkType = (d['drinkType'] as String?) ?? 'beer';
             byDay[dayKey]![drinkType] = (byDay[dayKey]![drinkType] as int? ?? 0) + 1;
           }
@@ -316,7 +326,7 @@ class LocalServer {
 
       final merged = byDay.values.toList();
       merged.sort((a, b) => (b['day'] as String).compareTo(a['day'] as String));
-      return _jsonOk({'ok': true, 'data': merged});
+      return _jsonOk({'ok': true, 'days': merged});
     } catch (_) {
       return _jsonOk({'ok': true, 'data': data});
     }
@@ -496,12 +506,12 @@ class LocalServer {
       if (data == null) return _jsonError(400, 'Invalid body');
 
       final type = data['type'] as String? ?? 'cigarette';
-      final timestamp = data['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch;
+      final timestamp = (data['timestamp'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch;
       final confidence = (data['confidence'] as num?)?.toDouble() ?? 1.0;
 
       // Store detection
       final appDir = await getApplicationDocumentsDirectory();
-      final dir = '${appDir.path}/infernal_data';
+      final dir = appDir.path;  // Same dir as watch MessageClient data
       final fileName = type == 'drink' ? 'watch_drink_detections.json' : 'watch_detections.json';
       final file = File('$dir/$fileName');
 
@@ -568,7 +578,7 @@ class LocalServer {
     final data = await _readBody(request);
     if (data == null) return _jsonError(400, 'Invalid body');
     final type = (data['type'] as String? ?? '').toLowerCase();
-    final n = (data['n'] as int?) ?? 1;
+    final n = (data['n'] as num?)?.toInt() ?? 1;
     final day = data['day'] as String?;
     if (!['wine', 'beer', 'strong'].contains(type)) {
       return _jsonError(400, 'type must be wine|beer|strong');
@@ -585,7 +595,7 @@ class LocalServer {
     final data = await _readBody(request);
     if (data == null) return _jsonError(400, 'Invalid body');
     final type = (data['type'] as String? ?? '').toLowerCase();
-    final total = (data['total'] as int?) ?? 0;
+    final total = (data['total'] as num?)?.toInt() ?? 0;
     if (!['wine', 'beer', 'strong'].contains(type)) {
       return _jsonError(400, 'type must be wine|beer|strong');
     }
@@ -623,7 +633,7 @@ class LocalServer {
   Future<Response> _handleApiGoal(Request request) async {
     final data = await _readBody(request);
     if (data == null) return _jsonError(400, 'Invalid body');
-    final hours = data['hours'] as int? ?? 500;
+    final hours = (data['hours'] as num?)?.toInt() ?? 500;
     if (hours < 1 || hours > 9999) return _jsonError(400, 'hours must be 1-9999');
     _engine.setGoal(hours);
     await _saveStateAsync();
