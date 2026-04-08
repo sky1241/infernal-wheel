@@ -180,6 +180,15 @@ class DetectionService : Service() {
             return
         }
 
+        // Set normalization params for CNN raw signal model (from training)
+        if (detector.isRawSignalModel()) {
+            detector.setNormalization(
+                mean = floatArrayOf(0.5848f, -4.4789f, 4.7827f, -0.0013f, -0.0012f, -0.0017f),
+                std = floatArrayOf(5.3890f, 3.7457f, 3.6576f, 0.5993f, 0.3300f, 0.5065f)
+            )
+            Log.d(TAG, "CNN raw signal normalization params set")
+        }
+
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
