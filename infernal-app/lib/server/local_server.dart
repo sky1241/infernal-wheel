@@ -9,7 +9,7 @@ import '../engine/timer_engine.dart';
 import 'package:path_provider/path_provider.dart';
 import 'data_store.dart';
 import '../services/wear_sync_service.dart';
-// import '../services/sleep_service.dart'; // Disabled: health plugin crashes
+import '../services/sleep_service.dart';
 
 /// Serveur HTTP local qui sert le dashboard + API
 /// Tourne sur localhost, port auto (0 = l'OS choisit)
@@ -22,7 +22,7 @@ class LocalServer {
   final _engine = TimerEngine();
   final _store = DataStore();
   final _wearSync = WearSyncService();
-  // final _sleepService = SleepService(); // Disabled: health plugin crashes
+  final _sleepService = SleepService();
 
   bool get isRunning => _server != null;
   int get port => _port;
@@ -247,6 +247,7 @@ class LocalServer {
       'totalBreakSec': totalBreakSec,
       'dayWorkSec': s.dayWorkSeconds,
       'daySleepSec': s.daySleepSeconds,
+      'healthSleep': await _getHealthSleep(),
       'dayBreakSec': s.dayBreakSeconds,
       'dayClopeSec': s.dayClopeSeconds,
       'dayClopeCount': watchClopeCount + s.dayClopeCount,
@@ -519,16 +520,34 @@ class LocalServer {
     }
   }
 
-  // SLEEP ENDPOINTS (disabled — health plugin ClassCastException with FlutterActivity)
-  // Will be re-enabled when health plugin compatibility is fixed.
+  Future<Map<String, dynamic>> _getHealthSleep() async {
+    try {
+      return await _sleepService.getLastNightSleep();
+    } catch (_) {
+      return {'ok': false, 'durationMinutes': 0};
+    }
+  }
+
+  // SLEEP ENDPOINTS (Health Connect via FlutterFragmentActivity)
   // =======================================================
 
   Future<Response> _handleApiSleepLast(Request request) async {
-    return _jsonOk({'ok': false, 'reason': 'Health plugin disabled', 'durationMinutes': 0});
+    try {
+      final sleep = await _sleepService.getLastNightSleep();
+      return _jsonOk(sleep);
+    } catch (e) {
+      return _jsonOk({'ok': false, 'reason': e.toString(), 'durationMinutes': 0});
+    }
   }
 
   Future<Response> _handleApiSleepHistory(Request request) async {
-    return _jsonOk({'ok': false, 'sleep': []});
+    try {
+      final days = int.tryParse(request.url.queryParameters['days'] ?? '7') ?? 7;
+      final history = await _sleepService.getSleepHistory(days);
+      return _jsonOk({'ok': true, 'days': days, 'sleep': history});
+    } catch (e) {
+      return _jsonOk({'ok': false, 'sleep': []});
+    }
   }
 
   // =======================================================

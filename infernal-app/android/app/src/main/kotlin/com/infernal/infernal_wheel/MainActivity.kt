@@ -5,13 +5,13 @@ import android.util.Log
 import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Wearable
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import org.json.JSONArray
 import org.json.JSONObject
 
-class MainActivity : FlutterActivity(), MessageClient.OnMessageReceivedListener {
+class MainActivity : FlutterFragmentActivity(), MessageClient.OnMessageReceivedListener {
 
     companion object {
         private const val TAG = "MainActivity"
