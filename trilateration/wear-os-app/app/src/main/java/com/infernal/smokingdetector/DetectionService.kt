@@ -131,10 +131,16 @@ class DetectionService : Service() {
      * Keeps the last RING_BUFFER_25HZ samples (~8s of signal) so we can
      * always extract the most recent CNN window of 112 samples.
      */
-    private val ring25HzBuffer = ArrayList<FloatArray>(RING_BUFFER_25HZ)
+    private val ring25HzBuffer = ArrayDeque<FloatArray>(RING_BUFFER_25HZ)
     private val ring25HzLock = Object()
-    private var lastInference25HzMs = 0L
-    private var batchCountForLog: Int = 0
+    @Volatile private var lastInference25HzMs = 0L
+    // Total number of batches received since service start. Drives the bootstrap
+    // window (skip temporal filter until we have enough history to learn from).
+    // MUST increment on every batch, independently of log spam throttling.
+    private var totalBatchesReceived: Long = 0L
+    // Logging is throttled to the first BOOTSTRAP_LOG_BATCHES to avoid spam.
+    // Separate counter from totalBatchesReceived — see BUG FIX #1 in CHANGELOG.
+    private var loggedBatchCount: Int = 0
 
     private var serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var inferenceJob: Job? = null
@@ -400,30 +406,35 @@ class DetectionService : Service() {
      *   4. Run CNN 25Hz on the most recent 112-sample window
      *   5. Handle detection (debounce + DB + sync + notification)
      */
-    private fun onSamsung25HzBatch(samples: Array<FloatArray>, timestampNs: Long) {
-        // 1. Push into ring buffer
+    private fun onSamsung25HzBatch(samples: Array<FloatArray>, @Suppress("UNUSED_PARAMETER") timestampNs: Long) {
+        // 1. Push into ring buffer — O(1) per sample thanks to ArrayDeque
         val newBufSize: Int
         synchronized(ring25HzLock) {
             for (s in samples) {
                 if (ring25HzBuffer.size >= RING_BUFFER_25HZ) {
-                    ring25HzBuffer.removeAt(0)
+                    ring25HzBuffer.removeFirst()  // O(1) on ArrayDeque
                 }
-                ring25HzBuffer.add(s)
+                ring25HzBuffer.addLast(s)
             }
             newBufSize = ring25HzBuffer.size
         }
-        // Diagnostic — proves DetectionService receives Samsung batches.
-        // Logged only on the first BOOTSTRAP_LOG_BATCHES batches to avoid log spam.
-        if (batchCountForLog < BOOTSTRAP_LOG_BATCHES) {
-            Log.i(TAG, "[25Hz] received batch of ${samples.size} samples, ring=$newBufSize/$RING_BUFFER_25HZ")
-            batchCountForLog++
+
+        // Increment total batch counter — drives the bootstrap window.
+        // This MUST happen on every batch, unlike the log throttle below.
+        totalBatchesReceived++
+
+        // Diagnostic log — throttled to the first BOOTSTRAP_LOG_BATCHES to avoid spam.
+        if (loggedBatchCount < BOOTSTRAP_LOG_BATCHES) {
+            Log.i(TAG, "[25Hz] received batch of ${samples.size} samples, ring=$newBufSize/$RING_BUFFER_25HZ total=$totalBatchesReceived")
+            loggedBatchCount++
         }
 
         // 2. Temporal filter — only run CNN during learned smoking hours.
-        //    Phase 1 (no history yet): we let the first BOOTSTRAP_BATCHES batches
-        //    through so we can validate the pipeline end-to-end.
-        //    Phase 2+ (history collected): we strictly follow the learned hours.
-        val isBootstrap = batchCountForLog < BOOTSTRAP_BATCHES
+        //    Phase 1 (no history yet): first BOOTSTRAP_BATCHES batches bypass
+        //    the filter so the CNN runs and we collect enough detections to
+        //    build a smoking-hour pattern.
+        //    Phase 2+: the filter strictly gates inference by learned hours.
+        val isBootstrap = totalBatchesReceived < BOOTSTRAP_BATCHES
         if (!isBootstrap && !database.isHighSmokingHour()) {
             return
         }
