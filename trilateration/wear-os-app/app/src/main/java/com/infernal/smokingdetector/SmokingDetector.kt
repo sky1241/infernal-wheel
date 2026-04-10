@@ -10,15 +10,21 @@ import java.nio.channels.FileChannel
 /**
  * TFLite Smoking Detection Model Wrapper
  *
- * Supports TWO model formats:
- * - v2 (features): Input [1, 30] → 30 extracted features
- * - v5 (CNN raw):  Input [1, 225, 6] → raw accel+gyro signals
- *
- * Auto-detects format from model input shape at load time.
+ * Supports THREE model formats (auto-detected from input tensor shape):
+ * - v2 (features): Input [1, 30]      → 30 extracted features
+ * - v5 (CNN raw):  Input [1, 225, 6]  → raw accel+gyro signals @ 50Hz
+ * - v6 (CNN 25Hz): Input [1, 112, 3]  → raw accel signals @ 25Hz (Samsung SDK)
  *
  * Output: [1, 4] float32 (cigarette, eating, drinking, other)
  */
 class SmokingDetector(private val context: Context) {
+
+    enum class ModelFormat {
+        FEATURES_30,        // v2: [1, 30]
+        CNN_50HZ_6CH,       // v5: [1, 225, 6]
+        CNN_25HZ_3CH,       // v6: [1, 112, 3]
+        UNKNOWN
+    }
 
     companion object {
         private const val TAG = "SmokingDetector"
@@ -31,13 +37,21 @@ class SmokingDetector(private val context: Context) {
 
         val CLASS_NAMES = arrayOf("cigarette", "eating", "drinking", "other")
 
-        // Raw signal model params
-        const val WINDOW_SAMPLES = 225  // 4.5s @ 50Hz
-        const val CHANNELS = 6          // AccX,Y,Z + GyrX,Y,Z
+        // v5 (50Hz) params
+        const val WINDOW_SAMPLES_50HZ = 225  // 4.5s @ 50Hz
+        const val CHANNELS_6 = 6             // AccX,Y,Z + GyrX,Y,Z
+
+        // v6 (25Hz) params
+        const val WINDOW_SAMPLES_25HZ = 112  // 4.5s @ 25Hz
+        const val CHANNELS_3 = 3             // AccX,Y,Z only
+
+        // Legacy aliases (kept for backward compat with older callers)
+        const val WINDOW_SAMPLES = WINDOW_SAMPLES_50HZ
+        const val CHANNELS = CHANNELS_6
     }
 
     private var interpreter: Interpreter? = null
-    private var isRawSignalModel = false  // true if v5 CNN, false if v2 features
+    private var modelFormat: ModelFormat = ModelFormat.UNKNOWN
 
     // Normalization params for raw signal model
     private var normMean: FloatArray? = null
@@ -63,11 +77,22 @@ class SmokingDetector(private val context: Context) {
 
             // Auto-detect model format from input shape
             val inputShape = interpreter?.getInputTensor(0)?.shape()
-            isRawSignalModel = inputShape != null && inputShape.size == 3 && inputShape[1] == WINDOW_SAMPLES
+            modelFormat = when {
+                inputShape == null -> ModelFormat.UNKNOWN
+                inputShape.size == 2 && inputShape[1] == 30 -> ModelFormat.FEATURES_30
+                inputShape.size == 3 && inputShape[1] == WINDOW_SAMPLES_50HZ && inputShape[2] == CHANNELS_6 ->
+                    ModelFormat.CNN_50HZ_6CH
+                inputShape.size == 3 && inputShape[1] == WINDOW_SAMPLES_25HZ && inputShape[2] == CHANNELS_3 ->
+                    ModelFormat.CNN_25HZ_3CH
+                else -> ModelFormat.UNKNOWN
+            }
 
-            Log.d(TAG, "Model loaded: ${if (isRawSignalModel) "CNN raw [1,225,6]" else "features [1,30]"}")
-            Log.d(TAG, "Input shape: ${inputShape?.contentToString()}")
+            Log.d(TAG, "Model loaded: format=$modelFormat shape=${inputShape?.contentToString()}")
             Log.d(TAG, "Output shape: ${interpreter?.getOutputTensor(0)?.shape()?.contentToString()}")
+
+            if (modelFormat == ModelFormat.UNKNOWN) {
+                Log.e(TAG, "Unrecognized model format — predictions will return uniform 0.25")
+            }
 
             true
         } catch (e: Exception) {
@@ -85,14 +110,18 @@ class SmokingDetector(private val context: Context) {
         normStd = std
     }
 
-    fun isRawSignalModel(): Boolean = isRawSignalModel
+    fun getModelFormat(): ModelFormat = modelFormat
+
+    // Backward-compat: the old call returned true for any CNN model
+    fun isRawSignalModel(): Boolean =
+        modelFormat == ModelFormat.CNN_50HZ_6CH || modelFormat == ModelFormat.CNN_25HZ_3CH
 
     /**
      * Run inference on 30 extracted features (v2 model)
      */
     fun predict(features: FloatArray): FloatArray {
-        if (isRawSignalModel) {
-            Log.w(TAG, "Raw signal model loaded but predict(features) called — returning uniform")
+        if (modelFormat != ModelFormat.FEATURES_30) {
+            Log.w(TAG, "predict(features) called on non-feature model ($modelFormat) — returning uniform")
             return FloatArray(4) { 0.25f }
         }
         require(features.size == 30) { "Expected 30 features, got ${features.size}" }
@@ -113,40 +142,39 @@ class SmokingDetector(private val context: Context) {
     }
 
     /**
-     * Run inference on raw 6-channel signals (v5 CNN model)
+     * Run inference on raw 6-channel signals (v5 CNN model @ 50Hz).
      *
      * @param accel [N][3] accelerometer data (X,Y,Z)
-     * @param gyro [N][3] gyroscope data (X,Y,Z)
-     * @return Probabilities for each class
+     * @param gyro  [N][3] gyroscope data (X,Y,Z)
      */
     fun predictRaw(accel: Array<FloatArray>, gyro: Array<FloatArray>): FloatArray {
-        if (!isRawSignalModel) {
-            Log.w(TAG, "Feature model loaded but predictRaw() called — returning uniform")
+        if (modelFormat != ModelFormat.CNN_50HZ_6CH) {
+            Log.w(TAG, "predictRaw(acc,gyro) called on non-50Hz model ($modelFormat) — returning uniform")
             return FloatArray(4) { 0.25f }
         }
 
-        val n = minOf(accel.size, gyro.size, WINDOW_SAMPLES)
-        if (n < WINDOW_SAMPLES) {
-            Log.w(TAG, "Not enough samples for raw inference: $n < $WINDOW_SAMPLES")
+        val n = minOf(accel.size, gyro.size, WINDOW_SAMPLES_50HZ)
+        if (n < WINDOW_SAMPLES_50HZ) {
+            Log.w(TAG, "Not enough samples for raw inference: $n < $WINDOW_SAMPLES_50HZ")
             return FloatArray(4) { 0.25f }
         }
 
         // Build [1, 225, 6] input tensor
-        val input = Array(1) { Array(WINDOW_SAMPLES) { FloatArray(CHANNELS) } }
-        for (i in 0 until WINDOW_SAMPLES) {
-            val idx = n - WINDOW_SAMPLES + i  // Take last 225 samples
-            input[0][i][0] = accel[idx][0]  // AccX
-            input[0][i][1] = accel[idx][1]  // AccY
-            input[0][i][2] = accel[idx][2]  // AccZ
-            input[0][i][3] = gyro[idx][0]   // GyrX
-            input[0][i][4] = gyro[idx][1]   // GyrY
-            input[0][i][5] = gyro[idx][2]   // GyrZ
+        val input = Array(1) { Array(WINDOW_SAMPLES_50HZ) { FloatArray(CHANNELS_6) } }
+        for (i in 0 until WINDOW_SAMPLES_50HZ) {
+            val idx = n - WINDOW_SAMPLES_50HZ + i
+            input[0][i][0] = accel[idx][0]
+            input[0][i][1] = accel[idx][1]
+            input[0][i][2] = accel[idx][2]
+            input[0][i][3] = gyro[idx][0]
+            input[0][i][4] = gyro[idx][1]
+            input[0][i][5] = gyro[idx][2]
         }
 
-        // Normalize per channel
+        // Per-channel normalization
         if (normMean != null && normStd != null) {
-            for (i in 0 until WINDOW_SAMPLES) {
-                for (c in 0 until CHANNELS) {
+            for (i in 0 until WINDOW_SAMPLES_50HZ) {
+                for (c in 0 until CHANNELS_6) {
                     input[0][i][c] = (input[0][i][c] - normMean!![c]) / normStd!![c]
                 }
             }
@@ -158,10 +186,59 @@ class SmokingDetector(private val context: Context) {
             val startTime = System.currentTimeMillis()
             interpreter?.run(input, outputArray)
             val inferenceTime = System.currentTimeMillis() - startTime
-            Log.d(TAG, "Inference (raw CNN): ${inferenceTime}ms → ${outputArray[0].contentToString()}")
+            Log.d(TAG, "Inference (CNN 50Hz): ${inferenceTime}ms -> ${outputArray[0].contentToString()}")
             outputArray[0]
         } catch (e: Exception) {
             Log.e(TAG, "Raw inference failed", e)
+            FloatArray(4) { 0.25f }
+        }
+    }
+
+    /**
+     * Run inference on raw 3-channel accel-only signals (v6 CNN model @ 25Hz).
+     *
+     * @param accel [N][3] accelerometer data (X,Y,Z) — at least 112 samples
+     */
+    fun predictRaw25Hz(accel: Array<FloatArray>): FloatArray {
+        if (modelFormat != ModelFormat.CNN_25HZ_3CH) {
+            Log.w(TAG, "predictRaw25Hz called on non-25Hz model ($modelFormat) — returning uniform")
+            return FloatArray(4) { 0.25f }
+        }
+
+        val n = minOf(accel.size, WINDOW_SAMPLES_25HZ)
+        if (n < WINDOW_SAMPLES_25HZ) {
+            Log.w(TAG, "Not enough samples for 25Hz inference: $n < $WINDOW_SAMPLES_25HZ")
+            return FloatArray(4) { 0.25f }
+        }
+
+        // Build [1, 112, 3] input tensor
+        val input = Array(1) { Array(WINDOW_SAMPLES_25HZ) { FloatArray(CHANNELS_3) } }
+        for (i in 0 until WINDOW_SAMPLES_25HZ) {
+            val idx = accel.size - WINDOW_SAMPLES_25HZ + i
+            input[0][i][0] = accel[idx][0]
+            input[0][i][1] = accel[idx][1]
+            input[0][i][2] = accel[idx][2]
+        }
+
+        // Per-channel normalization
+        if (normMean != null && normStd != null && normMean!!.size == CHANNELS_3) {
+            for (i in 0 until WINDOW_SAMPLES_25HZ) {
+                for (c in 0 until CHANNELS_3) {
+                    input[0][i][c] = (input[0][i][c] - normMean!![c]) / normStd!![c]
+                }
+            }
+        }
+
+        val outputArray = Array(1) { FloatArray(4) }
+
+        return try {
+            val startTime = System.currentTimeMillis()
+            interpreter?.run(input, outputArray)
+            val inferenceTime = System.currentTimeMillis() - startTime
+            Log.d(TAG, "Inference (CNN 25Hz): ${inferenceTime}ms -> ${outputArray[0].contentToString()}")
+            outputArray[0]
+        } catch (e: Exception) {
+            Log.e(TAG, "25Hz inference failed", e)
             FloatArray(4) { 0.25f }
         }
     }

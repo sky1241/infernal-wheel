@@ -40,27 +40,52 @@ Source : [CLAID ETH Zurich](https://claid.ethz.ch/framework_components/Packages/
 
 ## LE PLAN EN 3 PHASES
 
-### PHASE 1 — Hard-code (Jour 1-3 du client)
-**Coût batterie : 0%**
+### PHASE 1 — Hard-code DUAL-FLUX (Jour 1-3 du client)
+**Coût batterie : ~3-4% max**
 
 Le client installe l'app, utilise les boutons manuels pendant 24-72h.
+Pendant ces 72h on tourne **deux flux en parallèle** pour capter le maximum :
 
-Ce qui se passe en coulisse :
-- Chaque +1 enregistre : timestamp, heure, jour de la semaine
-- Le pattern learning construit le profil : "7h30 = clope matin", "13h = après manger"
-- On collecte ~20-60 timestamps = ground truth parfait
-- Boost mode pendant chaque clope = 28 fenêtres de training data par clope
-- Après 3 jours : ~60-180 fenêtres de training personnel
+#### Flux A — Samsung SDK 25Hz continu (gratuit, contexte 24h/24)
+- Se greffe sur le capteur que Samsung Health utilise déjà pour le podomètre
+- 25Hz batché → on reçoit 300 samples toutes les ~12 secondes
+- **Coût batterie : ~1-2%/jour** (le capteur tournait déjà)
+- Capte TOUT le contexte de la journée → permet de récolter des **négatifs réels**
+  (manger, boire, conduire, travailler) qui ressemblent à des clopes mais n'en sont pas
+- Ces négatifs sont précieux : ils empêchent le CNN de tout confondre avec une clope
 
-**Aucun capteur supplémentaire. La montre dure normalement.**
+#### Flux B — SensorManager 50Hz BOOST (haute résolution, ground truth)
+- Activé seulement après chaque clic +1, pendant 7 minutes
+- 50Hz pendant ~70 min/jour (10 clopes × 7 min) = ~5% du temps
+- **Coût batterie : ~1.5%/jour** (ponctuel, pas continu)
+- Capte le geste avec une résolution maximale → ground truth de qualité labo
 
-### PHASE 2 — Greffe Samsung Health SDK (Jour 4+)
+#### Ce qui est enregistré
+- Chaque +1 : timestamp, heure, jour de la semaine → pattern learning
+- Flux A : signal 25Hz brut horodaté → contexte + négatifs
+- Flux B : signal 50Hz brut horodaté → positifs haute résolution
+- Après 3 jours : ~60-180 fenêtres de positifs + des milliers de fenêtres de négatifs
+
+#### Pourquoi le dual-flux est génial
+1. **Validation croisée** : on compare le 25Hz Samsung et le 50Hz natif sur les mêmes
+   gestes (downsamplés). Permet de valider que le SDK Samsung est bien calibré sur
+   cette montre précise (Galaxy Watch 4 vs 6 vs 8 = subtilités).
+2. **Best of both worlds** : on a la qualité labo (50Hz) ET le contexte vie réelle (25Hz)
+3. **Fallback automatique** : si Samsung SDK plante, on a déjà le 50Hz qui tourne
+4. **Dataset perso béton** : combinaison positifs HD + négatifs réels = modèle perso
+   bien meilleur qu'un modèle générique entraîné sur SED
+
+**Phase 1 = 3-4%/jour de batterie, mais seulement 3 jours, et on récolte de l'or.**
+
+### PHASE 2 — Samsung SDK seul + filtre temporel (Jour 4+)
 **Coût batterie : +2-3% max**
 
-On active `ACCELEROMETER_CONTINUOUS` via le Samsung Health Sensor SDK :
+On COUPE le SensorManager 50Hz (il a fait son job en Phase 1).
+On garde uniquement le flux Samsung 25Hz qui tournait déjà.
+
 - 25Hz continu, batché par le SDK (pas par nous)
 - Le SDK gère le CPU, le buffering, la batterie
-- On reçoit les données par batch toutes les X secondes
+- On reçoit les données par batch toutes les ~12 secondes (300 samples)
 - On run notre CNN uniquement pendant les **plages horaires identifiées en Phase 1**
 
 Flow :
@@ -152,6 +177,20 @@ Options :
 3. **Nouveau CNN pour 25Hz** — fenêtre de 4.5s = 112 samples (au lieu de 225)
 
 **Option 1 est la meilleure** — ré-entraîner sur 25Hz avec fenêtre 112 samples. Le papier SED utilise du 50Hz mais les features pertinentes (geste main-bouche) sont à <5Hz, donc 25Hz est largement suffisant (Nyquist = 12.5Hz > 5Hz).
+
+### Détail technique du nouveau CNN 25Hz
+
+| Paramètre | 50Hz (v5) | 25Hz (v6) |
+|-----------|----------:|----------:|
+| Sample rate | 50Hz | 25Hz |
+| Fenêtre | 4.5s | 4.5s |
+| Samples/fenêtre | 225 | **112** |
+| Canaux | 6 (Acc+Gyro) | **3 (Acc seulement)** |
+| Input shape | [1, 225, 6] | **[1, 112, 3]** |
+
+**Pourquoi 3 canaux au lieu de 6 ?** Le Samsung Health SDK donne `ACCELEROMETER_CONTINUOUS` mais **pas** `GYROSCOPE_CONTINUOUS`. Le gyro continu n'existe pas en mode batché basse consommation. Le geste main-bouche est principalement détectable par l'accéléromètre (rotation du poignet vers le haut), donc on s'en passe sans perte significative.
+
+**Validation attendue** : F1 entre 0.65 et 0.75 (vs 0.747 sur 50Hz/6 canaux). Si on perd plus, on revient à 50Hz mais on est mort batterie.
 
 ---
 

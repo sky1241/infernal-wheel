@@ -40,6 +40,10 @@ class DetectionService : Service() {
         private const val THRESHOLD_DIRECT = 0.7f   // Watch on smoking hand → strong signal
         private const val THRESHOLD_INDIRECT = 0.5f  // Watch on opposite hand → weaker signal
 
+        // 25Hz parasitic flow params (Phase 2 of war plan)
+        private const val RING_BUFFER_25HZ = 200            // ~8s of signal at 25Hz
+        private const val MIN_INFERENCE_INTERVAL_25HZ_MS = 4_000L  // Don't run more than once per 4s
+
         // Service actions
         const val ACTION_START = "com.infernal.smokingdetector.START"
         const val ACTION_STOP = "com.infernal.smokingdetector.STOP"
@@ -97,6 +101,18 @@ class DetectionService : Service() {
     private lateinit var phoneListener: PhoneConnectionListener
     private lateinit var notificationManager: NotificationManager
 
+    // Samsung Health Sensor SDK — parasitic 25Hz accel flow (Phase 2 of war plan)
+    private lateinit var samsungAccel: SamsungHealthAccelerometer
+
+    /**
+     * Ring buffer for 25Hz accel samples coming from Samsung SDK.
+     * Keeps the last RING_BUFFER_25HZ samples (~8s of signal) so we can
+     * always extract the most recent CNN window of 112 samples.
+     */
+    private val ring25HzBuffer = ArrayList<FloatArray>(RING_BUFFER_25HZ)
+    private val ring25HzLock = Object()
+    private var lastInference25HzMs = 0L
+
     private var serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var inferenceJob: Job? = null
     private var syncJob: Job? = null
@@ -151,6 +167,7 @@ class DetectionService : Service() {
         boostManager = BoostSamplingManager(this)
         messageSync = MessageSyncManager(this)
         phoneListener = PhoneConnectionListener(this, messageSync)
+        samsungAccel = SamsungHealthAccelerometer(this)
 
         // Read wrist/hand preferences + listen for runtime changes
         prefs = getSharedPreferences("smoking_detector_prefs", Context.MODE_PRIVATE)
@@ -180,15 +197,28 @@ class DetectionService : Service() {
             return
         }
 
-        // Set normalization params for CNN raw signal model (from training)
-        if (detector.isRawSignalModel()) {
-            detector.setNormalization(
-                mean = floatArrayOf(0.5848f, -4.4789f, 4.7827f, -0.0013f, -0.0012f, -0.0017f),
-                std = floatArrayOf(5.3890f, 3.7457f, 3.6576f, 0.5993f, 0.3300f, 0.5065f)
-            )
-            Log.d(TAG, "CNN raw signal normalization params set")
+        // Set normalization params per model format
+        when (detector.getModelFormat()) {
+            SmokingDetector.ModelFormat.CNN_50HZ_6CH -> {
+                // v5: 50Hz / 6 channels (Acc + Gyro)
+                detector.setNormalization(
+                    mean = floatArrayOf(0.5848f, -4.4789f, 4.7827f, -0.0013f, -0.0012f, -0.0017f),
+                    std = floatArrayOf(5.3890f, 3.7457f, 3.6576f, 0.5993f, 0.3300f, 0.5065f)
+                )
+                Log.d(TAG, "Normalization set for CNN_50HZ_6CH (v5)")
+            }
+            SmokingDetector.ModelFormat.CNN_25HZ_3CH -> {
+                // v6: 25Hz / 3 channels (Acc only)
+                // From normalization_params_v6_25hz.npz (CV F1=0.410 — generic baseline,
+                // designed to be fine-tuned per user via Phase 1 hard-code data)
+                detector.setNormalization(
+                    mean = floatArrayOf(-0.5455f, -3.4465f, 3.5015f),
+                    std = floatArrayOf(4.2177f, 4.4892f, 5.9296f)
+                )
+                Log.d(TAG, "Normalization set for CNN_25HZ_3CH (v6)")
+            }
+            else -> { /* feature model — no normalization needed */ }
         }
-
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -304,6 +334,17 @@ class DetectionService : Service() {
         // Start phone connection listener (auto-flush buffer on reconnect)
         phoneListener.start(serviceScope)
         Log.d(TAG, "Phone connection listener started")
+
+        // Phase 2 of war plan: connect Samsung Health Sensor SDK 25Hz parasitic flow
+        // (no-op if SDK AAR not yet installed in app/libs/)
+        if (samsungAccel.isSdkAvailable()) {
+            samsungAccel.connect { samples, timestampNs ->
+                onSamsung25HzBatch(samples, timestampNs)
+            }
+            Log.d(TAG, "Samsung 25Hz parasitic flow connected")
+        } else {
+            Log.w(TAG, "Samsung Health Sensor SDK absent — running 50Hz boost only")
+        }
     }
 
     /**
@@ -318,7 +359,89 @@ class DetectionService : Service() {
         gpsManager.stop()
         healthServices.stop()
         boostManager.stop()
+        if (::samsungAccel.isInitialized) {
+            samsungAccel.disconnect()
+        }
+        synchronized(ring25HzLock) { ring25HzBuffer.clear() }
         Log.d(TAG, "Monitoring stopped")
+    }
+
+    /**
+     * Callback invoked by SamsungHealthAccelerometer for each batch of 25Hz samples.
+     *
+     * Pipeline:
+     *   1. Push samples into the ring buffer
+     *   2. Apply temporal filter — skip if not in a learned smoking hour
+     *   3. Apply rate limiter — at most one inference per MIN_INFERENCE_INTERVAL_25HZ_MS
+     *   4. Run CNN 25Hz on the most recent 112-sample window
+     *   5. Handle detection (debounce + DB + sync + notification)
+     */
+    private fun onSamsung25HzBatch(samples: Array<FloatArray>, timestampNs: Long) {
+        // 1. Push into ring buffer
+        synchronized(ring25HzLock) {
+            for (s in samples) {
+                if (ring25HzBuffer.size >= RING_BUFFER_25HZ) {
+                    ring25HzBuffer.removeAt(0)
+                }
+                ring25HzBuffer.add(s)
+            }
+        }
+
+        // 2. Temporal filter — only run CNN during learned smoking hours
+        if (!database.isHighSmokingHour()) {
+            return
+        }
+
+        // 3. Rate limiter
+        val now = System.currentTimeMillis()
+        if (now - lastInference25HzMs < MIN_INFERENCE_INTERVAL_25HZ_MS) {
+            return
+        }
+        lastInference25HzMs = now
+
+        // 4. Run inference asynchronously
+        serviceScope.launch {
+            runInference25Hz()
+        }
+    }
+
+    /**
+     * Inference path for the 25Hz / 3-channel CNN model (v6).
+     * Pulls the last 112 samples from the ring buffer and feeds them to the model.
+     */
+    private suspend fun runInference25Hz() = withContext(Dispatchers.Default) {
+        if (detector.getModelFormat() != SmokingDetector.ModelFormat.CNN_25HZ_3CH) {
+            // Wrong model loaded — silently skip
+            return@withContext
+        }
+
+        // Snapshot last WINDOW_SAMPLES_25HZ samples from ring buffer
+        val window: Array<FloatArray> = synchronized(ring25HzLock) {
+            if (ring25HzBuffer.size < SmokingDetector.WINDOW_SAMPLES_25HZ) return@withContext
+            val start = ring25HzBuffer.size - SmokingDetector.WINDOW_SAMPLES_25HZ
+            Array(SmokingDetector.WINDOW_SAMPLES_25HZ) { i -> ring25HzBuffer[start + i].copyOf() }
+        }
+
+        try {
+            val probs = detector.predictRaw25Hz(window)
+            var threshold = getDetectionThreshold()
+            if (database.isHighSmokingHour()) {
+                threshold = (threshold - 0.15f).coerceAtLeast(0.4f)
+            }
+            val isCigarette = probs[SmokingDetector.CLASS_CIGARETTE] > threshold
+
+            Log.d(TAG, "25Hz inference: cig=$isCigarette threshold=$threshold probs=${probs.contentToString()}")
+
+            if (isCigarette) {
+                // Extract dummy features placeholder for DB schema (CNN doesn't compute them)
+                handleCigaretteDetected(
+                    confidence = probs[SmokingDetector.CLASS_CIGARETTE],
+                    features = FloatArray(30)
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "25Hz inference failed", e)
+        }
     }
 
     /**
