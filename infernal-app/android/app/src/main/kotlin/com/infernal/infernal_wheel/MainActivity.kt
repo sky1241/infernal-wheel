@@ -48,55 +48,100 @@ class MainActivity : FlutterFragmentActivity(), MessageClient.OnMessageReceivedL
             return
         }
 
-        try {
-            val json = JSONObject(data)
-            val type = json.optString("type", "cigarette")
+        // Synchronize the entire detection write path. Multiple watch
+        // messages can arrive in quick succession (e.g. backlog flush after
+        // BT reconnect) and the read-modify-write of watch_detections.json
+        // is racy without a lock.
+        synchronized(detectionsLock) {
+            try {
+                val json = JSONObject(data)
+                val type = json.optString("type", "cigarette")
 
-            // Store detection
-            val detection = JSONObject().apply {
-                put("timestamp", json.optLong("timestamp", System.currentTimeMillis()))
-                put("confidence", json.optDouble("confidence", 1.0))
-                put("type", type)
-                put("drinkType", json.optString("drinkType", ""))
-                put("gpsCluster", json.optInt("gpsCluster", -1))
-                put("hrBaseline", json.optDouble("hrBaseline", 0.0))
-                put("hrCurrent", json.optDouble("hrCurrent", 0.0))
-                put("hrDelta", json.optDouble("hrDelta", 0.0))
-                put("receivedAt", System.currentTimeMillis())
-            }
-
-            // Write to app_flutter dir so Dart can read it
-            val flutterDir = java.io.File(filesDir.parentFile, "app_flutter")
-            flutterDir.mkdirs()
-            val file = if (type == "drink") {
-                java.io.File(flutterDir, "watch_drink_detections.json")
-            } else {
-                java.io.File(flutterDir, "watch_detections.json")
-            }
-
-            val detections = if (file.exists()) {
-                try { JSONArray(file.readText()) } catch (_: Exception) { JSONArray() }
-            } else {
-                JSONArray()
-            }
-            detections.put(detection)
-            file.writeText(detections.toString())
-
-            // Update daily summary
-            updateDailySummary(type)
-
-            // Notify Flutter
-            val engine = FlutterEngineHolder.engine
-            if (engine != null) {
-                val channel = MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
-                runOnUiThread {
-                    channel.invokeMethod("onWatchDataChanged", null)
+                // Store detection
+                val detection = JSONObject().apply {
+                    put("timestamp", json.optLong("timestamp", System.currentTimeMillis()))
+                    put("confidence", json.optDouble("confidence", 1.0))
+                    put("type", type)
+                    put("drinkType", json.optString("drinkType", ""))
+                    put("gpsCluster", json.optInt("gpsCluster", -1))
+                    put("hrBaseline", json.optDouble("hrBaseline", 0.0))
+                    put("hrCurrent", json.optDouble("hrCurrent", 0.0))
+                    put("hrDelta", json.optDouble("hrDelta", 0.0))
+                    put("receivedAt", System.currentTimeMillis())
                 }
-            }
 
-            Log.d(TAG, "Watch $type stored + Flutter notified")
+                // Write to app_flutter dir so Dart can read it
+                val flutterDir = java.io.File(filesDir.parentFile, "app_flutter")
+                flutterDir.mkdirs()
+                val file = if (type == "drink") {
+                    java.io.File(flutterDir, "watch_drink_detections.json")
+                } else {
+                    java.io.File(flutterDir, "watch_detections.json")
+                }
+
+                // Read the existing array. If the file is corrupt, DO NOT
+                // silently overwrite — that would erase the entire history
+                // (potentially weeks of data) on a transient parse failure.
+                // Instead, log the failure and skip this update; the next
+                // successful read will preserve whatever's still there.
+                val detections = if (file.exists()) {
+                    try {
+                        JSONArray(file.readText())
+                    } catch (e: Exception) {
+                        Log.e(TAG, "watch_detections.json is corrupt — skipping update to avoid data loss", e)
+                        return@synchronized
+                    }
+                } else {
+                    JSONArray()
+                }
+                detections.put(detection)
+                writeJsonAtomic(file, detections.toString())
+
+                // Update daily summary
+                updateDailySummary(type)
+
+                // Notify Flutter
+                val engine = FlutterEngineHolder.engine
+                if (engine != null) {
+                    val channel = MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
+                    runOnUiThread {
+                        channel.invokeMethod("onWatchDataChanged", null)
+                    }
+                }
+
+                Log.d(TAG, "Watch $type stored + Flutter notified")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error processing watch message", e)
+            }
+        }
+    }
+
+    /**
+     * Lock object protecting all read-modify-write operations on the
+     * watch_detections.json / watch_drink_detections.json files. The Wear OS
+     * MessageClient callback can deliver messages on multiple threads in
+     * rapid succession (especially during a buffer flush after a reconnect),
+     * and without a lock the JSON file content races and we lose detections.
+     */
+    private val detectionsLock = Any()
+
+    /**
+     * Write `text` to `target` atomically: write to a sibling .tmp file then
+     * rename. The rename is atomic on POSIX so the destination either has
+     * the new content or the old one — never a half-written truncated file.
+     * If the rename fails (e.g. on FAT32) we fall back to direct write.
+     */
+    private fun writeJsonAtomic(target: java.io.File, text: String) {
+        val tmp = java.io.File(target.parentFile, "${target.name}.tmp")
+        try {
+            tmp.writeText(text)
+            if (!tmp.renameTo(target)) {
+                target.writeText(text)
+                tmp.delete()
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "Error processing watch message", e)
+            Log.e(TAG, "writeJsonAtomic failed for ${target.name}", e)
+            tmp.delete()
         }
     }
 
@@ -125,55 +170,78 @@ class MainActivity : FlutterFragmentActivity(), MessageClient.OnMessageReceivedL
      * keeps shipping windows and trusts the phone to manage storage.
      */
     private fun handleTrainingWindow(data: String) {
-        try {
-            val json = JSONObject(data)
-            val label = json.optString("label", "unknown")
-            val confidence = json.optDouble("confidence", 0.0)
-            val timestamp = json.optLong("timestamp", System.currentTimeMillis())
-            val sampleCount = json.optInt("sampleCount", 0)
+        synchronized(trainingLock) {
+            try {
+                val json = JSONObject(data)
+                val label = json.optString("label", "unknown")
+                val confidence = json.optDouble("confidence", 0.0)
+                val timestamp = json.optLong("timestamp", System.currentTimeMillis())
+                val sampleCount = json.optInt("sampleCount", 0)
 
-            val flutterDir = java.io.File(filesDir.parentFile, "app_flutter")
-            val trainingDir = java.io.File(flutterDir, "training_windows")
-            trainingDir.mkdirs()
+                val flutterDir = java.io.File(filesDir.parentFile, "app_flutter")
+                val trainingDir = java.io.File(flutterDir, "training_windows")
+                trainingDir.mkdirs()
 
-            // Cap storage — keep at most MAX_TRAINING_FILES files (FIFO)
-            val existing = trainingDir.listFiles { f -> f.isFile && f.name.endsWith(".json") }
-                ?.sortedBy { it.lastModified() }
-                ?: emptyList()
-            if (existing.size >= MAX_TRAINING_FILES) {
-                val toDelete = existing.size - MAX_TRAINING_FILES + 1
-                for (i in 0 until toDelete) {
-                    existing[i].delete()
+                // Cap storage — keep at most MAX_TRAINING_FILES files (FIFO).
+                // Sort by FILENAME (which embeds the ISO timestamp and is
+                // therefore monotonically increasing) instead of lastModified
+                // — multiple files created in the same second have the same
+                // mtime and would sort non-deterministically.
+                val existing = trainingDir.listFiles { f -> f.isFile && f.name.endsWith(".json") }
+                    ?.sortedBy { it.name }
+                    ?: emptyList()
+                if (existing.size >= MAX_TRAINING_FILES) {
+                    val toDelete = existing.size - MAX_TRAINING_FILES + 1
+                    for (i in 0 until toDelete) {
+                        existing[i].delete()
+                    }
+                    Log.d(TAG, "[TRAINING] Pruned $toDelete oldest training file(s)")
                 }
-                Log.d(TAG, "[TRAINING] Pruned $toDelete oldest training file(s)")
+
+                // Build a unique, sortable filename. Two windows captured in
+                // the same second would collide on `${isoTs}_${label}_conf${pct}`
+                // — append the millisecond fraction to disambiguate.
+                val isoTs = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss-SSS", java.util.Locale.US)
+                    .format(java.util.Date(timestamp))
+                val confPct = (confidence * 100).toInt()
+                val filename = "${isoTs}_${label}_conf${confPct}.json"
+                val file = java.io.File(trainingDir, filename)
+
+                // Add a receivedAt field so we know when the phone got it
+                json.put("receivedAt", System.currentTimeMillis())
+                writeJsonAtomic(file, json.toString())
+
+                Log.d(TAG, "[TRAINING] Saved window: $filename samples=$sampleCount")
+            } catch (e: Exception) {
+                Log.e(TAG, "[TRAINING] Failed to save training window", e)
             }
-
-            // Build a unique, sortable filename
-            val isoTs = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss", java.util.Locale.US)
-                .format(java.util.Date(timestamp))
-            val confPct = (confidence * 100).toInt()
-            val filename = "${isoTs}_${label}_conf${confPct}.json"
-            val file = java.io.File(trainingDir, filename)
-
-            // Add a receivedAt field so we know when the phone got it
-            json.put("receivedAt", System.currentTimeMillis())
-            file.writeText(json.toString())
-
-            Log.d(TAG, "[TRAINING] Saved window: $filename samples=$sampleCount")
-        } catch (e: Exception) {
-            Log.e(TAG, "[TRAINING] Failed to save training window", e)
         }
     }
 
+    /** Lock for the training_windows directory write path. */
+    private val trainingLock = Any()
+
     private fun updateDailySummary(type: String) {
+        // Caller (onMessageReceived) already holds detectionsLock when this
+        // is invoked, so the read-modify-write below is safe against the
+        // detection write path. Adding another nested synchronized would
+        // be redundant.
         val flutterDir2 = java.io.File(filesDir.parentFile, "app_flutter")
         flutterDir2.mkdirs()
         val file = java.io.File(flutterDir2, "watch_daily_summary.json")
         val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
             .format(java.util.Date())
 
+        // Read with corruption detection — if the summary is corrupt we
+        // start a fresh one rather than crash. Counters are recoverable
+        // by re-reading watch_detections.json on demand.
         val summary = if (file.exists()) {
-            try { JSONObject(file.readText()) } catch (_: Exception) { JSONObject() }
+            try {
+                JSONObject(file.readText())
+            } catch (e: Exception) {
+                Log.w(TAG, "watch_daily_summary.json is corrupt — resetting", e)
+                JSONObject()
+            }
         } else {
             JSONObject()
         }
@@ -192,7 +260,7 @@ class MainActivity : FlutterFragmentActivity(), MessageClient.OnMessageReceivedL
         }
         summary.put("totalDetections", summary.optInt("totalDetections", 0) + 1)
         summary.put("receivedAt", System.currentTimeMillis())
-        file.writeText(summary.toString())
+        writeJsonAtomic(file, summary.toString())
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
