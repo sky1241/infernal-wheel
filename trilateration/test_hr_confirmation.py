@@ -24,7 +24,7 @@ passed = 0
 failed = 0
 
 
-def test(name, condition, detail=""):
+def _check(name, condition, detail=""):
     global passed, failed
     if condition:
         print(f"  {GREEN}OK{RESET}  {name}" + (f"  ({detail})" if detail else ""))
@@ -95,7 +95,7 @@ for minute in range(3, 5):
         det.push(82.0 + (sec % 3), minute * 60_000 + sec * 1000)
 
 rise = det.get_hr_rise(NOW)
-test("HR rise detected", rise >= THRESHOLD,
+_check("HR rise detected", rise >= THRESHOLD,
      f"rise = {rise:.2f} bpm (threshold {THRESHOLD})")
 
 
@@ -110,7 +110,7 @@ for minute in range(0, 5):
         det.push(70.0, minute * 60_000 + sec * 1000)
 
 rise = det.get_hr_rise(NOW)
-test("No HR rise", rise < THRESHOLD, f"rise = {rise:.2f} bpm")
+_check("No HR rise", rise < THRESHOLD, f"rise = {rise:.2f} bpm")
 
 
 # ============================================================================
@@ -126,7 +126,7 @@ for minute in range(0, 5):
         det.push(bpm, minute * 60_000 + sec * 1000)
 
 rise = det.get_hr_rise(NOW)
-test("sub-threshold rise NOT flagged", rise < THRESHOLD,
+_check("sub-threshold rise NOT flagged", rise < THRESHOLD,
      f"rise = {rise:.2f} bpm")
 
 
@@ -143,7 +143,7 @@ for minute in range(0, 5):
         det.push(bpm, minute * 60_000 + sec * 1000)
 
 rise = det.get_hr_rise(NOW)
-test("coffee spike NOT flagged", rise < THRESHOLD,
+_check("coffee spike NOT flagged", rise < THRESHOLD,
      f"rise = {rise:.2f} bpm")
 
 
@@ -155,7 +155,7 @@ section("5. Single-sample timeline")
 det = HrRiseDetector()
 det.push(75.0, NOW)
 rise = det.get_hr_rise(NOW)
-test("returns 0 with 1 sample", rise == 0.0, f"rise = {rise}")
+_check("returns 0 with 1 sample", rise == 0.0, f"rise = {rise}")
 
 
 # ============================================================================
@@ -165,7 +165,7 @@ section("6. Empty timeline")
 
 det = HrRiseDetector()
 rise = det.get_hr_rise(NOW)
-test("returns 0 with no samples", rise == 0.0)
+_check("returns 0 with no samples", rise == 0.0)
 
 
 # ============================================================================
@@ -179,7 +179,7 @@ for sec in range(0, 90, 10):
     det.push(80.0, NOW - sec * 1000)
 
 rise = det.get_hr_rise(NOW)
-test("returns 0 when baseline window is empty", rise == 0.0,
+_check("returns 0 when baseline window is empty", rise == 0.0,
      f"rise = {rise}")
 
 
@@ -195,7 +195,7 @@ for minute in range(0, 10):
 
 # After the last push at minute 9, anything > 5 min old should be dropped
 oldest = min(ts for ts, _ in det.timeline) if det.timeline else 0
-test("oldest sample is within 5 min of last push",
+_check("oldest sample is within 5 min of last push",
      (9 * 60_000 - oldest) <= 5 * 60_000,
      f"oldest at t={oldest / 1000:.0f}s")
 
@@ -205,4 +205,14 @@ print(f"  Tests passed: {GREEN}{passed}{RESET}")
 print(f"  Tests failed: {RED if failed > 0 else GREEN}{failed}{RESET}")
 print("=" * 50)
 
-sys.exit(0 if failed == 0 else 1)
+
+
+# === pytest entry point ===
+# The file's assertions run at module-level on import (above). pytest then
+# discovers test_no_failures() and asserts that all of them passed.
+def test_no_failures():
+    assert failed == 0, f'{failed} _check(s) failed (see stdout above for details)'
+
+
+if __name__ == "__main__":
+    sys.exit(0 if failed == 0 else 1)

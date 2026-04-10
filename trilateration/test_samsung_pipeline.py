@@ -54,7 +54,7 @@ passed = 0
 failed = 0
 
 
-def test(name, condition, detail=""):
+def _check(name, condition, detail=""):
     global passed, failed
     if condition:
         print(f"  {GREEN}OK{RESET}  {name}" + (f"  ({detail})" if detail else ""))
@@ -73,7 +73,7 @@ def section(title):
 # ─────────────────────────────────────────────────────────────────────
 section("1. Samsung int -> m/s^2 conversion")
 
-test("ACCEL_INT_TO_MS2 ~ 0.002395",
+_check("ACCEL_INT_TO_MS2 ~ 0.002395",
      abs(ACCEL_INT_TO_MS2 - 0.002395) < 1e-5,
      f"got {ACCEL_INT_TO_MS2:.6f}")
 
@@ -81,16 +81,16 @@ test("ACCEL_INT_TO_MS2 ~ 0.002395",
 # So a raw int of (16383.75 / 4) ~ 4096 should map to 9.81 m/s^2
 raw_at_1g = 16383.75 / 4.0
 ms2_at_1g = raw_at_1g * ACCEL_INT_TO_MS2
-test("raw 4096 ~ 9.81 m/s^2 (1g)",
+_check("raw 4096 ~ 9.81 m/s^2 (1g)",
      abs(ms2_at_1g - 9.81) < 0.01,
      f"got {ms2_at_1g:.4f}")
 
 # Negative ints should map to negative m/s^2
-test("conversion preserves sign",
+_check("conversion preserves sign",
      -1000 * ACCEL_INT_TO_MS2 < 0)
 
 # Zero -> zero
-test("conversion of 0 is 0",
+_check("conversion of 0 is 0",
      0 * ACCEL_INT_TO_MS2 == 0.0)
 
 
@@ -114,20 +114,20 @@ def fake_samsung_batch(n_samples=EXPECTED_BATCH_SIZE, seed=42):
 
 
 batch_int = fake_samsung_batch()
-test("batch shape is [300, 3]",
+_check("batch shape is [300, 3]",
      batch_int.shape == (EXPECTED_BATCH_SIZE, CHANNELS),
      f"got {batch_int.shape}")
-test("batch dtype is int",
+_check("batch dtype is int",
      np.issubdtype(batch_int.dtype, np.integer))
 
 # Convert to m/s^2
 batch_ms2 = batch_int.astype(np.float32) * ACCEL_INT_TO_MS2
-test("converted batch dtype is float32",
+_check("converted batch dtype is float32",
      batch_ms2.dtype == np.float32)
-test("converted Z axis ~ 9.81 m/s^2 (mean)",
+_check("converted Z axis ~ 9.81 m/s^2 (mean)",
      abs(batch_ms2[:, 2].mean() - 9.81) < 0.5,
      f"mean Z = {batch_ms2[:, 2].mean():.3f}")
-test("converted X/Y axes ~ 0 m/s^2 (small motion)",
+_check("converted X/Y axes ~ 0 m/s^2 (small motion)",
      abs(batch_ms2[:, 0].mean()) < 0.5 and abs(batch_ms2[:, 1].mean()) < 0.5,
      f"X={batch_ms2[:, 0].mean():.3f} Y={batch_ms2[:, 1].mean():.3f}")
 
@@ -139,10 +139,10 @@ section("3. Build 112-sample window from batch")
 
 # Take last 112 samples (matching DetectionService.runInference25Hz logic)
 window = batch_ms2[-WINDOW_SAMPLES:]
-test("window shape is [112, 3]",
+_check("window shape is [112, 3]",
      window.shape == (WINDOW_SAMPLES, CHANNELS),
      f"got {window.shape}")
-test("window has no NaN/Inf",
+_check("window has no NaN/Inf",
      not np.any(np.isnan(window)) and not np.any(np.isinf(window)))
 
 
@@ -158,13 +158,13 @@ if not os.path.exists(NORM_PATH):
 norm = np.load(NORM_PATH)
 mean = norm['mean']
 std = norm['std']
-test("loaded norm mean shape [3]", mean.shape == (CHANNELS,))
-test("loaded norm std shape [3]", std.shape == (CHANNELS,))
+_check("loaded norm mean shape [3]", mean.shape == (CHANNELS,))
+_check("loaded norm std shape [3]", std.shape == (CHANNELS,))
 
 window_normalized = (window - mean) / std
-test("normalized window has no NaN/Inf",
+_check("normalized window has no NaN/Inf",
      not np.any(np.isnan(window_normalized)) and not np.any(np.isinf(window_normalized)))
-test("normalized window in reasonable range (z-score)",
+_check("normalized window in reasonable range (z-score)",
      np.abs(window_normalized).max() < 100,
      f"max |z| = {np.abs(window_normalized).max():.3f}")
 
@@ -188,12 +188,12 @@ interpreter.set_tensor(input_details[0]['index'], input_tensor)
 interpreter.invoke()
 output = interpreter.get_tensor(output_details[0]['index'])[0]
 
-test("output shape [4] (4 classes)",
+_check("output shape [4] (4 classes)",
      output.shape == (4,))
-test("output sums to ~1.0 (softmax)",
+_check("output sums to ~1.0 (softmax)",
      abs(output.sum() - 1.0) < 0.01,
      f"sum={output.sum():.4f}")
-test("output is well-calibrated (no NaN, no extreme values)",
+_check("output is well-calibrated (no NaN, no extreme values)",
      not np.any(np.isnan(output)) and np.all(output >= 0))
 
 cig_prob = output[0]
@@ -201,7 +201,7 @@ print(f"\n  Inferred probabilities (rest position): {output.tolist()}")
 print(f"  Cigarette probability: {cig_prob*100:.1f}%")
 
 # A watch at rest should NOT be predicted as smoking
-test("watch at rest -> low cigarette probability (<50%)",
+_check("watch at rest -> low cigarette probability (<50%)",
      cig_prob < 0.5,
      f"cig_prob={cig_prob*100:.1f}%")
 
@@ -234,10 +234,10 @@ interpreter.set_tensor(input_details[0]['index'],
 interpreter.invoke()
 puff_output = interpreter.get_tensor(output_details[0]['index'])[0]
 
-test("puff output shape [4]", puff_output.shape == (4,))
-test("puff output sums to ~1.0",
+_check("puff output shape [4]", puff_output.shape == (4,))
+_check("puff output sums to ~1.0",
      abs(puff_output.sum() - 1.0) < 0.01)
-test("rest vs puff -> different predictions",
+_check("rest vs puff -> different predictions",
      not np.allclose(output, puff_output, atol=0.05),
      f"max diff={np.abs(output - puff_output).max():.4f}")
 
@@ -261,4 +261,14 @@ if failed == 0:
 else:
     print(f"  {RED}FAIL{RESET} Pipeline has issues — fix before deploying")
 
-sys.exit(0 if failed == 0 else 1)
+
+
+# === pytest entry point ===
+# The file's assertions run at module-level on import (above). pytest then
+# discovers test_no_failures() and asserts that all of them passed.
+def test_no_failures():
+    assert failed == 0, f'{failed} _check(s) failed (see stdout above for details)'
+
+
+if __name__ == "__main__":
+    sys.exit(0 if failed == 0 else 1)

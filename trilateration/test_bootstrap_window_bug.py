@@ -51,7 +51,7 @@ passed = 0
 failed = 0
 
 
-def test(name, condition, detail=""):
+def _check(name, condition, detail=""):
     global passed, failed
     if condition:
         print(f"  {GREEN}OK{RESET}  {name}" + (f"  ({detail})" if detail else ""))
@@ -106,10 +106,10 @@ section("1. Reproduce the bug — 100 batches with the buggy counter")
 ended_at, final_counter = buggy_simulation(100)
 print(f"  Counter after 100 batches: {final_counter}")
 print(f"  Bootstrap ended at batch: {ended_at}")
-test("buggy counter caps at 10",
+_check("buggy counter caps at 10",
      final_counter == BOOTSTRAP_LOG_BATCHES,
      f"capped at {final_counter}")
-test("buggy bootstrap NEVER ends",
+_check("buggy bootstrap NEVER ends",
      ended_at is None,
      f"ended_at={ended_at}")
 
@@ -121,11 +121,11 @@ ended_at, total, logged = fixed_simulation(100)
 print(f"  Total batches received: {total}")
 print(f"  Logged batches: {logged}")
 print(f"  Bootstrap ended at batch index: {ended_at}")
-test("fix: total counter reaches 100",
+_check("fix: total counter reaches 100",
      total == 100)
-test("fix: logged counter still capped at 10",
+_check("fix: logged counter still capped at 10",
      logged == BOOTSTRAP_LOG_BATCHES)
-test("fix: bootstrap ends after exactly BOOTSTRAP_BATCHES batches",
+_check("fix: bootstrap ends after exactly BOOTSTRAP_BATCHES batches",
      ended_at is not None and ended_at == BOOTSTRAP_BATCHES - 1,
      f"ended_at={ended_at} (after batch {(ended_at or 0) + 1})")
 
@@ -141,9 +141,9 @@ ended_at_fixed, _, _ = fixed_simulation(batches_per_day)
 
 print(f"  Buggy: bootstrap ended at batch {ended_at_buggy} of {batches_per_day}")
 print(f"  Fixed: bootstrap ended at batch {ended_at_fixed} of {batches_per_day}")
-test("buggy: full day still in bootstrap (CNN runs 100% of the time)",
+_check("buggy: full day still in bootstrap (CNN runs 100% of the time)",
      ended_at_buggy is None)
-test("fixed: bootstrap ends in first ~10 minutes",
+_check("fixed: bootstrap ends in first ~10 minutes",
      ended_at_fixed == BOOTSTRAP_BATCHES - 1)
 
 
@@ -152,4 +152,14 @@ print(f"  Tests passed: {GREEN}{passed}{RESET}")
 print(f"  Tests failed: {RED if failed > 0 else GREEN}{failed}{RESET}")
 print("=" * 50)
 
-sys.exit(0 if failed == 0 else 1)
+
+
+# === pytest entry point ===
+# The file's assertions run at module-level on import (above). pytest then
+# discovers test_no_failures() and asserts that all of them passed.
+def test_no_failures():
+    assert failed == 0, f'{failed} _check(s) failed (see stdout above for details)'
+
+
+if __name__ == "__main__":
+    sys.exit(0 if failed == 0 else 1)

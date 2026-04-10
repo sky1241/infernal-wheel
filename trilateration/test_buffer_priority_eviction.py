@@ -32,7 +32,7 @@ passed = 0
 failed = 0
 
 
-def test(name, condition, detail=""):
+def _check(name, condition, detail=""):
     global passed, failed
     if condition:
         print(f"  {GREEN}OK{RESET}  {name}" + (f"  ({detail})" if detail else ""))
@@ -82,7 +82,7 @@ section("1. Buffer under cap — no eviction")
 
 buf = [{"type": "cigarette", "id": i} for i in range(100)]
 result = trim_buffer(buf)
-test("buffer of 100 with cap 500 stays at 100", len(result) == 100)
+_check("buffer of 100 with cap 500 stays at 100", len(result) == 100)
 
 
 # ============================================================================
@@ -90,7 +90,7 @@ section("2. Buffer at exactly the cap — no eviction")
 
 buf = [{"type": "cigarette", "id": i} for i in range(MAX_BUFFER_SIZE)]
 result = trim_buffer(buf)
-test(f"buffer of {MAX_BUFFER_SIZE} stays at {MAX_BUFFER_SIZE}",
+_check(f"buffer of {MAX_BUFFER_SIZE} stays at {MAX_BUFFER_SIZE}",
      len(result) == MAX_BUFFER_SIZE)
 
 
@@ -112,9 +112,9 @@ n_tw = sum(1 for e in result if e["type"] == "training_window")
 print(f"  cigarettes kept: {n_cig}/100")
 print(f"  training_window kept: {n_tw}/450")
 
-test("buffer trimmed to MAX_BUFFER_SIZE", len(result) == MAX_BUFFER_SIZE)
-test("ALL cigarette events preserved", n_cig == 100)
-test("training_window count = 400 (450 - 50 dropped)", n_tw == 400)
+_check("buffer trimmed to MAX_BUFFER_SIZE", len(result) == MAX_BUFFER_SIZE)
+_check("ALL cigarette events preserved", n_cig == 100)
+_check("training_window count = 400 (450 - 50 dropped)", n_tw == 400)
 
 
 # ============================================================================
@@ -123,8 +123,8 @@ section("4. Overflow with no training events — falls back to FIFO")
 # 600 cigarette events, no training. Need to drop 100, should drop oldest 100.
 buf = [{"type": "cigarette", "id": i} for i in range(600)]
 result = trim_buffer(buf)
-test("buffer trimmed to cap", len(result) == MAX_BUFFER_SIZE)
-test("oldest 100 dropped (FIFO fallback)",
+_check("buffer trimmed to cap", len(result) == MAX_BUFFER_SIZE)
+_check("oldest 100 dropped (FIFO fallback)",
      result[0]["id"] == 100 and result[-1]["id"] == 599)
 
 
@@ -142,9 +142,9 @@ for i in range(30):
 result = trim_buffer(buf)
 n_cig = sum(1 for e in result if e["type"] == "cigarette")
 n_tw = sum(1 for e in result if e["type"] == "training_window")
-test("buffer at cap", len(result) == MAX_BUFFER_SIZE)
-test("all cigarettes preserved", n_cig == 480)
-test("10 training dropped, 20 remain", n_tw == 20)
+_check("buffer at cap", len(result) == MAX_BUFFER_SIZE)
+_check("all cigarettes preserved", n_cig == 480)
+_check("10 training dropped, 20 remain", n_tw == 20)
 
 
 # ============================================================================
@@ -161,12 +161,12 @@ for i in range(100):
 result = trim_buffer(buf)
 n_cig = sum(1 for e in result if e["type"] == "cigarette")
 n_tw = sum(1 for e in result if e["type"] == "training_window")
-test("buffer at cap", len(result) == MAX_BUFFER_SIZE)
-test("all training dropped", n_tw == 0)
-test("50 oldest cigarettes dropped, 500 remain", n_cig == 500)
+_check("buffer at cap", len(result) == MAX_BUFFER_SIZE)
+_check("all training dropped", n_tw == 0)
+_check("50 oldest cigarettes dropped, 500 remain", n_cig == 500)
 # The first cigarette kept should be cig50 (oldest 50 dropped)
 remaining_cigs = [e for e in result if e["type"] == "cigarette"]
-test("oldest kept cig is cig50", remaining_cigs[0]["id"] == "cig50")
+_check("oldest kept cig is cig50", remaining_cigs[0]["id"] == "cig50")
 
 
 # ============================================================================
@@ -184,12 +184,12 @@ for i in range(300):
 result = trim_buffer(final)  # 600 events, drop 100
 n_cig = sum(1 for e in result if e["type"] == "cigarette")
 n_tw = sum(1 for e in result if e["type"] == "training_window")
-test("interleaved buffer trimmed correctly",
+_check("interleaved buffer trimmed correctly",
      len(result) == MAX_BUFFER_SIZE and n_cig == 300 and n_tw == 200)
 
 # Check order preservation
 cigs = [e["id"] for e in result if e["type"] == "cigarette"]
-test("cigarette order preserved",
+_check("cigarette order preserved",
      cigs == sorted(cigs))
 
 
@@ -198,4 +198,14 @@ print(f"  Tests passed: {GREEN}{passed}{RESET}")
 print(f"  Tests failed: {RED if failed > 0 else GREEN}{failed}{RESET}")
 print("=" * 50)
 
-sys.exit(0 if failed == 0 else 1)
+
+
+# === pytest entry point ===
+# The file's assertions run at module-level on import (above). pytest then
+# discovers test_no_failures() and asserts that all of them passed.
+def test_no_failures():
+    assert failed == 0, f'{failed} _check(s) failed (see stdout above for details)'
+
+
+if __name__ == "__main__":
+    sys.exit(0 if failed == 0 else 1)

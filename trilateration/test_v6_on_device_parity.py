@@ -49,7 +49,7 @@ passed = 0
 failed = 0
 
 
-def test(name, condition, detail=""):
+def _check(name, condition, detail=""):
     global passed, failed
     if condition:
         print(f"  {GREEN}OK{RESET}  {name}" + (f"  ({detail})" if detail else ""))
@@ -77,15 +77,15 @@ print(f"  Sample 2 raw : {raw2}")
 
 # Round-trip should preserve the m/s² value to within 1 raw unit
 recovered1 = tuple(r * ACCEL_INT_TO_MS2 for r in raw1)
-test("round-trip sample 1 within 0.005 m/s²",
+_check("round-trip sample 1 within 0.005 m/s²",
      all(abs(a - b) < 0.005 for a, b in zip(recovered1, ON_DEVICE_SAMPLE_1)),
      f"diff={tuple(round(a - b, 5) for a, b in zip(recovered1, ON_DEVICE_SAMPLE_1))}")
 
 # Z axis should be roughly 1g (~9.81) — both samples confirm watch is roughly horizontal
-test("sample 1 Z axis is close to 1g (8-10 m/s²)",
+_check("sample 1 Z axis is close to 1g (8-10 m/s²)",
      8.0 < ON_DEVICE_SAMPLE_1[2] < 10.0,
      f"Z={ON_DEVICE_SAMPLE_1[2]}")
-test("sample 2 Z axis is close to 1g (8-10 m/s²)",
+_check("sample 2 Z axis is close to 1g (8-10 m/s²)",
      8.0 < ON_DEVICE_SAMPLE_2[2] < 10.0,
      f"Z={ON_DEVICE_SAMPLE_2[2]}")
 
@@ -103,8 +103,8 @@ base = np.array(ON_DEVICE_SAMPLE_1, dtype=np.float32)
 noise = np.random.randn(WINDOW_SAMPLES, 3).astype(np.float32) * 0.05
 window_ms2 = base[None, :] + noise
 
-test("window shape is [112, 3]", window_ms2.shape == (112, 3))
-test("window mean Z near 1g",
+_check("window shape is [112, 3]", window_ms2.shape == (112, 3))
+_check("window mean Z near 1g",
      abs(window_ms2[:, 2].mean() - ON_DEVICE_SAMPLE_1[2]) < 0.1)
 
 
@@ -124,7 +124,7 @@ print(f"  Norm mean: {mean.tolist()}")
 print(f"  Norm std : {std.tolist()}")
 
 window_normalized = (window_ms2 - mean) / std
-test("normalized window finite",
+_check("normalized window finite",
      np.all(np.isfinite(window_normalized)))
 
 
@@ -155,12 +155,12 @@ print(f"  Diff         : {np.abs(probs - on_device).tolist()}")
 
 # We don't expect EXACT match (random noise differs), but the OTHER class
 # (index 3) should dominate in both, and cigarette (index 0) should be low.
-test("class 'other' (index 3) is dominant on Python side",
+_check("class 'other' (index 3) is dominant on Python side",
      np.argmax(probs) == 3,
      f"argmax={np.argmax(probs)}")
-test("class 'other' (index 3) was dominant on watch",
+_check("class 'other' (index 3) was dominant on watch",
      np.argmax(on_device) == 3)
-test("cigarette probability stays low (<30%) at rest",
+_check("cigarette probability stays low (<30%) at rest",
      probs[0] < 0.30,
      f"cig_prob={probs[0]:.4f}")
 
@@ -173,7 +173,7 @@ for _ in range(n_iters):
                            window_normalized[np.newaxis, :, :].astype(np.float32))
     interpreter.invoke()
 elapsed_ms = (time.time() - start) * 1000 / n_iters
-test(f"Python inference time matches watch (<10ms vs watch's 2-4ms)",
+_check(f"Python inference time matches watch (<10ms vs watch's 2-4ms)",
      elapsed_ms < 10,
      f"{elapsed_ms:.2f}ms")
 
@@ -193,7 +193,7 @@ interpreter.set_tensor(input_details[0]['index'],
 interpreter.invoke()
 out2 = interpreter.get_tensor(output_details[0]['index'])[0].copy()
 
-test("two identical runs produce bit-identical output",
+_check("two identical runs produce bit-identical output",
      np.array_equal(out1, out2),
      "deterministic")
 
@@ -204,4 +204,14 @@ print(f"  Tests passed: {GREEN}{passed}{RESET}")
 print(f"  Tests failed: {RED if failed > 0 else GREEN}{failed}{RESET}")
 print("=" * 50)
 
-sys.exit(0 if failed == 0 else 1)
+
+
+# === pytest entry point ===
+# The file's assertions run at module-level on import (above). pytest then
+# discovers test_no_failures() and asserts that all of them passed.
+def test_no_failures():
+    assert failed == 0, f'{failed} _check(s) failed (see stdout above for details)'
+
+
+if __name__ == "__main__":
+    sys.exit(0 if failed == 0 else 1)

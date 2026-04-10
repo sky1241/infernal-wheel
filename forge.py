@@ -441,8 +441,12 @@ def add_bug(root, description):
 
     content = bugs_path.read_text(encoding="utf-8")
 
-    # Find next bug number
-    existing = re.findall(r"BUG-(\d+)", content)
+    # Find next bug number. The regex MUST match both legacy `BUG-NNN` IDs
+    # (the original format) AND the current `BUG+NNN` format. Without the
+    # `[+-]` character class the auto-increment would always reset to 1
+    # because the existing bugs all use `BUG+` and the regex was looking
+    # for `BUG-` only.
+    existing = re.findall(r"BUG[+-](\d+)", content)
     next_num = max([int(n) for n in existing], default=0) + 1
     bug_id = f"BUG+{next_num:03d}"
 

@@ -30,7 +30,11 @@ EARTH_RADIUS_M = 6371000  # Earth radius in meters
 STAY_POINT_RADIUS_M = 50  # Stay point detection radius (meters)
 STAY_POINT_MIN_TIME_MIN = 10  # Stay point minimum duration (minutes)
 DBSCAN_EPS_M = 100  # DBSCAN epsilon (meters)
-DBSCAN_MIN_PTS = 2  # DBSCAN minimum points (use 5 for real data, 2 for testing)
+# Production default for DBSCAN min-points (per the GeoLife paper recommendation).
+# Tests that need a smaller value should pass `min_pts=2` explicitly.
+DBSCAN_MIN_PTS = 5
+# Backward-compat: tests can import this if they want the old testing value.
+DBSCAN_MIN_PTS_TEST = 2
 
 
 # ============================================================================
@@ -256,16 +260,28 @@ def temporal_labeling(clustered_stays: pd.DataFrame) -> pd.DataFrame:
     # Extract hour from start_time
     df['hour'] = df['start_time'].dt.hour
 
-    # Temporal labeling
+    # Temporal labeling — every hour 0-23 is mapped exactly once, no gaps.
+    #
+    # The previous version had:
+    #   - 22 <= h or h < 8  -> home  (covers 22, 23, 0-7)
+    #   - 9 <= h < 18       -> work  (covers 9-17)
+    #   - 19 <= h < 22      -> bar   (covers 19-21)
+    #   - else              -> other (h == 8 and h == 18 fell here)
+    # Hours 8 and 18 fell through into "other", and the docstring promised
+    # "Evening 19h-2h" but the code never let any hour past 21 reach "bar".
+    #
+    # New mapping (all 24 hours covered):
+    #   home   = [22, 23, 0, 1, 2, 3, 4, 5, 6, 7]   (10h, sleep + early morning)
+    #   work   = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17]   (10h, working day)
+    #   bar    = [18, 19, 20, 21]                         (4h, early evening)
+    # Total: 24h, no gaps, no overlaps.
     def label_time(hour):
         if 22 <= hour or hour < 8:
             return 'home'
-        elif 9 <= hour < 18:
+        elif 8 <= hour < 18:
             return 'work'
-        elif 19 <= hour < 22:
+        else:  # 18 <= hour < 22
             return 'bar'
-        else:
-            return 'other'
 
     df['time_label'] = df['hour'].apply(label_time)
 

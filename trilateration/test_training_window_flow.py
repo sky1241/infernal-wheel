@@ -40,7 +40,7 @@ passed = 0
 failed = 0
 
 
-def test(name, condition, detail=""):
+def _check(name, condition, detail=""):
     global passed, failed
     if condition:
         print(f"  {GREEN}OK{RESET}  {name}" + (f"  ({detail})" if detail else ""))
@@ -68,11 +68,11 @@ accel[:, 0] = np.random.normal(0, 0.3, N)
 accel[:, 1] = -3.5 + 2.0 * np.sin(2 * np.pi * 0.4 * t) + np.random.normal(0, 0.2, N)
 accel[:, 2] = 8.5 + 1.5 * np.cos(2 * np.pi * 0.4 * t) + np.random.normal(0, 0.3, N)
 
-test("window has 200 samples", accel.shape == (200, 3))
-test("X axis has small variance (rest)",
+_check("window has 200 samples", accel.shape == (200, 3))
+_check("X axis has small variance (rest)",
      np.std(accel[:, 0]) < 1.0,
      f"std={np.std(accel[:, 0]):.3f}")
-test("Z axis near 1g",
+_check("Z axis near 1g",
      7.0 < accel[:, 2].mean() < 11.0,
      f"mean Z={accel[:, 2].mean():.3f}")
 
@@ -83,9 +83,9 @@ test("Z axis near 1g",
 section("2. Pad gyro with zeros (Samsung gives accel only)")
 
 zero_gyro = np.zeros((N, 3), dtype=np.float32)
-test("zero gyro has same length as accel",
+_check("zero gyro has same length as accel",
      zero_gyro.shape == accel.shape)
-test("zero gyro is all zeros",
+_check("zero gyro is all zeros",
      np.all(zero_gyro == 0))
 
 
@@ -95,7 +95,7 @@ test("zero gyro is all zeros",
 section("3. Gorilla compress accel + zero-gyro")
 
 compressed = compress_gorilla(accel, zero_gyro)
-test("compressed payload non-empty", len(compressed) > 0)
+_check("compressed payload non-empty", len(compressed) > 0)
 
 raw_size = N * 6 * 4  # 6 floats × 4 bytes = 24 bytes/sample
 compressed_size_bytes = len(compressed) * 0.75  # base64 inflates by ~33%
@@ -105,10 +105,10 @@ print(f"  Base64 length  : {len(compressed)} chars")
 print(f"  Decoded bytes  : ~{int(compressed_size_bytes)} bytes")
 print(f"  Ratio          : {ratio*100:.1f}% reduction")
 
-test("compression ratio > 30% (zero gyro helps)",
+_check("compression ratio > 30% (zero gyro helps)",
      ratio > 0.30,
      f"{ratio*100:.1f}% reduction")
-test("compressed payload < 100 KB (MessageClient limit)",
+_check("compressed payload < 100 KB (MessageClient limit)",
      len(compressed) < 100_000,
      f"{len(compressed)} chars")
 
@@ -120,14 +120,14 @@ section("4. Decompress and verify lossless")
 
 accel_back, gyro_back = decompress_gorilla(compressed)
 
-test("decompressed accel shape matches",
+_check("decompressed accel shape matches",
      accel_back.shape == accel.shape,
      f"got {accel_back.shape}")
-test("decompressed gyro shape matches",
+_check("decompressed gyro shape matches",
      gyro_back.shape == zero_gyro.shape)
-test("accel round-trip is bit-exact",
+_check("accel round-trip is bit-exact",
      np.array_equal(accel_back, accel))
-test("gyro round-trip is bit-exact (all zeros)",
+_check("gyro round-trip is bit-exact (all zeros)",
      np.array_equal(gyro_back, zero_gyro))
 
 
@@ -150,21 +150,21 @@ payload = {
 payload_json = json.dumps(payload)
 payload_bytes = payload_json.encode("utf-8")
 
-test("JSON payload < 100 KB (MessageClient limit)",
+_check("JSON payload < 100 KB (MessageClient limit)",
      len(payload_bytes) < 100_000,
      f"{len(payload_bytes)} bytes")
 
 # Re-parse on phone side
 parsed = json.loads(payload_json)
-test("type field is 'training_window'",
+_check("type field is 'training_window'",
      parsed["type"] == "training_window")
-test("label is preserved",
+_check("label is preserved",
      parsed["label"] == "auto_detected")
-test("confidence is preserved",
+_check("confidence is preserved",
      parsed["confidence"] == 0.66)
-test("sampleCount matches",
+_check("sampleCount matches",
      parsed["sampleCount"] == N)
-test("compressed field round-trips",
+_check("compressed field round-trips",
      parsed["compressed"] == compressed)
 
 
@@ -178,10 +178,10 @@ iso_ts = datetime.datetime.fromtimestamp(timestamp_ms / 1000).strftime("%Y-%m-%d
 conf_pct = int(payload["confidence"] * 100)
 filename = f"{iso_ts}_{payload['label']}_conf{conf_pct}.json"
 
-test("filename is non-empty", len(filename) > 0)
-test("filename contains label", payload["label"] in filename)
-test("filename contains confidence", f"conf{conf_pct}" in filename)
-test("filename has .json suffix", filename.endswith(".json"))
+_check("filename is non-empty", len(filename) > 0)
+_check("filename contains label", payload["label"] in filename)
+_check("filename contains confidence", f"conf{conf_pct}" in filename)
+_check("filename has .json suffix", filename.endswith(".json"))
 print(f"  Example filename: {filename}")
 
 # Test sortability — filenames generated 1 second apart should sort correctly
@@ -189,7 +189,7 @@ ts1 = int(time.time() * 1000)
 ts2 = ts1 + 1000
 fn1 = datetime.datetime.fromtimestamp(ts1 / 1000).strftime("%Y-%m-%dT%H-%M-%S") + "_a_conf50.json"
 fn2 = datetime.datetime.fromtimestamp(ts2 / 1000).strftime("%Y-%m-%dT%H-%M-%S") + "_a_conf50.json"
-test("filenames sort chronologically (string sort)",
+_check("filenames sort chronologically (string sort)",
      sorted([fn2, fn1]) == [fn1, fn2])
 
 
@@ -218,13 +218,13 @@ def apply_cap(file_list, max_count):
 
 after_cap = apply_cap(files, MAX_TRAINING_FILES)
 
-test(f"after cap, count is exactly {MAX_TRAINING_FILES}",
+_check(f"after cap, count is exactly {MAX_TRAINING_FILES}",
      len(after_cap) == MAX_TRAINING_FILES,
      f"got {len(after_cap)}")
-test("oldest 500 files were dropped",
+_check("oldest 500 files were dropped",
      after_cap[0][1] == files[500][1],
      f"first kept ts = file index {500}")
-test("most recent file is preserved",
+_check("most recent file is preserved",
      after_cap[-1][1] == files[-1][1])
 
 
@@ -242,7 +242,7 @@ print(f"  Bytes per window      : {WATCH_BYTES_PER_WINDOW}")
 print(f"  Watch max buffer size : {WATCH_MAX_BUFFER} windows")
 print(f"  Watch max storage     : {total_max_bytes / 1024:.1f} KB")
 
-test("watch max storage < 2 MB (worst-case offline backlog)",
+_check("watch max storage < 2 MB (worst-case offline backlog)",
      total_max_bytes < 2 * 1024 * 1024,
      f"{total_max_bytes / 1024:.1f} KB")
 
@@ -259,4 +259,14 @@ if failed == 0:
     print("        Compression is lossless, payload fits in MessageClient,")
     print("        phone-side cap evicts FIFO, watch RAM stays under 1 MB.")
 
-sys.exit(0 if failed == 0 else 1)
+
+
+# === pytest entry point ===
+# The file's assertions run at module-level on import (above). pytest then
+# discovers test_no_failures() and asserts that all of them passed.
+def test_no_failures():
+    assert failed == 0, f'{failed} _check(s) failed (see stdout above for details)'
+
+
+if __name__ == "__main__":
+    sys.exit(0 if failed == 0 else 1)

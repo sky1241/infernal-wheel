@@ -43,7 +43,7 @@ passed = 0
 failed = 0
 
 
-def test(name, condition, detail=""):
+def _check(name, condition, detail=""):
     global passed, failed
     if condition:
         print(f"  {GREEN}OK{RESET}  {name}" + (f"  ({detail})" if detail else ""))
@@ -63,27 +63,27 @@ section("1. Downsampling logic")
 raw = np.linspace(0, 100, 100, dtype=np.float32)
 ds = downsample(raw, DOWNSAMPLE_FACTOR)
 
-test("downsample factor 2 halves length (even)", len(ds) == 50, f"len={len(ds)}")
-test("downsample no NaN", not np.any(np.isnan(ds)))
-test("downsample no Inf", not np.any(np.isinf(ds)))
+_check("downsample factor 2 halves length (even)", len(ds) == 50, f"len={len(ds)}")
+_check("downsample no NaN", not np.any(np.isnan(ds)))
+_check("downsample no Inf", not np.any(np.isinf(ds)))
 # Subsampling: ds[i] should equal raw[i*2] (take every 2nd sample, no averaging)
-test("downsample takes every 2nd sample (subsample, not average)",
+_check("downsample takes every 2nd sample (subsample, not average)",
      abs(ds[0] - raw[0]) < 1e-5 and abs(ds[1] - raw[2]) < 1e-5,
      f"ds[0]={ds[0]:.3f} expected={raw[0]:.3f}")
 
 # Edge case: odd length — np.array[::2] of length 101 gives 51 elements (ceil)
 raw_odd = np.arange(101, dtype=np.float32)
 ds_odd = downsample(raw_odd, 2)
-test("downsample odd length yields ceil(N/2)", len(ds_odd) == 51, f"len={len(ds_odd)}")
+_check("downsample odd length yields ceil(N/2)", len(ds_odd) == 51, f"len={len(ds_odd)}")
 
 
 # === 2. Window shape ===
 section("2. Window shape")
 
-test("WINDOW_SAMPLES is 112", WINDOW_SAMPLES == 112, f"got {WINDOW_SAMPLES}")
-test("CHANNELS is 3", CHANNELS == 3, f"got {CHANNELS}")
-test("TARGET_RATE is 25Hz", TARGET_RATE == 25, f"got {TARGET_RATE}")
-test("4.5s window at 25Hz = 112 samples", int(4.5 * 25) == WINDOW_SAMPLES)
+_check("WINDOW_SAMPLES is 112", WINDOW_SAMPLES == 112, f"got {WINDOW_SAMPLES}")
+_check("CHANNELS is 3", CHANNELS == 3, f"got {CHANNELS}")
+_check("TARGET_RATE is 25Hz", TARGET_RATE == 25, f"got {TARGET_RATE}")
+_check("4.5s window at 25Hz = 112 samples", int(4.5 * 25) == WINDOW_SAMPLES)
 
 
 # === 3. TFLite model load ===
@@ -102,15 +102,15 @@ else:
     input_shape = input_details[0]['shape']
     output_shape = output_details[0]['shape']
 
-    test("model has 1 input", len(input_details) == 1)
-    test("model has 1 output", len(output_details) == 1)
-    test("input shape is [1, 112, 3]",
+    _check("model has 1 input", len(input_details) == 1)
+    _check("model has 1 output", len(output_details) == 1)
+    _check("input shape is [1, 112, 3]",
          tuple(input_shape) == (1, WINDOW_SAMPLES, CHANNELS),
          f"got {tuple(input_shape)}")
-    test("output shape is [1, 4]",
+    _check("output shape is [1, 4]",
          tuple(output_shape) == (1, 4),
          f"got {tuple(output_shape)}")
-    test("input dtype is float32",
+    _check("input dtype is float32",
          input_details[0]['dtype'] == np.float32,
          f"got {input_details[0]['dtype']}")
 
@@ -121,10 +121,10 @@ else:
     interpreter.invoke()
     output = interpreter.get_tensor(output_details[0]['index'])
 
-    test("output sums to ~1.0 (softmax)",
+    _check("output sums to ~1.0 (softmax)",
          abs(output.sum() - 1.0) < 0.01,
          f"sum={output.sum():.4f}")
-    test("all output probs in [0, 1]",
+    _check("all output probs in [0, 1]",
          np.all(output >= 0) and np.all(output <= 1),
          f"min={output.min():.4f} max={output.max():.4f}")
 
@@ -135,7 +135,7 @@ else:
     interpreter.invoke()
     other_output = interpreter.get_tensor(output_details[0]['index'])
 
-    test("model produces different outputs for different inputs",
+    _check("model produces different outputs for different inputs",
          not np.allclose(output, other_output, atol=1e-3),
          f"diff={np.abs(output - other_output).max():.4f}")
 
@@ -147,7 +147,7 @@ else:
         interpreter.invoke()
     elapsed_ms = (time.time() - start) * 1000 / n_iters
 
-    test("inference under 200ms (CPU avg)",
+    _check("inference under 200ms (CPU avg)",
          elapsed_ms < 200,
          f"{elapsed_ms:.1f}ms/inference")
 
@@ -159,34 +159,34 @@ if not os.path.exists(OUTPUT_NORM):
     print(f"  {YELLOW}SKIP{RESET}  Norm params not found at {OUTPUT_NORM}")
 else:
     norm = np.load(OUTPUT_NORM)
-    test("contains 'mean'", 'mean' in norm.files)
-    test("contains 'std'", 'std' in norm.files)
-    test("contains 'window_samples'", 'window_samples' in norm.files)
-    test("contains 'channels'", 'channels' in norm.files)
-    test("contains 'sample_rate'", 'sample_rate' in norm.files)
+    _check("contains 'mean'", 'mean' in norm.files)
+    _check("contains 'std'", 'std' in norm.files)
+    _check("contains 'window_samples'", 'window_samples' in norm.files)
+    _check("contains 'channels'", 'channels' in norm.files)
+    _check("contains 'sample_rate'", 'sample_rate' in norm.files)
 
     if 'mean' in norm.files:
         mean = norm['mean']
         std = norm['std']
-        test("mean has 3 elements",
+        _check("mean has 3 elements",
              mean.shape == (3,) or mean.shape == (CHANNELS,),
              f"shape={mean.shape}")
-        test("std has 3 elements",
+        _check("std has 3 elements",
              std.shape == (3,) or std.shape == (CHANNELS,),
              f"shape={std.shape}")
-        test("std all positive",
+        _check("std all positive",
              np.all(std > 0),
              f"min std={std.min():.4f}")
-        test("mean values reasonable for accelerometer (m/s^2)",
+        _check("mean values reasonable for accelerometer (m/s^2)",
              np.all(np.abs(mean) < 20),
              f"max abs mean={np.abs(mean).max():.4f}")
-        test("std values reasonable",
+        _check("std values reasonable",
              np.all((std > 0.01) & (std < 50)),
              f"std range=[{std.min():.4f}, {std.max():.4f}]")
 
     if 'cv_f1' in norm.files:
         f1 = float(norm['cv_f1'])
-        test("CV F1 is recorded", True, f"F1={f1:.3f}")
+        _check("CV F1 is recorded", True, f"F1={f1:.3f}")
         if f1 < 0.60:
             print(f"  {RED}WARN{RESET}  F1 ({f1:.3f}) is below 0.60 — model may be too weak")
         elif f1 < 0.70:
@@ -208,7 +208,7 @@ if os.path.exists(OUTPUT_TFLITE) and os.path.exists(OUTPUT_NORM):
     ds_signal = np.column_stack([
         downsample(raw_50hz[:, c], DOWNSAMPLE_FACTOR) for c in range(3)
     ])
-    test("downsampled 224-sample signal shape is [112, 3]",
+    _check("downsampled 224-sample signal shape is [112, 3]",
          ds_signal.shape == (WINDOW_SAMPLES, CHANNELS),
          f"got {ds_signal.shape}")
 
@@ -229,7 +229,7 @@ if os.path.exists(OUTPUT_TFLITE) and os.path.exists(OUTPUT_NORM):
     interpreter.invoke()
     probs = interpreter.get_tensor(output_details[0]['index'])[0]
 
-    test("e2e pipeline produces valid 4-class output",
+    _check("e2e pipeline produces valid 4-class output",
          probs.shape == (4,) and abs(probs.sum() - 1.0) < 0.01,
          f"probs={probs.tolist()}")
 
@@ -240,4 +240,14 @@ print(f"  Tests passed: {GREEN}{passed}{RESET}")
 print(f"  Tests failed: {RED if failed > 0 else GREEN}{failed}{RESET}")
 print("=" * 50)
 
-sys.exit(0 if failed == 0 else 1)
+
+
+# === pytest entry point ===
+# The file's assertions run at module-level on import (above). pytest then
+# discovers test_no_failures() and asserts that all of them passed.
+def test_no_failures():
+    assert failed == 0, f'{failed} _check(s) failed (see stdout above for details)'
+
+
+if __name__ == "__main__":
+    sys.exit(0 if failed == 0 else 1)

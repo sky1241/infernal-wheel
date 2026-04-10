@@ -23,7 +23,7 @@ FAIL = 0
 WARN = 0
 
 
-def test(name, url, method="GET", body=None, checks=None):
+def _check(name, url, method="GET", body=None, checks=None):
     """Run a test against an API endpoint."""
     global PASS, FAIL, WARN
     try:
@@ -90,7 +90,7 @@ def main():
 
     # ── GET /api/state ──
     # JS: refreshLive() reads these fields
-    test("GET /api/state — basic", f"{BASE}/api/state", checks={
+    _check("GET /api/state — basic", f"{BASE}/api/state", checks={
         "ok field": lambda d: d.get("ok") == True,
         "currentName": lambda d: "currentName" in d,
         "remWorkSec": lambda d: "remWorkSec" in d,
@@ -116,13 +116,13 @@ def main():
     })
 
     # ── GET /api/settings ──
-    test("GET /api/settings — basic", f"{BASE}/api/settings", checks={
+    _check("GET /api/settings — basic", f"{BASE}/api/settings", checks={
         "is dict": lambda d: isinstance(d, dict),
     })
 
     # ── GET /api/consumption/all ──
     # JS: loadCalendar() reads j.days, d.date, d.clopeCount
-    test("GET /api/consumption/all — format", f"{BASE}/api/consumption/all", checks={
+    _check("GET /api/consumption/all — format", f"{BASE}/api/consumption/all", checks={
         "ok field": lambda d: d.get("ok") == True,
         "has 'days' (not 'data')": lambda d: "days" in d,
         "days is list": lambda d: isinstance(d.get("days"), list),
@@ -130,7 +130,7 @@ def main():
 
     # ── GET /api/monthly-summary ──
     # JS: renderMonthlyBilan reads data.summary.*, data.delta.*, data.days
-    test("GET /api/monthly-summary — nested structure", f"{BASE}/api/monthly-summary", checks={
+    _check("GET /api/monthly-summary — nested structure", f"{BASE}/api/monthly-summary", checks={
         "ok field": lambda d: d.get("ok") == True,
         "has summary": lambda d: isinstance(d.get("summary"), dict),
         "summary.avgClopeCount": lambda d: "avgClopeCount" in d.get("summary", {}),
@@ -146,27 +146,27 @@ def main():
 
     # ── GET /api/drinks/weeks ──
     # JS: loadAlcoholWeeks reads j.weeks
-    test("GET /api/drinks/weeks — format", f"{BASE}/api/drinks/weeks", checks={
+    _check("GET /api/drinks/weeks — format", f"{BASE}/api/drinks/weeks", checks={
         "ok field": lambda d: d.get("ok") == True,
         "has weeks": lambda d: "weeks" in d,
         "weeks is list": lambda d: isinstance(d.get("weeks"), list),
     })
 
     # ── GET /api/watch/summary ──
-    test("GET /api/watch/summary — format", f"{BASE}/api/watch/summary", checks={
+    _check("GET /api/watch/summary — format", f"{BASE}/api/watch/summary", checks={
         "ok field": lambda d: d.get("ok") == True,
         "cigaretteCount": lambda d: "cigaretteCount" in d,
         "drinkCount": lambda d: "drinkCount" in d,
     })
 
     # ── POST /api/cmd ──
-    test("POST /api/cmd start", f"{BASE}/api/cmd", method="POST",
+    _check("POST /api/cmd start", f"{BASE}/api/cmd", method="POST",
          body={"cmd": "start"}, checks={
         "ok": lambda d: d.get("ok") == True,
     })
 
     # ── POST /api/drinks/add ──
-    test("POST /api/drinks/add beer", f"{BASE}/api/drinks/add", method="POST",
+    _check("POST /api/drinks/add beer", f"{BASE}/api/drinks/add", method="POST",
          body={"type": "beer", "n": 1}, checks={
         "ok": lambda d: d.get("ok") == True,
         "has totals": lambda d: isinstance(d.get("totals"), dict),
@@ -177,12 +177,12 @@ def main():
 
     # ── Verify drink was recorded in state ──
     time.sleep(0.5)
-    test("GET /api/state after drink add — beer counted", f"{BASE}/api/state", checks={
+    _check("GET /api/state after drink add — beer counted", f"{BASE}/api/state", checks={
         "dailyAlcohol.beer >= 1": lambda d: d.get("dailyAlcohol", {}).get("beer", 0) >= 1,
     })
 
     # ── Verify drink shows in consumption ──
-    test("GET /api/consumption/all after drink — has data", f"{BASE}/api/consumption/all", checks={
+    _check("GET /api/consumption/all after drink — has data", f"{BASE}/api/consumption/all", checks={
         "days not empty": lambda d: len(d.get("days", [])) > 0,
         "today has beer": lambda d: any(
             (x.get("beer", 0) > 0) for x in d.get("days", [])
@@ -190,12 +190,12 @@ def main():
     })
 
     # ── Verify weekly table ──
-    test("GET /api/drinks/weeks after drink — has data", f"{BASE}/api/drinks/weeks", checks={
+    _check("GET /api/drinks/weeks after drink — has data", f"{BASE}/api/drinks/weeks", checks={
         "weeks not empty": lambda d: len(d.get("weeks", [])) > 0,
     })
 
     # ── POST /api/cmd clope ──
-    test("POST /api/cmd clope", f"{BASE}/api/cmd", method="POST",
+    _check("POST /api/cmd clope", f"{BASE}/api/cmd", method="POST",
          body={"cmd": "clope"}, checks={
         "ok": lambda d: d.get("ok") == True,
     })
@@ -204,28 +204,28 @@ def main():
     time.sleep(1)
 
     # ── POST /api/cmd ok (end clope) ──
-    test("POST /api/cmd ok", f"{BASE}/api/cmd", method="POST",
+    _check("POST /api/cmd ok", f"{BASE}/api/cmd", method="POST",
          body={"cmd": "ok"}, checks={
         "ok": lambda d: d.get("ok") == True,
     })
 
     # ── Verify clope was counted ──
     time.sleep(0.5)
-    test("GET /api/state after clope — count > 0", f"{BASE}/api/state", checks={
+    _check("GET /api/state after clope — count > 0", f"{BASE}/api/state", checks={
         "dayClopeCount > 0": lambda d: d.get("dayClopeCount", 0) > 0,
     })
 
     # ── Monthly summary has data ──
-    test("GET /api/monthly-summary after adds — has activity", f"{BASE}/api/monthly-summary", checks={
+    _check("GET /api/monthly-summary after adds — has activity", f"{BASE}/api/monthly-summary", checks={
         "summary exists": lambda d: isinstance(d.get("summary"), dict),
     })
 
     # ── Notes ──
-    test("POST /api/note save", f"{BASE}/api/note", method="POST",
+    _check("POST /api/note save", f"{BASE}/api/note", method="POST",
          body={"day": "2026-04-07", "content": "Test note from API test"}, checks={
         "ok": lambda d: d.get("ok") == True,
     })
-    test("GET /api/note read", f"{BASE}/api/note?d=2026-04-07", checks={
+    _check("GET /api/note read", f"{BASE}/api/note?d=2026-04-07", checks={
         "ok": lambda d: d.get("ok") == True,
         "has content": lambda d: "content" in d,
     })

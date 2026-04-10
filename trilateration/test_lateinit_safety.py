@@ -42,7 +42,7 @@ passed = 0
 failed = 0
 
 
-def test(name, condition, detail=""):
+def _check(name, condition, detail=""):
     global passed, failed
     if condition:
         print(f"  {GREEN}OK{RESET}  {name}" + (f"  ({detail})" if detail else ""))
@@ -87,7 +87,7 @@ def extract_function_body(source: str, func_signature: str) -> str:
 # ============================================================================
 section("1. Source file exists")
 
-test("DetectionService.kt found", os.path.exists(SOURCE), SOURCE)
+_check("DetectionService.kt found", os.path.exists(SOURCE), SOURCE)
 if not os.path.exists(SOURCE):
     sys.exit(1)
 
@@ -103,7 +103,7 @@ lateinit_props = lateinit_re.findall(src)
 print(f"  Found {len(lateinit_props)} lateinit properties:")
 for p in lateinit_props:
     print(f"    - {p}")
-test("at least 8 lateinit properties identified",
+_check("at least 8 lateinit properties identified",
      len(lateinit_props) >= 8,
      f"{len(lateinit_props)} found")
 
@@ -113,14 +113,14 @@ section("3. onDestroy() guards every lateinit access")
 
 on_destroy_body = extract_function_body(src, "override fun onDestroy()")
 print(f"  onDestroy body length: {len(on_destroy_body)} chars")
-test("onDestroy body extracted", len(on_destroy_body) > 0)
+_check("onDestroy body extracted", len(on_destroy_body) > 0)
 
 # These are the props that must be guarded inside onDestroy directly
 # (excluding stopMonitoring which has its own guards)
 critical_props_in_on_destroy = ["prefs", "detector"]
 for prop in critical_props_in_on_destroy:
     has_check = f"::{prop}.isInitialized" in on_destroy_body
-    test(f"onDestroy: ::{prop}.isInitialized guard present",
+    _check(f"onDestroy: ::{prop}.isInitialized guard present",
          has_check,
          "guarded" if has_check else "MISSING — would crash on partial init")
 
@@ -129,7 +129,7 @@ for prop in critical_props_in_on_destroy:
 section("4. stopMonitoring() guards every manager")
 
 stop_body = extract_function_body(src, "private fun stopMonitoring()")
-test("stopMonitoring body extracted", len(stop_body) > 0)
+_check("stopMonitoring body extracted", len(stop_body) > 0)
 
 # These managers are called from stopMonitoring and would crash if not init
 managers_called = [
@@ -142,7 +142,7 @@ managers_called = [
 ]
 for mgr in managers_called:
     has_check = f"::{mgr}.isInitialized" in stop_body
-    test(f"stopMonitoring: ::{mgr}.isInitialized guard present",
+    _check(f"stopMonitoring: ::{mgr}.isInitialized guard present",
          has_check,
          "guarded" if has_check else "MISSING")
 
@@ -151,16 +151,16 @@ for mgr in managers_called:
 section("5. startMonitoring rolls back isMonitoring on failure")
 
 start_body = extract_function_body(src, "private fun startMonitoring()")
-test("startMonitoring body extracted", len(start_body) > 0)
+_check("startMonitoring body extracted", len(start_body) > 0)
 
 # After "Failed to start sensor collection", isMonitoring must be reset
 fail_idx = start_body.find("Failed to start sensor collection")
-test("startMonitoring detects sensor failure", fail_idx > 0)
+_check("startMonitoring detects sensor failure", fail_idx > 0)
 
 # Look for isMonitoring = false anywhere after the fail point but before stopSelf()
 post_fail = start_body[fail_idx:fail_idx + 500] if fail_idx > 0 else ""
 has_rollback = "isMonitoring = false" in post_fail
-test("startMonitoring resets isMonitoring=false on failure",
+_check("startMonitoring resets isMonitoring=false on failure",
      has_rollback,
      "rollback present" if has_rollback else "MISSING — service would silently never resume")
 
@@ -185,7 +185,7 @@ for call in risky_calls:
     idx = stop_body.find(call)
     surrounding = stop_body[max(0, idx - 80):idx + 80]
     has_try = "try {" in surrounding
-    test(f"stopMonitoring: {call} wrapped in try",
+    _check(f"stopMonitoring: {call} wrapped in try",
          has_try,
          "wrapped" if has_try else "BARE — could cascade failure")
 
@@ -195,4 +195,14 @@ print(f"  Tests passed: {GREEN}{passed}{RESET}")
 print(f"  Tests failed: {RED if failed > 0 else GREEN}{failed}{RESET}")
 print("=" * 50)
 
-sys.exit(0 if failed == 0 else 1)
+
+
+# === pytest entry point ===
+# The file's assertions run at module-level on import (above). pytest then
+# discovers test_no_failures() and asserts that all of them passed.
+def test_no_failures():
+    assert failed == 0, f'{failed} _check(s) failed (see stdout above for details)'
+
+
+if __name__ == "__main__":
+    sys.exit(0 if failed == 0 else 1)

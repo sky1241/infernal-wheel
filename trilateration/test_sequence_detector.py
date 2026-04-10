@@ -30,7 +30,7 @@ passed = 0
 failed = 0
 
 
-def test(name, condition, detail=""):
+def _check(name, condition, detail=""):
     global passed, failed
     if condition:
         print(f"  {GREEN}OK{RESET}  {name}" + (f"  ({detail})" if detail else ""))
@@ -111,10 +111,10 @@ for i, (t, p) in enumerate(stream):
         trigger_index = i
         break
 
-test("real cigarette triggers the detector",
+_check("real cigarette triggers the detector",
      triggered,
      f"triggered at sample {trigger_index}")
-test("trigger happens within 120 seconds of start",
+_check("trigger happens within 120 seconds of start",
      triggered and stream[trigger_index][0] <= 120_000,
      f"t={stream[trigger_index][0] / 1000:.0f}s" if triggered else "never")
 
@@ -133,7 +133,7 @@ stream = [
     (48_000,  0.11),
 ]
 any_trigger = any(det.push(p, t)["triggered"] for t, p in stream)
-test("coffee break does NOT trigger", not any_trigger)
+_check("coffee break does NOT trigger", not any_trigger)
 
 
 # ============================================================================
@@ -151,7 +151,7 @@ stream = [
     (300_000, 0.20),
 ]
 any_trigger = any(det.push(p, t)["triggered"] for t, p in stream)
-test("meal with 2 peaks does NOT trigger", not any_trigger)
+_check("meal with 2 peaks does NOT trigger", not any_trigger)
 
 
 # ============================================================================
@@ -168,7 +168,7 @@ for i in range(100):
     if det.push(p, i * 12_000)["triggered"]:
         any_trigger = True
         break
-test("random sub-threshold noise never triggers", not any_trigger)
+_check("random sub-threshold noise never triggers", not any_trigger)
 
 
 # ============================================================================
@@ -193,10 +193,10 @@ for t, p in [(180_000, 0.60), (192_000, 0.60), (204_000, 0.62), (216_000, 0.55)]
     if det.push(p, t)["triggered"]:
         triggers.append(t)
 
-test("both cigarettes trigger separately",
+_check("both cigarettes trigger separately",
      len(triggers) == 2,
      f"{len(triggers)} trigger(s)")
-test("second trigger is > 2 min after first",
+_check("second trigger is > 2 min after first",
      len(triggers) == 2 and (triggers[1] - triggers[0]) > 120_000,
      f"gap = {(triggers[1] - triggers[0]) / 1000:.0f}s" if len(triggers) == 2 else "")
 
@@ -210,12 +210,12 @@ det = SequenceDetector()
 # Only 2 peaks in 48s
 stream = [(0, 0.15), (12_000, 0.60), (24_000, 0.25), (36_000, 0.62)]
 triggered = any(det.push(p, t, is_high_smoking_hour=True)["triggered"] for t, p in stream)
-test("2 peaks in smoking hour -> trigger", triggered)
+_check("2 peaks in smoking hour -> trigger", triggered)
 
 # Same stream outside smoking hour -> should NOT trigger
 det2 = SequenceDetector()
 triggered_normal = any(det2.push(p, t, is_high_smoking_hour=False)["triggered"] for t, p in stream)
-test("same 2 peaks outside smoking hour -> NO trigger", not triggered_normal)
+_check("same 2 peaks outside smoking hour -> NO trigger", not triggered_normal)
 
 
 # ============================================================================
@@ -233,7 +233,7 @@ triggered_again = any(
     det.push(p, t)["triggered"]
     for t, p in [(54_000, 0.70), (66_000, 0.70), (78_000, 0.70)]
 )
-test("re-trigger 30s after first -> blocked by cooldown",
+_check("re-trigger 30s after first -> blocked by cooldown",
      not triggered_again)
 
 
@@ -250,10 +250,10 @@ det.push(0.60, 12_000)
 # Wait 7 minutes — those peaks should be evicted
 # Push 1 new peak; total active peaks = 1, not 3 -> no trigger
 r = det.push(0.60, 7 * 60 * 1000)
-test("peaks older than 6 min are evicted",
+_check("peaks older than 6 min are evicted",
      r["peak_count"] == 1,
      f"peak_count={r['peak_count']}")
-test("single remaining peak does NOT trigger",
+_check("single remaining peak does NOT trigger",
      not r["triggered"])
 
 
@@ -263,4 +263,14 @@ print(f"  Tests passed: {GREEN}{passed}{RESET}")
 print(f"  Tests failed: {RED if failed > 0 else GREEN}{failed}{RESET}")
 print("=" * 50)
 
-sys.exit(0 if failed == 0 else 1)
+
+
+# === pytest entry point ===
+# The file's assertions run at module-level on import (above). pytest then
+# discovers test_no_failures() and asserts that all of them passed.
+def test_no_failures():
+    assert failed == 0, f'{failed} _check(s) failed (see stdout above for details)'
+
+
+if __name__ == "__main__":
+    sys.exit(0 if failed == 0 else 1)
