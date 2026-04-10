@@ -64,7 +64,17 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
 
         // Auto-cleanup: keep last 90 days
         private const val RETENTION_DAYS = 90
+
+        // Throttle the cleanup pass — running it on every insert means a
+        // full table scan + DELETE on every cigarette, which is wasteful.
+        // Once per hour is plenty (RETENTION_DAYS=90 means there's no rush).
+        private const val CLEANUP_INTERVAL_MS = 60 * 60 * 1000L
     }
+
+    // Last time cleanupOldRecords actually ran. We keep one global timestamp
+    // because the table is single-writer (only the DetectionService) and the
+    // throttling decision is independent of the table being cleaned.
+    @Volatile private var lastCleanupMs: Long = 0L
 
     override fun onCreate(db: SQLiteDatabase) {
         val createTable = """
@@ -312,10 +322,11 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
      * Get streak (consecutive days with ≤ N cigarettes)
      * For gamification: "3 days with ≤2 cigarettes/day"
      */
-    fun getStreak(maxCigarettesPerDay: Int = 2): Int {
-        // Simplified: count days with ≤ maxCigarettesPerDay
-        // TODO: Implement proper consecutive days logic
-        return 0 // Placeholder
+    fun getStreak(@Suppress("UNUSED_PARAMETER") maxCigarettesPerDay: Int = 2): Int {
+        // Placeholder — TODO implement proper consecutive-days streak logic.
+        // Suppressing the unused-parameter warning so the rest of the lint
+        // output stays clean and meaningful.
+        return 0
     }
 
     /**
@@ -333,8 +344,17 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
     )
 
     /**
-     * Get all detections that haven't been synced to phone yet
+     * Get all detections that haven't been synced to phone yet.
+     *
+     * DEPRECATED: this is dead code from an earlier sync architecture
+     * (DB-polled batch sync). The current architecture uses event-driven
+     * sync via MessageSyncManager which has its own offline buffer in
+     * `pending_sync.json`. The `sync_status` column is never updated by
+     * any caller, so this query always returns ALL rows.
+     *
+     * Kept around in case we want to switch back to DB-polled sync later.
      */
+    @Deprecated("Sync is now event-driven via MessageSyncManager. sync_status is never updated.")
     fun getUnsyncedDetections(): List<Detection> {
         val db = readableDatabase
         return db.rawQuery(
@@ -359,8 +379,14 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
     }
 
     /**
-     * Mark a detection as synced to phone
+     * Mark a detection as synced to phone.
+     *
+     * DEPRECATED: dead code, see comment on getUnsyncedDetections().
+     * Also, using `timestamp` as the key is unsafe — two detections in the
+     * same millisecond would both be marked synced even if only one was.
+     * If/when sync becomes DB-polled again, switch the key to `id`.
      */
+    @Deprecated("Sync is now event-driven via MessageSyncManager.")
     fun markAsSynced(timestamp: Long) {
         val db = writableDatabase
         val values = ContentValues().apply {
@@ -376,11 +402,20 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
     }
 
     /**
-     * Cleanup records older than RETENTION_DAYS
+     * Cleanup records older than RETENTION_DAYS.
+     *
+     * Throttled to once per CLEANUP_INTERVAL_MS — calling this on every
+     * insert (the original behavior) meant a full DELETE scan on every
+     * cigarette, which is pure waste because RETENTION_DAYS=90 doesn't
+     * change minute-to-minute.
      */
     private fun cleanupOldRecords() {
+        val now = System.currentTimeMillis()
+        if (now - lastCleanupMs < CLEANUP_INTERVAL_MS) return
+        lastCleanupMs = now
+
         val db = writableDatabase
-        val cutoffTime = System.currentTimeMillis() - (RETENTION_DAYS * 24 * 60 * 60 * 1000L)
+        val cutoffTime = now - (RETENTION_DAYS * 24L * 60L * 60L * 1000L)
 
         val deleted = db.delete(
             TABLE_DETECTIONS,
@@ -435,6 +470,7 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
         }
     }
 
+    @Deprecated("Sync is now event-driven via MessageSyncManager.")
     fun getUnsyncedDrinkDetections(): List<Detection> {
         val db = readableDatabase
         return db.rawQuery(
@@ -455,15 +491,24 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
         }
     }
 
+    @Deprecated("Sync is now event-driven via MessageSyncManager.")
     fun markDrinkAsSynced(timestamp: Long) {
         val db = writableDatabase
         val values = ContentValues().apply { put(COL_SYNC_STATUS, "synced") }
         db.update(TABLE_DRINK_DETECTIONS, values, "$COL_TIMESTAMP = ?", arrayOf(timestamp.toString()))
     }
 
+    // Separate cleanup-throttle for the drink table — independent from
+    // the cigarette cleanup so each table cleans on its own schedule.
+    @Volatile private var lastDrinkCleanupMs: Long = 0L
+
     private fun cleanupOldDrinkRecords() {
+        val now = System.currentTimeMillis()
+        if (now - lastDrinkCleanupMs < CLEANUP_INTERVAL_MS) return
+        lastDrinkCleanupMs = now
+
         val db = writableDatabase
-        val cutoffTime = System.currentTimeMillis() - (RETENTION_DAYS * 24 * 60 * 60 * 1000L)
+        val cutoffTime = now - (RETENTION_DAYS * 24L * 60L * 60L * 1000L)
         db.delete(TABLE_DRINK_DETECTIONS, "$COL_TIMESTAMP < ?", arrayOf(cutoffTime.toString()))
     }
 
@@ -547,36 +592,48 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
     /**
      * Record a smoking event for pattern learning.
      * Increments the count for the current hour + day_of_week.
+     *
+     * Wrapped in a transaction so the SELECT-then-UPDATE-or-INSERT sequence
+     * is atomic. Without the transaction, two concurrent calls could both
+     * read count=N, both update count=N+1 instead of N+2 (lost update). The
+     * watch is single-writer in practice but a transaction is essentially
+     * free and removes the assumption.
      */
     fun recordSmokingPattern() {
         val db = writableDatabase
-        val now = java.util.Calendar.getInstance()
-        val hour = now.get(java.util.Calendar.HOUR_OF_DAY)
-        val dow = now.get(java.util.Calendar.DAY_OF_WEEK) // 1=Sun, 7=Sat
         val timestamp = System.currentTimeMillis()
+        // Reuse a single Calendar instance per call — getInstance() allocates.
+        val cal = java.util.Calendar.getInstance()
+        val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
+        val dow = cal.get(java.util.Calendar.DAY_OF_WEEK) // 1=Sun, 7=Sat
 
-        // Check if entry exists
-        val existing = db.rawQuery(
-            "SELECT $COL_ID, count FROM $TABLE_PATTERNS WHERE hour = ? AND day_of_week = ?",
-            arrayOf(hour.toString(), dow.toString())
-        ).use { cursor ->
-            if (cursor.moveToFirst()) Pair(cursor.getInt(0), cursor.getInt(1)) else null
-        }
+        db.beginTransaction()
+        try {
+            val existing = db.rawQuery(
+                "SELECT $COL_ID, count FROM $TABLE_PATTERNS WHERE hour = ? AND day_of_week = ?",
+                arrayOf(hour.toString(), dow.toString())
+            ).use { cursor ->
+                if (cursor.moveToFirst()) Pair(cursor.getInt(0), cursor.getInt(1)) else null
+            }
 
-        if (existing != null) {
-            val values = ContentValues().apply {
-                put("count", existing.second + 1)
-                put("last_updated", timestamp)
+            if (existing != null) {
+                val values = ContentValues().apply {
+                    put("count", existing.second + 1)
+                    put("last_updated", timestamp)
+                }
+                db.update(TABLE_PATTERNS, values, "$COL_ID = ?", arrayOf(existing.first.toString()))
+            } else {
+                val values = ContentValues().apply {
+                    put("hour", hour)
+                    put("day_of_week", dow)
+                    put("count", 1)
+                    put("last_updated", timestamp)
+                }
+                db.insert(TABLE_PATTERNS, null, values)
             }
-            db.update(TABLE_PATTERNS, values, "$COL_ID = ?", arrayOf(existing.first.toString()))
-        } else {
-            val values = ContentValues().apply {
-                put("hour", hour)
-                put("day_of_week", dow)
-                put("count", 1)
-                put("last_updated", timestamp)
-            }
-            db.insert(TABLE_PATTERNS, null, values)
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
         }
         Log.d(TAG, "Pattern recorded: hour=$hour, dow=$dow")
     }
