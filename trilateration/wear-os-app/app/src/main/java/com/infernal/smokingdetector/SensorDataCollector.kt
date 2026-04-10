@@ -27,12 +27,18 @@ class SensorDataCollector(context: Context) : SensorEventListener {
     }
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as AndroidSensorManager
-    private val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-    private val gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+    // getDefaultSensor returns null if the device has no such sensor.
+    // Real Galaxy Watches always have both, but emulators and some
+    // generic Wear OS devices may be missing the gyro. Treat as nullable
+    // and handle gracefully in start().
+    private val accelerometer: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+    private val gyroscope: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
 
     private var currentSamplingRate = AndroidSensorManager.SENSOR_DELAY_GAME // Default: 50 Hz
 
-    // Circular buffers for sensor data
+    // Circular buffers for sensor data. The arrays themselves don't need
+    // @Volatile (the references are immutable), but the index that protects
+    // visibility into them DOES — see the @Volatile fields below.
     private val accelX = FloatArray(BUFFER_SIZE)
     private val accelY = FloatArray(BUFFER_SIZE)
     private val accelZ = FloatArray(BUFFER_SIZE)
@@ -41,8 +47,11 @@ class SensorDataCollector(context: Context) : SensorEventListener {
     private val gyroZ = FloatArray(BUFFER_SIZE)
     private val timestamps = LongArray(BUFFER_SIZE)
 
-    private var bufferIndex = 0
-    private var samplesCollected = 0
+    // bufferIndex and samplesCollected are written from the SensorManager
+    // callback thread and read from the inference thread. @Volatile ensures
+    // the inference thread sees fresh values from the producer.
+    @Volatile private var bufferIndex = 0
+    @Volatile private var samplesCollected = 0
 
     /**
      * Start collecting sensor data
@@ -51,20 +60,31 @@ class SensorDataCollector(context: Context) : SensorEventListener {
         currentSamplingRate = samplingRate
         Log.d(TAG, "Starting sensor data collection with rate: $samplingRate")
 
+        if (accelerometer == null) {
+            Log.e(TAG, "Device has no accelerometer — cannot start collection")
+            return false
+        }
+        if (gyroscope == null) {
+            // Gyro is required for the legacy v5 6-channel CNN. The new v6
+            // 25Hz model only needs accel. We log a warning but don't refuse —
+            // the inference path will skip the gyro channels if necessary.
+            Log.w(TAG, "Device has no gyroscope — gyro channels will be zero")
+        }
+
         val accelRegistered = sensorManager.registerListener(
             this,
             accelerometer,
             samplingRate
         )
 
-        val gyroRegistered = sensorManager.registerListener(
-            this,
-            gyroscope,
-            samplingRate
-        )
+        val gyroRegistered = if (gyroscope != null) {
+            sensorManager.registerListener(this, gyroscope, samplingRate)
+        } else {
+            false
+        }
 
-        if (!accelRegistered || !gyroRegistered) {
-            Log.e(TAG, "Failed to register sensors")
+        if (!accelRegistered) {
+            Log.e(TAG, "Failed to register accelerometer")
             return false
         }
 

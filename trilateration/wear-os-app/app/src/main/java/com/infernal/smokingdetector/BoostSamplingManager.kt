@@ -38,14 +38,17 @@ class BoostSamplingManager(private val context: Context) {
         const val NORMAL_INFERENCE_INTERVAL_MS = 30_000L        // 30s between measurements
     }
 
-    private var currentMode: SamplingMode = SamplingMode.NORMAL
-    private var boostJob: Job? = null
+    // State fields are read from the main thread (getCurrentMode/getCurrentRate
+    // called from DetectionService periodic loop) and written from the boost
+    // coroutine. @Volatile ensures cross-thread visibility.
+    @Volatile private var currentMode: SamplingMode = SamplingMode.NORMAL
+    @Volatile private var boostJob: Job? = null
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-    private var wakeLock: PowerManager.WakeLock? = null
+    @Volatile private var wakeLock: PowerManager.WakeLock? = null
 
     private var onModeChanged: ((SamplingMode) -> Unit)? = null
     private var onBoostInference: (() -> Unit)? = null
-    private var boostMeasurementCount = 0
+    @Volatile private var boostMeasurementCount = 0
 
     enum class SamplingMode {
         NORMAL,     // 50 Hz, inference every 30s
@@ -77,10 +80,19 @@ class BoostSamplingManager(private val context: Context) {
     /**
      * Trigger the full boost sequence: DELAY → BOOST → NORMAL
      * Called when user presses +1 cigarette or +1 drink.
+     *
+     * @Synchronized so two concurrent triggers (e.g. user click + auto
+     * detection arriving in the same instant) cannot interleave the
+     * cancel + acquireWakeLock + launch sequence and end up with a leaked
+     * wake lock or two competing boost jobs.
      */
+    @Synchronized
     fun triggerBoost(reason: String) {
-        // Cancel any existing boost
+        // Cancel any existing boost — also releases its wake lock
         boostJob?.cancel()
+        // Release the previous boost's wake lock before acquiring a new one,
+        // otherwise back-to-back triggerBoost calls leak refcounted locks.
+        releaseWakeLock()
         boostMeasurementCount = 0
 
         // Acquire wake lock to prevent CPU sleep during boost
@@ -130,14 +142,24 @@ class BoostSamplingManager(private val context: Context) {
     }
 
     private fun acquireWakeLock() {
-        if (wakeLock == null) {
+        val existing = wakeLock
+        val lock = if (existing == null) {
             val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-            wakeLock = pm.newWakeLock(
+            val newLock = pm.newWakeLock(
                 PowerManager.PARTIAL_WAKE_LOCK,
                 "infernal:boost_sampling"
             )
+            // Disable refcount so a stray double-acquire doesn't leave the
+            // lock held forever. Single owner, single lifecycle.
+            newLock.setReferenceCounted(false)
+            wakeLock = newLock
+            newLock
+        } else {
+            existing
         }
-        wakeLock?.acquire(BOOST_DURATION_MS + DELAY_BEFORE_BOOST_MS + 30_000) // auto-release safety
+        // acquire() with a timeout is the safety net — even if someone
+        // forgets to release, the lock auto-releases after this duration.
+        lock.acquire(BOOST_DURATION_MS + DELAY_BEFORE_BOOST_MS + 30_000)
         Log.d(TAG, "Wake lock acquired")
     }
 
