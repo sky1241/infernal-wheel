@@ -112,6 +112,7 @@ class DetectionService : Service() {
     private val ring25HzBuffer = ArrayList<FloatArray>(RING_BUFFER_25HZ)
     private val ring25HzLock = Object()
     private var lastInference25HzMs = 0L
+    private var batchCountForLog: Int = 0
 
     private var serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var inferenceJob: Job? = null
@@ -378,6 +379,7 @@ class DetectionService : Service() {
      */
     private fun onSamsung25HzBatch(samples: Array<FloatArray>, timestampNs: Long) {
         // 1. Push into ring buffer
+        val newBufSize: Int
         synchronized(ring25HzLock) {
             for (s in samples) {
                 if (ring25HzBuffer.size >= RING_BUFFER_25HZ) {
@@ -385,12 +387,20 @@ class DetectionService : Service() {
                 }
                 ring25HzBuffer.add(s)
             }
+            newBufSize = ring25HzBuffer.size
         }
+        // Diagnostic — proves DetectionService receives Samsung batches
+        Log.i(TAG, "[25Hz] received batch of ${samples.size} samples, ring=$newBufSize/$RING_BUFFER_25HZ")
 
         // 2. Temporal filter — only run CNN during learned smoking hours
-        if (!database.isHighSmokingHour()) {
+        //    During testing/bootstrap (no smoking history yet), allow inference
+        //    so we can verify the full pipeline end-to-end.
+        val highHour = database.isHighSmokingHour()
+        if (!highHour && batchCountForLog > 25) {
+            // After 25 batches (~5 min), respect the temporal filter normally
             return
         }
+        batchCountForLog++
 
         // 3. Rate limiter
         val now = System.currentTimeMillis()

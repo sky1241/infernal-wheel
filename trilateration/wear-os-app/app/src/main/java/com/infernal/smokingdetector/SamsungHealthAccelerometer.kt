@@ -83,6 +83,12 @@ class SamsungHealthAccelerometer(private val context: Context) {
     private var healthTrackingService: HealthTrackingService? = null
     private var accelTracker: HealthTracker? = null
 
+    // Diagnostic counters — visible via Log.i, used to PROVE the SDK delivers
+    // data on a real watch (not just compiles).
+    private var batchCount: Long = 0
+    private var totalSamplesReceived: Long = 0
+    private var firstBatchTimeMs: Long = 0L
+
     // ─────────────────────────────────────────────────────────────────────
     // Public API — used by DetectionService
     // ─────────────────────────────────────────────────────────────────────
@@ -225,6 +231,29 @@ class SamsungHealthAccelerometer(private val context: Context) {
             )
         }
         val firstTs = dataPoints[0].timestamp
+
+        // Diagnostics — proves the SDK is delivering real data
+        batchCount++
+        totalSamplesReceived += n
+        if (firstBatchTimeMs == 0L) {
+            firstBatchTimeMs = System.currentTimeMillis()
+            // FIRST batch — print at INFO so it's visible in default logcat filter
+            Log.i(TAG, "[FIRST BATCH] Samsung SDK delivered $n samples — pipeline is LIVE")
+            // Print sample 0 values for human inspection
+            val s0 = samples[0]
+            Log.i(TAG, "[FIRST BATCH] sample[0] = (${s0[0]}, ${s0[1]}, ${s0[2]}) m/s²")
+        }
+        // Periodic stats every 25 batches (~5 minutes at default cadence)
+        if (batchCount % 25 == 0L) {
+            val elapsedMs = System.currentTimeMillis() - firstBatchTimeMs
+            val ratePerSec = if (elapsedMs > 0) totalSamplesReceived * 1000.0 / elapsedMs else 0.0
+            Log.i(TAG, "[STATS] batches=$batchCount samples=$totalSamplesReceived rate=${"%.1f".format(ratePerSec)}Hz over ${elapsedMs / 1000}s")
+        }
+
         listener?.onBatch(samples, firstTs)
     }
+
+    /** Diagnostics getter — used by tests / DetectionService for proof of life. */
+    fun getBatchCount(): Long = batchCount
+    fun getTotalSamplesReceived(): Long = totalSamplesReceived
 }

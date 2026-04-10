@@ -1,0 +1,15 @@
+04-10 18:31:26.839 13009 13009 D SamsungHealthAccel: connectService() called, awaiting callback
+04-10 18:31:26.839 13009 13009 D DetectionService: Samsung 25Hz parasitic flow connected
+04-10 18:31:26.856 13009 13009 D SamsungHealthAccel: Samsung tracking service connected
+04-10 18:31:26.875 13009 13009 D SamsungHealthAccel: ACCELEROMETER_CONTINUOUS tracker active @ 25Hz
+04-10 18:31:39.256 13009 13019 I SamsungHealthAccel: [FIRST BATCH] Samsung SDK delivered 300 samples — pipeline is LIVE
+04-10 18:31:39.257 13009 13019 I SamsungHealthAccel: [FIRST BATCH] sample[0] = (-1.022689, -2.3279946, 9.216176) m/s²
+04-10 18:31:39.258 13009 13019 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:31:51.106 13009 13019 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:32:03.065 13009 13019 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:32:15.096 13009 13019 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:32:27.093 13009 13019 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:32:39.214 13009 13019 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:32:51.166 13009 13019 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:33:03.281 13009 13019 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:33:15.256 13009 13019 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200

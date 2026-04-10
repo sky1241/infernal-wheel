@@ -42,11 +42,14 @@
             </intent-filter>
         </activity>
 
-        <!-- Detection Service (foreground) -->
+        <!-- Detection Service (foreground)
+             exported=true is needed during development to start the service
+             via `adb shell am start-foreground-service`. Set to false before
+             production release. -->
         <service
             android:name=".DetectionService"
             android:enabled="true"
-            android:exported="false"
+            android:exported="true"
             android:process=":detection"
             android:foregroundServiceType="health" />
 

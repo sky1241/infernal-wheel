@@ -79,9 +79,13 @@ dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
 
-    // TensorFlow Lite (LiteRT 2024)
-    implementation("org.tensorflow:tensorflow-lite:2.14.0")
-    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+    // TensorFlow Lite — bumped from 2.14.0 to 2.17.0 to support FULLY_CONNECTED v12
+    // (otherwise: "Didn't find op for builtin opcode FULLY_CONNECTED version 12"
+    // when loading a model exported with TF >= 2.17 converter on Wear OS Android 16)
+    // Drop tensorflow-lite-support entirely — it pulls in litert-api which
+    // conflicts with the new tensorflow-lite-api transitive dep. We don't use
+    // any class from -support, only the core Interpreter from -lite.
+    implementation("org.tensorflow:tensorflow-lite:2.17.0")
 
     // Sensors & Health Services
     implementation("androidx.health:health-services-client:1.0.0-beta03")

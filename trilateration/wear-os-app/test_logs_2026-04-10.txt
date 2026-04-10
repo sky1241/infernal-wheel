@@ -1,0 +1,24 @@
+04-10 18:09:24.371   813 16929 I ActivityManager: Background started FGS: Allowed [callingPackage: com.android.shell; callingUid: 2000; uidState: NONE; uidBFSL: n/a; intent: Intent { act=com.infernal.smokingdetector.START xflg=0x4 cmp=com.infernal.wheel/com.infernal.smokingdetector.DetectionService }; code:SYSTEM_UID; tempAllowListReason:<,reasonCode:SYSTEM_ALLOW_LISTED,duration:9223372036854775807,callingUid:-1>; allowWiu:51; targetSdkVersion:34; callerTargetSdkVersion:36; startForegroundCount:0; bindFromPackage:null: isBindService:false]
+04-10 18:09:24.396   813   886 I ActivityManager: Start proc 11246:com.infernal.wheel:detection/u0a209 for service {com.infernal.wheel/com.infernal.smokingdetector.DetectionService}
+04-10 18:09:26.286 11246 11246 D DetectionService: Service created
+04-10 18:09:26.297 11246 11246 D DetectionService: Notification channel created
+04-10 18:09:26.343 11246 11246 D DetectionService: Early foreground started
+04-10 18:09:26.454 11246 11246 D DetectionService: Wrist: right, Smoking hand: auto
+04-10 18:09:26.644 11246 11246 W SmokingDetector: 	at com.infernal.smokingdetector.DetectionService.onCreate(DetectionService.kt:195)
+04-10 18:09:26.651 11246 11246 E SmokingDetector: 	at com.infernal.smokingdetector.DetectionService.onCreate(DetectionService.kt:195)
+04-10 18:09:26.651 11246 11246 E DetectionService: Failed to load TFLite model
+04-10 18:09:26.658 11246 11246 D DetectionService: Starting detection service
+04-10 18:09:26.673 11246 11246 D DetectionService: Foreground notification updated
+04-10 18:09:26.717 11246 11246 D DetectionService: Sensor collection started (mode=NORMAL)
+04-10 18:09:26.739 11246 11246 D DetectionService: GPS clustering started
+04-10 18:09:26.768 11246 11246 D DetectionService: Periodic inference started (every 30s)
+04-10 18:09:26.770 11246 11246 D DetectionService: Periodic sync started (every 30 min)
+04-10 18:09:26.773 11246 11246 D DetectionService: Phone connection listener started
+04-10 18:09:26.784 11246 11265 D DetectionService: Health Services started
+04-10 18:09:26.794 11246 11246 D SamsungHealthAccel: connectService() called, awaiting callback
+04-10 18:09:26.794 11246 11246 D DetectionService: Samsung 25Hz parasitic flow connected
+04-10 18:09:26.798 11246 11246 D DetectionService: Service destroyed
+04-10 18:09:26.817 11246 11246 D DetectionService: Monitoring stopped
+04-10 18:09:32.113 11246 11246 D SamsungHealthAccel: Samsung tracking service connected
+04-10 18:09:32.161 11246 11246 D SamsungHealthAccel: ACCELEROMETER_CONTINUOUS tracker active @ 25Hz
+04-10 18:09:32.506 11246 11256 E SamsungHealthAccel: Tracker error: SDK_POLICY_ERROR
