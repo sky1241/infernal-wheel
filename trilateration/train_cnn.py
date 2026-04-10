@@ -16,7 +16,9 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 import tensorflow as tf
-from sklearn.model_selection import StratifiedKFold
+# BUG+033 fix: GroupKFold — StratifiedKFold leaked subjects between
+# folds, inflating the reported CV F1. See train_and_evaluate docstring.
+from sklearn.model_selection import GroupKFold
 from sklearn.metrics import f1_score, precision_score, recall_score
 
 # ── Config ──
@@ -37,6 +39,8 @@ def load_windows():
     """Load raw 6-channel windows from SED + SED-FL."""
     X_all, y_all = [], []
 
+    X_all, y_all, subjects_all = [], [], []
+
     for pkl_name in ["SED.pkl", "SED-FL.pkl"]:
         path = os.path.join(DATA_DIR, pkl_name)
         if not os.path.exists(path):
@@ -49,6 +53,8 @@ def load_windows():
 
         count = 0
         for subj in dataset:
+            # BUG+033: globally unique subject id for GroupKFold.
+            subject_id = f"{pkl_name}:{subj}"
             for session in dataset[subj]:
                 # Stack 6 channels: [N, 6]
                 signals = np.column_stack([
@@ -69,14 +75,17 @@ def load_windows():
 
                     X_all.append(window)
                     y_all.append(label)
+                    subjects_all.append(subject_id)
                     count += 1
 
         print(f"    -> {count} windows from {pkl_name}")
 
     X = np.array(X_all, dtype=np.float32)
     y = np.array(y_all, dtype=np.int32)
+    subjects = np.array(subjects_all)
     print(f"  Total: {len(X)} windows, {np.sum(y)} positive ({100*np.mean(y):.1f}%)")
-    return X, y
+    print(f"  Unique subjects: {len(np.unique(subjects))}")
+    return X, y, subjects
 
 
 def normalize_signals(X_train, X_test):
@@ -126,7 +135,7 @@ def train_and_evaluate():
 
     # Load data
     print("\nLoading data...")
-    X, y = load_windows()
+    X, y, subjects = load_windows()
 
     # 4-class labels: smoking=0, other=3 (binary for now, mapped to 4-class for output)
     # For training we use binary cross-entropy effectively
@@ -144,12 +153,15 @@ def train_and_evaluate():
     # For categorical, use sample weights
     sample_weights = np.where(y == 1, n_neg / n_pos, 1.0)
 
-    # 5-fold CV
-    print(f"\n{N_FOLDS}-fold Cross-Validation:")
-    skf = StratifiedKFold(n_splits=N_FOLDS, shuffle=True, random_state=42)
+    # BUG+033 fix: GroupKFold by subject. StratifiedKFold on individual
+    # windows leaked same-subject data across folds and overstated F1 —
+    # the reported 0.75 was optimistic. Real generalization to unseen
+    # users is what GroupKFold measures.
+    print(f"\n{N_FOLDS}-fold Group Cross-Validation (grouped by subject):")
+    gkf = GroupKFold(n_splits=N_FOLDS)
     results = []
 
-    for fold, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+    for fold, (train_idx, test_idx) in enumerate(gkf.split(X, y, groups=subjects)):
         X_train, X_test = X[train_idx], X[test_idx]
         y_train_cat, y_test_cat = y_cat[train_idx], y_cat[test_idx]
         y_test_bin = y[test_idx]

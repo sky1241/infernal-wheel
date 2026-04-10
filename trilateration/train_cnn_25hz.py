@@ -26,7 +26,10 @@ import sys
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 import tensorflow as tf
-from sklearn.model_selection import StratifiedKFold
+# BUG+033 fix: GroupKFold instead of StratifiedKFold — the previous CV
+# scheme leaked subjects between train and test folds, inflating the
+# reported F1. See docstring of train_and_evaluate below.
+from sklearn.model_selection import GroupKFold
 from sklearn.metrics import f1_score, precision_score, recall_score
 
 # === Config ===
@@ -61,8 +64,14 @@ def downsample(signal, factor):
 
 
 def load_windows():
-    """Load 3-channel ACC windows from SED + SED-FL, downsampled to 25Hz."""
-    X_all, y_all = [], []
+    """Load 3-channel ACC windows from SED + SED-FL, downsampled to 25Hz.
+
+    BUG+033 fix: also return a parallel `subjects` array so downstream
+    cross-validation can group by subject and avoid train/test leakage.
+    The subject id is a (pkl_name, subj_id) tuple so that subjects with
+    the same numeric id across SED and SED-FL aren't collapsed.
+    """
+    X_all, y_all, subjects_all = [], [], []
 
     for pkl_name in ["SED.pkl", "SED-FL.pkl"]:
         path = os.path.join(DATA_DIR, pkl_name)
@@ -76,6 +85,8 @@ def load_windows():
 
         count = 0
         for subj in dataset:
+            # Globally unique subject id across both pickle files.
+            subject_id = f"{pkl_name}:{subj}"
             for session in dataset[subj]:
                 # Downsample each accel channel from 50Hz to 25Hz
                 acc_x = downsample(np.asarray(session["AccX"], dtype=np.float32), DOWNSAMPLE_FACTOR)
@@ -106,15 +117,19 @@ def load_windows():
 
                     X_all.append(window)
                     y_all.append(label)
+                    subjects_all.append(subject_id)
                     count += 1
 
         print(f"    -> {count} windows from {pkl_name}")
 
     X = np.array(X_all, dtype=np.float32)
     y = np.array(y_all, dtype=np.int32)
+    subjects = np.array(subjects_all)
+    unique_subjects = len(np.unique(subjects))
     print(f"  Total: {len(X)} windows, {np.sum(y)} positive ({100*np.mean(y):.1f}%)")
     print(f"  Input shape: {X.shape}  (expected [N, {WINDOW_SAMPLES}, {CHANNELS}])")
-    return X, y
+    print(f"  Unique subjects: {unique_subjects}")
+    return X, y, subjects
 
 
 def normalize_signals(X_train, X_test):
@@ -179,7 +194,7 @@ def train_and_evaluate():
 
     # Load data
     print("\n[1/4] Loading and downsampling data...")
-    X, y = load_windows()
+    X, y, subjects = load_windows()
     if len(X) == 0:
         print("ERROR: no data loaded. Check that SED.pkl is in datasets/sed/")
         sys.exit(1)
@@ -202,12 +217,16 @@ def train_and_evaluate():
     print(f"  Pos weight (sqrt): {pos_weight:.2f}")
     sample_weights = np.where(y == 1, pos_weight, 1.0)
 
-    # 5-fold CV
-    print(f"\n[2/4] {N_FOLDS}-fold Cross-Validation:")
-    skf = StratifiedKFold(n_splits=N_FOLDS, shuffle=True, random_state=42)
+    # BUG+033 fix: GroupKFold keyed by subject — StratifiedKFold on
+    # individual windows leaked same-subject data across train/test folds
+    # and inflated F1. GroupKFold guarantees every subject is in exactly
+    # one fold, which is the realistic deployment scenario (the model must
+    # generalize to unseen users).
+    print(f"\n[2/4] {N_FOLDS}-fold Group Cross-Validation (grouped by subject):")
+    gkf = GroupKFold(n_splits=N_FOLDS)
     results = []
 
-    for fold, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+    for fold, (train_idx, test_idx) in enumerate(gkf.split(X, y, groups=subjects)):
         X_train, X_test = X[train_idx], X[test_idx]
         y_train_cat = y_cat[train_idx]
         y_test_bin = y[test_idx]
