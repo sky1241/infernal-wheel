@@ -176,14 +176,46 @@ def main():
 
     # ------------------------------------------------------------
     # [2/5] Map labels to 4-class soft labels
+    #
+    # BUG+036 fix: explicit allow-list, not "default to cigarette". The
+    # previous code did `if lbl == "false_positive": ... else: cigarette`,
+    # which meant any unknown label — including "unknown" (the load-time
+    # fallback for corrupt files) — got silently trained as cigarette.
+    # On a tiny personal dataset (20-50 windows), a single corrupt file
+    # can shift 2-5% of the gradient toward false positives.
     # ------------------------------------------------------------
     print("\n[2/5] Building 4-class soft targets")
+
+    CIGARETTE_TARGET = np.array([0.90, 0.03, 0.03, 0.04], dtype=np.float32)
+    OTHER_TARGET = np.array([0.05, 0.15, 0.10, 0.70], dtype=np.float32)
+    LABEL_TO_TARGET = {
+        "auto_detected": CIGARETTE_TARGET,
+        "auto_confirmed_by_manual": CIGARETTE_TARGET,
+        "manual_only": CIGARETTE_TARGET,
+        "false_positive": OTHER_TARGET,
+    }
+
     y_cat = np.zeros((len(X), 4), dtype=np.float32)
+    unknown_count = 0
+    keep_mask = np.ones(len(X), dtype=bool)
     for i, lbl in enumerate(labels):
-        if lbl == "false_positive":
-            y_cat[i] = [0.05, 0.15, 0.10, 0.70]  # other
-        else:
-            y_cat[i] = [0.90, 0.03, 0.03, 0.04]  # cigarette
+        target = LABEL_TO_TARGET.get(lbl)
+        if target is None:
+            unknown_count += 1
+            print(f"  WARNING: unknown label '{lbl}' at window {i} — DROPPING (was silently labeled cigarette before BUG+036 fix)")
+            keep_mask[i] = False
+            continue
+        y_cat[i] = target
+
+    if unknown_count > 0:
+        print(f"  Dropped {unknown_count} windows with unrecognized labels")
+        X = X[keep_mask]
+        y_cat = y_cat[keep_mask]
+        labels = labels[keep_mask]
+        weights = weights[keep_mask]
+        if len(X) < args.min_windows:
+            print(f"\n!!! After dropping unknowns, only {len(X)} < --min-windows {args.min_windows}")
+            sys.exit(1)
 
     # ------------------------------------------------------------
     # [3/5] Load the base v6 model and replace its head

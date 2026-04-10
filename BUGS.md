@@ -307,3 +307,34 @@
 - **Test**: trilateration/test_cnn_training_no_subject_leakage.py — 8 tests: static-grep asserting both files import GroupKFold + use groups= in split + load_windows returns 3-tuple, AND a synthetic proof that on a subject-correlated dataset StratifiedKFold leaks while GroupKFold isolates each subject to exactly one fold.
 - **Regression**: forge baseline 174 PASS / 0 FAIL (was 166).
 - **Follow-up**: models must be re-trained with the fixed CV to get an honest F1 number before the next deployment. Current deployed v2 GBM is unaffected (different training path).
+
+## BUG+034: infernal-app/lib/views/onboarding_screen.dart line 45 displays 'Tout reste sur ton telephone, chiffre' (data stays on your phone, encrypted) as a selling point before the user commits to the app. This is FALSE — see BUG+018: crypto_service is initialized but never called, data_store writes plain JSON/CSV. The onboarding text obtains user consent based on a claim that isn't technically true. Must either (a) fix BUG+018 so the claim becomes true, or (b) soften the copy until then. Since BUG+018 is a dedicated architectural rework, the right short-term fix is to change the copy to 'Tout reste sur ton telephone' (drop the chiffre claim) so the onboarding stops being misleading. This is a consent/trust issue not a technical bug but forge tracks it for visibility.
+- **Status**: FIXED (2026-04-11)
+- **Date**: 2026-04-11 00:01
+- **Severity**: HIGH (consent/trust — user grants permission based on a false claim)
+- **Symptom**: The onboarding third feature card claimed "Donnees privees — Tout reste sur ton telephone, chiffre". The first half (local-only) is accurate. The second half (encrypted) is not — see BUG+018.
+- **Root cause**: The copy was written early in the project when the crypto wiring was planned but not yet shipped. BUG+018 postponed the wiring; the copy was never updated to match the code.
+- **Fix**: Short-term copy-only fix: drop "chiffre" → "Tout reste sur ton telephone". This is the minimum-viable truth while BUG+018 waits for a dedicated architectural session. Inline comment references BUG+034 + BUG+018 so the next contributor understands why the copy is deliberately understated.
+- **Test**: trilateration/test_onboarding_webview_hardening.py::test_onboarding_does_not_claim_chiffre + ::test_onboarding_keeps_local_only_claim + ::test_bug_034_marker_present.
+- **Regression**: forge baseline 192 PASS / 0 FAIL.
+- **Follow-up**: once BUG+018 ships, restore the "chiffre" claim. Do NOT restore it before.
+
+## BUG+035: dashboard_webview.dart line 24 registers a NavigationDelegate with no onNavigationRequest handler, so the WebView will follow any URL the page asks it to navigate to. Today that's harmless because local_server only serves bundled HTML under 127.0.0.1:8011. But if a future contributor adds any anchor tag pointing to an external URL, or a script injects window.location, the WebView blindly follows it. Fix: add onNavigationRequest that returns NavigationDecision.prevent for any URL that isn't http://127.0.0.1:8011 or http://localhost:8011. This is belt-and-suspenders defense alongside BUG+026 (loopback bind).
+- **Status**: FIXED (2026-04-11)
+- **Date**: 2026-04-11 00:01
+- **Severity**: MEDIUM (defense-in-depth — no known exploit today, but trivial accident away)
+- **Symptom**: Latent. An accidental `<a href="https://example.com">` in the dashboard HTML (or any JS `window.location = ...` from a future feature) would load third-party content inside the app's WebView, with JS enabled and full access to the loopback API at 127.0.0.1:8011.
+- **Root cause**: NavigationDelegate was set up to react to page lifecycle events (onPageStarted/Finished/Error) but had no onNavigationRequest handler, so webview_flutter's default policy (allow everything) applied.
+- **Fix**: Added onNavigationRequest that returns NavigationDecision.navigate only if the URL starts with `http://127.0.0.1:8011` or `http://localhost:8011`, and NavigationDecision.prevent otherwise. Order matters: the allow check runs BEFORE the prevent fallback — a regression that swapped them would block every navigation.
+- **Test**: trilateration/test_onboarding_webview_hardening.py — 5 tests: handler exists, uses prevent, both loopback URLs allowed, allow-list-comes-before-prevent ordering, BUG+035 marker.
+- **Regression**: forge baseline 192 PASS / 0 FAIL.
+
+## BUG+036: finetune_cnn_v7.py lines 182-186: the label to soft-target mapping only special-cases 'false_positive'. Every other label value defaults to the cigarette-positive encoding [0.90, 0.03, 0.03, 0.04]. load_training_windows at line 144 explicitly allows 'unknown' as fallback for missing/corrupt payloads. Result: any window whose JSON is missing the 'label' field, OR whose label is a new category not added to the mapping yet, gets silently trained as CIGARETTE-POSITIVE with 0.90 confidence. This is label poisoning: one corrupt file skews the per-user fine-tune toward false positives. Fix: explicit dict lookup with conservative default (treat unknown as OTHER, not cigarette) AND log a warning per unknown label. Matters more than usual because the personal dataset is tiny (20-50 windows) so one bad label carries 2-5% of the gradient.
+- **Status**: FIXED (2026-04-11)
+- **Date**: 2026-04-11 00:03
+- **Severity**: HIGH (silent label poisoning on a small dataset — corrupts per-user fine-tuning)
+- **Symptom**: A corrupt JSON file, a missing 'label' field, or a new label category (added by a future flow but not yet mapped here) would silently train as a cigarette-positive example. With 20-50 windows per user fine-tune, a single bad file contributes 2-5% of the gradient. Over time the personal model drifts toward false positives.
+- **Root cause**: `if lbl == 'false_positive': other else: cigarette` — the "else" branch was an implicit default, not an explicit allow-list. The author assumed unknown labels would never reach this code, but load_training_windows has its own 'unknown' fallback at line 144 for missing fields.
+- **Fix**: Replaced the if/else with an explicit LABEL_TO_TARGET dict containing exactly the 4 known labels (auto_detected, auto_confirmed_by_manual, manual_only, false_positive). Rows whose label is not in the dict are DROPPED with a warning log, and X/y/labels/weights arrays are re-filtered. If dropping reduces the dataset below --min-windows, the script aborts with exit code 1.
+- **Test**: trilateration/test_finetune_label_poisoning.py — 8 tests: (1) static-grep that LABEL_TO_TARGET exists, (2) all 4 known labels present, (3) no else→cigarette pattern reappears, (4) drop path present, (5) .get(lbl) used, (6) logic port that proves unknown/empty/typo labels are dropped with zero target, (7) baseline demo of the OLD buggy behavior showing 3/4 unknowns become cigarette.
+- **Regression**: forge baseline 192 PASS / 0 FAIL.

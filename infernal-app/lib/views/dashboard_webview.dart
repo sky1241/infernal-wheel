@@ -22,6 +22,19 @@ class _DashboardWebViewState extends State<DashboardWebView> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(NavigationDelegate(
+        // BUG+035 fix: only allow navigation to the loopback local_server.
+        // Without this, any anchor/script that navigates to an external
+        // URL (e.g. an accidental http://example.com in future content)
+        // would load third-party content inside our WebView, with full JS
+        // access to the dashboard session.
+        onNavigationRequest: (request) {
+          final url = request.url;
+          if (url.startsWith('http://127.0.0.1:8011') ||
+              url.startsWith('http://localhost:8011')) {
+            return NavigationDecision.navigate;
+          }
+          return NavigationDecision.prevent;
+        },
         onPageStarted: (_) {
           if (mounted) setState(() { _isLoading = true; _hasError = false; });
         },
