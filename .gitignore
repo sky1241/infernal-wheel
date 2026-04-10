@@ -24,6 +24,11 @@ build/
 *.apk
 local.properties
 
+# === Proprietary SDKs (each developer must download separately) ===
+# Samsung Health Sensor SDK AAR — get from developer.samsung.com (free account).
+# License does not allow public redistribution. See app/libs/README.md for setup.
+trilateration/wear-os-app/app/libs/*.aar
+
 # === Temp Files ===
 *.tmp
 *.tmp.*

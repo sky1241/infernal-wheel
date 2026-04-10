@@ -49,21 +49,12 @@ android {
     }
 }
 
-// Local AAR repository — used for Samsung Health Sensor SDK
-// Drop the SDK AAR into trilateration/wear-os-app/app/libs/ to enable parasitic
-// 25Hz accelerometer flux. The wrapper class SamsungHealthAccelerometer.kt
-// degrades gracefully if the AAR is missing (logs warning, no crash).
-repositories {
-    flatDir {
-        dirs("libs")
-    }
-}
-
 dependencies {
-    // Samsung Health Sensor SDK (optional — file may not exist yet)
+    // Samsung Health Sensor SDK (local AAR — flatDir declared in settings.gradle.kts)
+    // Drop samsung-health-sensor-api-*.aar into app/libs/ to enable parasitic
+    // 25Hz accelerometer flux. The wrapper class SamsungHealthAccelerometer.kt
+    // detects the SDK at runtime via reflection and degrades gracefully if absent.
     // Download from: https://developer.samsung.com/health/sensor/overview.html
-    // Then place: app/libs/samsung-health-sensor-api.aar
-    // The fileTree below picks it up automatically without failing if absent.
     implementation(fileTree("libs") { include("*.aar") })
 
     // Wear OS
