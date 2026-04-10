@@ -92,8 +92,13 @@ class LocalServer {
         .addMiddleware(_noCacheMiddleware())
         .addHandler(router.call);
 
-    // Fixed port 8011, listen on all interfaces so watch can reach us
-    _server = await shelf_io.serve(handler, '0.0.0.0', 8011);
+    // BUG+026 fix: bind to loopback only.
+    // The watch communicates over Bluetooth MessageClient (see WearSyncService),
+    // NOT HTTP — so the previous '0.0.0.0' bind was unnecessary AND insecure:
+    // it exposed every /api/cmd, /api/drinks/add, /api/goal endpoint to the
+    // entire WiFi LAN with no authentication. Anyone on the same network could
+    // POST commands to the engine and corrupt the user's history.
+    _server = await shelf_io.serve(handler, '127.0.0.1', 8011);
     _port = _server!.port;
   }
 
@@ -122,6 +127,14 @@ class LocalServer {
     try {
       await _store.saveState(_engine.state.toJson());
     } catch (_) {}
+  }
+
+  /// Force-flush the engine state immediately, bypassing the 5s debounce.
+  /// Called from main.dart on app lifecycle pause/detach (BUG+030) so the
+  /// most recent user action survives a background process kill.
+  Future<void> flushState() async {
+    _lastSave = DateTime.now();
+    await _saveStateAsync();
   }
 
   // --- Middleware ---
@@ -204,20 +217,24 @@ class LocalServer {
     int watchBeerCount = 0;
     int watchWineCount = 0;
     int watchStrongCount = 0;
+    // BUG+027 fix: read these files asynchronously. They grow indefinitely
+    // (no retention policy yet) so the previous existsSync/readAsStringSync
+    // would block the Dart isolate for ~30-100ms per /api/state call once
+    // they crossed ~1 MB.
     try {
       final appDir = await getApplicationDocumentsDirectory();
 
       final summaryFile = File('${appDir.path}/watch_daily_summary.json');
-      if (summaryFile.existsSync()) {
-        final summary = jsonDecode(summaryFile.readAsStringSync()) as Map<String, dynamic>;
+      if (await summaryFile.exists()) {
+        final summary = jsonDecode(await summaryFile.readAsString()) as Map<String, dynamic>;
         if (summary['date'] == todayKey) {
           watchClopeCount = (summary['cigaretteCount'] as int? ?? 0);
         }
       }
 
       final drinkFile = File('${appDir.path}/watch_drink_detections.json');
-      if (drinkFile.existsSync()) {
-        final drinks = jsonDecode(drinkFile.readAsStringSync()) as List<dynamic>;
+      if (await drinkFile.exists()) {
+        final drinks = jsonDecode(await drinkFile.readAsString()) as List<dynamic>;
         final todayStart = DateTime(now.year, now.month, now.day, 4).millisecondsSinceEpoch;
         for (final d in drinks) {
           final ts = (d['timestamp'] as num?)?.toInt() ?? 0;
@@ -294,9 +311,9 @@ class LocalServer {
         if (day.isNotEmpty) byDay[day] = Map<String, dynamic>.from(d);
       }
 
-      // Add watch cigarette detections
-      if (detectFile.existsSync()) {
-        final detections = jsonDecode(detectFile.readAsStringSync()) as List;
+      // BUG+027 fix: async I/O.
+      if (await detectFile.exists()) {
+        final detections = jsonDecode(await detectFile.readAsString()) as List;
         for (final d in detections) {
           final ts = (d['timestamp'] as num?)?.toInt() ?? 0;
           if (ts > 0) {
@@ -310,9 +327,9 @@ class LocalServer {
         }
       }
 
-      // Add watch drink detections
-      if (drinkFile.existsSync()) {
-        final drinks = jsonDecode(drinkFile.readAsStringSync()) as List;
+      // BUG+027 fix: async I/O.
+      if (await drinkFile.exists()) {
+        final drinks = jsonDecode(await drinkFile.readAsString()) as List;
         for (final d in drinks) {
           final ts = (d['timestamp'] as num?)?.toInt() ?? 0;
           if (ts > 0) {
@@ -357,10 +374,10 @@ class LocalServer {
       final appDir = await getApplicationDocumentsDirectory();
       final byDay = <String, Map<String, int>>{};
 
-      // Count cigarettes per day
+      // Count cigarettes per day. BUG+027 fix: async I/O.
       final detectFile = File('${appDir.path}/watch_detections.json');
-      if (detectFile.existsSync()) {
-        final detections = jsonDecode(detectFile.readAsStringSync()) as List;
+      if (await detectFile.exists()) {
+        final detections = jsonDecode(await detectFile.readAsString()) as List;
         for (final d in detections) {
           final ts = (d['timestamp'] as num?)?.toInt() ?? 0;
           if (ts > 0) {
@@ -376,10 +393,10 @@ class LocalServer {
         }
       }
 
-      // Count drinks per day
+      // Count drinks per day. BUG+027 fix: async I/O.
       final drinkFile = File('${appDir.path}/watch_drink_detections.json');
-      if (drinkFile.existsSync()) {
-        final drinks = jsonDecode(drinkFile.readAsStringSync()) as List;
+      if (await drinkFile.exists()) {
+        final drinks = jsonDecode(await drinkFile.readAsString()) as List;
         for (final d in drinks) {
           final ts = (d['timestamp'] as num?)?.toInt() ?? 0;
           if (ts > 0) {
@@ -670,7 +687,10 @@ class LocalServer {
     final data = await _readBody(request);
     if (data == null) return _jsonError(400, 'Invalid body');
     final type = (data['type'] as String? ?? '').toLowerCase();
-    final n = (data['n'] as num?)?.toInt() ?? 1;
+    // BUG+028 fix: clamp n to a sane single-add range. Previously a buggy
+    // client (or LAN attacker before BUG+026 was patched) could pass
+    // n=999999 and pollute drinks.csv permanently. 50 covers a wedding.
+    final n = ((data['n'] as num?)?.toInt() ?? 1).clamp(1, 50);
     final day = data['day'] as String?;
     if (!['wine', 'beer', 'strong'].contains(type)) {
       return _jsonError(400, 'type must be wine|beer|strong');
@@ -687,14 +707,15 @@ class LocalServer {
     final data = await _readBody(request);
     if (data == null) return _jsonError(400, 'Invalid body');
     final type = (data['type'] as String? ?? '').toLowerCase();
-    final total = (data['total'] as num?)?.toInt() ?? 0;
+    // BUG+028 fix: cap total to 50 (same realistic upper bound as add).
+    final total = ((data['total'] as num?)?.toInt() ?? 0).clamp(0, 50);
     if (!['wine', 'beer', 'strong'].contains(type)) {
       return _jsonError(400, 'type must be wine|beer|strong');
     }
     final dayKey = InfernalDay.today().key;
     final current = await _store.getDailyAlcohol(dayKey);
     final currentVal = current[type] ?? 0;
-    final added = (total - currentVal).clamp(0, 999);
+    final added = (total - currentVal).clamp(0, 50);
     if (added > 0) await _store.addDrink(type, added);
     return _jsonOk({'ok': true, 'total': total, 'current': currentVal, 'added': added});
   }

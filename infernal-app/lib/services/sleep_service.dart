@@ -79,22 +79,33 @@ class SleepService {
         totalMinutes = wakeTime.difference(bedTime).inMinutes;
       }
 
-      // Count actual asleep time (if available)
+      // Count actual asleep time (if available). BUG+029 fix: keep the
+      // in-bed total separate so durationMinutes can prefer asleep when
+      // available but asleepMinutes always reflects actual asleep records
+      // (0 if Health Connect didn't return any). The previous code
+      // overwrote totalMinutes and used it as a fallback for asleepMinutes,
+      // making the two fields indistinguishable on most devices.
+      final inBedMinutes = bedTime != null && wakeTime != null
+          ? wakeTime.difference(bedTime).inMinutes
+          : totalMinutes;
+
       final asleepData = data.where((d) => d.type == HealthDataType.SLEEP_ASLEEP).toList();
       int asleepMinutes = 0;
       for (final d in asleepData) {
         asleepMinutes += d.dateTo.difference(d.dateFrom).inMinutes;
       }
-      if (asleepMinutes > 0) totalMinutes = asleepMinutes;
+
+      // Primary number for the dashboard: prefer asleep when available,
+      // fall back to in-bed otherwise.
+      final durationMinutes = asleepMinutes > 0 ? asleepMinutes : inBedMinutes;
 
       return {
         'ok': true,
         'bedTime': bedTime?.toIso8601String(),
         'wakeTime': wakeTime?.toIso8601String(),
-        'durationMinutes': totalMinutes,
-        'inBedMinutes': bedTime != null && wakeTime != null
-            ? wakeTime.difference(bedTime).inMinutes : 0,
-        'asleepMinutes': asleepMinutes > 0 ? asleepMinutes : totalMinutes,
+        'durationMinutes': durationMinutes,
+        'inBedMinutes': inBedMinutes,
+        'asleepMinutes': asleepMinutes,
         'source': 'Health Connect',
       };
     } catch (e) {

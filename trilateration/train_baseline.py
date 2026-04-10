@@ -383,6 +383,14 @@ def main():
     # Save model
     save_model(clf, 'models/random_forest_baseline.pkl')
 
+    # BUG+014 fix: also save the training feature matrix so convert_to_tflite.py
+    # can distill against REAL data instead of Gaussian noise. Without this the
+    # student NN learned the marginal class prior — root cause of v3/v4 broken
+    # TFLite models.
+    features_path = 'models/X_train_features.npy'
+    np.save(features_path, X_train.values.astype(np.float32))
+    print(f"[OK] Distillation features saved to {features_path}")
+
     print()
     print("=" * 80)
     print("[SUCCESS] BASELINE MODEL TRAINING COMPLETED!")

@@ -4,7 +4,14 @@ import 'package:path_provider/path_provider.dart';
 import '../core/infernal_day.dart';
 
 /// Stockage local des donnees (JSON/CSV)
-/// Toutes les donnees restent sur l'appareil du client
+/// Toutes les donnees restent sur l'appareil du client.
+///
+/// !!! BUG+018 PRIVACY GAP — see BUGS.md !!!
+/// Cette classe écrit en CLAIR (jsonEncode + writeAsString). CryptoService
+/// est initialisé par main.dart mais ses helpers encryptToFile/decryptFromFile
+/// ne sont JAMAIS appelés ici. Le marketing dit "AES-256 encrypted" — ce n'est
+/// pas vrai aujourd'hui. NE PAS pousser sur le Play Store sans avoir résolu
+/// BUG+018 (rework architectural + migration des fichiers existants).
 class DataStore {
   static final DataStore _instance = DataStore._internal();
   factory DataStore() => _instance;

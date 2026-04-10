@@ -23,7 +23,24 @@ class FeatureExtractor {
 
     companion object {
         private const val TAG = "FeatureExtractor"
-        private const val SAMPLING_RATE = 50.0 // Hz
+        // Fallback when timestamps are missing/degenerate. The real rate is
+        // ALWAYS computed from timestamps via computeSamplingRate(); this
+        // constant exists only so a single bad batch can't crash extraction.
+        // BUG+020 fix: rate is no longer hardcoded — fs flows from timestamps.
+        private const val DEFAULT_SAMPLING_RATE = 50.0 // Hz
+        private const val MIN_SAMPLES_FOR_FEATURES = 2
+    }
+
+    /**
+     * Compute the actual sampling rate from timestamp deltas.
+     * Falls back to DEFAULT_SAMPLING_RATE if timestamps are degenerate.
+     * BUG+020 fix.
+     */
+    private fun computeSamplingRate(timestamps: LongArray): Double {
+        if (timestamps.size < 2) return DEFAULT_SAMPLING_RATE
+        val durationSec = (timestamps.last() - timestamps.first()) / 1e9
+        if (durationSec <= 0.0) return DEFAULT_SAMPLING_RATE
+        return (timestamps.size - 1) / durationSec
     }
 
     /**
@@ -49,6 +66,19 @@ class FeatureExtractor {
     ): FloatArray {
         Log.d(TAG, "Extracting 30 features from ${accel.size} samples")
 
+        // BUG+021 fix: bail out early if either array is too small to compute
+        // diffs. Returning zeros (then normalized) is safe — downstream code
+        // already treats all-zero feature vectors as low-confidence.
+        if (accel.size < MIN_SAMPLES_FOR_FEATURES || gyro.size < MIN_SAMPLES_FOR_FEATURES) {
+            Log.w(TAG, "Insufficient samples (accel=${accel.size}, gyro=${gyro.size}); returning zeros")
+            val zeros = FloatArray(30)
+            normalizeFeatures(zeros)
+            return zeros
+        }
+
+        // BUG+020 fix: derive fs from timestamps once, propagate to all extractors.
+        val samplingRate = computeSamplingRate(timestamps)
+
         val features = FloatArray(30)
         var idx = 0
 
@@ -58,7 +88,7 @@ class FeatureExtractor {
         idx += timeDomain.size
 
         // 2. Angular features (4)
-        val angular = extractAngularFeatures(gyro)
+        val angular = extractAngularFeatures(gyro, samplingRate)
         angular.copyInto(features, idx)
         idx += angular.size
 
@@ -68,17 +98,17 @@ class FeatureExtractor {
         idx += jerk.size
 
         // 4. Frequency features (5)
-        val frequency = extractFrequencyFeatures(accel)
+        val frequency = extractFrequencyFeatures(accel, samplingRate)
         frequency.copyInto(features, idx)
         idx += frequency.size
 
         // 5. Trajectory features (4)
-        val trajectory = extractTrajectoryFeatures(accel, gyro)
+        val trajectory = extractTrajectoryFeatures(accel, gyro, samplingRate)
         trajectory.copyInto(features, idx)
         idx += trajectory.size
 
         // 6. Regularity features (3)
-        val regularity = extractRegularityFeatures(accel, timestamps)
+        val regularity = extractRegularityFeatures(accel, timestamps, samplingRate)
         regularity.copyInto(features, idx)
         idx += regularity.size
 
@@ -196,7 +226,11 @@ class FeatureExtractor {
     // 2. ANGULAR FEATURES (4)
     // ========================================================================
 
-    private fun extractAngularFeatures(gyro: Array<FloatArray>): FloatArray {
+    private fun extractAngularFeatures(gyro: Array<FloatArray>, samplingRate: Double): FloatArray {
+        // BUG+021 guard: caller already enforces gyro.size >= 2 but defend
+        // against future callers that bypass extractAllFeatures.
+        if (gyro.size < 2) return floatArrayOf(0f, 0f, 0f, 0f)
+
         // Angular velocity magnitude (rad/s)
         val angularVelocities = FloatArray(gyro.size) { i ->
             sqrt(gyro[i][0].pow(2) + gyro[i][1].pow(2) + gyro[i][2].pow(2))
@@ -204,14 +238,16 @@ class FeatureExtractor {
         val angularVelocity = angularVelocities.average().toFloat()
 
         // Wrist rotation (degrees) - cumulative rotation
-        val wristRotation = angularVelocities.sum() * (1.0f / SAMPLING_RATE.toFloat()) * (180f / PI.toFloat())
+        // BUG+020 fix: use measured fs instead of hardcoded 50Hz.
+        val fs = samplingRate.toFloat()
+        val wristRotation = angularVelocities.sum() * (1.0f / fs) * (180f / PI.toFloat())
 
         // Orientation stability (inverse of std)
         val orientationStability = 1.0f / (angularVelocities.std() + 1e-6f)
 
         // Rotation smoothness (inverse of jerk)
         val angularJerk = FloatArray(gyro.size - 1) { i ->
-            abs(angularVelocities[i + 1] - angularVelocities[i]) * SAMPLING_RATE.toFloat()
+            abs(angularVelocities[i + 1] - angularVelocities[i]) * fs
         }
         val rotationSmoothness = 1.0f / (angularJerk.average().toFloat() + 1e-6f)
 
@@ -226,12 +262,18 @@ class FeatureExtractor {
         accel: Array<FloatArray>,
         timestamps: LongArray
     ): FloatArray {
+        // BUG+021 guard against empty/single-sample input.
+        if (accel.size < 2 || timestamps.size < 2) return floatArrayOf(0f, 0f, 0f)
+
         // Jerk = derivative of acceleration
         val magnitudes = FloatArray(accel.size) { i ->
             sqrt(accel[i][0].pow(2) + accel[i][1].pow(2) + accel[i][2].pow(2))
         }
 
-        val jerk = FloatArray(accel.size - 1) { i ->
+        // BUG+021 fix: bound by min(accel, timestamps) - 1 so we never index
+        // past the shorter array if the two are mismatched.
+        val pairs = min(accel.size, timestamps.size) - 1
+        val jerk = FloatArray(pairs) { i ->
             val dt = (timestamps[i + 1] - timestamps[i]) / 1e9f
             if (dt > 0) abs(magnitudes[i + 1] - magnitudes[i]) / dt else 0f
         }
@@ -247,7 +289,10 @@ class FeatureExtractor {
     // 4. FREQUENCY FEATURES (5)
     // ========================================================================
 
-    private fun extractFrequencyFeatures(accel: Array<FloatArray>): FloatArray {
+    private fun extractFrequencyFeatures(accel: Array<FloatArray>, samplingRate: Double): FloatArray {
+        // BUG+021 guard.
+        if (accel.size < 2) return floatArrayOf(0f, 0f, 0f, 0f, 0f)
+
         // Calculate magnitude
         val magnitudes = FloatArray(accel.size) { i ->
             sqrt(accel[i][0].pow(2) + accel[i][1].pow(2) + accel[i][2].pow(2))
@@ -257,9 +302,10 @@ class FeatureExtractor {
         val autocorr = autocorrelation(magnitudes, maxLag = min(100, magnitudes.size / 2))
 
         // Dominant frequency (Hz) - first peak in autocorrelation
+        // BUG+020 fix: use measured fs.
         val dominantFreq = if (autocorr.size > 1) {
             val firstPeak = autocorr.drop(1).indexOfMax() + 1
-            if (firstPeak > 0) SAMPLING_RATE / firstPeak else 0.0
+            if (firstPeak > 0) samplingRate / firstPeak else 0.0
         } else {
             0.0
         }.toFloat()
@@ -289,8 +335,12 @@ class FeatureExtractor {
 
     private fun extractTrajectoryFeatures(
         accel: Array<FloatArray>,
-        gyro: Array<FloatArray>
+        gyro: Array<FloatArray>,
+        samplingRate: Double
     ): FloatArray {
+        // BUG+021 guard.
+        if (accel.size < 2) return floatArrayOf(0f, 0f, 0f, 0f)
+
         // Path curvature (change in direction)
         val directions = FloatArray(accel.size) { i ->
             atan2(accel[i][1], accel[i][0])
@@ -309,9 +359,10 @@ class FeatureExtractor {
         val elevationConsistency = 1.0f / (elevationAngles.std() + 1e-6f)
 
         // Total distance (integrated acceleration - simplified)
+        // BUG+020 fix: use measured fs.
         val totalDistance = accel.sumOf { sample ->
             sqrt(sample[0].pow(2) + sample[1].pow(2) + sample[2].pow(2)).toDouble()
-        }.toFloat() / SAMPLING_RATE.toFloat()
+        }.toFloat() / samplingRate.toFloat()
 
         return floatArrayOf(pathCurvature, elevationAngle, elevationConsistency, totalDistance)
     }
@@ -322,14 +373,20 @@ class FeatureExtractor {
 
     private fun extractRegularityFeatures(
         accel: Array<FloatArray>,
-        timestamps: LongArray
+        timestamps: LongArray,
+        samplingRate: Double
     ): FloatArray {
+        // BUG+021 guard.
+        if (accel.size < 2) return floatArrayOf(0f, 0f, 0f)
+
         val magnitudes = FloatArray(accel.size) { i ->
             sqrt(accel[i][0].pow(2) + accel[i][1].pow(2) + accel[i][2].pow(2))
         }
 
         // Regularity score (autocorrelation at expected interval ~45s for cigarette)
-        val expectedInterval = (45 * SAMPLING_RATE).toInt() // 45 seconds
+        // BUG+022 fix: derive lag from measured fs so this works at 25Hz, 50Hz,
+        // or any other rate. At 25Hz this gives 1125 samples; at 50Hz 2250.
+        val expectedInterval = (45 * samplingRate).toInt() // 45 seconds
         val autocorr = autocorrelation(magnitudes, maxLag = min(expectedInterval + 50, magnitudes.size / 2))
         val regularityScore = if (expectedInterval < autocorr.size) {
             autocorr[expectedInterval]

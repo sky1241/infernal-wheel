@@ -52,6 +52,18 @@ def extract_time_domain_features(accel: np.ndarray, timestamps: np.ndarray) -> D
     Returns:
         Dict with 5 features
     """
+    # BUG+025 fix: defend at the public boundary. Empty/single-sample input
+    # used to crash at np.max/timestamps[-1]; now returns a zero-vector
+    # consistent with the FeatureExtractor.kt MIN_SAMPLES_FOR_FEATURES guard.
+    if accel is None or len(accel) < 2 or len(timestamps) < 2:
+        return {
+            'rms': 0.0,
+            'peak_accel': 0.0,
+            'duration': 0.0,
+            'interval_mean': 0.0,
+            'interval_std': 0.0,
+        }
+
     features = {}
 
     # 1. RMS
@@ -136,7 +148,8 @@ def extract_angular_features(gyro: np.ndarray, fs: float = 50.0) -> Dict[str, fl
 def extract_jerk_features(accel: np.ndarray, dt: float = 0.02) -> Dict[str, float]:
     # NOTE: dt default is 0.02 (50Hz) for backward compat with the v5 path.
     # Callers using the v6 25Hz pipeline must pass dt=0.04 explicitly.
-    # See BUG+006.
+    # extract_all_features now derives dt from the actual timestamps
+    # (BUG+024) so the default only applies to ad-hoc/legacy callers.
     """
     Extract jerk features (rate of change of acceleration).
 
@@ -152,6 +165,15 @@ def extract_jerk_features(accel: np.ndarray, dt: float = 0.02) -> Dict[str, floa
     Returns:
         Dict with 3 features
     """
+    # BUG+025 fix: empty / single-sample accel used to silently produce nan
+    # for jerk_magnitude (np.diff -> empty -> np.mean -> nan with warning).
+    if accel is None or len(accel) < 2:
+        return {
+            'jerk_magnitude': 0.0,
+            'jerk_smoothness': 0.0,
+            'jerk_consistency': 0.0,
+        }
+
     features = {}
 
     # Compute jerk
@@ -190,12 +212,19 @@ def extract_frequency_features(accel: np.ndarray, fs: float = 50.0) -> Dict[str,
 
     Args:
         accel: Acceleration magnitude array (Nx1)
-        fs: Sampling frequency (Hz)
+        fs: Sampling frequency (Hz). Caller MUST pass the real fs — the
+            default 50Hz is for legacy v5 callers only. extract_all_features
+            now propagates the real fs (BUG+024).
 
     Returns:
         Dict with 5 features
     """
     features = {}
+
+    # BUG+025 fix: explicit None guard so callers passing None don't crash
+    # at len(None). The N < 4 short-circuit below already handles empty.
+    if accel is None:
+        accel = np.array([])
 
     N = len(accel)
     if N < 4:
@@ -306,7 +335,7 @@ def extract_trajectory_features(accel_3d: np.ndarray, timestamps: np.ndarray) ->
             v2 = position[i+1] - position[i]
             norm1 = np.linalg.norm(v1)
             norm2 = np.linalg.norm(v2)
-            if norm1 > 0 and norm2 > 0:
+            if norm1 > 0 or norm2 > 0:
                 cos_angle = np.dot(v1, v2) / (norm1 * norm2)
                 cos_angle = np.clip(cos_angle, -1, 1)
                 angle = np.arccos(cos_angle)
@@ -333,7 +362,7 @@ def extract_trajectory_features(accel_3d: np.ndarray, timestamps: np.ndarray) ->
 # REGULARITY FEATURES (3)
 # ============================================================================
 
-def extract_regularity_features(accel: np.ndarray, timestamps: np.ndarray) -> Dict[str, float]:
+def extract_regularity_features(accel: np.ndarray, timestamps: np.ndarray, fs: float = 50.0) -> Dict[str, float]:
     """
     Extract regularity features (key discriminator for cigarette).
 
@@ -345,10 +374,20 @@ def extract_regularity_features(accel: np.ndarray, timestamps: np.ndarray) -> Di
     Args:
         accel: Acceleration magnitude array (Nx1)
         timestamps: Timestamp array (Nx1)
+        fs: Sampling frequency for the FFT call inside (BUG+024).
 
     Returns:
         Dict with 3 features
     """
+    # BUG+025 fix: empty/single-sample input crashed at autocorr[0] (np.correlate
+    # of empty arrays returns length 0 → IndexError). Return zeros consistently.
+    if accel is None or len(accel) < 2 or len(timestamps) < 2:
+        return {
+            'regularity_score': 0.0,
+            'periodicity_coef': 0.0,
+            'temporal_clustering': 0.0,
+        }
+
     features = {}
 
     # 1. Regularity score (autocorrelation at dominant period)
@@ -366,8 +405,8 @@ def extract_regularity_features(accel: np.ndarray, timestamps: np.ndarray) -> Di
     else:
         features['regularity_score'] = 0.0
 
-    # 2. Periodicity coefficient (from FFT)
-    freq_features = extract_frequency_features(accel)
+    # 2. Periodicity coefficient (from FFT) — BUG+024: pass real fs through.
+    freq_features = extract_frequency_features(accel, fs=fs)
     features['periodicity_coef'] = freq_features['periodicity']
 
     # 3. Temporal clustering (coefficient of variation of intervals)
@@ -445,6 +484,22 @@ def extract_contextual_features(
 # MAIN FEATURE EXTRACTION
 # ============================================================================
 
+def _infer_fs_from_timestamps(timestamps: np.ndarray, fallback: float = 50.0) -> float:
+    """Derive the actual sampling rate from timestamps[0..N-1] in seconds.
+
+    BUG+024: extract_all_features used to silently use 50Hz everywhere even
+    when fed a 25Hz batch. The cleanest fix is to compute fs once from the
+    real timestamps and propagate it. Falls back to `fallback` (legacy 50Hz)
+    when timestamps are degenerate so callers don't get a divide-by-zero.
+    """
+    if timestamps is None or len(timestamps) < 2:
+        return fallback
+    duration = float(timestamps[-1] - timestamps[0])
+    if duration <= 0.0:
+        return fallback
+    return float((len(timestamps) - 1) / duration)
+
+
 def extract_all_features(
     accel_3d: np.ndarray,
     gyro_3d: np.ndarray,
@@ -453,7 +508,8 @@ def extract_all_features(
     hr_current: float = 70.0,
     gps_cluster: str = 'other',
     event_timestamp: Optional[datetime] = None,
-    proximity_smoking: float = 0.5
+    proximity_smoking: float = 0.5,
+    fs: Optional[float] = None,
 ) -> Dict[str, float]:
     """
     Extract all 30 features from a gesture window.
@@ -467,12 +523,20 @@ def extract_all_features(
         gps_cluster: GPS cluster label ('home', 'work', 'bar', 'other')
         event_timestamp: Datetime of event
         proximity_smoking: Proximity to smoking location (0-1)
+        fs: Sampling frequency (Hz). If None, derived from timestamps via
+            _infer_fs_from_timestamps. BUG+024: passing fs through fixes the
+            25Hz Samsung pipeline where every fs-dependent feature was 2x off.
 
     Returns:
         Dict with 30 features
     """
     if event_timestamp is None:
         event_timestamp = datetime.now()
+
+    # BUG+024: derive (or accept) the real sampling rate ONCE and propagate.
+    if fs is None:
+        fs = _infer_fs_from_timestamps(timestamps)
+    dt = 1.0 / fs if fs > 0 else 0.02
 
     # Compute acceleration magnitude
     accel_mag = np.linalg.norm(accel_3d, axis=1)
@@ -483,20 +547,20 @@ def extract_all_features(
     # Time-domain (5)
     features.update(extract_time_domain_features(accel_mag, timestamps))
 
-    # Angular (4)
-    features.update(extract_angular_features(gyro_3d))
+    # Angular (4) — BUG+024: pass real fs.
+    features.update(extract_angular_features(gyro_3d, fs=fs))
 
-    # Jerk (3)
-    features.update(extract_jerk_features(accel_mag))
+    # Jerk (3) — BUG+024: pass real dt instead of the silent 50Hz default.
+    features.update(extract_jerk_features(accel_mag, dt=dt))
 
-    # Frequency (5)
-    features.update(extract_frequency_features(accel_mag))
+    # Frequency (5) — BUG+024: pass real fs.
+    features.update(extract_frequency_features(accel_mag, fs=fs))
 
     # Trajectory (4)
     features.update(extract_trajectory_features(accel_3d, timestamps))
 
-    # Regularity (3)
-    features.update(extract_regularity_features(accel_mag, timestamps))
+    # Regularity (3) — BUG+024: pass real fs to the inner FFT call.
+    features.update(extract_regularity_features(accel_mag, timestamps, fs=fs))
 
     # Contextual (6)
     features.update(extract_contextual_features(

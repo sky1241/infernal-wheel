@@ -441,12 +441,16 @@ def add_bug(root, description):
 
     content = bugs_path.read_text(encoding="utf-8")
 
-    # Find next bug number. The regex MUST match both legacy `BUG-NNN` IDs
-    # (the original format) AND the current `BUG+NNN` format. Without the
-    # `[+-]` character class the auto-increment would always reset to 1
-    # because the existing bugs all use `BUG+` and the regex was looking
-    # for `BUG-` only.
-    existing = re.findall(r"BUG[+-](\d+)", content)
+    # Find next bug number. The regex MUST:
+    #  - match both legacy `BUG-NNN` IDs and the current `BUG+NNN` format
+    #    (without the `[+-]` class, auto-increment silently reset to 1
+    #    because existing bugs all use `BUG+` and the old regex only
+    #    matched `BUG-`)
+    #  - match ONLY at the start of a `## BUG+NNN: ...` header line, not
+    #    inside the body of an earlier bug description. Without the
+    #    multiline-anchor the mention `see BUG+017` inside BUG+016's body
+    #    would make the counter jump to 018, skipping 017. See BUG+019.
+    existing = re.findall(r"^## BUG[+-](\d+)", content, re.MULTILINE)
     next_num = max([int(n) for n in existing], default=0) + 1
     bug_id = f"BUG+{next_num:03d}"
 
@@ -473,7 +477,8 @@ def close_bug(root, bug_id):
         return
 
     content = bugs_path.read_text(encoding="utf-8")
-    pattern = f"(## {bug_id}:.*?\\n- \\*\\*Status\\*\\*: )OPEN"
+    # BUG+023 fix: bug ids contain '+' which is a regex quantifier — must escape.
+    pattern = f"(## {re.escape(bug_id)}:.*?\\n- \\*\\*Status\\*\\*: )OPEN"
     new_content = re.sub(pattern, f"\\1FIXED ({datetime.now().strftime('%Y-%m-%d')})", content)
 
     if new_content == content:

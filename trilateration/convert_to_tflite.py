@@ -19,6 +19,7 @@ References:
 - [docs/DEPLOYMENT_HARDWARE.md]
 """
 
+import os
 import numpy as np
 import pickle
 import tensorflow as tf
@@ -32,11 +33,31 @@ warnings.filterwarnings('ignore')
 # ============================================================================
 
 def load_model(model_path: str = 'models/random_forest_baseline.pkl') -> RandomForestClassifier:
-    """Load trained Random Forest model from disk."""
+    """Load trained Random Forest model from disk.
+
+    BUG+015 fix: explicit existence check before opening — pickle.load on a
+    missing file raised an opaque FileNotFoundError mid-pipeline.
+    BUG+013 note: pickle is RCE-equivalent — anything in the .pkl runs at
+    load time. We trust models/random_forest_baseline.pkl because it's
+    produced by our own train_baseline.py and lives inside the repo. Do NOT
+    point this loader at untrusted .pkl files.
+    """
     print(f"[INFO] Loading trained model from {model_path}...")
 
+    if not os.path.isfile(model_path):
+        raise FileNotFoundError(
+            f"Model file not found: {model_path}\n"
+            f"Run `python train_baseline.py` first to generate the .pkl."
+        )
+
     with open(model_path, 'rb') as f:
-        model = pickle.load(f)
+        model = pickle.load(f)  # noqa: S301 — trusted internal artifact, see docstring
+
+    if not isinstance(model, RandomForestClassifier):
+        raise TypeError(
+            f"Expected RandomForestClassifier, got {type(model).__name__}. "
+            f"The .pkl may be corrupted or from an incompatible script."
+        )
 
     print(f"[OK] Model loaded")
     print(f"     Type: {type(model).__name__}")
@@ -89,26 +110,49 @@ def sklearn_rf_to_tensorflow(rf_model: RandomForestClassifier, input_shape: tupl
 # TRAIN TENSORFLOW MODEL (KNOWLEDGE DISTILLATION)
 # ============================================================================
 
-def distill_knowledge(rf_model, tf_model, n_samples: int = 1000):
+def distill_knowledge(rf_model, tf_model, X_real: np.ndarray):
     """
-    Train TensorFlow model to mimic Random Forest predictions.
-    This is called "knowledge distillation".
+    Train TensorFlow model to mimic Random Forest predictions on REAL data.
+
+    BUG+014 fix: the previous implementation used `np.random.randn(1000, 30)`
+    as the distillation set. Sklearn RF.predict_proba on pure Gaussian noise
+    returns near-uniform distributions for almost every sample, so the
+    student NN learned to predict ~uniform softmax everywhere. This is the
+    root cause of the v3/v4 broken TFLite models. Distillation REQUIRES the
+    student to see realistic inputs from the same distribution the teacher
+    was trained on — otherwise it learns the prior, not the function.
 
     Args:
-        rf_model: Trained sklearn Random Forest
-        tf_model: TensorFlow model to train
-        n_samples: Number of synthetic samples for distillation
+        rf_model: Trained sklearn Random Forest (teacher)
+        tf_model: TensorFlow model to train (student)
+        X_real:   Real feature matrix [N, 30] — same features used to train
+                  the teacher. Pass np.load('features_train.npy') or rerun
+                  feature_extraction on your raw dataset.
+
+    Raises:
+        ValueError: if X_real is None, empty, or has wrong feature dim.
     """
     print()
     print("[INFO] Knowledge distillation: Training TF model to mimic RF...")
-    print(f"       Generating {n_samples} synthetic samples...")
 
-    # Generate synthetic data
-    np.random.seed(42)
-    X_synthetic = np.random.randn(n_samples, 30).astype(np.float32)
+    if X_real is None or len(X_real) == 0:
+        raise ValueError(
+            "X_real is required for distillation. Random/synthetic data "
+            "produces broken models — see BUG+014. Pass the same feature "
+            "matrix used to train the RF teacher."
+        )
+    expected_features = rf_model.n_features_in_
+    if X_real.shape[1] != expected_features:
+        raise ValueError(
+            f"X_real has {X_real.shape[1]} features but teacher expects "
+            f"{expected_features}. Mismatched feature pipelines."
+        )
+
+    X_real = X_real.astype(np.float32)
+    print(f"       Distilling on {len(X_real)} REAL samples ({expected_features} features)")
 
     # Get predictions from Random Forest (teacher)
-    y_rf_proba = rf_model.predict_proba(X_synthetic)
+    y_rf_proba = rf_model.predict_proba(X_real)
 
     # Compile TensorFlow model
     tf_model.compile(
@@ -121,7 +165,7 @@ def distill_knowledge(rf_model, tf_model, n_samples: int = 1000):
 
     # Train TF model to match RF predictions
     history = tf_model.fit(
-        X_synthetic,
+        X_real,
         y_rf_proba,
         epochs=50,
         batch_size=32,
@@ -253,8 +297,19 @@ def main():
     # Step 2: Create TensorFlow approximation
     tf_model = sklearn_rf_to_tensorflow(rf_model, input_shape=(30,))
 
-    # Step 3: Knowledge distillation
-    tf_model = distill_knowledge(rf_model, tf_model, n_samples=2000)
+    # Step 3: Knowledge distillation — must use REAL features (BUG+014)
+    features_path = 'models/X_train_features.npy'
+    if not os.path.isfile(features_path):
+        raise FileNotFoundError(
+            f"Missing distillation features: {features_path}\n"
+            f"Knowledge distillation requires the SAME real feature matrix\n"
+            f"used to train the Random Forest teacher (see BUG+014).\n"
+            f"Update train_baseline.py to save X_train via\n"
+            f"  np.save('models/X_train_features.npy', X_train.values)\n"
+            f"then re-run."
+        )
+    X_real = np.load(features_path)
+    tf_model = distill_knowledge(rf_model, tf_model, X_real=X_real)
 
     # Step 4: Convert to TFLite (quantized)
     tflite_path = convert_to_tflite(tf_model, output_path='models/smoking_detector.tflite', quantize=True)

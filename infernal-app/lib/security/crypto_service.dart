@@ -142,11 +142,24 @@ class CryptoService {
   }
 
   /// Dechiffre des donnees (String base64 → String)
+  ///
+  /// Format attendu: IV (12 bytes) || ciphertext+tag (ciphertext.length + 16 bytes)
+  ///
+  /// BUG+016 fix: la version precedente appelait `cipher.doFinal()` deux fois
+  /// sur la meme instance (illegal — AEAD ciphers ne peuvent pas etre reuses
+  /// sans re-init) et soustrait "-16 for tag" a la longueur finale, ce qui
+  /// tronquait 16 bytes valides du plaintext. Pointycastle GCMBlockCipher
+  /// consomme et verifie le tag internement dans doFinal, donc le plaintext
+  /// ecrit dans `output` a une longueur = `len + doFinalBytes` et NE
+  /// contient PAS le tag.
   String decrypt(String encrypted) {
     if (_derivedKey == null) throw StateError('CryptoService not unlocked');
 
     final data = base64Decode(encrypted);
-    if (data.length < _ivLength + 16) throw const FormatException('Invalid encrypted data');
+    // 12 bytes IV + >= 16 bytes tag = min length 28
+    if (data.length < _ivLength + 16) {
+      throw const FormatException('Invalid encrypted data');
+    }
 
     final iv = Uint8List.sublistView(data, 0, _ivLength);
     final ciphertextAndTag = Uint8List.sublistView(data, _ivLength);
@@ -160,12 +173,11 @@ class CryptoService {
       ));
 
     final output = Uint8List(cipher.getOutputSize(ciphertextAndTag.length));
-    final len = cipher.processBytes(ciphertextAndTag, 0, ciphertextAndTag.length, output, 0);
-    cipher.doFinal(output, len);
+    final len1 = cipher.processBytes(ciphertextAndTag, 0, ciphertextAndTag.length, output, 0);
+    final len2 = cipher.doFinal(output, len1);
+    final plaintextLength = len1 + len2;
 
-    // Remove padding zeros
-    final plaintextLength = len + cipher.doFinal(output, len);
-    return utf8.decode(output.sublist(0, plaintextLength - 16)); // -16 for tag
+    return utf8.decode(output.sublist(0, plaintextLength));
   }
 
   /// Chiffre pour ecriture fichier
@@ -212,6 +224,14 @@ class CryptoService {
   }
 
   /// Importe un backup sur un nouveau telephone
+  ///
+  /// BUG+016 fix (same as decrypt()): the previous version ignored the
+  /// `len` returned by processBytes + doFinal and decoded
+  /// `output.sublist(0, output.length - 16)`. That computes `output.length`
+  /// which is the getOutputSize() upper bound (ciphertext+tag size), not
+  /// the actual plaintext length, and then subtracts 16 to "remove the
+  /// tag" — but the tag was already consumed internally by doFinal, so
+  /// the subtraction chops 16 valid plaintext bytes.
   Future<Map<String, dynamic>?> importBackup(String backupPassword, String backupJson) async {
     try {
       final backup = jsonDecode(backupJson) as Map<String, dynamic>;
@@ -226,10 +246,11 @@ class CryptoService {
         ..init(false, AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)));
 
       final output = Uint8List(cipher.getOutputSize(ciphertextAndTag.length));
-      final len = cipher.processBytes(ciphertextAndTag, 0, ciphertextAndTag.length, output, 0);
-      cipher.doFinal(output, len);
+      final len1 = cipher.processBytes(ciphertextAndTag, 0, ciphertextAndTag.length, output, 0);
+      final len2 = cipher.doFinal(output, len1);
+      final plaintextLength = len1 + len2;
 
-      final plaintext = utf8.decode(output.sublist(0, output.length - 16));
+      final plaintext = utf8.decode(output.sublist(0, plaintextLength));
       return jsonDecode(plaintext) as Map<String, dynamic>;
     } catch (_) {
       return null;

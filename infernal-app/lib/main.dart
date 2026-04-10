@@ -50,7 +50,7 @@ class AppLauncher extends StatefulWidget {
   State<AppLauncher> createState() => _AppLauncherState();
 }
 
-class _AppLauncherState extends State<AppLauncher> {
+class _AppLauncherState extends State<AppLauncher> with WidgetsBindingObserver {
   final _crypto = CryptoService();
 
   // States: checking → onboarding → loading → ready
@@ -60,7 +60,27 @@ class _AppLauncherState extends State<AppLauncher> {
   @override
   void initState() {
     super.initState();
+    // BUG+030 fix: observe app lifecycle so we can flush engine state to
+    // disk on background/pause. Without this, the debounced _saveState in
+    // local_server (5s interval) could lose the most recent action if the
+    // OS killed the process while backgrounded.
+    WidgetsBinding.instance.addObserver(this);
     _checkSetup();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      // Force-flush engine state on any lifecycle exit so the latest action
+      // (clope, dodo, drink) survives a process kill. Fire-and-forget; the
+      // OS may kill us mid-write but DataStore.saveState writes a single
+      // small JSON file, which is atomic enough on Android.
+      // ignore: discarded_futures
+      localServer.flushState();
+    }
   }
 
   Future<void> _checkSetup() async {
@@ -102,6 +122,7 @@ class _AppLauncherState extends State<AppLauncher> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     localServer.stop();
     super.dispose();
   }
