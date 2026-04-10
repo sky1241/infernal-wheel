@@ -764,6 +764,20 @@ function setLoading(on) {
 function requestStart() { pendingReq++; setLoading(true); }
 function requestEnd() { pendingReq = Math.max(0, pendingReq - 1); if (pendingReq === 0) setLoading(false); }
 
+// BUG+037 fix: escape HTML in user-authored strings before injecting into
+// innerHTML. notes.html was missing the escapeHtml helper that index.html
+// has — meaning the exported HTML journal was vulnerable to self-XSS via
+// user notes, and the generated file could hijack the user's browser
+// when opened offline (file:// context).
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function showToast(message, type, title) {
   type = type || "info"; title = title || "";
   const host = document.getElementById("toastHost");
@@ -1403,8 +1417,12 @@ async function exportAllData() {
     for (var i = 0; i < data.notes.length; i++) {
       var note = data.notes[i];
       var info = formatDateDisplay(note.day);
-      html += "<div class='day-section'><h2 class='day-title'>" + info.dayName + " " + info.dateDisplay + "</h2>";
-      html += "<div class='notes'>" + (note.content || "").replace(/\n/g, "<br>") + "</div></div>";
+      // BUG+037 fix: escape user-authored note content before embedding it
+      // in the exported HTML. Without this, a note containing <script> or
+      // any markup would execute when the exported file is opened in a
+      // browser (file:// context with elevated privileges on some browsers).
+      html += "<div class='day-section'><h2 class='day-title'>" + escapeHtml(info.dayName) + " " + escapeHtml(info.dateDisplay) + "</h2>";
+      html += "<div class='notes'>" + escapeHtml(note.content || "").replace(/\n/g, "<br>") + "</div></div>";
     }
     html += "<div class='footer'>Exporte le " + new Date().toLocaleString("fr-FR") + " - " + data.notes.length + " jours</div></body></html>";
     var blob = new Blob([html], {type:"text/html;charset=utf-8"});

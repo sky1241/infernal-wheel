@@ -465,7 +465,12 @@ def add_bug(root, description):
 - **Regression**: [a verifier]
 """
     bugs_path.write_text(content + entry, encoding="utf-8")
-    print(f"  Added {bug_id}: {description}")
+    # BUG+037 incident: on Windows cp1252, print() on a description
+    # containing a unicode arrow (→) crashed AFTER the bug was already
+    # written to BUGS.md, creating a duplicate BUG+038 on the retry.
+    # Encode safely so the print can't crash the caller in that edge case.
+    safe_desc = description.encode("ascii", errors="replace").decode("ascii")
+    print(f"  Added {bug_id}: {safe_desc}")
     return bug_id
 
 
