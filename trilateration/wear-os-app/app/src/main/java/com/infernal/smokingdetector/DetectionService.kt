@@ -149,10 +149,14 @@ class DetectionService : Service() {
     private lateinit var prefs: SharedPreferences
     private var isLeftWrist = false
     private var smokingHand = "auto"
-    private var cigarettesDetected = 0
-    private var drinksDetected = 0
-    private var lastDetectionTime = 0L
-    private var lastDrinkDetectionTime = 0L
+    // BUG+031 fix: counters + debounce timestamps are mutated from 3 concurrent
+    // paths (periodic 50Hz inference, 25Hz Samsung callback, boost listener).
+    // Atomic types give us a race-free check-then-update for the 2-min debounce
+    // and a safe increment for the UI counters.
+    @Volatile private var cigarettesDetected = 0
+    @Volatile private var drinksDetected = 0
+    private val lastDetectionTime = java.util.concurrent.atomic.AtomicLong(0L)
+    private val lastDrinkDetectionTime = java.util.concurrent.atomic.AtomicLong(0L)
     private val DRINK_THRESHOLD = 0.6f
     // BUG 10 FIX: Guard against double-start
     private var isMonitoring = false
@@ -690,13 +694,20 @@ class DetectionService : Service() {
     private fun handleCigaretteDetected(confidence: Float, features: FloatArray) {
         val currentTime = System.currentTimeMillis()
 
-        // Debounce: Ignore if detected within last 2 minutes
-        if (currentTime - lastDetectionTime < 120_000) {
-            Log.d(TAG, "Cigarette detected but debounced (too recent)")
-            return
+        // BUG+031 fix: atomic check-then-set. Two inference paths arriving
+        // in the same millisecond window could both read a stale
+        // lastDetectionTime and BOTH pass the 120s check → double DB insert,
+        // double sync, double notification. AtomicLong.compareAndSet only
+        // lets ONE thread through per debounce window.
+        while (true) {
+            val prev = lastDetectionTime.get()
+            if (currentTime - prev < 120_000) {
+                Log.d(TAG, "Cigarette detected but debounced (too recent)")
+                return
+            }
+            if (lastDetectionTime.compareAndSet(prev, currentTime)) break
+            // Another thread updated it between our read and CAS — retry.
         }
-
-        lastDetectionTime = currentTime
         cigarettesDetected++
 
         Log.d(TAG, "🚬 CIGARETTE DETECTED! Count: $cigarettesDetected, Confidence: ${(confidence * 100).toInt()}%")
@@ -805,13 +816,15 @@ class DetectionService : Service() {
     private fun handleDrinkDetected(confidence: Float, features: FloatArray) {
         val currentTime = System.currentTimeMillis()
 
-        // Debounce: Ignore if detected within last 2 minutes
-        if (currentTime - lastDrinkDetectionTime < 120_000) {
-            Log.d(TAG, "Drink detected but debounced (too recent)")
-            return
+        // BUG+031 fix: same atomic CAS pattern as the cigarette path.
+        while (true) {
+            val prev = lastDrinkDetectionTime.get()
+            if (currentTime - prev < 120_000) {
+                Log.d(TAG, "Drink detected but debounced (too recent)")
+                return
+            }
+            if (lastDrinkDetectionTime.compareAndSet(prev, currentTime)) break
         }
-
-        lastDrinkDetectionTime = currentTime
         drinksDetected++
 
         Log.d(TAG, "🍺 DRINK DETECTED! Count: $drinksDetected, Confidence: ${(confidence * 100).toInt()}%")

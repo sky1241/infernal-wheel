@@ -256,24 +256,22 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
     }
 
     /**
-     * Get total cigarettes detected (all time)
+     * Get total cigarettes detected (all time). Used by MainActivity header.
      */
     fun getTotalCount(): Int {
         val db = readableDatabase
-        // BUG 17 FIX: Use cursor.use {} to avoid leaks
         return db.rawQuery("SELECT COUNT(*) FROM $TABLE_DETECTIONS", null).use { cursor ->
             if (cursor.moveToFirst()) cursor.getInt(0) else 0
         }
     }
 
     /**
-     * Get cigarettes detected in last N days
+     * Get cigarettes detected in last N days.
+     * Used by MainActivity + DetectionService.startMonitoring (counter init).
      */
     fun getCountLastNDays(days: Int): Int {
         val db = readableDatabase
         val cutoffTime = System.currentTimeMillis() - (days * 24 * 60 * 60 * 1000L)
-
-        // BUG 17 FIX: Use cursor.use {} to avoid leaks
         return db.rawQuery(
             "SELECT COUNT(*) FROM $TABLE_DETECTIONS WHERE $COL_TIMESTAMP > ?",
             arrayOf(cutoffTime.toString())
@@ -283,122 +281,11 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
     }
 
     /**
-     * Get average cigarettes per day (last 30 days)
+     * Get average cigarettes per day (last 30 days). Used by MainActivity header.
      */
     fun getAvgCigarettesPerDay(): Float {
         val count = getCountLastNDays(30)
         return count / 30f
-    }
-
-    /**
-     * Get detections by GPS cluster (home/work/bar/other)
-     */
-    fun getCountByCluster(cluster: Int): Int {
-        val db = readableDatabase
-        // BUG 17 FIX: Use cursor.use {} to avoid leaks
-        return db.rawQuery(
-            "SELECT COUNT(*) FROM $TABLE_DETECTIONS WHERE $COL_GPS_CLUSTER = ?",
-            arrayOf(cluster.toString())
-        ).use { cursor ->
-            if (cursor.moveToFirst()) cursor.getInt(0) else 0
-        }
-    }
-
-    /**
-     * Get last detection timestamp
-     */
-    fun getLastDetectionTime(): Long {
-        val db = readableDatabase
-        // BUG 17 FIX: Use cursor.use {} to avoid leaks
-        return db.rawQuery(
-            "SELECT $COL_TIMESTAMP FROM $TABLE_DETECTIONS ORDER BY $COL_TIMESTAMP DESC LIMIT 1",
-            null
-        ).use { cursor ->
-            if (cursor.moveToFirst()) cursor.getLong(0) else 0L
-        }
-    }
-
-    /**
-     * Get streak (consecutive days with ≤ N cigarettes)
-     * For gamification: "3 days with ≤2 cigarettes/day"
-     */
-    fun getStreak(@Suppress("UNUSED_PARAMETER") maxCigarettesPerDay: Int = 2): Int {
-        // Placeholder — TODO implement proper consecutive-days streak logic.
-        // Suppressing the unused-parameter warning so the rest of the lint
-        // output stays clean and meaningful.
-        return 0
-    }
-
-    /**
-     * Data class for a detection row (used by sync)
-     */
-    data class Detection(
-        val timestamp: Long,
-        val confidence: Float,
-        val gpsCluster: Int,
-        val hrBaseline: Float,
-        val hrCurrent: Float,
-        val hrDelta: Float,
-        val wristLocation: String,
-        val smokingHand: String
-    )
-
-    /**
-     * Get all detections that haven't been synced to phone yet.
-     *
-     * DEPRECATED: this is dead code from an earlier sync architecture
-     * (DB-polled batch sync). The current architecture uses event-driven
-     * sync via MessageSyncManager which has its own offline buffer in
-     * `pending_sync.json`. The `sync_status` column is never updated by
-     * any caller, so this query always returns ALL rows.
-     *
-     * Kept around in case we want to switch back to DB-polled sync later.
-     */
-    @Deprecated("Sync is now event-driven via MessageSyncManager. sync_status is never updated.")
-    fun getUnsyncedDetections(): List<Detection> {
-        val db = readableDatabase
-        return db.rawQuery(
-            "SELECT $COL_TIMESTAMP, $COL_CONFIDENCE, $COL_GPS_CLUSTER, $COL_HR_BASELINE, $COL_HR_CURRENT, $COL_HR_DELTA, $COL_WRIST_LOCATION, $COL_SMOKING_HAND FROM $TABLE_DETECTIONS WHERE $COL_SYNC_STATUS = 'pending' ORDER BY $COL_TIMESTAMP ASC",
-            null
-        ).use { cursor ->
-            val results = mutableListOf<Detection>()
-            while (cursor.moveToNext()) {
-                results.add(Detection(
-                    timestamp = cursor.getLong(0),
-                    confidence = cursor.getFloat(1),
-                    gpsCluster = cursor.getInt(2),
-                    hrBaseline = cursor.getFloat(3),
-                    hrCurrent = cursor.getFloat(4),
-                    hrDelta = cursor.getFloat(5),
-                    wristLocation = cursor.getString(6) ?: "right",
-                    smokingHand = cursor.getString(7) ?: "auto"
-                ))
-            }
-            results
-        }
-    }
-
-    /**
-     * Mark a detection as synced to phone.
-     *
-     * DEPRECATED: dead code, see comment on getUnsyncedDetections().
-     * Also, using `timestamp` as the key is unsafe — two detections in the
-     * same millisecond would both be marked synced even if only one was.
-     * If/when sync becomes DB-polled again, switch the key to `id`.
-     */
-    @Deprecated("Sync is now event-driven via MessageSyncManager.")
-    fun markAsSynced(timestamp: Long) {
-        val db = writableDatabase
-        val values = ContentValues().apply {
-            put(COL_SYNC_STATUS, "synced")
-        }
-        val updated = db.update(
-            TABLE_DETECTIONS,
-            values,
-            "$COL_TIMESTAMP = ?",
-            arrayOf(timestamp.toString())
-        )
-        Log.d(TAG, "Marked detection as synced: timestamp=$timestamp (updated=$updated)")
     }
 
     /**
@@ -452,13 +339,6 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
         return id
     }
 
-    fun getDrinkCount(): Int {
-        val db = readableDatabase
-        return db.rawQuery("SELECT COUNT(*) FROM $TABLE_DRINK_DETECTIONS", null).use { cursor ->
-            if (cursor.moveToFirst()) cursor.getInt(0) else 0
-        }
-    }
-
     fun getDrinkCountLastNDays(days: Int): Int {
         val db = readableDatabase
         val cutoffTime = System.currentTimeMillis() - (days * 24 * 60 * 60 * 1000L)
@@ -468,34 +348,6 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
         ).use { cursor ->
             if (cursor.moveToFirst()) cursor.getInt(0) else 0
         }
-    }
-
-    @Deprecated("Sync is now event-driven via MessageSyncManager.")
-    fun getUnsyncedDrinkDetections(): List<Detection> {
-        val db = readableDatabase
-        return db.rawQuery(
-            "SELECT $COL_TIMESTAMP, $COL_CONFIDENCE, $COL_GPS_CLUSTER, $COL_HR_BASELINE, $COL_HR_CURRENT, $COL_HR_DELTA, $COL_WRIST_LOCATION, $COL_SMOKING_HAND FROM $TABLE_DRINK_DETECTIONS WHERE $COL_SYNC_STATUS = 'pending' ORDER BY $COL_TIMESTAMP ASC",
-            null
-        ).use { cursor ->
-            val results = mutableListOf<Detection>()
-            while (cursor.moveToNext()) {
-                results.add(Detection(
-                    timestamp = cursor.getLong(0), confidence = cursor.getFloat(1),
-                    gpsCluster = cursor.getInt(2), hrBaseline = cursor.getFloat(3),
-                    hrCurrent = cursor.getFloat(4), hrDelta = cursor.getFloat(5),
-                    wristLocation = cursor.getString(6) ?: "right",
-                    smokingHand = cursor.getString(7) ?: "auto"
-                ))
-            }
-            results
-        }
-    }
-
-    @Deprecated("Sync is now event-driven via MessageSyncManager.")
-    fun markDrinkAsSynced(timestamp: Long) {
-        val db = writableDatabase
-        val values = ContentValues().apply { put(COL_SYNC_STATUS, "synced") }
-        db.update(TABLE_DRINK_DETECTIONS, values, "$COL_TIMESTAMP = ?", arrayOf(timestamp.toString()))
     }
 
     // Separate cleanup-throttle for the drink table — independent from
@@ -512,36 +364,6 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
         db.delete(TABLE_DRINK_DETECTIONS, "$COL_TIMESTAMP < ?", arrayOf(cutoffTime.toString()))
     }
 
-    /**
-     * Export data for sync/backup (CSV format)
-     */
-    fun exportToCSV(): String {
-        val db = readableDatabase
-        // BUG 17 FIX: Use cursor.use {} to avoid leaks
-        return db.rawQuery("SELECT * FROM $TABLE_DETECTIONS", null).use { cursor ->
-            val csv = StringBuilder()
-            csv.append("timestamp,confidence,gps_cluster,hr_baseline,hr_current,hr_delta,wrist_location,smoking_hand\n")
-
-            while (cursor.moveToNext()) {
-                val timestamp = cursor.getLong(cursor.getColumnIndexOrThrow(COL_TIMESTAMP))
-                val confidence = cursor.getFloat(cursor.getColumnIndexOrThrow(COL_CONFIDENCE))
-                val gpsCluster = cursor.getInt(cursor.getColumnIndexOrThrow(COL_GPS_CLUSTER))
-                val hrBaseline = cursor.getFloat(cursor.getColumnIndexOrThrow(COL_HR_BASELINE))
-                val hrCurrent = cursor.getFloat(cursor.getColumnIndexOrThrow(COL_HR_CURRENT))
-                val hrDelta = cursor.getFloat(cursor.getColumnIndexOrThrow(COL_HR_DELTA))
-
-                val wrist = cursor.getString(cursor.getColumnIndexOrThrow(COL_WRIST_LOCATION)) ?: "right"
-                val hand = cursor.getString(cursor.getColumnIndexOrThrow(COL_SMOKING_HAND)) ?: "auto"
-                csv.append("$timestamp,$confidence,$gpsCluster,$hrBaseline,$hrCurrent,$hrDelta,$wrist,$hand\n")
-            }
-
-            csv.toString()
-        }
-    }
-
-    /**
-     * Clear all data (for testing/reset)
-     */
     // ===== TRAINING SAMPLES =====
 
     /**
@@ -568,23 +390,6 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
         val id = db.insert(TABLE_TRAINING, null, values)
         Log.d(TAG, "Training sample saved: id=$id, label=$label, measurement=$boostMeasurement")
         return id
-    }
-
-    fun getTrainingSampleCount(): Int {
-        val db = readableDatabase
-        return db.rawQuery("SELECT COUNT(*) FROM $TABLE_TRAINING", null).use { cursor ->
-            if (cursor.moveToFirst()) cursor.getInt(0) else 0
-        }
-    }
-
-    fun getTrainingSampleCountByLabel(label: String): Int {
-        val db = readableDatabase
-        return db.rawQuery(
-            "SELECT COUNT(*) FROM $TABLE_TRAINING WHERE label = ?",
-            arrayOf(label)
-        ).use { cursor ->
-            if (cursor.moveToFirst()) cursor.getInt(0) else 0
-        }
     }
 
     // ===== SMOKING PATTERNS (24h) =====
@@ -639,20 +444,6 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
     }
 
     /**
-     * Get the smoking pattern for a specific hour.
-     * Returns the average count for that hour across all days.
-     */
-    fun getPatternForHour(hour: Int): Float {
-        val db = readableDatabase
-        return db.rawQuery(
-            "SELECT AVG(count) FROM $TABLE_PATTERNS WHERE hour = ?",
-            arrayOf(hour.toString())
-        ).use { cursor ->
-            if (cursor.moveToFirst()) cursor.getFloat(0) else 0f
-        }
-    }
-
-    /**
      * Get all patterns as hour→count map.
      * Used for threshold adjustment: high-count hours get lower threshold.
      */
@@ -701,10 +492,4 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
         return GaussianHourPattern.fromHourCounts(getAllPatterns())
     }
 
-    fun clearAll() {
-        val db = writableDatabase
-        db.delete(TABLE_DETECTIONS, null, null)
-        db.delete(TABLE_DRINK_DETECTIONS, null, null)
-        Log.d(TAG, "All detections cleared")
-    }
 }

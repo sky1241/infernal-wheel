@@ -57,6 +57,13 @@ class SmokingDetector(private val context: Context) {
     private var normMean: FloatArray? = null
     private var normStd: FloatArray? = null
 
+    // BUG+032 fix: TFLite Interpreter is NOT thread-safe. In DetectionService
+    // the 50Hz path has 2 concurrent inference coroutines (periodic + boost)
+    // and on 25Hz the rate limiter already serializes things, but defending
+    // at the interpreter boundary costs nothing and makes this class safe
+    // for any future caller. All interpreter.run() calls go through this lock.
+    private val interpreterLock = Object()
+
     fun loadModel(): Boolean {
         return try {
             Log.d(TAG, "Loading TFLite model: $MODEL_FILE")
@@ -161,7 +168,10 @@ class SmokingDetector(private val context: Context) {
 
         return try {
             val startTime = System.currentTimeMillis()
-            interp.run(inputArray, outputArray)
+            // BUG+032: serialize access — TFLite Interpreter is not thread-safe.
+            synchronized(interpreterLock) {
+                interp.run(inputArray, outputArray)
+            }
             val inferenceTime = System.currentTimeMillis() - startTime
             Log.d(TAG, "Inference (features): ${inferenceTime}ms -> ${outputArray[0].contentToString()}")
             outputArray[0]
@@ -230,7 +240,10 @@ class SmokingDetector(private val context: Context) {
 
         return try {
             val startTime = System.currentTimeMillis()
-            interp.run(input, outputArray)
+            // BUG+032: serialize access — TFLite Interpreter is not thread-safe.
+            synchronized(interpreterLock) {
+                interp.run(input, outputArray)
+            }
             val inferenceTime = System.currentTimeMillis() - startTime
             Log.d(TAG, "Inference (CNN 50Hz): ${inferenceTime}ms -> ${outputArray[0].contentToString()}")
             outputArray[0]
@@ -290,7 +303,10 @@ class SmokingDetector(private val context: Context) {
 
         return try {
             val startTime = System.currentTimeMillis()
-            interp.run(input, outputArray)
+            // BUG+032: serialize access — TFLite Interpreter is not thread-safe.
+            synchronized(interpreterLock) {
+                interp.run(input, outputArray)
+            }
             val inferenceTime = System.currentTimeMillis() - startTime
             Log.d(TAG, "Inference (CNN 25Hz): ${inferenceTime}ms -> ${outputArray[0].contentToString()}")
             outputArray[0]
