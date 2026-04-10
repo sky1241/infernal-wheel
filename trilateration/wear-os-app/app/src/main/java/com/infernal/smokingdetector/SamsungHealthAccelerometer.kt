@@ -76,18 +76,23 @@ class SamsungHealthAccelerometer(private val context: Context) {
         fun onBatch(samples: Array<FloatArray>, timestampNs: Long)
     }
 
-    private var listener: BatchListener? = null
-    private var isConnected: Boolean = false
-    private var isAvailable: Boolean = false
+    // All state fields are written from the Samsung SDK callback thread
+    // (HealthTracker.TrackerEventListener.onDataReceived runs on a Samsung
+    // worker pool) and read from the DetectionService coroutine thread.
+    // @Volatile ensures cross-thread visibility — without it, a stale
+    // false read of isAvailable could silently drop a batch.
+    @Volatile private var listener: BatchListener? = null
+    @Volatile private var isConnected: Boolean = false
+    @Volatile private var isAvailable: Boolean = false
 
-    private var healthTrackingService: HealthTrackingService? = null
-    private var accelTracker: HealthTracker? = null
+    @Volatile private var healthTrackingService: HealthTrackingService? = null
+    @Volatile private var accelTracker: HealthTracker? = null
 
-    // Diagnostic counters — visible via Log.i, used to PROVE the SDK delivers
-    // data on a real watch (not just compiles).
-    private var batchCount: Long = 0
-    private var totalSamplesReceived: Long = 0
-    private var firstBatchTimeMs: Long = 0L
+    // Diagnostic counters — also @Volatile because getBatchCount() and
+    // getTotalSamplesReceived() are public and may be called from any thread.
+    @Volatile private var batchCount: Long = 0
+    @Volatile private var totalSamplesReceived: Long = 0
+    @Volatile private var firstBatchTimeMs: Long = 0L
 
     // ─────────────────────────────────────────────────────────────────────
     // Public API — used by DetectionService
@@ -111,10 +116,24 @@ class SamsungHealthAccelerometer(private val context: Context) {
 
     /**
      * Connect to the Samsung Health Tracking service and start the
-     * ACCELEROMETER_CONTINUOUS tracker. Idempotent.
+     * ACCELEROMETER_CONTINUOUS tracker.
+     *
+     * Idempotent: a second call while already connected is a no-op (just
+     * updates the listener). Without this guard, the previous code would
+     * leak a HealthTrackingService instance and an EventListener
+     * registration on every duplicate call — eventually starving Samsung's
+     * cross-process binder pool.
      */
     fun connect(listener: BatchListener) {
+        // Always update the listener so a re-connect after a config change
+        // routes new batches to the new owner.
         this.listener = listener
+
+        // Idempotency guard
+        if (isConnected || isAvailable || healthTrackingService != null) {
+            Log.d(TAG, "connect() called while already connected — listener updated only")
+            return
+        }
 
         if (!isSdkAvailable()) {
             isAvailable = false
@@ -219,11 +238,18 @@ class SamsungHealthAccelerometer(private val context: Context) {
         val n = dataPoints.size
         if (n == 0) return
 
+        // DataPoint.getValue() is a Java generic with a platform return type
+        // (Kotlin sees it as `Integer!`). If Samsung returns null for any
+        // axis (extreme edge case but documented as possible during sensor
+        // warm-up or hardware fault), the unboxing into Float would throw
+        // NullPointerException and crash the entire batch handler. Default
+        // missing values to 0 raw which converts to 0 m/s² — better than
+        // crashing the watch service.
         val samples = Array(n) { i ->
             val dp = dataPoints[i]
-            val rawX = dp.getValue(ValueKey.AccelerometerSet.ACCELEROMETER_X)
-            val rawY = dp.getValue(ValueKey.AccelerometerSet.ACCELEROMETER_Y)
-            val rawZ = dp.getValue(ValueKey.AccelerometerSet.ACCELEROMETER_Z)
+            val rawX: Int = dp.getValue(ValueKey.AccelerometerSet.ACCELEROMETER_X) ?: 0
+            val rawY: Int = dp.getValue(ValueKey.AccelerometerSet.ACCELEROMETER_Y) ?: 0
+            val rawZ: Int = dp.getValue(ValueKey.AccelerometerSet.ACCELEROMETER_Z) ?: 0
             floatArrayOf(
                 rawIntToMs2(rawX),
                 rawIntToMs2(rawY),

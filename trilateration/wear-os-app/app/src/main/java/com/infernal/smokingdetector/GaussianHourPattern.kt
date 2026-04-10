@@ -87,7 +87,19 @@ class GaussianHourPattern(
     /** Total number of observations used to build the pattern. */
     fun totalSamples(): Float = totalSamples
 
-    // Raw (unnormalized) density at a given minute.
+    /**
+     * Sum of Gaussian kernels at the given minute-of-day.
+     *
+     * Each (hour, count) bucket contributes a Gaussian centered on the hour's
+     * mid-point (h*60 + 30) with standard deviation `sigmaMinutes` and
+     * amplitude `count`. Wrap-around is handled by taking the shorter of
+     * the two distances around the 1440-minute clock.
+     *
+     * This is the SINGLE source of truth for density. Both score() and
+     * computePeakDensity() use it. score() divides by peakDensity for the
+     * normalized form; computePeakDensity() uses the raw form to find the
+     * normalization constant in the first place.
+     */
     private fun rawDensity(minuteOfDay: Int): Float {
         val t = minuteOfDay.toFloat()
         val twoSigmaSq = 2f * sigmaMinutes * sigmaMinutes
@@ -96,7 +108,8 @@ class GaussianHourPattern(
             // Use the mid-point of each hour as the Gaussian center (e.g. 9h → 9*60+30)
             val mu = hour * 60f + 30f
             val delta = t - mu
-            // Also consider the wrap-around (e.g. 23h vs 1h): take the closest distance
+            // Take the shorter distance around the 1440-minute clock so a
+            // smoker who fires at 23h30 also gets credit for 00h00 reads.
             val wrapDelta = when {
                 delta > 720f -> delta - 1440f
                 delta < -720f -> delta + 1440f
@@ -107,32 +120,21 @@ class GaussianHourPattern(
         return sum
     }
 
-    // Peak density across all 24 hours (midnight to 23h59), used for normalization.
+    /**
+     * Peak raw density across all 24 hours, used to normalize score() into
+     * [0, 1]. Sampled every 5 minutes which gives ~288 evaluations — fine
+     * for a one-shot constructor cost (called once per Detection inference,
+     * cached afterwards).
+     *
+     * Cannot call score() here because score() depends on peakDensity, which
+     * we are currently computing. Calls rawDensity() directly instead.
+     */
     private fun computePeakDensity(): Float {
         var peak = 0f
-        for (m in 0 until 1440 step 5) {  // sample every 5 minutes
-            val d = rawDensityUnnormalized(m)
+        for (m in 0 until 1440 step 5) {
+            val d = rawDensity(m)
             if (d > peak) peak = d
         }
         return peak
-    }
-
-    // Same as rawDensity but without calling this.rawDensity to avoid
-    // infinite recursion during peak computation.
-    private fun rawDensityUnnormalized(minuteOfDay: Int): Float {
-        val t = minuteOfDay.toFloat()
-        val twoSigmaSq = 2f * sigmaMinutes * sigmaMinutes
-        var sum = 0f
-        for ((hour, count) in hourCounts) {
-            val mu = hour * 60f + 30f
-            val delta = t - mu
-            val wrapDelta = when {
-                delta > 720f -> delta - 1440f
-                delta < -720f -> delta + 1440f
-                else -> delta
-            }
-            sum += count * exp(-(wrapDelta * wrapDelta) / twoSigmaSq)
-        }
-        return sum
     }
 }
