@@ -103,11 +103,35 @@ class SmokingDetector(private val context: Context) {
 
     /**
      * Set normalization params for raw signal model.
-     * mean/std are per-channel [6] arrays from training.
+     * mean/std are per-channel arrays from training (size 6 for v5, size 3 for v6).
+     *
+     * Validates:
+     *   - mean.size == std.size (must match)
+     *   - no std[c] == 0 (would cause division by zero in normalization)
+     *   - no NaN/Inf
+     *
+     * If validation fails, the params are NOT installed and a warning is logged.
+     * Inference will then run on UN-normalized data, which produces garbage but
+     * doesn't crash. Better than silently using broken params.
      */
     fun setNormalization(mean: FloatArray, std: FloatArray) {
+        if (mean.size != std.size) {
+            Log.e(TAG, "setNormalization: mean.size=${mean.size} != std.size=${std.size} — REJECTED")
+            return
+        }
+        for (i in std.indices) {
+            if (std[i] == 0f || std[i].isNaN() || std[i].isInfinite()) {
+                Log.e(TAG, "setNormalization: std[$i]=${std[i]} invalid (would div-by-zero) — REJECTED")
+                return
+            }
+            if (mean[i].isNaN() || mean[i].isInfinite()) {
+                Log.e(TAG, "setNormalization: mean[$i]=${mean[i]} invalid — REJECTED")
+                return
+            }
+        }
         normMean = mean
         normStd = std
+        Log.d(TAG, "Normalization installed: ${mean.size} channels")
     }
 
     fun getModelFormat(): ModelFormat = modelFormat
@@ -126,14 +150,20 @@ class SmokingDetector(private val context: Context) {
         }
         require(features.size == 30) { "Expected 30 features, got ${features.size}" }
 
+        val interp = interpreter
+        if (interp == null) {
+            Log.e(TAG, "predict called with null interpreter — returning uniform")
+            return FloatArray(4) { 0.25f }
+        }
+
         val inputArray = Array(1) { features }
         val outputArray = Array(1) { FloatArray(4) }
 
         return try {
             val startTime = System.currentTimeMillis()
-            interpreter?.run(inputArray, outputArray)
+            interp.run(inputArray, outputArray)
             val inferenceTime = System.currentTimeMillis() - startTime
-            Log.d(TAG, "Inference (features): ${inferenceTime}ms → ${outputArray[0].contentToString()}")
+            Log.d(TAG, "Inference (features): ${inferenceTime}ms -> ${outputArray[0].contentToString()}")
             outputArray[0]
         } catch (e: Exception) {
             Log.e(TAG, "Inference failed", e)
@@ -171,20 +201,36 @@ class SmokingDetector(private val context: Context) {
             input[0][i][5] = gyro[idx][2]
         }
 
-        // Per-channel normalization
-        if (normMean != null && normStd != null) {
-            for (i in 0 until WINDOW_SAMPLES_50HZ) {
-                for (c in 0 until CHANNELS_6) {
-                    input[0][i][c] = (input[0][i][c] - normMean!![c]) / normStd!![c]
+        // Per-channel normalization. Cache the local references so the JIT
+        // doesn't re-null-check on every iteration. Validate the size matches
+        // the expected channel count — a mismatch would either silently
+        // skip normalization (broken predictions) or crash with
+        // ArrayIndexOutOfBoundsException. Both are bad; we explicitly bail
+        // and warn.
+        val mean = normMean
+        val std = normStd
+        if (mean != null && std != null) {
+            if (mean.size != CHANNELS_6 || std.size != CHANNELS_6) {
+                Log.w(TAG, "predictRaw50Hz: norm size mismatch (mean=${mean.size} std=${std.size} expected=$CHANNELS_6) — running un-normalized")
+            } else {
+                for (i in 0 until WINDOW_SAMPLES_50HZ) {
+                    for (c in 0 until CHANNELS_6) {
+                        input[0][i][c] = (input[0][i][c] - mean[c]) / std[c]
+                    }
                 }
             }
         }
 
+        val interp = interpreter
+        if (interp == null) {
+            Log.e(TAG, "predictRaw50Hz called with null interpreter — returning uniform")
+            return FloatArray(4) { 0.25f }
+        }
         val outputArray = Array(1) { FloatArray(4) }
 
         return try {
             val startTime = System.currentTimeMillis()
-            interpreter?.run(input, outputArray)
+            interp.run(input, outputArray)
             val inferenceTime = System.currentTimeMillis() - startTime
             Log.d(TAG, "Inference (CNN 50Hz): ${inferenceTime}ms -> ${outputArray[0].contentToString()}")
             outputArray[0]
@@ -220,20 +266,31 @@ class SmokingDetector(private val context: Context) {
             input[0][i][2] = accel[idx][2]
         }
 
-        // Per-channel normalization
-        if (normMean != null && normStd != null && normMean!!.size == CHANNELS_3) {
-            for (i in 0 until WINDOW_SAMPLES_25HZ) {
-                for (c in 0 until CHANNELS_3) {
-                    input[0][i][c] = (input[0][i][c] - normMean!![c]) / normStd!![c]
+        // Per-channel normalization. Cache locals (see predictRaw 50Hz comment).
+        val mean = normMean
+        val std = normStd
+        if (mean != null && std != null) {
+            if (mean.size != CHANNELS_3 || std.size != CHANNELS_3) {
+                Log.w(TAG, "predictRaw25Hz: norm size mismatch (mean=${mean.size} std=${std.size} expected=$CHANNELS_3) — running un-normalized")
+            } else {
+                for (i in 0 until WINDOW_SAMPLES_25HZ) {
+                    for (c in 0 until CHANNELS_3) {
+                        input[0][i][c] = (input[0][i][c] - mean[c]) / std[c]
+                    }
                 }
             }
         }
 
+        val interp = interpreter
+        if (interp == null) {
+            Log.e(TAG, "predictRaw25Hz called with null interpreter — returning uniform")
+            return FloatArray(4) { 0.25f }
+        }
         val outputArray = Array(1) { FloatArray(4) }
 
         return try {
             val startTime = System.currentTimeMillis()
-            interpreter?.run(input, outputArray)
+            interp.run(input, outputArray)
             val inferenceTime = System.currentTimeMillis() - startTime
             Log.d(TAG, "Inference (CNN 25Hz): ${inferenceTime}ms -> ${outputArray[0].contentToString()}")
             outputArray[0]
@@ -244,14 +301,20 @@ class SmokingDetector(private val context: Context) {
     }
 
     private fun loadModelFile(filename: String): MappedByteBuffer {
-        val fileDescriptor = context.assets.openFd(filename)
-        val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
-        val fileChannel = inputStream.channel
-        return fileChannel.map(
-            FileChannel.MapMode.READ_ONLY,
-            fileDescriptor.startOffset,
-            fileDescriptor.declaredLength
-        )
+        // Use .use {} on both the AssetFileDescriptor and the FileInputStream
+        // so we don't leak the underlying file descriptors. The MappedByteBuffer
+        // returned by FileChannel.map() survives the close because the kernel
+        // keeps the mapping alive until it's garbage-collected (documented in
+        // FileChannel.map() Javadoc).
+        return context.assets.openFd(filename).use { afd ->
+            FileInputStream(afd.fileDescriptor).use { fis ->
+                fis.channel.map(
+                    FileChannel.MapMode.READ_ONLY,
+                    afd.startOffset,
+                    afd.declaredLength
+                )
+            }
+        }
     }
 
     fun close() {
