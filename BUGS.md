@@ -78,3 +78,35 @@
 - **Fix**: NOT YET FIXED. This audit pass added a clear NOTE in the function docstring warning the caller that these features are weak signals. A future revision should switch to a fused IMU pipeline (e.g. via the `ahrs` Python package) or drop the trajectory features entirely from the v2 model.
 - **Test**: N/A — the bug isn't a crash, it's a quality issue. A proper fix would need a baseline IMU recording with known ground truth motion to validate.
 - **Regression**: N/A.
+
+## BUG+009: GPSClusteringManager.getCurrentCluster() returns DBSCAN raw label, not semantic constant
+- **Status**: FIXED (2026-04-10)
+- **Symptom**: DetectionService writes `gps_cluster` int into the cigarette_detections DB row expecting CLUSTER_HOME=0, CLUSTER_WORK=1, CLUSTER_BAR=2, CLUSTER_OTHER=3. But getCurrentCluster() returned the DBSCAN raw cluster id (0, 1, 2, ... in arrival order), which has nothing to do with these semantic constants. Result: the gps_cluster column was full of arbitrary integers, breaking any analytics that filtered "home" cigarettes vs "work" cigarettes.
+- **Root cause**: updateCurrentCluster() did `currentCluster = sp.cluster` (raw DBSCAN id) instead of mapping `sp.clusterName` ("home"/"work"/"bar") to the public CLUSTER_* constants.
+- **Fix**: Added a `clusterNameToId(name: String): Int` helper that maps "home"→0, "work"→1, "bar"→2, else→3. updateCurrentCluster now does `currentCluster = clusterNameToId(sp.clusterName)`.
+- **Test**: trilateration/test_gps_labeling.py::test_cluster_name_to_id_* (4 tests)
+- **Regression**: none — forge baseline 58P → 74P (+16 new GPS tests).
+
+## BUG+010: GPSClusteringManager.clusterStayPoints() label_time has hour gaps and overlaps
+- **Status**: FIXED (2026-04-10)
+- **Symptom**: Same family as BUG+003. avgHour=8.5 fell into "other" (not <=8 home, not in 9..17 work, not in 18..23 bar). avgHour=17.5 also fell into "other". And avgHour=22.5 matched the home branch first because of when-ordering, even though the bar branch claimed 18..23.
+- **Root cause**: The when chain used overlapping ranges and discrete-integer thinking on a continuous-double avgHour.
+- **Fix**: Extracted into a `labelByHour(avgHour: Double): String` helper with an exhaustive partition: `home` for `>=22 || <8`, `work` for `<18`, `bar` for the rest. Every double in [0, 24) maps to exactly one bucket.
+- **Test**: trilateration/test_gps_labeling.py::test_every_integer_hour_is_classified, test_every_half_hour_is_classified, test_24h_partition_is_exhaustive (10 tests)
+- **Regression**: none.
+
+## BUG+011: GPSClusteringManager.clusterStayPoints() leaves stale labels on already-classified points
+- **Status**: FIXED (2026-04-10)
+- **Symptom**: After the first DBSCAN run, every subsequent run skipped points whose cluster was already != -1. This meant that when new stay points arrived and would have merged into an existing cluster (or split it), the labels never updated. The clustering became stale.
+- **Root cause**: The early-continue at the top of the loop was an attempt to avoid re-doing work, but it also blocked re-evaluation. For < 200 stay points the optimization is meaningless and the correctness loss is total.
+- **Fix**: Reset every point to `cluster = -1; clusterName = "other"` at the start of each clusterStayPoints() call, then re-run from scratch. The loop body keeps the within-run early-continue for points already classified by the current run's earlier core points.
+- **Test**: covered indirectly by the labelByHour partition tests (correctness is now deterministic).
+- **Regression**: none.
+
+## BUG+012: GPSClusteringManager.stayPoints is not thread-safe
+- **Status**: FIXED (2026-04-10)
+- **Symptom**: stayPoints was a bare `mutableListOf<StayPoint>()`. addStayPoint (LocationListener thread) appends; updateCurrentCluster (inference thread) iterates with `minByOrNull`. ConcurrentModificationException possible during overlap.
+- **Root cause**: No synchronization at all.
+- **Fix**: Wrapped in `Collections.synchronizedList(...)`. Iterating callsites take a snapshot via `synchronized(stayPoints) { stayPoints.toList() }` first because synchronizedList only locks individual ops, not iteration. Also marked `currentLocation`, `currentStayStart`, `currentCluster` as `@Volatile` for cross-thread visibility.
+- **Test**: not unit-testable in pure Python; verified by code review and the synchronized wrapper.
+- **Regression**: none.

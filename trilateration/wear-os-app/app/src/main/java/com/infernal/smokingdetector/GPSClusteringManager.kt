@@ -55,11 +55,15 @@ class GPSClusteringManager(private val context: Context) : LocationListener {
 
     private val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
-    private val stayPoints = mutableListOf<StayPoint>()
-    private var currentLocation: Location? = null
-    private var currentStayStart: Long? = null
+    // Synchronized list to protect against race between LocationListener
+    // callbacks (writer) and the inference thread (reader via getCurrentCluster).
+    // BUG+012: was a bare mutableListOf, ConcurrentModificationException possible
+    // when minByOrNull iterated while a new stay point was being added.
+    private val stayPoints = java.util.Collections.synchronizedList(mutableListOf<StayPoint>())
+    @Volatile private var currentLocation: Location? = null
+    @Volatile private var currentStayStart: Long? = null
 
-    private var currentCluster = CLUSTER_OTHER
+    @Volatile private var currentCluster = CLUSTER_OTHER
 
     /**
      * Start GPS location tracking
@@ -158,68 +162,118 @@ class GPSClusteringManager(private val context: Context) : LocationListener {
     }
 
     /**
-     * Update current cluster based on location
+     * Update current cluster based on location.
+     *
+     * BUG+009 fix: this used to set currentCluster = sp.cluster (the raw
+     * DBSCAN cluster id, e.g. 0/1/2/3 in arrival order). The caller in
+     * DetectionService writes that int into the gps_cluster DB column
+     * expecting CLUSTER_HOME=0/CLUSTER_WORK=1/CLUSTER_BAR=2/CLUSTER_OTHER=3
+     * — completely different semantics. Now we map sp.clusterName to the
+     * proper constant before assigning.
+     *
+     * BUG+012 fix: snapshot the synchronized list to a local copy before
+     * iterating with minByOrNull — Collections.synchronizedList only
+     * synchronizes individual ops, not iteration.
      */
     private fun updateCurrentCluster(location: Location) {
-        if (stayPoints.isEmpty()) {
+        // Snapshot under the list's intrinsic lock to avoid CME during
+        // iteration of minByOrNull.
+        val snapshot = synchronized(stayPoints) { stayPoints.toList() }
+
+        if (snapshot.isEmpty()) {
             currentCluster = CLUSTER_OTHER
             return
         }
 
         // Find nearest stay point cluster
-        val nearest = stayPoints.minByOrNull { sp ->
+        val nearest = snapshot.minByOrNull { sp ->
             haversineDistance(location.latitude, location.longitude, sp.lat, sp.lon)
         }
 
         nearest?.let { sp ->
             val distance = haversineDistance(location.latitude, location.longitude, sp.lat, sp.lon)
             if (distance < DBSCAN_EPS_M) {
-                currentCluster = sp.cluster
-                Log.d(TAG, "Current cluster: $currentCluster (distance=${distance.toInt()}m)")
+                currentCluster = clusterNameToId(sp.clusterName)
+                Log.d(TAG, "Current cluster: $currentCluster (${sp.clusterName}, distance=${distance.toInt()}m)")
             } else {
                 currentCluster = CLUSTER_OTHER
             }
         }
     }
 
+    /** Map a semantic cluster name to its public int constant. */
+    private fun clusterNameToId(name: String): Int = when (name) {
+        "home" -> CLUSTER_HOME
+        "work" -> CLUSTER_WORK
+        "bar" -> CLUSTER_BAR
+        else -> CLUSTER_OTHER
+    }
+
     /**
-     * DBSCAN clustering on stay points
+     * DBSCAN clustering on stay points.
+     *
+     * BUG+011 fix: the previous version skipped points whose cluster was
+     * already != -1, so once a point was classified it could never be
+     * re-evaluated even if more data arrived that should merge it into
+     * a different cluster. Now we RESET every point to -1 at the start
+     * of each run and re-classify from scratch — for a small list of
+     * stay points (typically < 200) this is cheap and always correct.
+     *
+     * BUG+010 fix: the time-of-day labeling had hour gaps (8.5 and 17.5
+     * fell into "other") and overlaps (22.5 matched both home and bar
+     * branches, with home winning by ordering). Now uses an exhaustive
+     * partition that maps every avgHour ∈ [0, 24) to exactly one bucket.
+     *
+     * BUG+012 fix: take a snapshot of the synchronized list before
+     * iterating to avoid ConcurrentModificationException.
      */
     private fun clusterStayPoints() {
-        // Simple DBSCAN implementation
+        val snapshot = synchronized(stayPoints) {
+            // Reset before re-clustering — see BUG+011 fix above.
+            stayPoints.forEach { it.cluster = -1; it.clusterName = "other" }
+            stayPoints.toList()
+        }
+
         var clusterLabel = 0
+        for (point in snapshot) {
+            if (point.cluster != -1) continue // Already classified by an earlier core point in this run
 
-        for (point in stayPoints) {
-            if (point.cluster != -1) continue // Already clustered
-
-            // Find neighbors within ε
-            val neighbors = stayPoints.filter { other ->
+            val neighbors = snapshot.filter { other ->
                 haversineDistance(point.lat, point.lon, other.lat, other.lon) < DBSCAN_EPS_M
             }
 
             if (neighbors.size >= DBSCAN_MIN_PTS) {
-                // Core point - create cluster
-                point.cluster = clusterLabel
-                neighbors.forEach { it.cluster = clusterLabel }
-
-                // Label cluster based on time patterns
+                // Core point — create a new cluster and label every neighbor
                 val avgHour = neighbors.map { it.hour }.average()
-                // BUG 6 FIX: 22.0..8.0 is an empty range in Kotlin; use || instead
-                point.clusterName = when {
-                    avgHour >= 22.0 || avgHour <= 8.0 -> "home"
-                    avgHour in 9.0..17.0 -> "work"
-                    avgHour in 18.0..23.0 -> "bar"
-                    else -> "other"
+                val name = labelByHour(avgHour)
+                neighbors.forEach {
+                    it.cluster = clusterLabel
+                    it.clusterName = name
                 }
-
-                Log.d(TAG, "Cluster $clusterLabel: ${point.clusterName} (${neighbors.size} points, avgHour=$avgHour)")
-
+                Log.d(TAG, "Cluster $clusterLabel: $name (${neighbors.size} points, avgHour=$avgHour)")
                 clusterLabel++
             } else {
-                // Noise point
                 point.cluster = -1
+                point.clusterName = "other"
             }
         }
+    }
+
+    /**
+     * Map an average-hour value to a semantic location label.
+     *
+     * Partition (every hour belongs to exactly one bucket, no gaps, no overlaps):
+     *   home : 22.0 <= h or h < 8.0     (10h, sleep + early morning)
+     *   work : 8.0 <= h < 18.0          (10h, working day)
+     *   bar  : 18.0 <= h < 22.0         (4h, early evening)
+     *
+     * The avgHour input is a Double (mean of integer hours), so values
+     * like 8.5 and 17.5 are valid and must land in a deterministic bucket.
+     */
+    private fun labelByHour(avgHour: Double): String = when {
+        avgHour >= 22.0 || avgHour < 8.0 -> "home"
+        avgHour < 18.0 -> "work"   // covers 8.0..17.999
+        else -> "bar"              // covers 18.0..21.999
     }
 
     /**
