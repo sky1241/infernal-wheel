@@ -43,13 +43,14 @@
         </activity>
 
         <!-- Detection Service (foreground)
-             exported=true is needed during development to start the service
-             via `adb shell am start-foreground-service`. Set to false before
-             production release. -->
+             exported=true ONLY for debug builds — required to start the
+             service from `adb shell am start-foreground-service` during
+             development. Released APKs MUST flip this back to false. -->
         <service
             android:name=".DetectionService"
             android:enabled="true"
             android:exported="true"
+            tools:ignore="ExportedService"
             android:process=":detection"
             android:foregroundServiceType="health" />
 

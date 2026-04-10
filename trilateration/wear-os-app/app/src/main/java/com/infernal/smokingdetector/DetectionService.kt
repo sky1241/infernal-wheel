@@ -44,6 +44,16 @@ class DetectionService : Service() {
         private const val RING_BUFFER_25HZ = 200            // ~8s of signal at 25Hz
         private const val MIN_INFERENCE_INTERVAL_25HZ_MS = 4_000L  // Don't run more than once per 4s
 
+        // Bootstrap window: while we don't have a learned smoking-hour profile yet,
+        // let the first BOOTSTRAP_BATCHES samples through the temporal filter so the
+        // CNN actually runs and we can validate the pipeline (and start collecting
+        // detections that feed pattern learning). After that, the filter takes over.
+        // 50 batches × ~12s/batch ≈ 10 minutes of unfiltered inference on first run.
+        private const val BOOTSTRAP_BATCHES = 50
+
+        // Number of batches we log for diagnostic purposes (avoids log spam after).
+        private const val BOOTSTRAP_LOG_BATCHES = 10
+
         // Service actions
         const val ACTION_START = "com.infernal.smokingdetector.START"
         const val ACTION_STOP = "com.infernal.smokingdetector.STOP"
@@ -389,18 +399,21 @@ class DetectionService : Service() {
             }
             newBufSize = ring25HzBuffer.size
         }
-        // Diagnostic — proves DetectionService receives Samsung batches
-        Log.i(TAG, "[25Hz] received batch of ${samples.size} samples, ring=$newBufSize/$RING_BUFFER_25HZ")
+        // Diagnostic — proves DetectionService receives Samsung batches.
+        // Logged only on the first BOOTSTRAP_LOG_BATCHES batches to avoid log spam.
+        if (batchCountForLog < BOOTSTRAP_LOG_BATCHES) {
+            Log.i(TAG, "[25Hz] received batch of ${samples.size} samples, ring=$newBufSize/$RING_BUFFER_25HZ")
+            batchCountForLog++
+        }
 
-        // 2. Temporal filter — only run CNN during learned smoking hours
-        //    During testing/bootstrap (no smoking history yet), allow inference
-        //    so we can verify the full pipeline end-to-end.
-        val highHour = database.isHighSmokingHour()
-        if (!highHour && batchCountForLog > 25) {
-            // After 25 batches (~5 min), respect the temporal filter normally
+        // 2. Temporal filter — only run CNN during learned smoking hours.
+        //    Phase 1 (no history yet): we let the first BOOTSTRAP_BATCHES batches
+        //    through so we can validate the pipeline end-to-end.
+        //    Phase 2+ (history collected): we strictly follow the learned hours.
+        val isBootstrap = batchCountForLog < BOOTSTRAP_BATCHES
+        if (!isBootstrap && !database.isHighSmokingHour()) {
             return
         }
-        batchCountForLog++
 
         // 3. Rate limiter
         val now = System.currentTimeMillis()
@@ -460,6 +473,13 @@ class DetectionService : Service() {
     private suspend fun runInference(isBoostMeasurement: Boolean = false) {
         withContext(Dispatchers.Default) {
             try {
+                // When the loaded model is the 25Hz one, the periodic 50Hz path is
+                // a no-op — Samsung's batched flow drives runInference25Hz instead.
+                // Skipping here avoids spamming "predictRaw on non-50Hz model" logs.
+                if (detector.getModelFormat() == SmokingDetector.ModelFormat.CNN_25HZ_3CH) {
+                    return@withContext
+                }
+
                 Log.d(TAG, "Running inference...")
 
                 // Get recent sensor data (1000 samples = 20s @ 50Hz)

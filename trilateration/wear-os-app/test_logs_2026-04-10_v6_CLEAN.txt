@@ -1,0 +1,65 @@
+04-10 18:45:21.002 13520 13520 D SmokingDetector: Loading TFLite model: smoking_detector.tflite
+04-10 18:45:21.205 13520 13520 D SmokingDetector: Model loaded: format=CNN_25HZ_3CH shape=[1, 112, 3]
+04-10 18:45:21.206 13520 13520 D SmokingDetector: Output shape: [1, 4]
+04-10 18:45:21.351 13520 13520 D SamsungHealthAccel: connectService() called, awaiting callback
+04-10 18:45:21.351 13520 13520 D DetectionService: Samsung 25Hz parasitic flow connected
+04-10 18:45:21.370 13520 13520 D SamsungHealthAccel: Samsung tracking service connected
+04-10 18:45:21.389 13520 13520 D SamsungHealthAccel: ACCELEROMETER_CONTINUOUS tracker active @ 25Hz
+04-10 18:45:33.558 13520 13529 I SamsungHealthAccel: [FIRST BATCH] Samsung SDK delivered 300 samples — pipeline is LIVE
+04-10 18:45:33.558 13520 13529 I SamsungHealthAccel: [FIRST BATCH] sample[0] = (0.9460472, -3.8057442, 8.804227) m/s²
+04-10 18:45:33.560 13520 13529 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:45:33.576 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 4ms -> [0.12667213, 0.14050491, 0.09534434, 0.63747865]
+04-10 18:45:33.621 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.12667213, 0.14050491, 0.09534434, 0.63747865]
+04-10 18:45:45.523 13520 13529 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:45:45.530 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 2ms -> [0.12933211, 0.13971469, 0.09461426, 0.63633895]
+04-10 18:45:45.531 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.12933211, 0.13971469, 0.09461426, 0.63633895]
+04-10 18:45:57.559 13520 13529 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:45:57.566 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 3ms -> [0.1352233, 0.13883251, 0.09407575, 0.6318684]
+04-10 18:45:57.568 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.1352233, 0.13883251, 0.09407575, 0.6318684]
+04-10 18:46:09.580 13520 13531 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:46:09.586 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 2ms -> [0.13611221, 0.13862261, 0.093897805, 0.6313673]
+04-10 18:46:09.587 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.13611221, 0.13862261, 0.093897805, 0.6313673]
+04-10 18:46:21.608 13520 13531 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:46:21.615 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 3ms -> [0.48646554, 0.08908616, 0.06484482, 0.3596034]
+04-10 18:46:21.617 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.48646554, 0.08908616, 0.06484482, 0.3596034]
+04-10 18:46:33.695 13520 13531 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:46:33.701 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 2ms -> [0.44902337, 0.09460587, 0.06815036, 0.38822037]
+04-10 18:46:33.703 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.44902337, 0.09460587, 0.06815036, 0.38822037]
+04-10 18:46:45.696 13520 13531 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:46:45.703 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 3ms -> [0.12245274, 0.14212689, 0.0970266, 0.63839376]
+04-10 18:46:45.704 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.12245274, 0.14212689, 0.0970266, 0.63839376]
+04-10 18:46:57.770 13520 13531 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:46:57.777 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 2ms -> [0.1408501, 0.1374827, 0.09298133, 0.62868583]
+04-10 18:46:57.779 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.1408501, 0.1374827, 0.09298133, 0.62868583]
+04-10 18:47:09.737 13520 13531 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:47:09.744 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 3ms -> [0.11483105, 0.1402433, 0.09394771, 0.65097797]
+04-10 18:47:09.753 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.11483105, 0.1402433, 0.09394771, 0.65097797]
+04-10 18:47:21.737 13520 13531 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:47:21.745 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 2ms -> [0.09670743, 0.14265311, 0.095240355, 0.66539913]
+04-10 18:47:21.747 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.09670743, 0.14265311, 0.095240355, 0.66539913]
+04-10 18:47:33.752 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 2ms -> [0.10245002, 0.1418987, 0.09484644, 0.6608048]
+04-10 18:47:33.754 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.10245002, 0.1418987, 0.09484644, 0.6608048]
+04-10 18:47:45.772 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 2ms -> [0.1666733, 0.1324896, 0.08918282, 0.6116543]
+04-10 18:47:45.774 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.1666733, 0.1324896, 0.08918282, 0.6116543]
+04-10 18:47:57.767 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 3ms -> [0.014341765, 0.1556198, 0.10294508, 0.72709334]
+04-10 18:47:57.768 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.014341765, 0.1556198, 0.10294508, 0.72709334]
+04-10 18:48:09.772 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 3ms -> [0.011794836, 0.15587266, 0.102959655, 0.7293728]
+04-10 18:48:09.773 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.011794836, 0.15587266, 0.102959655, 0.7293728]
+04-10 18:48:21.790 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 2ms -> [0.009155168, 0.15613489, 0.102951586, 0.7317583]
+04-10 18:48:21.792 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.009155168, 0.15613489, 0.102951586, 0.7317583]
+04-10 18:48:33.786 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 2ms -> [0.011062585, 0.1557918, 0.10282309, 0.73032254]
+04-10 18:48:33.787 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.011062585, 0.1557918, 0.10282309, 0.73032254]
+04-10 18:48:45.800 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 3ms -> [0.009423253, 0.15610465, 0.102951325, 0.73152083]
+04-10 18:48:45.802 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.009423253, 0.15610465, 0.102951325, 0.73152083]
+04-10 18:48:57.803 13520 13544 D SmokingDetector: Inference (CNN 25Hz): 2ms -> [0.06765363, 0.14625514, 0.09687625, 0.689215]
+04-10 18:48:57.804 13520 13544 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.06765363, 0.14625514, 0.09687625, 0.689215]
+04-10 18:49:09.811 13520 13543 D SmokingDetector: Inference (CNN 25Hz): 3ms -> [0.06743219, 0.14630091, 0.09690855, 0.68935835]
+04-10 18:49:09.813 13520 13543 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.06743219, 0.14630091, 0.09690855, 0.68935835]
+04-10 18:49:21.818 13520 13543 D SmokingDetector: Inference (CNN 25Hz): 3ms -> [0.06840209, 0.14622834, 0.096911505, 0.6884581]
+04-10 18:49:21.820 13520 13543 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.06840209, 0.14622834, 0.096911505, 0.6884581]
+04-10 18:49:33.888 13520 13543 D SmokingDetector: Inference (CNN 25Hz): 2ms -> [0.06901505, 0.14612919, 0.096848294, 0.68800753]
+04-10 18:49:33.890 13520 13543 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.06901505, 0.14612919, 0.096848294, 0.68800753]
+04-10 18:49:45.834 13520 13543 D SmokingDetector: Inference (CNN 25Hz): 3ms -> [0.069316395, 0.14611633, 0.09685591, 0.68771136]
+04-10 18:49:45.837 13520 13543 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.069316395, 0.14611633, 0.09685591, 0.68771136]
+04-10 18:49:57.865 13520 13543 D SmokingDetector: Inference (CNN 25Hz): 3ms -> [0.069341436, 0.14612111, 0.09686753, 0.6876699]
+04-10 18:49:57.866 13520 13543 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.069341436, 0.14612111, 0.09686753, 0.6876699]

@@ -1,0 +1,23 @@
+04-10 18:42:07.031 13336 13336 D SmokingDetector: Loading TFLite model: smoking_detector.tflite
+04-10 18:42:07.237 13336 13336 D SmokingDetector: Model loaded: format=CNN_25HZ_3CH shape=[1, 112, 3]
+04-10 18:42:07.237 13336 13336 D SmokingDetector: Output shape: [1, 4]
+04-10 18:42:07.373 13336 13336 D SamsungHealthAccel: connectService() called, awaiting callback
+04-10 18:42:07.374 13336 13336 D DetectionService: Samsung 25Hz parasitic flow connected
+04-10 18:42:07.393 13336 13336 D SamsungHealthAccel: Samsung tracking service connected
+04-10 18:42:07.421 13336 13336 D SamsungHealthAccel: ACCELEROMETER_CONTINUOUS tracker active @ 25Hz
+04-10 18:42:19.521 13336 13349 I SamsungHealthAccel: [FIRST BATCH] Samsung SDK delivered 300 samples — pipeline is LIVE
+04-10 18:42:19.521 13336 13349 I SamsungHealthAccel: [FIRST BATCH] sample[0] = (-0.4215299, -4.526656, 8.449759) m/s²
+04-10 18:42:19.523 13336 13349 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:42:19.580 13336 13357 D SmokingDetector: Inference (CNN 25Hz): 4ms -> [0.08330139, 0.14472406, 0.09656473, 0.67540985]
+04-10 18:42:19.581 13336 13357 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.08330139, 0.14472406, 0.09656473, 0.67540985]
+04-10 18:42:31.600 13336 13349 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:42:31.607 13336 13357 D SmokingDetector: Inference (CNN 25Hz): 2ms -> [0.06921141, 0.14653194, 0.09744638, 0.6868102]
+04-10 18:42:31.609 13336 13357 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.06921141, 0.14653194, 0.09744638, 0.6868102]
+04-10 18:42:43.627 13336 13349 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:42:43.634 13336 13357 D SmokingDetector: Inference (CNN 25Hz): 2ms -> [0.11442009, 0.14087385, 0.09466287, 0.65004313]
+04-10 18:42:43.635 13336 13357 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.11442009, 0.14087385, 0.09466287, 0.65004313]
+04-10 18:42:55.459 13336 13357 W SmokingDetector: predictRaw(acc,gyro) called on non-50Hz model (CNN_25HZ_3CH) — returning uniform
+04-10 18:42:55.459 13336 13357 D DetectionService: Inference: cig=false drink=false (threshold=0.7), probs=[0.25, 0.25, 0.25, 0.25]
+04-10 18:42:55.602 13336 13349 I DetectionService: [25Hz] received batch of 300 samples, ring=200/200
+04-10 18:42:55.611 13336 13357 D SmokingDetector: Inference (CNN 25Hz): 2ms -> [0.31179827, 0.11301843, 0.078349754, 0.49683347]
+04-10 18:42:55.612 13336 13357 D DetectionService: 25Hz inference: cig=false threshold=0.7 probs=[0.31179827, 0.11301843, 0.078349754, 0.49683347]
