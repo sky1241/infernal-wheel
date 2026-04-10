@@ -54,6 +54,13 @@ class DetectionService : Service() {
         // Number of batches we log for diagnostic purposes (avoids log spam after).
         private const val BOOTSTRAP_LOG_BATCHES = 10
 
+        // HR confirmation — recheck 2 minutes after detection to see if HR
+        // has risen by at least this delta compared to the 3-5 min baseline.
+        // 5 bpm is the conservative lower bound of the documented nicotine
+        // HR response (5-15 bpm typical).
+        private const val HR_CONFIRMATION_DELAY_MS: Long = 2 * 60 * 1000L
+        private const val HR_CONFIRMATION_DELTA_BPM: Float = 5.0f
+
         // Service actions
         const val ACTION_START = "com.infernal.smokingdetector.START"
         const val ACTION_STOP = "com.infernal.smokingdetector.STOP"
@@ -113,6 +120,11 @@ class DetectionService : Service() {
 
     // Samsung Health Sensor SDK — parasitic 25Hz accel flow (Phase 2 of war plan)
     private lateinit var samsungAccel: SamsungHealthAccelerometer
+
+    // Sequence detector — replaces single-threshold triggering with
+    // a temporal pattern match over the last 6 minutes of inferences.
+    // See SequenceDetector.kt for the rationale.
+    private val sequenceDetector = SequenceDetector()
 
     /**
      * Ring buffer for 25Hz accel samples coming from Samsung SDK.
@@ -374,6 +386,7 @@ class DetectionService : Service() {
             samsungAccel.disconnect()
         }
         synchronized(ring25HzLock) { ring25HzBuffer.clear() }
+        sequenceDetector.reset()
         Log.d(TAG, "Monitoring stopped")
     }
 
@@ -447,27 +460,46 @@ class DetectionService : Service() {
 
         try {
             val probs = detector.predictRaw25Hz(window)
-            var threshold = getDetectionThreshold()
-            if (database.isHighSmokingHour()) {
-                threshold = (threshold - 0.15f).coerceAtLeast(0.4f)
-            }
-            val isCigarette = probs[SmokingDetector.CLASS_CIGARETTE] > threshold
+            val cigProb = probs[SmokingDetector.CLASS_CIGARETTE]
 
-            Log.d(TAG, "25Hz inference: cig=$isCigarette threshold=$threshold probs=${probs.contentToString()}")
+            // Feed the sequence detector (replaces single-threshold trigger).
+            // The sequence detector waits for 3 high peaks in 6 minutes
+            // (2 in a learned smoking hour) before firing. See SequenceDetector.kt.
+            // "High smoking hour" is decided by the GaussianHourPattern, which
+            // is a continuous score (not a cliffed hour bucket).
+            val gaussianPattern = database.getGaussianPattern()
+            val cal = java.util.Calendar.getInstance()
+            val minuteOfDay = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
+                cal.get(java.util.Calendar.MINUTE)
+            val hourScore = gaussianPattern.score(minuteOfDay)
+            val isHighSmokingHour = hourScore > 0.5f
 
-            if (isCigarette) {
+            val seqResult = sequenceDetector.push(
+                probability = cigProb,
+                nowMs = System.currentTimeMillis(),
+                isHighSmokingHour = isHighSmokingHour
+            )
+
+            Log.d(
+                TAG,
+                "25Hz inference: cigProb=${"%.3f".format(cigProb)} " +
+                    "peaks=${seqResult.peakCount}/${seqResult.minPeaksRequired} " +
+                    "triggered=${seqResult.triggered} probs=${probs.contentToString()}"
+            )
+
+            if (seqResult.triggered) {
                 // Capture training data BEFORE handling detection — this gives the
                 // fine-tuner labelled ground-truth for every CNN-detected event.
                 // The window is the FULL ring buffer (~8s of context), not just
                 // the 112-sample CNN slice, so the fine-tuner has temporal margin.
                 captureTrainingWindow(
                     label = "auto_detected",
-                    confidence = probs[SmokingDetector.CLASS_CIGARETTE]
+                    confidence = cigProb
                 )
 
                 // Extract dummy features placeholder for DB schema (CNN doesn't compute them)
                 handleCigaretteDetected(
-                    confidence = probs[SmokingDetector.CLASS_CIGARETTE],
+                    confidence = cigProb,
                     features = FloatArray(30)
                 )
             }
@@ -661,7 +693,55 @@ class DetectionService : Service() {
         // Trigger boost sampling (5 minutes @ 100Hz)
         boostManager.triggerBoost("cigarette_detected")
 
+        // Schedule a heart-rate confirmation recheck 2 minutes after detection.
+        // Nicotine causes HR to rise 5-15 bpm within 120 seconds of the first
+        // puff. If we see that rise, the detection is marked HR_CONFIRMED and
+        // its trust score is boosted (used later for fine-tuning label quality).
+        scheduleHrConfirmation(detectionId = id, detectionTimestamp = currentTime)
+
         // TODO: Trigger +1 min gamification delay
+    }
+
+    /**
+     * Re-read heart rate 2 minutes after a detection and update the DB record
+     * with whether HR actually rose by >= HR_CONFIRMATION_DELTA_BPM bpm.
+     *
+     * This is the second independent signal in the detection stack:
+     *   1. CNN sequence detector (visual pattern of hand-to-mouth puffs)
+     *   2. HR delta 2 min after detection (physiological response to nicotine)
+     *   3. Temporal pattern gaussian (learned smoking hours)
+     *
+     * All three are independent — a false positive would need to coincidentally
+     * trigger all three, which is extremely unlikely in normal daily activity.
+     */
+    private fun scheduleHrConfirmation(detectionId: Long, detectionTimestamp: Long) {
+        serviceScope.launch {
+            try {
+                delay(HR_CONFIRMATION_DELAY_MS)
+
+                val hrRise = healthServices.getHRRiseOverLast(
+                    lookbackStartMs = 3 * 60 * 1000L,  // baseline window = 3-5 min ago
+                    lookbackEndMs = 2 * 60 * 1000L     // recent window = last 2 min
+                )
+                val confirmed = hrRise >= HR_CONFIRMATION_DELTA_BPM
+
+                Log.i(
+                    TAG,
+                    "[HR CONFIRM] detectionId=$detectionId hrRise=${"%.2f".format(hrRise)} bpm " +
+                        "threshold=$HR_CONFIRMATION_DELTA_BPM confirmed=$confirmed"
+                )
+
+                // Update the detection record so the fine-tuner knows whether
+                // to treat this as a high-confidence or low-confidence sample.
+                database.updateDetectionHrConfirmation(
+                    detectionId = detectionId,
+                    hrRise = hrRise,
+                    confirmed = confirmed
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "HR confirmation recheck failed for detection $detectionId", e)
+            }
+        }
     }
 
     /**

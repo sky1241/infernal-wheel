@@ -37,7 +37,7 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
     companion object {
         private const val TAG = "DatabaseManager"
         private const val DATABASE_NAME = "smoking_detector.db"
-        private const val DATABASE_VERSION = 5
+        private const val DATABASE_VERSION = 6
 
         // Table: cigarette_detections
         private const val TABLE_DETECTIONS = "cigarette_detections"
@@ -59,6 +59,8 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
         private const val COL_SMOKING_HAND = "smoking_hand" // "left", "right", or "auto"
 
         private const val COL_SYNC_STATUS = "sync_status" // 'pending' or 'synced'
+        private const val COL_HR_RISE = "hr_rise"           // HR delta measured 2 min post-detection
+        private const val COL_HR_CONFIRMED = "hr_confirmed" // 1 if hr_rise >= threshold, else 0
 
         // Auto-cleanup: keep last 90 days
         private const val RETENTION_DAYS = 90
@@ -77,7 +79,9 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
                 $COL_FEATURES TEXT,
                 $COL_WRIST_LOCATION TEXT DEFAULT 'right',
                 $COL_SMOKING_HAND TEXT DEFAULT 'auto',
-                $COL_SYNC_STATUS TEXT DEFAULT 'pending'
+                $COL_SYNC_STATUS TEXT DEFAULT 'pending',
+                $COL_HR_RISE REAL DEFAULT 0,
+                $COL_HR_CONFIRMED INTEGER DEFAULT 0
             )
         """.trimIndent()
 
@@ -184,7 +188,27 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
             """.trimIndent())
             Log.d(TAG, "Database migrated: added training_samples + smoking_patterns")
         }
+        if (oldVersion < 6) {
+            // HR confirmation columns for the 2-minute post-detection HR recheck
+            db.execSQL("ALTER TABLE $TABLE_DETECTIONS ADD COLUMN $COL_HR_RISE REAL DEFAULT 0")
+            db.execSQL("ALTER TABLE $TABLE_DETECTIONS ADD COLUMN $COL_HR_CONFIRMED INTEGER DEFAULT 0")
+            Log.d(TAG, "Database migrated: added hr_rise + hr_confirmed columns")
+        }
         Log.d(TAG, "Database upgraded: $oldVersion -> $newVersion")
+    }
+
+    /**
+     * Update a detection with the HR recheck result, called 2 minutes after
+     * detection by DetectionService.scheduleHrConfirmation.
+     */
+    fun updateDetectionHrConfirmation(detectionId: Long, hrRise: Float, confirmed: Boolean) {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put(COL_HR_RISE, hrRise)
+            put(COL_HR_CONFIRMED, if (confirmed) 1 else 0)
+        }
+        val rows = db.update(TABLE_DETECTIONS, values, "$COL_ID = ?", arrayOf(detectionId.toString()))
+        Log.d(TAG, "HR confirmation updated for detection $detectionId: rise=$hrRise bpm confirmed=$confirmed ($rows rows)")
     }
 
     /**
@@ -591,16 +615,33 @@ class DatabaseManager(context: Context) : SQLiteOpenHelper(
 
     /**
      * Check if current hour is a high-smoking hour (top 30%).
-     * Returns true if the threshold should be lowered.
+     *
+     * LEGACY binary implementation. The new code path in DetectionService
+     * uses the GaussianHourPattern returned by getGaussianPattern() which
+     * gives a smooth continuous score instead of a hard cliff at each hour
+     * boundary. Kept here for backward compat with older call sites that
+     * still need a simple boolean.
      */
     fun isHighSmokingHour(): Boolean {
-        val patterns = getAllPatterns()
-        if (patterns.isEmpty()) return false
-        val currentHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-        val currentAvg = patterns[currentHour] ?: 0f
-        val allAvgs = patterns.values.sorted()
-        val threshold70 = if (allAvgs.size > 2) allAvgs[(allAvgs.size * 0.7).toInt()] else 0f
-        return currentAvg >= threshold70
+        val pattern = getGaussianPattern()
+        if (!pattern.isLearned()) return false
+        val cal = java.util.Calendar.getInstance()
+        val minuteOfDay = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
+            cal.get(java.util.Calendar.MINUTE)
+        return pattern.isHighSmokingMinute(minuteOfDay)
+    }
+
+    /**
+     * Build a GaussianHourPattern from the recorded smoking_patterns table.
+     * Each hour contributes a Gaussian kernel centered on that hour, whose
+     * amplitude is the observed count. The pattern smooths the raw counts
+     * so that nearby minutes (e.g. 8h55 vs 9h05) score similarly instead
+     * of hitting a cliff at the hour boundary.
+     *
+     * See GaussianHourPattern.kt for the scoring rationale.
+     */
+    fun getGaussianPattern(): GaussianHourPattern {
+        return GaussianHourPattern.fromHourCounts(getAllPatterns())
     }
 
     fun clearAll() {

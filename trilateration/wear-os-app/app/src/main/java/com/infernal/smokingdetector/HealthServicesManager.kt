@@ -29,12 +29,24 @@ class HealthServicesManager(private val context: Context) {
         private const val TAG = "HealthServicesManager"
         private const val DEFAULT_BASELINE_HR = 70f
         private const val BASELINE_WINDOW_DAYS = 7
+
+        // HR post-smoking signature: nicotine causes vasoconstriction and HR
+        // rises by 5-15 bpm within 2 minutes of the first puff. We keep a
+        // short rolling window of timestamped HR readings so a detection
+        // event can query "has HR risen by >= X bpm in the last Y seconds?"
+        private const val HR_HISTORY_WINDOW_MS = 5 * 60 * 1000L  // 5 min
     }
+
+    /** A single HR reading with its capture timestamp. */
+    private data class HrSample(val timestampMs: Long, val bpm: Float)
 
     private var currentHR = DEFAULT_BASELINE_HR
     private var baselineHR = DEFAULT_BASELINE_HR
     // BUG 9 FIX: Thread-safe list for HR history (accessed from coroutine + main thread)
     private val hrHistory: MutableList<Float> = Collections.synchronizedList(mutableListOf())
+    // Separate timestamped buffer used by the smoking-detection HR signal.
+    // Pruned to HR_HISTORY_WINDOW_MS on every push.
+    private val hrTimeline: MutableList<HrSample> = Collections.synchronizedList(mutableListOf())
     private var monitoringJob: Job? = null
     // BUG 8 FIX: Store the CoroutineScope as a field so we can cancel it in stop()
     private var monitoringScope: CoroutineScope? = null
@@ -88,6 +100,7 @@ class HealthServicesManager(private val context: Context) {
      */
     private fun onHeartRateUpdate(hr: Float) {
         currentHR = hr
+        val nowMs = System.currentTimeMillis()
 
         // BUG 9 FIX: Synchronize compound operations on the synchronized list
         synchronized(hrHistory) {
@@ -106,7 +119,54 @@ class HealthServicesManager(private val context: Context) {
             }
         }
 
+        // Maintain the short timestamped timeline used by smoking detection.
+        synchronized(hrTimeline) {
+            hrTimeline.add(HrSample(nowMs, hr))
+            val cutoff = nowMs - HR_HISTORY_WINDOW_MS
+            hrTimeline.removeAll { it.timestampMs < cutoff }
+        }
+
         Log.d(TAG, "HR update: current=$hr, baseline=$baselineHR, delta=${hr - baselineHR}")
+    }
+
+    /**
+     * Compute the HR delta between the current reading and the average
+     * HR from `lookbackStartMs` to `lookbackEndMs` ago.
+     *
+     * Used to detect the post-smoking HR spike: if HR has risen by 5+ bpm
+     * in the last 2 minutes compared to the preceding 3 minutes, that's
+     * a strong corroborating signal for a real cigarette.
+     *
+     * Returns 0f if there isn't enough history to compute a meaningful delta.
+     *
+     * @param lookbackStartMs  how far back the baseline window starts (ms ago)
+     * @param lookbackEndMs    where the baseline window ends (ms ago)
+     */
+    fun getHRRiseOverLast(
+        lookbackStartMs: Long = 3 * 60 * 1000L,  // baseline: 3-5 min ago
+        lookbackEndMs: Long = 2 * 60 * 1000L,    // "now" window: last 2 min
+    ): Float {
+        val nowMs = System.currentTimeMillis()
+        synchronized(hrTimeline) {
+            if (hrTimeline.size < 2) return 0f
+
+            val baselineWindowStart = nowMs - lookbackStartMs
+            val baselineWindowEnd = nowMs - lookbackEndMs
+            val recentWindowStart = nowMs - lookbackEndMs
+
+            val baselineSamples = hrTimeline.filter {
+                it.timestampMs in baselineWindowStart..baselineWindowEnd
+            }
+            val recentSamples = hrTimeline.filter {
+                it.timestampMs >= recentWindowStart
+            }
+
+            if (baselineSamples.isEmpty() || recentSamples.isEmpty()) return 0f
+
+            val baselineAvg = baselineSamples.map { it.bpm }.average().toFloat()
+            val recentAvg = recentSamples.map { it.bpm }.average().toFloat()
+            return recentAvg - baselineAvg
+        }
     }
 
     /**

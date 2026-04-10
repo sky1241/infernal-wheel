@@ -1,7 +1,54 @@
-# PLAN DE BATAILLE — État au 2026-04-10
+# PLAN DE BATAILLE — État au 2026-04-10 (session nuit)
 
 > Ce document trace ce qui marche, ce qui reste à faire, dans quel ordre, et pourquoi.
 > Il remplace le PLAN_DE_GUERRE.md (qui décrit la stratégie) en se focalisant sur l'**exécution**.
+
+---
+
+## 🆕 DERNIÈRE MISE À JOUR — Nouvelle stack de détection multi-signaux
+
+Suite au test en condition réelle du 2026-04-10 20:18-20:22 qui a montré que le
+seuil fixe 0.7 loupait des clopes dont les pics plafonnent à 0.60-0.65 avec
+un modèle générique, on a implémenté une nouvelle stack empilant **3 signaux
+indépendants** pour atteindre 99%+ de précision :
+
+### Signal 1 — SequenceDetector (remplace le seuil unique)
+Au lieu de déclencher sur UN pic > seuil, on attend une **séquence de 3+ pics
+> 0.50 dans les 6 dernières minutes** (2+ en plage smoking apprise). Raison :
+un geste main-bouche isolé (café, fourchette, gratter le nez) ne produit
+qu'un seul pic. Une vraie clope produit 5-10 pics rythmés. La séquence
+capture le pattern, pas le geste.
+
+### Signal 2 — HR confirmation recheck 2 minutes après
+Fumer fait monter la HR de 5-15 bpm dans les 2 minutes qui suivent le
+premier puff (vasoconstriction nicotinique). On schedule un recheck 2 min
+après chaque détection et on tag `hr_confirmed` dans la DB si la hausse est
+≥ 5 bpm. Une fausse détection n'aura PAS cette signature physiologique.
+
+### Signal 3 — GaussianHourPattern (remplace isHighSmokingHour binaire)
+Au lieu de "top 30% des heures" qui crée des cliffs à chaque frontière
+d'heure, on modélise chaque heure comme une **gaussienne** (σ = 30 min)
+centrée sur le milieu de l'heure. Le score est continu en [0, 1] et gère
+proprement les transitions 8:55 ↔ 9:05 et le wrap-around minuit.
+
+### Architecture cible
+```
+Flux Samsung 25Hz  →  CNN v6 (2-4 ms/inférence)  →  probabilité cigarette
+                                                           │
+                                                           ▼
+                                                  SequenceDetector
+                                                  (pattern temporel)
+                                                           │
+                                             triggered     ▼
+                                                  handleCigaretteDetected
+                                                           │
+                                                  ┌────────┴────────┐
+                                                  ▼                 ▼
+                                         captureTrainingWindow  scheduleHrConfirmation
+                                         (→ fine-tuning)        (delay 2 min → DB)
+```
+
+---
 
 ---
 

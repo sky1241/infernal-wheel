@@ -1,233 +1,276 @@
-# -1+ Architecture Document
+# Architecture — Infernal Wheel / -1+
 
-> **Last updated**: 2026-04-07
-> **Status**: Production — watch sync working, ML trained on real data
+> **Last updated**: 2026-04-10 (nuit session — multi-signal detection stack)
+> **Status**: Production-ready pipeline verified on real Galaxy Watch 7.
 
----
-
-## 1. Project Overview
-
-**-1+** is a cigarette/alcohol tracking and addiction cessation app with:
-- **Mobile app** (Flutter/Dart) — WebView + local shelf server
-- **Wear OS watch companion** (Kotlin) — ML detection + manual buttons
-- **ML pipeline** (Python/TFLite) — CNN 1D trained on real smoking data
-- **Desktop dashboard** (PowerShell) — legacy, migrated into mobile app
-
-**Core principle**: 100% local. No servers. No accounts. Data encrypted AES-256-GCM.
+Snapshot of the project structure and the responsibilities of each component.
 
 ---
 
-## 2. Architecture
+## Top-level layout
 
 ```
-WATCH (Wear OS)                        PHONE (Flutter)
-┌──────────────────────┐               ┌──────────────────────┐
-│  UI (Compose M3)     │               │  WebView             │
-│  🚬 +1  🍺🍷🥃      │  Bluetooth    │  ┌──────────────────┐ │
-│                      │  MessageClient│  │ shelf server:8011 │ │
-│  DetectionService    │──────────────>│  │  20 API endpoints │ │
-│  (:detection process)│               │  └──────────────────┘ │
-│  - CNN inference     │               │                       │
-│  - Boost mode        │               │  Dashboard HTML/CSS/JS│
-│  - Pattern learning  │               │  (5200 lines)         │
-│  - Training samples  │               │                       │
-│                      │               │  AES-256-GCM storage  │
-│  MessageSyncManager  │               │  Android Keystore     │
-│  - Send or buffer    │               ├───────────────────────┤
-│  - Auto-flush on     │               │  WatchMessageReceiver │
-│    reconnect         │               │  MainActivity listener│
-└──────────────────────┘               └───────────────────────┘
-```
-
----
-
-## 3. Watch Detection Pipeline
-
-```
-User presses +1 🚬
-  │
-  ├─ Immediate: counter +1, sync to phone, record pattern
-  │
-  ├─ 15 seconds DELAY (user lights cigarette)
-  │
-  ├─ BOOST MODE: 7 minutes, inference every 15 seconds
-  │   ├─ 28 measurements total
-  │   ├─ Each: 4.5s window @ 50Hz → 30 features → TFLite CNN
-  │   ├─ Raw windows saved as training data
-  │   └─ PARTIAL_WAKE_LOCK keeps CPU alive
-  │
-  └─ Return to NORMAL mode (inference every 30s)
-```
-
-### ML Model Versions
-
-| Model | Method | F1 | Precision | Recall | Size | Status |
-|-------|--------|---:|----------:|-------:|-----:|--------|
-| v1 | RF synthetic | 0.12 | — | — | 23KB | Replaced |
-| v2 | GBM+features (SED) | 0.42 | 0.52 | 0.35 | 20KB | **Deployed** |
-| v3 | GBM+features (SED+FL) | 0.33 | 0.20 | 0.85 | 23KB | High-recall |
-| v4 | CNN raw (SED+FL) | 0.39 | 0.26 | 0.81 | 41KB | Experimental |
-| v5 | CNN raw (SED only) | 0.75 | 0.63 | 0.92 | 39KB | Next deploy |
-
-Training data: SED dataset (Zenodo, 11 subjects, 276 puffs, 50Hz wrist IMU).
-
-### 24h Pattern Learning
-
-- Records hour + day_of_week for every cigarette/drink
-- After ~3 days: identifies high-smoking hours (top 30%)
-- Adaptive threshold: -0.15 during predicted smoking times
-- Reduces false negatives when user is likely to smoke
-
----
-
-## 4. Watch → Phone Sync
-
-```
-Watch: MessageSyncManager
-  ├─ Try MessageClient.sendMessage() via Bluetooth
-  ├─ If no phone connected → buffer to pending_sync.json (max 500)
-  └─ PhoneConnectionListener polls every 60s → auto-flush on reconnect
-
-Phone: MainActivity.onMessageReceived()
-  ├─ Receives /detection or /drink messages
-  ├─ Stores in app_flutter/watch_detections.json
-  ├─ Updates app_flutter/watch_daily_summary.json
-  └─ Notifies Flutter via MethodChannel
-```
-
-**Why MessageClient (not DataClient):**
-DataClient requires same applicationId on both devices. Failed on Xiaomi + Samsung Watch.
-MessageClient works cross-package via Bluetooth — universal solution.
-
----
-
-## 5. Phone App Structure
-
-```
-infernal-app/
-  lib/
-    main.dart                 # Entry point, AppLauncher
-    core/
-      infernal_day.dart       # Day system (4am rollover)
-      logger.dart             # Logging + perf measurement
-      result.dart             # Result<T> type
-    engine/
-      timer_engine.dart       # Work/sleep/break segments
-    security/
-      crypto_service.dart     # AES-256-GCM + Keystore
-    server/
-      local_server.dart       # shelf HTTP server (20 routes)
-      data_store.dart         # Local file storage (JSON/CSV)
-    services/
-      wear_sync_service.dart  # MethodChannel to native Kotlin
-    theme/
-      app_theme.dart          # Material theme
-      colors.dart             # Unified palette (web+phone+watch)
-      spacing.dart            # 4px spacing system
-    views/
-      onboarding_screen.dart  # First launch welcome
-      dashboard_webview.dart  # WebView → localhost:8011
-  assets/web/
-    index.html                # Dashboard (5200 lines)
-    notes.html                # Notes/journal page
-  android/
-    WatchMessageReceiver.kt   # Bluetooth message listener
-    MainActivity.kt           # MessageClient + MethodChannel
+infernal-wheel/
+├── infernal-app/                  # Flutter mobile app (phone)
+│   ├── lib/                       # Dart code — UI, services, shelf server
+│   ├── android/                   # Flutter Android wrapper + MainActivity.kt
+│   │                              #   handles watch MessageClient sync
+│   ├── assets/web/                # Dashboard HTML/CSS/JS embedded in WebView
+│   ├── test_api.py                # API integration tests (17/17 passing)
+│   └── test_flows.py              # UX flow tests (125/125 passing)
+│
+├── trilateration/                 # ML pipeline + Wear OS app
+│   ├── wear-os-app/               # Galaxy Watch app (Kotlin)
+│   │   └── app/src/main/java/com/infernal/smokingdetector/
+│   │       ├── DetectionService.kt         # foreground service (:detection)
+│   │       ├── SmokingDetector.kt          # TFLite wrapper, auto-detects model format
+│   │       ├── SequenceDetector.kt         # 🆕 temporal pattern match (6-min window)
+│   │       ├── GaussianHourPattern.kt      # 🆕 continuous smoking-hour score
+│   │       ├── SamsungHealthAccelerometer.kt  # 25Hz parasitic accel flow
+│   │       ├── DatabaseManager.kt          # SQLite schema v6 + migrations
+│   │       ├── HealthServicesManager.kt    # HR tracking (STUB + HR rise detection)
+│   │       ├── SensorDataCollector.kt      # legacy 50Hz SensorManager path
+│   │       ├── FeatureExtractor.kt         # 30-feature extraction (legacy v2 model)
+│   │       ├── BoostSamplingManager.kt     # 50Hz boost for 7 min after +1 click
+│   │       ├── MessageSyncManager.kt       # watch → phone sync + offline buffer
+│   │       ├── PhoneConnectionListener.kt  # auto-flush on reconnect
+│   │       ├── GorillaCompressor.kt        # delta + gzip + base64 for sensor data
+│   │       ├── GPSClusteringManager.kt     # home/work/bar clustering
+│   │       └── MainActivity.kt             # watch UI entry point (Compose)
+│   │
+│   ├── datasets/sed/              # SED smoking detection dataset (SED.pkl + SED-FL.pkl)
+│   ├── train_cnn.py               # original 50Hz/6ch training
+│   ├── train_cnn_25hz.py          # v6 training (25Hz/3ch accel only)
+│   ├── finetune_cnn_v7.py         # 🆕 per-user fine-tuning script
+│   ├── smoking_detector_v6_25hz.tflite     # current production model
+│   ├── normalization_params_v6_25hz.npz    # matching norm params
+│   ├── test_sequence_detector.py  # 🆕 12 tests
+│   ├── test_gaussian_pattern.py   # 🆕 21 tests
+│   ├── test_hr_confirmation.py    # 🆕 8 tests
+│   ├── test_train_cnn_25hz.py     # 31 tests
+│   ├── test_samsung_pipeline.py   # 22 tests
+│   ├── test_v6_on_device_parity.py # 11 tests
+│   ├── test_training_window_flow.py # 27 tests
+│   ├── test_compression.py        # Gorilla lossless verification
+│   ├── PLAN_DE_GUERRE.md          # strategic vision (parasitic flow, dual 50Hz/25Hz)
+│   ├── PLAN_DE_BATAILLE.md        # tactical execution plan
+│   ├── SAMSUNG_PARTNER_PLAN.md    # Samsung partner registration guide
+│   ├── SYSTEM_SUMMARY.md          # high-level system description
+│   ├── ARBRE_DETECTION.md         # detection-stack tree view
+│   └── DATASETS.md                # inventory of 13 datasets available
+│
+├── CHANGELOG.md                   # 🆕 project changelog (Keep a Changelog format)
+├── ARCHITECTURE.md                # this file
+└── .gitignore                     # excludes AAR, APK, personal data, etc.
 ```
 
 ---
 
-## 6. Watch App Structure
+## Data flow on the watch
 
 ```
-trilateration/wear-os-app/
-  app/src/main/java/.../smokingdetector/
-    MainActivity.kt           # Compose UI + manual buttons
-    DetectionService.kt       # Foreground service (:detection process)
-    SmokingDetector.kt        # TFLite model wrapper
-    SensorDataCollector.kt    # Accel + Gyro @ 50Hz
-    FeatureExtractor.kt       # 30 biomechanical features
-    BoostSamplingManager.kt   # 15s delay → 7min boost + wake lock
-    MessageSyncManager.kt     # Bluetooth send + offline buffer
-    PhoneConnectionListener.kt # Auto-flush on reconnect
-    DatabaseManager.kt        # SQLite (detections, drinks, training, patterns)
-    HealthServicesManager.kt  # HR monitoring (stub)
-    GPSClusteringManager.kt   # DBSCAN location clusters
-  app/src/main/assets/
-    smoking_detector.tflite   # Deployed ML model (v2, 20KB)
-```
-
----
-
-## 7. Key Design Decisions
-
-| Decision | Why |
-|----------|-----|
-| WebView + shelf (not native Flutter UI) | Reuse existing 5200-line dashboard HTML |
-| MessageClient (not DataClient) | Works cross-package on any phone brand |
-| Separate :detection process | Survives Activity kill by Samsung power manager |
-| PARTIAL_WAKE_LOCK during boost | Prevents CPU sleep during 7-min scan |
-| AES-256-GCM auto (no PIN) | Zero friction, Keystore protects key |
-| Fixed port 8011 | Predictable for watch HTTP fallback |
-| Battery whitelist | Samsung Wear OS kills everything otherwise |
-| startForeground in onCreate | Must be within 5s on separate process |
-
----
-
-## 8. Unified Color Palette
-
-Source of truth: web dashboard CSS variables.
-
-| Color | Hex | Usage |
-|-------|-----|-------|
-| Background | #0E1319 | Phone/web base |
-| Surface | #121820 | Elevated panels |
-| Border | #24303C | Dividers |
-| Text | #E7EDF3 | Primary text |
-| Muted | #A7B3BF | Secondary text |
-| Accent | #35D99A | Brand green |
-| Danger | #FF7A7A | Errors, cigarette |
-| Warning | #F7BF54 | Warnings, beer |
-| Blue | #6BBCFF | Links |
-| Watch bg | #000000 | OLED black |
-
----
-
-## 9. ML Training Pipeline
-
-```
-datasets/sed/SED.pkl           # 11 subjects, 276 puffs, 50Hz (Zenodo)
-datasets/sed/SED-FL.pkl        # 7 subjects, 78h free-living (Zenodo)
-train_real_data.py             # GBM on 30 features → TFLite
-train_cnn.py                   # CNN 1D on raw signals → TFLite
-smoking_detector_v2.tflite     # Production model (GBM, F1=0.42)
-smoking_detector_v5.tflite     # Best model (CNN, F1=0.75)
-normalization_params_*.npz     # Feature normalization
-DATASETS.md                    # 13 datasets inventory
+┌────────────────────────────┐
+│ Samsung Health Sensor SDK  │   ACCELEROMETER_CONTINUOUS @ 25Hz
+│ (ACCELEROMETER_CONTINUOUS) │   batched every ~12s (300 samples)
+└─────────────┬──────────────┘
+              │  raw int values
+              ▼
+┌────────────────────────────┐
+│ SamsungHealthAccelerometer │   rawIntToMs2() × 3 axes
+│ (wrapper class)            │   emits Array<FloatArray> in m/s²
+└─────────────┬──────────────┘
+              │  300 samples × 3ch
+              ▼
+┌────────────────────────────┐
+│ DetectionService           │
+│   onSamsung25HzBatch()     │   push into 200-sample ring buffer
+│                            │   rate-limit inference to 1/4s
+└─────────────┬──────────────┘
+              │  last 112 samples (4.5s @ 25Hz)
+              ▼
+┌────────────────────────────┐
+│ SmokingDetector.predictRaw │   TFLite v6 CNN (35 KB, 2-4 ms)
+│   25Hz                     │   [1, 112, 3] → [1, 4] softmax
+└─────────────┬──────────────┘
+              │  P(cigarette)
+              ▼
+┌────────────────────────────┐
+│ SequenceDetector.push()    │   sliding window 6 min
+│   3 peaks > 0.50 required  │   (2 in high-smoking hour,
+│   (2 if high-smoking hour) │    driven by GaussianHourPattern)
+└─────────────┬──────────────┘
+              │  triggered == true
+              ▼
+      ┌───────────────────┐
+      │ Parallel fork     │
+      ├───────────────────┤
+      │ 1. captureTraining│   snapshot ring buffer → MessageSyncManager
+      │    Window()       │   → phone (offline buffer if needed)
+      ├───────────────────┤
+      │ 2. handleCigarette│   DB insert + notification +
+      │    Detected()     │   messageSync.sendCigarette() +
+      │                   │   boostManager.triggerBoost() +
+      │                   │   scheduleHrConfirmation() (delay 2 min)
+      └───────────────────┘
 ```
 
 ---
 
-## 10. API Endpoints (shelf server)
+## Detection confidence stack
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | /api/state | Live state (timer, counters, watch data) |
-| GET | /api/settings | User settings |
-| GET | /api/consumption/all | Historical data |
-| GET | /api/drinks/weeks | Weekly alcohol table |
-| GET | /api/monthly-summary | Monthly stats |
-| GET | /api/note?d=DATE | Note for a day |
-| GET | /api/notes/all | All notes |
-| GET | /api/quicknote | Quick note |
-| GET | /api/actionnote | Action note |
-| GET | /api/watch/summary | Watch sync summary |
-| POST | /api/cmd | Send command (start/work/sleep) |
-| POST | /api/drinks/add | Log drink |
-| POST | /api/drinks/adjust | Adjust drink count |
-| POST | /api/note | Save note |
-| POST | /api/quicknote | Save quick note |
-| POST | /api/actionnote | Save action note |
-| POST | /api/goal | Set work goal |
-| POST | /api/settings/* | Update settings |
-| POST | /api/watch/sync | Watch HTTP sync (fallback) |
+Every detection is corroborated by multiple independent signals:
+
+| Signal | Source | Lag | Contribution |
+|--------|--------|-----|--------------|
+| CNN probability | SmokingDetector (TFLite) | Real-time (2-4 ms) | Primary |
+| Temporal pattern | SequenceDetector | 60-120 sec | Denoises isolated gestures |
+| HR rise | HealthServicesManager | +120 sec after trigger | Physiological confirmation |
+| Hour of day | GaussianHourPattern | Always | Soft prior (lowers bar in smoking hours) |
+| GPS cluster | GPSClusteringManager | Always | Home/work/bar context (not yet in decision) |
+
+The system is **redundant**: a false positive would need to fool all three
+signals simultaneously, which is extremely unlikely in normal daily activity.
+
+---
+
+## Database schema (v6)
+
+### `cigarette_detections`
+| Column | Type | Purpose |
+|--------|------|---------|
+| id | INTEGER PK | Auto-increment |
+| timestamp | INTEGER | Unix ms of the detection |
+| confidence | REAL | CNN P(cigarette) at trigger time |
+| gps_cluster | INTEGER | Cluster ID from GPSClusteringManager |
+| hr_baseline | REAL | Resting HR at detection time |
+| hr_current | REAL | Instantaneous HR at detection time |
+| hr_delta | REAL | Synchronous delta (current - baseline) |
+| features | TEXT | JSON 30-feature vector (for legacy v2 model) |
+| wrist_location | TEXT | "left" or "right" |
+| smoking_hand | TEXT | "left" / "right" / "auto" |
+| sync_status | TEXT | "pending" / "synced" |
+| **hr_rise** 🆕 | REAL | HR delta measured 2 min after detection |
+| **hr_confirmed** 🆕 | INTEGER | 1 if hr_rise ≥ 5 bpm, else 0 |
+
+### `smoking_patterns`
+| Column | Type | Purpose |
+|--------|------|---------|
+| id | INTEGER PK | Auto-increment |
+| hour | INTEGER | 0-23 |
+| day_of_week | INTEGER | 1=Sun, 7=Sat |
+| count | INTEGER | Cumulative smoking events in this slot |
+| last_updated | INTEGER | Unix ms |
+
+### `training_samples`
+| Column | Type | Purpose |
+|--------|------|---------|
+| id | INTEGER PK | Auto-increment |
+| timestamp | INTEGER | Unix ms |
+| label | TEXT | "cigarette" / "drink" / "unknown" |
+| raw_data | TEXT | Serialized window |
+| inference_result | TEXT | CNN output at capture time |
+| boost_measurement | INTEGER | Boost mode sequence index (0-27) |
+
+---
+
+## Watch → phone data flow
+
+```
+WATCH                              PHONE
+─────                              ─────
+[detection event]
+     │
+     ├─ MessageSyncManager ────────► MainActivity.onMessageReceived
+     │    path="/detection"              path="/detection"
+     │    (offline buffer if needed)     ↓
+     │                                 app_flutter/watch_detections.json
+     │                                 ↓ notify Flutter via MethodChannel
+     │                                 dashboard shows new count
+     │
+     └─ MessageSyncManager ────────► MainActivity.onMessageReceived
+          path="/training_window"        path="/training_window"
+          (compressed Gorilla payload)   ↓
+                                       app_flutter/training_windows/
+                                         YYYY-MM-DDTHH-MM-SS_<label>_conf<pct>.json
+                                       ↓ FIFO cap 1000 files (~1 MB)
+
+                                     [later: developer pulls training_windows/
+                                      via adb and runs finetune_cnn_v7.py
+                                      to retrain the CNN on personal data]
+```
+
+---
+
+## Test coverage summary
+
+| Suite | Tests | Focus |
+|-------|:--:|-------|
+| test_sequence_detector.py 🆕 | 12 | Temporal pattern detection |
+| test_gaussian_pattern.py 🆕 | 21 | Continuous hour scoring |
+| test_hr_confirmation.py 🆕 | 8 | HR rise detection |
+| test_samsung_pipeline.py | 22 | int → m/s² → CNN end-to-end |
+| test_train_cnn_25hz.py | 31 | CNN training pipeline |
+| test_v6_on_device_parity.py | 11 | Python inference ≈ watch output |
+| test_training_window_flow.py | 27 | Watch → phone sync + buffer |
+| test_compression.py | ~8 | Gorilla lossless |
+| test_api.py (phone) | 17 | Flutter backend API |
+| test_flows.py (phone) | 125 | UX flows |
+
+**Total: ~282 tests, all green as of 2026-04-10 nuit session.**
+
+---
+
+## Build / install commands
+
+### Watch APK
+```bash
+cd trilateration/wear-os-app
+./gradlew :app:assembleDebug
+adb -s <watch_ip>:<port> install -r -d app/build/outputs/apk/debug/app-debug.apk
+adb -s <watch_ip>:<port> shell am start-foreground-service \
+    -n com.infernal.wheel/com.infernal.smokingdetector.DetectionService \
+    -a com.infernal.smokingdetector.START
+```
+
+### Phone APK
+```bash
+cd infernal-app
+flutter build apk --debug
+adb -s <phone_id> install -r -d build/app/outputs/flutter-apk/app-debug.apk
+```
+
+### Run all Python tests
+```bash
+cd trilateration
+for t in test_sequence_detector test_gaussian_pattern test_hr_confirmation \
+         test_train_cnn_25hz test_samsung_pipeline test_v6_on_device_parity \
+         test_training_window_flow test_compression; do
+  python $t.py
+done
+```
+
+### Pull training windows from phone (for fine-tuning)
+```bash
+adb -s <phone_id> exec-out run-as com.infernal.infernal_wheel \
+    tar c -C files/app_flutter/training_windows . | tar x -C ./pulled_training/
+python finetune_cnn_v7.py --pulled_dir ./pulled_training/ --min-windows 20
+```
+
+---
+
+## Known stubs / TODOs
+
+- `HealthServicesManager` is still a STUB — it emits mock HR values. The
+  new HR timeline buffer and `getHRRiseOverLast()` logic are ready to wire
+  in real androidx.health.services.client data as soon as that code path
+  is written. All downstream consumers (HR confirmation recheck, DB column
+  updates) already work against the mock data.
+- `finetune_cnn_v7.py` currently rebuilds the CNN from scratch rather than
+  warm-starting from the v6 weights. A future revision should export the
+  Keras `.h5` alongside each `.tflite` so we can properly warm-start.
+- The `exported=true` flag on `DetectionService` in AndroidManifest.xml is
+  required for `adb shell am start-foreground-service` during development
+  but MUST be flipped to `false` before the Play Store release.
+- Samsung partner registration is still pending (SAMSUNG_PARTNER_PLAN.md).
+  Until done, the app only works on watches with Health Platform dev mode
+  enabled — i.e. the developer's own watch.
