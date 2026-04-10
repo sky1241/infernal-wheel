@@ -34,6 +34,7 @@ class MessageSyncManager(private val context: Context) {
         private const val BUFFER_FILE = "pending_sync.json"
         private const val MSG_PATH_DETECTION = "/detection"
         private const val MSG_PATH_DRINK = "/drink"
+        private const val MSG_PATH_TRAINING_WINDOW = "/training_window"
         private const val MAX_BUFFER_SIZE = 500 // Max buffered events before oldest are dropped
     }
 
@@ -87,6 +88,52 @@ class MessageSyncManager(private val context: Context) {
             put("hrDelta", hrCurrent - hrBaseline)
         }
         sendOrBuffer(MSG_PATH_DRINK, payload)
+    }
+
+    /**
+     * Send a 25Hz training window snapshot to the phone.
+     *
+     * The window is the most recent ~8 seconds of accelerometer data captured
+     * around a detection event (auto or manual). The phone persists it as
+     * ground-truth labelled data for future per-user CNN fine-tuning.
+     *
+     * The watch never persists training data long-term — if the phone is
+     * unreachable, the window is buffered (capped) and flushed on reconnect.
+     *
+     * @param accel       [N][3] accelerometer in m/s² (typically N=200, ~8s @ 25Hz)
+     * @param label       Source: "auto_detected", "manual_only", "auto_confirmed_by_manual"
+     * @param confidence  CNN cigarette probability at the moment of detection
+     * @param timestamp   Unix ms of the detection event
+     */
+    suspend fun sendTrainingWindow(
+        accel: Array<FloatArray>,
+        label: String,
+        confidence: Float,
+        timestamp: Long = System.currentTimeMillis()
+    ) {
+        if (accel.isEmpty()) {
+            Log.w(TAG, "sendTrainingWindow called with empty accel — skipping")
+            return
+        }
+
+        // GorillaCompressor needs accel + gyro (6 channels). We don't have gyro
+        // from Samsung's ACCELEROMETER_CONTINUOUS, so pad with zeros — they
+        // compress to almost nothing thanks to the delta+gzip pipeline.
+        val zeroGyro = Array(accel.size) { FloatArray(3) }
+        val compressed = GorillaCompressor.compress(accel, zeroGyro)
+
+        val payload = JSONObject().apply {
+            put("type", "training_window")
+            put("label", label)
+            put("confidence", confidence)
+            put("timestamp", timestamp)
+            put("sampleCount", accel.size)
+            put("sampleRate", 25)
+            put("compressed", compressed)
+        }
+
+        Log.d(TAG, "sendTrainingWindow: label=$label samples=${accel.size} compressed=${compressed.length} chars")
+        sendOrBuffer(MSG_PATH_TRAINING_WINDOW, payload)
     }
 
     /**

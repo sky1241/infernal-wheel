@@ -96,7 +96,34 @@
 
 ---
 
-## ❌ CE QUI NE MARCHE PAS / N'EST PAS FAIT
+## 🔧 EN COURS — Boucle d'auto-amélioration (training data collection)
+
+**Question soulevée par l'utilisateur le 2026-04-10 :** quand le CNN détecte automatiquement une clope, pourquoi ça ne déclenche pas la collecte HD pour fine-tuner le modèle ensuite ?
+
+**Réponse honnête :** parce que c'est pas codé. Le boost mode 50Hz existait déjà mais (1) il ne s'active que sur click manuel +1 et (2) ses données ne sont jamais persistées pour le fine-tuning. C'est un trou conceptuel important qu'on comble maintenant.
+
+### Ce qu'on ajoute
+
+**`TrainingDataCollector.kt` côté montre :**
+- Quand une détection arrive (auto OU manuelle), snapshot le ring buffer 25Hz courant
+- Capture aussi les ~8 secondes suivantes (pour avoir le geste complet, pas juste le pic)
+- Sérialise en compact format (Gorilla compression) : ~500 bytes par window
+- Tag avec un label : `auto_detected`, `manual_only`, `auto_confirmed_by_manual`
+- Tente de l'envoyer immédiatement au téléphone via `MessageClient`
+- Si le téléphone n'est pas joignable → buffer en RAM (cap à 50 windows max)
+- Si la RAM aussi est pleine → écrit dans un fichier `pending_training.json` sur le disque (cap à 200 windows max ≈ 100 KB)
+- Quand le téléphone se reconnecte → flush tout → cleanup la montre
+
+**Côté téléphone (Android Flutter app) :**
+- Un message receiver pour le path `/training_window`
+- Sauvegarde dans `app_flutter/training_windows/YYYYMMDD_HHMMSS_<label>.bin`
+- Un endpoint Python plus tard pour pull tout ça et lancer le fine-tuning
+
+**Garanties strictes :**
+- Jamais plus de 50 windows en RAM (50 × 500 bytes = 25 KB max)
+- Jamais plus de 200 windows sur disque montre (~100 KB max, soit ~150 clopes en backlog)
+- Cleanup immédiat après ack du téléphone
+- Tout transitoire : la montre n'est jamais le storage final
 
 ### Côté montre
 

@@ -15,6 +15,9 @@ class MainActivity : FlutterFragmentActivity(), MessageClient.OnMessageReceivedL
 
     companion object {
         private const val TAG = "MainActivity"
+        // Cap training windows on phone disk — FIFO eviction beyond this.
+        // ~1 KB per file, so 1000 files ≈ 1 MB. Plenty for fine-tuning.
+        private const val MAX_TRAINING_FILES = 1000
     }
 
     private val CHANNEL = "com.infernal.wheel/wear_sync"
@@ -36,6 +39,14 @@ class MainActivity : FlutterFragmentActivity(), MessageClient.OnMessageReceivedL
         val path = messageEvent.path
         val data = String(messageEvent.data)
         Log.d(TAG, "Watch message received: path=$path, size=${data.length}")
+
+        // Training windows go to a separate handler — they're labelled raw
+        // sensor windows used for per-user CNN fine-tuning. They are NOT
+        // detection events, so they don't update counters or notify Flutter.
+        if (path == "/training_window") {
+            handleTrainingWindow(data)
+            return
+        }
 
         try {
             val json = JSONObject(data)
@@ -86,6 +97,71 @@ class MainActivity : FlutterFragmentActivity(), MessageClient.OnMessageReceivedL
             Log.d(TAG, "Watch $type stored + Flutter notified")
         } catch (e: Exception) {
             Log.e(TAG, "Error processing watch message", e)
+        }
+    }
+
+    /**
+     * Receive a labelled 25Hz training window from the watch and persist it
+     * to disk for later CNN fine-tuning.
+     *
+     * Storage layout:
+     *   app_flutter/training_windows/
+     *     2026-04-10T19-03-58_auto_detected_conf66.json
+     *     2026-04-10T19-15-22_manual_only_conf100.json
+     *     ...
+     *
+     * Each file contains:
+     *   {
+     *     "label": "auto_detected",
+     *     "confidence": 0.66,
+     *     "timestamp": 1775841838000,
+     *     "sampleCount": 200,
+     *     "sampleRate": 25,
+     *     "compressed": "<base64 GorillaCompressor output>"
+     *   }
+     *
+     * Disk cap is enforced at MAX_TRAINING_FILES — when exceeded, the oldest
+     * files are deleted (FIFO). The watch should never see this — it just
+     * keeps shipping windows and trusts the phone to manage storage.
+     */
+    private fun handleTrainingWindow(data: String) {
+        try {
+            val json = JSONObject(data)
+            val label = json.optString("label", "unknown")
+            val confidence = json.optDouble("confidence", 0.0)
+            val timestamp = json.optLong("timestamp", System.currentTimeMillis())
+            val sampleCount = json.optInt("sampleCount", 0)
+
+            val flutterDir = java.io.File(filesDir.parentFile, "app_flutter")
+            val trainingDir = java.io.File(flutterDir, "training_windows")
+            trainingDir.mkdirs()
+
+            // Cap storage — keep at most MAX_TRAINING_FILES files (FIFO)
+            val existing = trainingDir.listFiles { f -> f.isFile && f.name.endsWith(".json") }
+                ?.sortedBy { it.lastModified() }
+                ?: emptyList()
+            if (existing.size >= MAX_TRAINING_FILES) {
+                val toDelete = existing.size - MAX_TRAINING_FILES + 1
+                for (i in 0 until toDelete) {
+                    existing[i].delete()
+                }
+                Log.d(TAG, "[TRAINING] Pruned $toDelete oldest training file(s)")
+            }
+
+            // Build a unique, sortable filename
+            val isoTs = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss", java.util.Locale.US)
+                .format(java.util.Date(timestamp))
+            val confPct = (confidence * 100).toInt()
+            val filename = "${isoTs}_${label}_conf${confPct}.json"
+            val file = java.io.File(trainingDir, filename)
+
+            // Add a receivedAt field so we know when the phone got it
+            json.put("receivedAt", System.currentTimeMillis())
+            file.writeText(json.toString())
+
+            Log.d(TAG, "[TRAINING] Saved window: $filename samples=$sampleCount")
+        } catch (e: Exception) {
+            Log.e(TAG, "[TRAINING] Failed to save training window", e)
         }
     }
 

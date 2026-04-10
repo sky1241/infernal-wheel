@@ -456,6 +456,15 @@ class DetectionService : Service() {
             Log.d(TAG, "25Hz inference: cig=$isCigarette threshold=$threshold probs=${probs.contentToString()}")
 
             if (isCigarette) {
+                // Capture training data BEFORE handling detection — this gives the
+                // fine-tuner labelled ground-truth for every CNN-detected event.
+                // The window is the FULL ring buffer (~8s of context), not just
+                // the 112-sample CNN slice, so the fine-tuner has temporal margin.
+                captureTrainingWindow(
+                    label = "auto_detected",
+                    confidence = probs[SmokingDetector.CLASS_CIGARETTE]
+                )
+
                 // Extract dummy features placeholder for DB schema (CNN doesn't compute them)
                 handleCigaretteDetected(
                     confidence = probs[SmokingDetector.CLASS_CIGARETTE],
@@ -464,6 +473,36 @@ class DetectionService : Service() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "25Hz inference failed", e)
+        }
+    }
+
+    /**
+     * Snapshot the current 25Hz ring buffer and ship it to the phone as
+     * labelled training data. The watch never persists training windows
+     * long-term — MessageSyncManager handles the offline buffer + flush
+     * on reconnect, then cleans up.
+     *
+     * @param label  "auto_detected" | "manual_only" | "auto_confirmed_by_manual"
+     * @param confidence  CNN cigarette probability at the moment of detection
+     */
+    private fun captureTrainingWindow(label: String, confidence: Float) {
+        val snapshot: Array<FloatArray> = synchronized(ring25HzLock) {
+            if (ring25HzBuffer.isEmpty()) return
+            Array(ring25HzBuffer.size) { i -> ring25HzBuffer[i].copyOf() }
+        }
+
+        Log.i(TAG, "[TRAINING] Capturing window: label=$label conf=$confidence samples=${snapshot.size}")
+
+        serviceScope.launch {
+            try {
+                messageSync.sendTrainingWindow(
+                    accel = snapshot,
+                    label = label,
+                    confidence = confidence
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Training window send failed (will be buffered)", e)
+            }
         }
     }
 
