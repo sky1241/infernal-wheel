@@ -74,7 +74,13 @@ def extract_features(accel, gyro, timestamps):
     fft_vals = np.abs(np.fft.rfft(acc_mag))
     freqs = np.fft.rfftfreq(n, d=dt)
     if len(fft_vals) > 1:
-        features.append(freqs[np.argmax(fft_vals[1:])] if len(fft_vals) > 1 else 0)  # dominant_freq
+        # BUG+044 fix: np.argmax(fft_vals[1:]) returns an index into the
+        # SLICE starting at bin 1. To map back to the original freqs array
+        # we must add 1. Without this, the reported dominant_freq is
+        # systematically one bin below the real peak (~0.22Hz error on a
+        # 225-sample window @ 50Hz, which is 20-40% relative error on
+        # the 0.5-1Hz smoking fundamental).
+        features.append(freqs[np.argmax(fft_vals[1:]) + 1])  # dominant_freq
         features.append(np.sum(fft_vals**2))                  # spectral_energy
         fft_norm = fft_vals / (np.sum(fft_vals) + 1e-10)
         features.append(-np.sum(fft_norm * np.log(fft_norm + 1e-10)))  # spectral_entropy
@@ -111,7 +117,15 @@ def extract_features(accel, gyro, timestamps):
 
     # Regularity (3): score, periodicity coef, temporal clustering
     features.append(1.0 / (1.0 + np.std(acc_mag)))           # regularity_score
-    features.append(features[17] if len(features) > 17 else 0)  # periodicity_coef (reuse autocorr)
+    # BUG+043 fix: periodicity_coef was `features[17]` which is path_curvature
+    # at this point in the feature list (0-11 time/angular/jerk, 12-14 freq,
+    # 15 autocorr_peak, 16 periodicity, 17 path_curvature, ...). The comment
+    # said "reuse autocorr" which would be index 15, not 17. The bug silently
+    # duplicated path_curvature into the periodicity_coef slot, so every GBM
+    # trained by this script had (a) path_curvature appearing twice as an
+    # input feature and (b) no real periodicity_coef at all. Fix: use the
+    # autocorr_peak value at index 15.
+    features.append(features[15] if len(features) > 15 else 0)  # periodicity_coef
     # Temporal clustering: how "bursty" the signal is
     threshold = np.mean(acc_mag) + np.std(acc_mag)
     above = (acc_mag > threshold).astype(float)
@@ -273,18 +287,14 @@ def train_final_and_export(X, y, seed=42):
         model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
         model.fit(X_n, y_soft, epochs=50, batch_size=32, validation_split=0.1, verbose=1)
 
-        # Convert to TFLite (int8 quantized)
+        # Convert to TFLite (float32 — BUG+045 fix).
+        # The previous int8 path caused the "v5 crash bug" on Wear OS
+        # Android 16 (TFLite runtime couldn't load int8 input tensors
+        # reliably on the Galaxy Watch). train_cnn_25hz.py already moved
+        # to float32; this script was the last holdout. Keep float32
+        # until we have a confirmed fix + device-tested validation.
         converter = tf.lite.TFLiteConverter.from_keras_model(model)
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
-
-        def representative_dataset():
-            for i in range(min(500, len(X_n))):
-                yield [X_n[i:i+1]]
-
-        converter.representative_dataset = representative_dataset
-        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
-        converter.inference_input_type = tf.int8
-        converter.inference_output_type = tf.float32
 
         tflite_model = converter.convert()
 

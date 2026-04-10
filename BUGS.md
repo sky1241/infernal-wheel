@@ -391,3 +391,31 @@
 - **Fix**: [pending]
 - **Test**: [a ecrire]
 - **Regression**: [a verifier]
+
+## BUG+043: train_real_data.py line 114 periodicity_coef computation: features.append(features[17] if len(features) > 17 else 0) with comment 'reuse autocorr'. But counting features at that point: 0-11 time/angular/jerk (12 features), 12-14 frequency (dominant_freq, spectral_energy, spectral_entropy), 15 autocorr_peak, 16 periodicity (computed from features[-1]*features[-4]), 17 path_curvature. So features[17] is path_curvature, NOT autocorr_peak (which is at index 15). The periodicity_coef feature is silently assigned path_curvature's value. Effect: the 30-feature vector has path_curvature DUPLICATED (once at its real slot, once at periodicity_coef slot) and the actual autocorr-based periodicity_coef is NEVER computed. The GBM trains on wrong features. Fix: change to features[15] OR better, compute an actual periodicity_coef from the autocorrelation peak.
+- **Status**: FIXED (2026-04-11)
+- **Date**: 2026-04-11 00:46
+- **Regression**: forge baseline 226 PASS / 0 FAIL (+17 vs pass forge8).
+- See inline BUG+043/044/045 comments in trilateration/train_real_data.py for the detailed fix rationale. Tests: trilateration/test_train_real_data_features.py (10 tests: numerical 1Hz/2Hz FFT verification for BUG+044, feature-index uniqueness for BUG+043, static-grep for BUG+045 int8 removal).
+
+## BUG+044: train_real_data.py line 77 dominant_freq computation: freqs[np.argmax(fft_vals[1:])]. np.argmax returns an index INTO the slice fft_vals[1:], not into the original fft_vals. If argmax returns k, the actual bin is fft_vals[k+1] and its frequency is freqs[k+1], not freqs[k]. The current code indexes freqs with a k that is off-by-one below the true peak. On a 225-sample window at 50Hz, the frequency resolution is ~0.22Hz per bin so the reported dominant_freq is systematically ~0.22Hz lower than the true value. For a smoking gesture whose fundamental is ~0.5-1Hz, that's a 20-40% relative error. Fix: freqs[np.argmax(fft_vals[1:]) + 1]. Same bug family as feature_extraction.py would have had if it used raw indexing but feature_extraction.py uses positive_freqs[dominant_idx] after computing dominant_idx = np.argmax(power_spectrum[1:]) + 1 so it's correct.
+- **Status**: FIXED (2026-04-11)
+- **Date**: 2026-04-11 00:46
+- **Regression**: forge baseline 226 PASS / 0 FAIL (+17 vs pass forge8).
+- See inline BUG+043/044/045 comments in trilateration/train_real_data.py for the detailed fix rationale. Tests: trilateration/test_train_real_data_features.py (10 tests: numerical 1Hz/2Hz FFT verification for BUG+044, feature-index uniqueness for BUG+043, static-grep for BUG+045 int8 removal).
+
+## BUG+045: train_real_data.py lines 285-287: train_final_and_export uses int8 quantization for the TFLite output (converter.target_spec.supported_ops = [TFLITE_BUILTINS_INT8] + inference_input_type=int8). train_cnn_25hz.py line 287-288 explicitly warns against this with the comment 'NO int8 quantization - float32 input/output (avoids the v5 crash bug)' referring to a known crash on Wear OS Android 16 with int8 input tensors. train_real_data.py was the ORIGIN of the v5 crash bug and still has the buggy code. Any user who re-runs this script + installs the resulting .tflite on the watch will hit the same crash v5 hit. Fix: remove int8 conversion, use float32 input/output like train_cnn_25hz.py does.
+- **Status**: FIXED (2026-04-11)
+- **Date**: 2026-04-11 00:46
+- **Regression**: forge baseline 226 PASS / 0 FAIL (+17 vs pass forge8).
+- See inline BUG+043/044/045 comments in trilateration/train_real_data.py for the detailed fix rationale. Tests: trilateration/test_train_real_data_features.py (10 tests: numerical 1Hz/2Hz FFT verification for BUG+044, feature-index uniqueness for BUG+043, static-grep for BUG+045 int8 removal).
+
+## BUG+046: infernal-app/assets/web/index.html syncOfflineQueue at line 3067-3085 reads the offline queue into const q at line 3068, loops with await fetch per item, then at line 3082 calls saveOfflineQueue(q.slice(synced)) to persist the remaining items. This is a TOCTTOU race: between the const q snapshot and the final saveOfflineQueue call, the browser can yield during await fetch AND the user can trigger a new offline action (if the connection drops mid-sync). The new action goes through queueOfflineAction which appends to localStorage, giving localStorage state [A, B, C, D] while q is still the stale [A, B, C]. Final saveOfflineQueue(q.slice(3)) writes [] back, permanently losing D. Fix: pop items one at a time by re-reading the queue after each successful fetch and removing only the synced item by ts+url match, or use a retry counter per item stored in the queue itself.
+- **Status**: FIXED (2026-04-11)
+- **Date**: 2026-04-11 00:48
+- **Severity**: MEDIUM (data loss on connection churn during offline sync)
+- **Symptom**: User logs action A, B, C offline → queue = [A, B, C]. Connection returns, syncOfflineQueue starts. It succeeds on A, B, but the connection drops mid-sync. Meanwhile the user logs D (offline again) → localStorage now holds [A, B, C, D]. Sync resumes, succeeds on C, then hits the final `saveOfflineQueue(q.slice(synced))` with the STALE q = [A, B, C] → writes `[]` to localStorage. D is gone forever.
+- **Root cause**: Classic TOCTTOU. `const q = getOfflineQueue()` at the top snapshotted the list, the loop awaited fetches (yielding the event loop), and the final save used the stale snapshot to compute what remained.
+- **Fix**: Renamed the snapshot to `initialQ` (so it's clearly read-only) and moved the save INTO the per-item success branch: after each successful fetch, re-read `getOfflineQueue()`, findIndex by ts+url to locate THIS item in the current state, splice it out, save. Any items queued during the await are preserved because we only touch the specific item we just synced.
+- **Test**: trilateration/test_offline_queue_race.py — 7 tests: (a) 4 static-grep assertions that the bad pattern can't sneak back, (b) 3 Python ports that prove the fixed algorithm preserves interleaved new items while the buggy baseline loses them.
+- **Regression**: forge baseline 226 PASS / 0 FAIL.

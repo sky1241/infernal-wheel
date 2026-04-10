@@ -3065,21 +3065,43 @@ function updateOfflineCount(){
   if (badge) { badge.textContent = q.length > 0 ? q.length + " en attente" : ""; badge.style.display = q.length > 0 ? "inline" : "none"; }
 }
 async function syncOfflineQueue(){
-  const q = getOfflineQueue();
-  console.log("[OFFLINE] Sync check - queue:", q.length, "online:", navigator.onLine);
-  if (!q.length) return;
+  // BUG+046 fix: previous code cached the queue into `const q` at the
+  // start, awaited each fetch, then wrote `q.slice(synced)` back at the
+  // end. If the connection dropped mid-sync and the user triggered a new
+  // offline action (which called queueOfflineAction → appended to
+  // localStorage), the final write would use the STALE snapshot and
+  // silently drop the new item.
+  //
+  // The fix: remove each synced item from the CURRENT localStorage state
+  // immediately after a successful fetch, matching by (ts, url) so we
+  // don't accidentally remove a newly-queued duplicate.
+  const initialQ = getOfflineQueue();
+  console.log("[OFFLINE] Sync check - queue:", initialQ.length, "online:", navigator.onLine);
+  if (!initialQ.length) return;
   if (!navigator.onLine) { console.log("[OFFLINE] Still offline, skipping sync"); return; }
   let synced = 0;
-  for (const item of q) {
+  for (const item of initialQ) {
     try {
       console.log("[OFFLINE] Syncing:", item.url);
       const r = await fetch(item.url, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(item.data) });
-      if (r.ok) { synced++; console.log("[OFFLINE] Synced OK"); }
-      else { console.log("[OFFLINE] Sync failed:", r.status); break; }
+      if (r.ok) {
+        // Re-read the queue and remove ONLY this item by ts+url match.
+        // Any items queued during the await are preserved.
+        const current = getOfflineQueue();
+        const idx = current.findIndex(x => x.ts === item.ts && x.url === item.url);
+        if (idx >= 0) {
+          current.splice(idx, 1);
+          saveOfflineQueue(current);
+        }
+        synced++;
+        console.log("[OFFLINE] Synced OK");
+      } else {
+        console.log("[OFFLINE] Sync failed:", r.status);
+        break;
+      }
     } catch(e) { console.log("[OFFLINE] Sync error:", e); break; }
   }
   if (synced > 0) {
-    saveOfflineQueue(q.slice(synced));
     showToast(synced + " action(s) synchronisée(s)", "success", "Sync");
   }
 }
