@@ -219,9 +219,13 @@ class DetectionService : Service() {
             }
         }
 
-        // Load TFLite model
+        // Load TFLite model. If this fails we abort the service via stopSelf()
+        // — onDestroy() will then run on a partially-initialized service, which
+        // is exactly the scenario stopMonitoring()'s isInitialized guards
+        // protect against. Without those guards, the failed model load would
+        // crash the JVM and mask the original error.
         if (!detector.loadModel()) {
-            Log.e(TAG, "Failed to load TFLite model")
+            Log.e(TAG, "Failed to load TFLite model — service will stop")
             stopSelf()
             return
         }
@@ -284,9 +288,19 @@ class DetectionService : Service() {
         super.onDestroy()
         isRunning = false // BUG 18 FIX
         Log.d(TAG, "Service destroyed")
-        prefs.unregisterOnSharedPreferenceChangeListener(prefListener)
-        stopMonitoring()
-        detector.close()
+        // Defensive: every lateinit access must be guarded because onCreate()
+        // can fail partway through (e.g. TFLite load fails) and trigger an
+        // immediate stopSelf() → onDestroy() → these properties may not yet
+        // be initialized. Crashing here would mask the real onCreate error.
+        if (::prefs.isInitialized) {
+            try { prefs.unregisterOnSharedPreferenceChangeListener(prefListener) } catch (e: Exception) {
+                Log.w(TAG, "unregister prefListener failed", e)
+            }
+        }
+        try { stopMonitoring() } catch (e: Exception) { Log.w(TAG, "stopMonitoring failed in onDestroy", e) }
+        if (::detector.isInitialized) {
+            try { detector.close() } catch (e: Exception) { Log.w(TAG, "detector.close failed", e) }
+        }
         serviceScope.cancel()
     }
 
@@ -321,6 +335,10 @@ class DetectionService : Service() {
         val started = sensorCollector.start(boostManager.getCurrentRate())
         if (!started) {
             Log.e(TAG, "Failed to start sensor collection")
+            // Roll back the isMonitoring flag — otherwise a subsequent
+            // startMonitoring() call after recovery would early-return
+            // and the service would silently never resume.
+            isMonitoring = false
             stopSelf()
             return
         }
@@ -377,19 +395,31 @@ class DetectionService : Service() {
     }
 
     /**
-     * Stop monitoring
+     * Stop monitoring. Every lateinit access must be guarded because this can
+     * be called from onDestroy() during a partially-initialized teardown
+     * (e.g. when TFLite fails to load and onCreate aborts midway).
      */
     private fun stopMonitoring() {
         isMonitoring = false // BUG 10 FIX
         inferenceJob?.cancel()
         syncJob?.cancel()
-        phoneListener.stop()
-        sensorCollector.stop()
-        gpsManager.stop()
-        healthServices.stop()
-        boostManager.stop()
+        if (::phoneListener.isInitialized) {
+            try { phoneListener.stop() } catch (e: Exception) { Log.w(TAG, "phoneListener.stop failed", e) }
+        }
+        if (::sensorCollector.isInitialized) {
+            try { sensorCollector.stop() } catch (e: Exception) { Log.w(TAG, "sensorCollector.stop failed", e) }
+        }
+        if (::gpsManager.isInitialized) {
+            try { gpsManager.stop() } catch (e: Exception) { Log.w(TAG, "gpsManager.stop failed", e) }
+        }
+        if (::healthServices.isInitialized) {
+            try { healthServices.stop() } catch (e: Exception) { Log.w(TAG, "healthServices.stop failed", e) }
+        }
+        if (::boostManager.isInitialized) {
+            try { boostManager.stop() } catch (e: Exception) { Log.w(TAG, "boostManager.stop failed", e) }
+        }
         if (::samsungAccel.isInitialized) {
-            samsungAccel.disconnect()
+            try { samsungAccel.disconnect() } catch (e: Exception) { Log.w(TAG, "samsungAccel.disconnect failed", e) }
         }
         synchronized(ring25HzLock) { ring25HzBuffer.clear() }
         sequenceDetector.reset()
