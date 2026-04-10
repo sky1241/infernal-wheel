@@ -21,14 +21,8 @@ class InfernalDay {
     return InfernalDay(dt.year, dt.month, dt.day);
   }
 
-  /// Alias: compatibilite avec ancien code
-  factory InfernalDay.fromDate(DateTime dt) => InfernalDay.from(dt);
-
   /// Jour InfernalWheel actuel
   factory InfernalDay.today() => InfernalDay.from(DateTime.now());
-
-  /// Alias: compatibilite avec ancien code
-  factory InfernalDay.current() => InfernalDay.today();
 
   /// Hier
   factory InfernalDay.yesterday() {
@@ -66,17 +60,8 @@ class InfernalDay {
   /// Cle unique pour stockage (yyyy-MM-dd)
   String get key => '$year-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
 
-  /// DateTime interne (debut calendaire du jour, 00:00)
+  /// DateTime interne (debut calendaire du jour, 00:00) — used by dayName + formattedDate
   DateTime get date => DateTime(year, month, day);
-
-  /// DateTime du debut du jour (4h00)
-  DateTime get startTime => DateTime(year, month, day, kInfernalDayStartHour, 0, 0);
-
-  /// DateTime de fin du jour (3h59:59 lendemain)
-  DateTime get endTime {
-    final nextDay = DateTime(year, month, day).add(const Duration(days: 1));
-    return DateTime(nextDay.year, nextDay.month, nextDay.day, kInfernalDayStartHour, 0, 0).subtract(const Duration(milliseconds: 1));
-  }
 
   // --- Navigation ---
 
@@ -91,17 +76,6 @@ class InfernalDay {
     final nxt = DateTime(year, month, day + 1);
     return InfernalDay(nxt.year, nxt.month, nxt.day);
   }
-
-  /// Verifie si un DateTime est dans ce jour InfernalWheel
-  bool contains(DateTime dt) {
-    return InfernalDay.from(dt) == this;
-  }
-
-  /// Est-ce aujourd'hui?
-  bool get isToday => this == InfernalDay.today();
-
-  /// Est-ce hier?
-  bool get isYesterday => this == InfernalDay.yesterday();
 
   // --- Display ---
 
@@ -120,9 +94,6 @@ class InfernalDay {
   /// Date formatee "5 fevrier 2024"
   String get formattedDate => '${date.day} ${_monthNames[date.month - 1]} ${date.year}';
 
-  /// Header complet "Jeudi 5 fevrier"
-  String get headerText => '$dayName ${date.day} ${_monthNames[date.month - 1]}';
-
   // --- Equality ---
 
   @override
@@ -134,16 +105,4 @@ class InfernalDay {
 
   @override
   String toString() => 'InfernalDay($key)';
-}
-
-/// Extensions utiles sur DateTime
-extension InfernalDateTime on DateTime {
-  /// Jour InfernalWheel de cette date
-  InfernalDay get infernalDay => InfernalDay.from(this);
-
-  /// Cle du jour InfernalWheel
-  String get infernalDayKey => infernalDay.key;
-
-  /// Est-ce le meme jour InfernalWheel qu'une autre date?
-  bool isSameInfernalDay(DateTime other) => infernalDay == other.infernalDay;
 }

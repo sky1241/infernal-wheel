@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.sp
 
 // Brand — green accent (unified across all platforms)
 val AccentGreen = Color(0xFF35D99A)
-val AccentGreenDim = Color(0xFF2AAF7E)
 val AccentGreenContainer = Color(0xFF0E2E1F)  // Darker, closer to bg
 
 // Semantic — cigarette
@@ -42,16 +41,10 @@ val AlcoholStrong = Color(0xFF9575CD)          // Strong
 
 // Status (unified with web/phone)
 val StatusSuccess = Color(0xFF35D99A)          // Same as accent
-val StatusWarning = Color(0xFFF7BF54)          // Unified --warn
 val StatusError = Color(0xFFFF7A7A)            // Unified --danger
 
-// Blue accent (secondary, from web)
-val AccentBlue = Color(0xFF6BBCFF)             // Unified --blue
-
 // Neutral scale — OLED optimized (watch uses true black)
-// Web/phone use #0E1319 but watch MUST use #000000 for OLED (section E)
 val SurfaceBlack = Color(0xFF000000)           // OLED bg
-val SurfaceDark = Color(0xFF0E1319)            // Matches web --bg
 val SurfaceElevated = Color(0xFF121820)        // Matches web --panel
 val SurfaceMedium = Color(0xFF141C25)          // Matches web --panel-2
 val BorderDark = Color(0xFF24303C)             // Matches web --border

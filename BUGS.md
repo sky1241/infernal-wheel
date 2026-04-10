@@ -352,3 +352,42 @@
 
 ## BUG+038: MERGED into BUG+037 — the previous forge --add attempt crashed on a unicode arrow char in the description after already writing BUG+037 to BUGS.md. The retry landed as BUG+038 with an ASCII-safe description for the SAME bug. Keeping this marker so the numbering sequence stays continuous; see BUG+037 for the real fix.
 - **Status**: MERGED into BUG+037 (2026-04-11)
+
+## BUG+039: MainActivity.kt onLogCigarette lambda (line 128-157) and onLogDrink lambda (line 158-185) have no debounce. On a Wear OS watch with a small screen, accidental double-tap on the +1 button is common. Each tap calls database.insertDetection + DetectionService.triggerBoost + messageSync.sendCigarette. Two taps 100ms apart create TWO database rows for ONE real cigarette, two sync messages to the phone, and the second triggerBoost cancels the first boost job mid-countdown (via @Synchronized). Net: ghost cigarettes in history, double-sync waste, boost mode confused. Fix: guard the lambdas with an AtomicLong lastClickTime check using the same 200ms interval pattern Compose recommends for tap debouncing.
+- **Status**: FIXED (2026-04-11)
+- **Date**: 2026-04-11 00:15
+- **Severity**: HIGH (data integrity — ghost rows in history + wasted BT sync)
+- **Symptom**: User logs a cigarette on the watch, accidentally taps the +1 button twice (easy on a 1.2" screen), gets "+2" in the count. The count propagates to the phone dashboard which shows +2. Worse: the second triggerBoost cancels the first boost job mid-countdown, so the 7-minute boost mode restarts from zero. The DB also has 2 rows for 1 real cigarette, polluting future fine-tuning labels.
+- **Root cause**: No click debounce anywhere in MainActivity. Compose Button has no built-in debounce, and the lambdas call DB + sync + boost directly.
+- **Fix**: Added `MANUAL_LOG_DEBOUNCE_MS = 300L` constant + `private val lastManualLogMs = AtomicLong(0L)` + `consumeManualClick()` helper that uses the same CAS retry loop as DetectionService BUG+031. Both onLogCigarette and onLogDrink lambdas call consumeManualClick() early and `return@MainScreen` on false. 300ms is the Compose-recommended tap deduplication window.
+- **Test**: trilateration/test_manifest_and_ui_hardening.py — 6 BUG+039 tests: constant declared, AtomicLong used, CAS in consumeManualClick, both lambdas call it, marker present.
+- **Regression**: forge baseline 209 PASS / 0 FAIL.
+
+## BUG+040: trilateration/wear-os-app/app/src/main/AndroidManifest.xml line 49-55: DetectionService is declared with android:exported=true in the MAIN manifest (not a debug variant). The inline comment admits this is intentional for ADB debugging during development but warns 'Released APKs MUST flip this back to false'. However, since the flag is in main AndroidManifest.xml, it ALSO ships to release builds. Consequence: ANY app installed on the watch can send an Intent to DetectionService.ACTION_START, ACTION_STOP, or ACTION_BOOST. A malicious app can silently start the service (drain battery, foreground notification spam), stop the service (sabotage), or fire boost mode at will (waste battery, corrupt training samples via captureTrainingWindow). Fix: set exported=false in the main manifest and use a debug-only AndroidManifest.xml override (src/debug/AndroidManifest.xml) to restore exported=true for ADB development workflows.
+- **Status**: FIXED (2026-04-11)
+- **Date**: 2026-04-11 00:17
+- **Severity**: CRITICAL (IPC exploit — any app on the watch can control our service)
+- **Symptom**: A malicious app could send `am start-foreground-service -n com.infernal.wheel/.DetectionService -a com.infernal.smokingdetector.BOOST` and trigger 7 minutes of boost-mode sampling (100Hz accelerometer + forced inference every 15s = battery nuke). It could also fire ACTION_STOP to silently kill the service while the user thinks it's running.
+- **Root cause**: The exported=true flag was added during early ADB-driven dev and never flipped back. The TODO comment promised the flip for release but the flip never happened.
+- **Fix**: Set exported=false directly in the MAIN manifest. Updated the inline comment to document the proper pattern: use src/debug/AndroidManifest.xml with an intent-filter + exported=true OVERRIDE for dev workflows (debug build variant only). That way release builds never ship the exported flag.
+- **Test**: trilateration/test_manifest_and_ui_hardening.py — uses xml.etree to actually parse the manifest and assert android:exported="false" on the DetectionService declaration. Also asserts the comment references src/debug/AndroidManifest.xml so the fix is self-documenting.
+- **Regression**: forge baseline 209 PASS / 0 FAIL.
+
+## BUG+041: trilateration/wear-os-app/app/src/main/AndroidManifest.xml line 26: android:allowBackup=true means the DetectionService SQLite DB (cigarette_detections table with 90 days of timestamps, HR readings, GPS clusters) gets backed up to Google Drive when the user has auto-backup enabled. For a health tracker that markets 'local only' privacy, this is a privacy leak: the user's smoking history, drinking history, and inferred GPS clusters end up on Google's servers without explicit consent. Fix: set android:allowBackup=false and add android:dataExtractionRules referencing an empty rules file so explicit opt-in backup would also require code changes. Defense-in-depth alongside BUG+018.
+- **Status**: FIXED (2026-04-11)
+- **Date**: 2026-04-11 00:17
+- **Severity**: HIGH (privacy leak to Google Drive — contradicts marketing "local only" claim)
+- **Symptom**: Users with auto-backup enabled (the Android default) were having their entire smoking + drinking + GPS cluster history uploaded to Google Drive without explicit in-app consent. The data persisted in backups even after the user uninstalled the app.
+- **Root cause**: Default Android manifest flag; nobody audited it against the "local only" privacy claim.
+- **Fix**: Set android:allowBackup="false" + inline comment documenting the privacy intent so a future contributor doesn't flip it back for "convenience". If a Google-Drive backup feature is added later, it must go through an explicit in-app consent flow with a new manifest flag.
+- **Test**: trilateration/test_manifest_and_ui_hardening.py::test_allow_backup_is_false — parses the manifest via xml.etree and asserts allowBackup=="false".
+- **Regression**: forge baseline 209 PASS / 0 FAIL.
+
+## BUG+042: trilateration/wear-os-app/app/build.gradle.kts line 26: release buildType has isMinifyEnabled = false. ProGuard/R8 minification + shrinking is disabled in release builds. Consequences: (1) APK is bigger than needed (slower class loading on the watch = worse battery); (2) no obfuscation makes reverse-engineering the ML model and detection logic trivial; (3) dead code from unused library features (horologist helpers we don't call, coroutines paths we don't use) ships to the watch anyway; (4) the proguardFiles declaration on lines 27-30 is cosmetic — it's referenced but never applied because minify is off. Fix: set isMinifyEnabled = true and isShrinkResources = true on the release build type, then test the resulting APK to make sure R8 doesn't strip something reflection-loaded (Samsung Health SDK is loaded via Class.forName at runtime — add keep rules if needed).
+- **Status**: OPEN
+- **Date**: 2026-04-11 00:22
+- **Symptom**: [a remplir]
+- **Root cause**: [a remplir]
+- **Fix**: [pending]
+- **Test**: [a ecrire]
+- **Regression**: [a verifier]

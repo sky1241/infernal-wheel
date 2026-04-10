@@ -23,12 +23,18 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault"
         tools:targetApi="34">
+        <!-- BUG+041 fix: allowBackup was true, meaning the cigarette/drink
+             detection SQLite DB would be synced to Google Drive without
+             the user's explicit consent. For a privacy-sensitive health
+             tracker that markets "local only", this was a direct leak.
+             Set to false; if a Google-Drive backup feature is added later,
+             it must go through an explicit in-app consent flow. -->
 
         <!-- Main Activity -->
         <activity
@@ -42,15 +48,18 @@
             </intent-filter>
         </activity>
 
-        <!-- Detection Service (foreground)
-             exported=true ONLY for debug builds — required to start the
-             service from `adb shell am start-foreground-service` during
-             development. Released APKs MUST flip this back to false. -->
+        <!-- Detection Service (foreground).
+             BUG+040 fix: exported was true in the main manifest which
+             let ANY app on the watch fire ACTION_START / ACTION_STOP /
+             ACTION_BOOST Intents at our service. Now exported=false so
+             only our own package can call it. Dev workflows that need
+             `adb shell am start-foreground-service` should override this
+             via src/debug/AndroidManifest.xml with an intent-filter +
+             exported=true (debug build variant only). -->
         <service
             android:name=".DetectionService"
             android:enabled="true"
-            android:exported="true"
-            tools:ignore="ExportedService"
+            android:exported="false"
             android:process=":detection"
             android:foregroundServiceType="health" />
 

@@ -33,12 +33,31 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val PERMISSION_REQUEST_CODE = 100
+        // BUG+039: manual +1 tap debounce window — clicks within this
+        // interval of the previous are ignored to prevent accidental
+        // double-taps from creating ghost DB rows + double BT syncs.
+        private const val MANUAL_LOG_DEBOUNCE_MS = 300L
     }
 
     private lateinit var database: DatabaseManager
     private lateinit var prefs: SharedPreferences
     private lateinit var messageSync: MessageSyncManager
     private val syncScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    // BUG+039 fix: double-tap debounce for the manual log buttons.
+    // Same CAS pattern as DetectionService BUG+031 — AtomicLong + compareAndSet
+    // lets only one click per MANUAL_LOG_DEBOUNCE_MS through. 300ms is the
+    // Compose-recommended window for tap deduplication on small screens.
+    private val lastManualLogMs = java.util.concurrent.atomic.AtomicLong(0L)
+
+    private fun consumeManualClick(): Boolean {
+        val now = System.currentTimeMillis()
+        while (true) {
+            val prev = lastManualLogMs.get()
+            if (now - prev < MANUAL_LOG_DEBOUNCE_MS) return false
+            if (lastManualLogMs.compareAndSet(prev, now)) return true
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -126,6 +145,11 @@ class MainActivity : ComponentActivity() {
                 isMonitoring = isMonitoring,
                 lastDetection = lastDetection,
                 onLogCigarette = {
+                    // BUG+039: reject double-taps within MANUAL_LOG_DEBOUNCE_MS
+                    if (!consumeManualClick()) {
+                        Log.d(TAG, "Cigarette tap debounced (too fast)")
+                        return@MainScreen
+                    }
                     // Auto-start detection on first log
                     if (!isMonitoring && hasPermissions()) {
                         DetectionService.start(this@MainActivity)
@@ -156,6 +180,11 @@ class MainActivity : ComponentActivity() {
                     }
                 },
                 onLogDrink = { drinkType ->
+                    // BUG+039: reject double-taps within MANUAL_LOG_DEBOUNCE_MS
+                    if (!consumeManualClick()) {
+                        Log.d(TAG, "Drink tap debounced (too fast)")
+                        return@MainScreen
+                    }
                     // Auto-start detection on first log
                     if (!isMonitoring && hasPermissions()) {
                         DetectionService.start(this@MainActivity)
