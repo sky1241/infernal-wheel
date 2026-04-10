@@ -83,7 +83,7 @@ def extract_time_domain_features(accel: np.ndarray, timestamps: np.ndarray) -> D
 # ANGULAR FEATURES (4)
 # ============================================================================
 
-def extract_angular_features(gyro: np.ndarray) -> Dict[str, float]:
+def extract_angular_features(gyro: np.ndarray, fs: float = 50.0) -> Dict[str, float]:
     """
     Extract angular features from gyroscope signal.
 
@@ -95,28 +95,36 @@ def extract_angular_features(gyro: np.ndarray) -> Dict[str, float]:
 
     Args:
         gyro: Gyroscope 3-axis array (Nx3) [pitch, roll, yaw] in deg/s
+        fs: Sampling frequency in Hz (default 50Hz for the legacy v5 model;
+            pass 25 for the v6 Samsung 25Hz pipeline). Was hardcoded as
+            dt=0.02 (50Hz) — see BUG+006.
 
     Returns:
         Dict with 4 features
     """
     features = {}
+    dt = 1.0 / fs
 
     # 1. Angular velocity magnitude
     angular_velocity_mag = np.linalg.norm(gyro, axis=1)
-    features['angular_velocity'] = np.mean(angular_velocity_mag)
+    features['angular_velocity'] = float(np.mean(angular_velocity_mag)) if len(angular_velocity_mag) > 0 else 0.0
 
     # 2. Wrist rotation (max cumulative rotation)
-    # Integrate angular velocity to get rotation angle
-    dt = 0.02  # Assume 50Hz sampling → 0.02s per sample
-    rotation_angles = np.cumsum(angular_velocity_mag) * dt
-    features['wrist_rotation'] = np.max(rotation_angles)
+    if len(angular_velocity_mag) > 0:
+        rotation_angles = np.cumsum(angular_velocity_mag) * dt
+        features['wrist_rotation'] = float(np.max(rotation_angles))
+    else:
+        features['wrist_rotation'] = 0.0
 
     # 3. Orientation stability (lower = more stable)
-    features['orientation_stability'] = np.std(angular_velocity_mag)
+    features['orientation_stability'] = float(np.std(angular_velocity_mag)) if len(angular_velocity_mag) > 1 else 0.0
 
-    # 4. Rotation smoothness (angular jerk)
-    angular_jerk = np.diff(angular_velocity_mag) / dt
-    features['rotation_smoothness'] = np.mean(np.abs(angular_jerk))
+    # 4. Rotation smoothness (angular jerk) — needs at least 2 samples to diff
+    if len(angular_velocity_mag) >= 2:
+        angular_jerk = np.diff(angular_velocity_mag) / dt
+        features['rotation_smoothness'] = float(np.mean(np.abs(angular_jerk)))
+    else:
+        features['rotation_smoothness'] = 0.0
 
     return features
 
@@ -126,6 +134,9 @@ def extract_angular_features(gyro: np.ndarray) -> Dict[str, float]:
 # ============================================================================
 
 def extract_jerk_features(accel: np.ndarray, dt: float = 0.02) -> Dict[str, float]:
+    # NOTE: dt default is 0.02 (50Hz) for backward compat with the v5 path.
+    # Callers using the v6 25Hz pipeline must pass dt=0.04 explicitly.
+    # See BUG+006.
     """
     Extract jerk features (rate of change of acceleration).
 
@@ -252,18 +263,37 @@ def extract_trajectory_features(accel_3d: np.ndarray, timestamps: np.ndarray) ->
     3. Elevation pattern consistency
     4. Total distance
 
+    NOTE on accuracy (BUG+008): the path / curvature / distance features
+    below are derived by double-integrating raw accelerometer data WITHOUT
+    sensor fusion (Kalman, Madgwick, etc.). On a real watch this accumulates
+    drift error very quickly — after 4-5 seconds the "position" estimate is
+    dominated by integration noise rather than actual hand motion. The
+    features are therefore weak signals that the legacy v2 GBM model can
+    learn around but should not be trusted as ground-truth motion paths.
+    A future revision should switch to a fused IMU pipeline.
+
     Args:
         accel_3d: 3-axis accelerometer (Nx3) [x, y, z]
         timestamps: Timestamp array (Nx1)
 
     Returns:
-        Dict with 4 features
+        Dict with 4 features (all defaulted to 0 on degenerate input)
     """
-    features = {}
+    features = {
+        'path_curvature': 0.0,
+        'elevation_angle': 0.0,
+        'elevation_consistency': 0.0,
+        'total_distance': 0.0,
+    }
+
+    # Need at least 2 samples to compute anything (BUG+007 — old code
+    # crashed with IndexError when timestamps had 0 or 1 elements).
+    if accel_3d is None or accel_3d.shape[0] < 2 or len(timestamps) < 2:
+        return features
 
     # Integrate acceleration to get velocity, then position (double integration)
     dt = np.diff(timestamps)
-    dt = np.append(dt, dt[-1])  # Pad to match length
+    dt = np.append(dt, dt[-1])  # Pad to match length (safe now: dt has >= 1 element)
 
     velocity = np.cumsum(accel_3d * dt[:, np.newaxis], axis=0)
     position = np.cumsum(velocity * dt[:, np.newaxis], axis=0)

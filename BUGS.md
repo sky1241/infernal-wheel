@@ -54,3 +54,27 @@
 - **Test**: manual — `python forge.py --add "test"` after the fix produces sequential IDs.
 - **Regression**: none.
 
+
+## BUG+006: feature_extraction.py hardcoded sample rate (50Hz) breaks the v6 25Hz Samsung pipeline
+- **Status**: FIXED (2026-04-10)
+- **Symptom**: extract_angular_features used `dt = 0.02` hardcoded (50Hz). Any caller running the v6 25Hz Samsung pipeline got jerk/wrist_rotation features computed with the wrong dt — off by a factor of 2.
+- **Root cause**: Default constant baked into function body, no parameter exposed.
+- **Fix**: Added `fs: float = 50.0` parameter to `extract_angular_features`. Default kept at 50Hz for backward compat. Callers using v6 25Hz must pass `fs=25.0` explicitly. Also added bounds checks (empty input, single sample) so the function returns zero features instead of NaN/crash. Documented dt=0.04 expected for 25Hz callers in `extract_jerk_features`.
+- **Test**: trilateration/test_feature_extraction_audit.py::test_angular_features_25hz_doubles_dt — explicitly verifies that integrating the same gyro signal at 25Hz vs 50Hz produces a 2x ratio, proving the parameter actually flows.
+- **Regression**: none — forge baseline went from 24P → 58P (+34, including 13 new feature_extraction tests + 21 new stay_points deep tests).
+
+## BUG+007: feature_extraction.py extract_trajectory_features crashes on 0 or 1 sample inputs
+- **Status**: FIXED (2026-04-10)
+- **Symptom**: `IndexError: index -1 is out of bounds for axis 0 with size 0` when extract_trajectory_features is called with a 1-sample (or empty) array. The crash poisons the entire feature batch.
+- **Root cause**: Line 265 did `dt = np.diff(timestamps)` then `dt = np.append(dt, dt[-1])`. With 1 timestamp, `np.diff` returns an empty array and `dt[-1]` raises IndexError.
+- **Fix**: Early-return zero features if `accel_3d.shape[0] < 2 or len(timestamps) < 2`. The features dict is pre-initialized with zeros so callers always get a valid 4-key dict back.
+- **Test**: trilateration/test_feature_extraction_audit.py::test_trajectory_features_empty_input + test_trajectory_features_single_sample_no_crash + test_trajectory_features_two_samples_no_crash.
+- **Regression**: none.
+
+## BUG+008: feature_extraction.py extract_trajectory_features double-integrates raw accel without sensor fusion (drift)
+- **Status**: OPEN (documented, not fixed — requires architectural rewrite)
+- **Symptom**: Trajectory features (path_curvature, total_distance) computed by integrating raw accelerometer twice produce values dominated by IMU drift after 2-3 seconds, not actual hand motion. The v2 30-feature GBM model has been training on noise for these 4 features the whole time.
+- **Root cause**: Naive double cumsum of raw accel. Real GPS-less position estimation needs Kalman/Madgwick sensor fusion (combining accel + gyro + Earth's gravity vector). The math is well-known but a non-trivial rewrite.
+- **Fix**: NOT YET FIXED. This audit pass added a clear NOTE in the function docstring warning the caller that these features are weak signals. A future revision should switch to a fused IMU pipeline (e.g. via the `ahrs` Python package) or drop the trajectory features entirely from the v2 model.
+- **Test**: N/A — the bug isn't a crash, it's a quality issue. A proper fix would need a baseline IMU recording with known ground truth motion to validate.
+- **Regression**: N/A.
