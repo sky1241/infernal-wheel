@@ -88,8 +88,7 @@ class SamsungHealthAccelerometer(private val context: Context) {
     @Volatile private var healthTrackingService: HealthTrackingService? = null
     @Volatile private var accelTracker: HealthTracker? = null
 
-    // Diagnostic counters — also @Volatile because getBatchCount() and
-    // getTotalSamplesReceived() are public and may be called from any thread.
+    // Diagnostic counters — used only inside handleBatch for the log stats.
     @Volatile private var batchCount: Long = 0
     @Volatile private var totalSamplesReceived: Long = 0
     @Volatile private var firstBatchTimeMs: Long = 0L
@@ -217,8 +216,6 @@ class SamsungHealthAccelerometer(private val context: Context) {
         Log.d(TAG, "Disconnected")
     }
 
-    fun isActive(): Boolean = isConnected && isAvailable
-
     // ─────────────────────────────────────────────────────────────────────
     // Internal — convert Samsung DataPoint to (Float, Float, Float) in m/s^2
     // ─────────────────────────────────────────────────────────────────────
@@ -278,8 +275,4 @@ class SamsungHealthAccelerometer(private val context: Context) {
 
         listener?.onBatch(samples, firstTs)
     }
-
-    /** Diagnostics getter — used by tests / DetectionService for proof of life. */
-    fun getBatchCount(): Long = batchCount
-    fun getTotalSamplesReceived(): Long = totalSamplesReceived
 }

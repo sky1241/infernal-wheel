@@ -84,9 +84,6 @@ class GaussianHourPattern(
     /** Is the pattern considered learned / actionable? */
     fun isLearned(): Boolean = learned
 
-    /** Total number of observations used to build the pattern. */
-    fun totalSamples(): Float = totalSamples
-
     /**
      * Sum of Gaussian kernels at the given minute-of-day.
      *

@@ -151,14 +151,6 @@ class SequenceDetector(
         )
     }
 
-    /** Current number of samples in the sliding window (for diagnostics). */
-    @Synchronized
-    fun size(): Int = samples.size
-
-    /** Number of samples currently above the peak threshold. */
-    @Synchronized
-    fun currentPeakCount(): Int = samples.count { it.probability >= peakThreshold }
-
     /** Reset everything — used on service stop or manual override. */
     @Synchronized
     fun reset() {

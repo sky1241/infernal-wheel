@@ -172,20 +172,7 @@ class BoostSamplingManager(private val context: Context) {
         }
     }
 
-    fun cancelBoost() {
-        boostJob?.cancel()
-        releaseWakeLock()
-        returnToNormal()
-    }
-
     fun isInBoostMode(): Boolean = currentMode == SamplingMode.BOOST
-    fun isInDelayMode(): Boolean = currentMode == SamplingMode.DELAY
-
-    fun getRemainingBoostTime(): Long {
-        if (currentMode != SamplingMode.BOOST) return 0L
-        val elapsed = boostMeasurementCount * BOOST_INFERENCE_INTERVAL_MS
-        return (BOOST_DURATION_MS - elapsed).coerceAtLeast(0L)
-    }
 
     fun stop() {
         boostJob?.cancel()

@@ -183,11 +183,4 @@ class HealthServicesManager(private val context: Context) {
         return baselineHR
     }
 
-    /**
-     * Get heart rate delta (current - baseline)
-     * Useful for cigarette detection: +7-15 bpm spike
-     */
-    fun getHRDelta(): Float {
-        return currentHR - baselineHR
-    }
 }
