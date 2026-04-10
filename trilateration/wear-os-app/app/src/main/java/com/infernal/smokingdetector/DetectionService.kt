@@ -268,7 +268,10 @@ class DetectionService : Service() {
                 stopSelf()
             }
             ACTION_BOOST -> {
-                val reason = intent?.getStringExtra("reason") ?: "manual"
+                // Inside this branch the `when (intent?.action)` already
+                // proved intent is non-null (otherwise we'd be in the null
+                // branch below), so the safe-call would be redundant here.
+                val reason = intent.getStringExtra("reason") ?: "manual"
                 Log.d(TAG, "Boost triggered: $reason")
                 boostManager.triggerBoost(reason)
             }
@@ -765,10 +768,15 @@ class DetectionService : Service() {
                     lookbackEndMs = 2 * 60 * 1000L     // recent window = last 2 min
                 )
                 val confirmed = hrRise >= HR_CONFIRMATION_DELTA_BPM
+                // Sanity: log how long ago the detection was, to make sure
+                // we're really 2 minutes after — useful when investigating
+                // logs in case the recheck fires early due to coroutine quirks.
+                val ageMs = System.currentTimeMillis() - detectionTimestamp
 
                 Log.i(
                     TAG,
-                    "[HR CONFIRM] detectionId=$detectionId hrRise=${"%.2f".format(hrRise)} bpm " +
+                    "[HR CONFIRM] detectionId=$detectionId age=${ageMs}ms " +
+                        "hrRise=${"%.2f".format(hrRise)} bpm " +
                         "threshold=$HR_CONFIRMATION_DELTA_BPM confirmed=$confirmed"
                 )
 
@@ -779,6 +787,12 @@ class DetectionService : Service() {
                     hrRise = hrRise,
                     confirmed = confirmed
                 )
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // Service was stopped during the 2-minute delay. This is normal
+                // — don't log as error. The DB row stays at its default
+                // hr_confirmed=0 which is the correct safe value.
+                Log.d(TAG, "HR confirmation cancelled for detection $detectionId (service stopping)")
+                throw e  // re-throw so the coroutine cleans up properly
             } catch (e: Exception) {
                 Log.e(TAG, "HR confirmation recheck failed for detection $detectionId", e)
             }

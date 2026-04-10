@@ -58,6 +58,24 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        // Cancel the IO coroutine scope so any in-flight sendCigarette /
+        // sendDrink job is interrupted instead of leaking the activity.
+        // Without this, every activity recreate (rotation, theme change,
+        // process restart) accumulates an orphaned scope still holding
+        // a reference to `this` → memory leak + duplicate sends.
+        syncScope.cancel()
+        // Close the SQLiteOpenHelper to release the underlying connection
+        // pool. Multiple Activity instances with leaked DB handles
+        // eventually exhaust the SQLite cursor pool and throw.
+        if (::database.isInitialized) {
+            try { database.close() } catch (e: Exception) {
+                Log.w(TAG, "database.close failed", e)
+            }
+        }
+    }
+
     @Composable
     private fun WearApp() {
         var currentScreen by remember { mutableStateOf("main") }
