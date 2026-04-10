@@ -24,6 +24,13 @@ build/
 *.apk
 local.properties
 
+# === Test artifacts ===
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.forge/
+
 # === Proprietary SDKs (each developer must download separately) ===
 # Samsung Health Sensor SDK AAR — get from developer.samsung.com (free account).
 # License does not allow public redistribution. See app/libs/README.md for setup.
