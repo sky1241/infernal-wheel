@@ -38,9 +38,9 @@ WINDOW_SAMPLES = int(WINDOW_SEC * TARGET_RATE)  # 112
 STEP_SAMPLES = WINDOW_SAMPLES // 2              # 56 (50% overlap)
 CHANNELS = 3                # Acc only (X, Y, Z) — no gyro
 LABEL_THRESHOLD = 0.3       # >30% puff in window = positive
-EPOCHS = 15           # Reduced from 30 — model converges fast on this dataset
+EPOCHS = 15           # 15 epochs is enough on this dataset
 BATCH_SIZE = 256      # Larger batch = faster epochs on CPU
-N_FOLDS = 3           # Reduced from 5 — we want a fast sanity check, not a paper
+N_FOLDS = 3           # 3-fold CV is enough for sanity check
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "datasets", "sed")
 OUTPUT_TFLITE = os.path.join(os.path.dirname(__file__), "smoking_detector_v6_25hz.tflite")
@@ -125,30 +125,44 @@ def normalize_signals(X_train, X_test):
 
 
 def build_cnn():
-    """Build a compact CNN 1D for TFLite deployment, adapted for 25Hz / 3 channels."""
+    """
+    Build a CNN 1D for TFLite deployment, adapted for 25Hz / 3 channels.
+
+    Architecture is BEEFIER than the first attempt because we lost the gyro
+    channels (going from 6 to 3 channels) and we have less temporal resolution
+    (50Hz -> 25Hz). To compensate we widen the conv layers and add a 4th block.
+    """
     model = tf.keras.Sequential([
         # Input: [batch, 112, 3]
         tf.keras.layers.Input(shape=(WINDOW_SAMPLES, CHANNELS)),
 
-        # Conv block 1 — capture gesture dynamics
-        tf.keras.layers.Conv1D(32, kernel_size=5, strides=2, activation='relu', padding='same'),
+        # Conv block 1 — wide kernel to capture slow gesture dynamics
+        tf.keras.layers.Conv1D(48, kernel_size=7, strides=1, activation='relu', padding='same'),
         tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.MaxPooling1D(pool_size=2),
         tf.keras.layers.Dropout(0.2),
 
         # Conv block 2
-        tf.keras.layers.Conv1D(64, kernel_size=3, strides=2, activation='relu', padding='same'),
+        tf.keras.layers.Conv1D(96, kernel_size=5, strides=1, activation='relu', padding='same'),
         tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.MaxPooling1D(pool_size=2),
         tf.keras.layers.Dropout(0.2),
 
         # Conv block 3
-        tf.keras.layers.Conv1D(64, kernel_size=3, strides=2, activation='relu', padding='same'),
+        tf.keras.layers.Conv1D(128, kernel_size=3, strides=1, activation='relu', padding='same'),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.MaxPooling1D(pool_size=2),
+        tf.keras.layers.Dropout(0.2),
+
+        # Conv block 4
+        tf.keras.layers.Conv1D(128, kernel_size=3, strides=1, activation='relu', padding='same'),
         tf.keras.layers.BatchNormalization(),
 
         # Aggregate
         tf.keras.layers.GlobalAveragePooling1D(),
 
-        # Classifier
-        tf.keras.layers.Dense(32, activation='relu'),
+        # Classifier head
+        tf.keras.layers.Dense(64, activation='relu'),
         tf.keras.layers.Dropout(0.3),
         tf.keras.layers.Dense(4, activation='softmax'),  # cigarette, eating, drinking, other
     ])

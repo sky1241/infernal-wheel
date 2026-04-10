@@ -62,7 +62,7 @@ repositories {
 dependencies {
     // Samsung Health Sensor SDK (optional — file may not exist yet)
     // Download from: https://developer.samsung.com/health/sensor/overview.html
-    // Then place: app/libs/samsung-health-sensor-sdk.aar
+    // Then place: app/libs/samsung-health-sensor-api.aar
     // The fileTree below picks it up automatically without failing if absent.
     implementation(fileTree("libs") { include("*.aar") })
 

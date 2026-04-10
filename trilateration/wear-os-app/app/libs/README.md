@@ -5,7 +5,7 @@
 Drop the **Samsung Health Sensor SDK** AAR file into this folder to enable
 parasitic 25Hz accelerometer access on Galaxy Watch.
 
-Expected file name: `samsung-health-sensor-sdk.aar`
+Expected file name: `samsung-health-sensor-api.aar`
 (any `*.aar` works — the gradle script picks them all up via `fileTree`)
 
 ## How to get the AAR
