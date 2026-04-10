@@ -6,6 +6,8 @@ import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.NodeClient
 import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -41,6 +43,12 @@ class MessageSyncManager(private val context: Context) {
     private val messageClient: MessageClient = Wearable.getMessageClient(context)
     private val nodeClient: NodeClient = Wearable.getNodeClient(context)
     private val bufferFile = File(context.filesDir, BUFFER_FILE)
+
+    // Single mutex protecting all buffer file I/O. Without it, concurrent
+    // bufferEvent + flushBuffer could lose events: thread A reads (10 events),
+    // thread B reads (10 events) + adds (11) + writes (11), thread A writes
+    // back its outdated 10 → the 11th event is lost.
+    private val bufferMutex = Mutex()
 
     /**
      * Send a cigarette detection to the phone.
@@ -158,7 +166,7 @@ class MessageSyncManager(private val context: Context) {
                         payload.toString().toByteArray()
                     ).await()
                     sent = true
-                    Log.d(TAG, "Sent to ${node.displayName}: $path → ${payload.optString("type")}")
+                    Log.d(TAG, "Sent to ${node.displayName}: $path -> ${payload.optString("type")}")
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to send to ${node.displayName}", e)
                 }
@@ -177,56 +185,65 @@ class MessageSyncManager(private val context: Context) {
     /**
      * Flush all buffered events to the phone.
      * Called when phone reconnects (from NodeClient listener or manually).
+     *
+     * Hold the bufferMutex for the ENTIRE flush so concurrent bufferEvent
+     * calls cannot interleave with our read-modify-write of the buffer file.
+     * The lock is sub-second on the happy path (one read + send + delete),
+     * up to ~50s on the worst case (500 buffered events × 100ms each).
+     * That's acceptable because new events still get queued by Kotlin's
+     * Mutex and processed once the flush completes.
      */
     suspend fun flushBuffer() = withContext(Dispatchers.IO) {
-        val buffer = readBuffer()
-        if (buffer.length() == 0) {
-            Log.d(TAG, "Buffer empty, nothing to flush")
-            return@withContext
-        }
-
-        Log.d(TAG, "Flushing ${buffer.length()} buffered events")
-
-        try {
-            val nodes = nodeClient.connectedNodes.await()
-            if (nodes.isEmpty()) {
-                Log.d(TAG, "Still no phone — keeping buffer")
-                return@withContext
+        bufferMutex.withLock {
+            val buffer = readBuffer()
+            if (buffer.length() == 0) {
+                Log.d(TAG, "Buffer empty, nothing to flush")
+                return@withLock
             }
 
-            val node = nodes.first()
-            var flushed = 0
+            Log.d(TAG, "Flushing ${buffer.length()} buffered events")
 
-            for (i in 0 until buffer.length()) {
-                try {
-                    val event = buffer.getJSONObject(i)
-                    val path = event.getString("_path")
-                    event.remove("_path") // Don't send internal field
-
-                    messageClient.sendMessage(
-                        node.id,
-                        path,
-                        event.toString().toByteArray()
-                    ).await()
-                    flushed++
-                } catch (e: Exception) {
-                    Log.w(TAG, "Flush failed for event $i", e)
-                    // Keep remaining events in buffer
-                    val remaining = JSONArray()
-                    for (j in i until buffer.length()) {
-                        remaining.put(buffer.getJSONObject(j))
-                    }
-                    writeBuffer(remaining)
-                    Log.d(TAG, "Flushed $flushed, ${remaining.length()} remain")
-                    return@withContext
+            try {
+                val nodes = nodeClient.connectedNodes.await()
+                if (nodes.isEmpty()) {
+                    Log.d(TAG, "Still no phone — keeping buffer")
+                    return@withLock
                 }
-            }
 
-            // All flushed — clear buffer
-            clearBuffer()
-            Log.d(TAG, "Buffer fully flushed: $flushed events sent")
-        } catch (e: Exception) {
-            Log.e(TAG, "Flush failed", e)
+                val node = nodes.first()
+                var flushed = 0
+
+                for (i in 0 until buffer.length()) {
+                    try {
+                        val event = buffer.getJSONObject(i)
+                        val path = event.getString("_path")
+                        event.remove("_path") // Don't send internal field
+
+                        messageClient.sendMessage(
+                            node.id,
+                            path,
+                            event.toString().toByteArray()
+                        ).await()
+                        flushed++
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Flush failed for event $i", e)
+                        // Keep remaining events in buffer
+                        val remaining = JSONArray()
+                        for (j in i until buffer.length()) {
+                            remaining.put(buffer.getJSONObject(j))
+                        }
+                        writeBuffer(remaining)
+                        Log.d(TAG, "Flushed $flushed, ${remaining.length()} remain")
+                        return@withLock
+                    }
+                }
+
+                // All flushed — clear buffer
+                clearBuffer()
+                Log.d(TAG, "Buffer fully flushed: $flushed events sent")
+            } catch (e: Exception) {
+                Log.e(TAG, "Flush failed", e)
+            }
         }
     }
 
@@ -239,45 +256,130 @@ class MessageSyncManager(private val context: Context) {
 
     // ── Buffer management ──
 
-    private fun bufferEvent(path: String, payload: JSONObject) {
-        try {
-            val buffer = readBuffer()
-            val event = JSONObject(payload.toString()) // Clone
-            event.put("_path", path)
-            buffer.put(event)
+    /**
+     * Buffer an event under the buffer mutex. Suspending so we can use the
+     * Mutex (Kotlin's coroutine mutex doesn't have a non-suspending lock()).
+     */
+    private suspend fun bufferEvent(path: String, payload: JSONObject) {
+        bufferMutex.withLock {
+            try {
+                val buffer = readBuffer()
+                val event = JSONObject(payload.toString()) // Clone
+                event.put("_path", path)
+                buffer.put(event)
 
-            // Cap buffer size
-            val trimmed = if (buffer.length() > MAX_BUFFER_SIZE) {
-                val newBuffer = JSONArray()
-                for (i in buffer.length() - MAX_BUFFER_SIZE until buffer.length()) {
-                    newBuffer.put(buffer.getJSONObject(i))
+                // Cap buffer size with type-aware eviction.
+                //
+                // Old behavior: drop the OLDEST events FIFO. Bad because a
+                // 500-event burst of training_window samples could evict
+                // critical cigarette/drink detections that were waiting in
+                // line for an hour.
+                //
+                // New behavior: drop training_window events first (they are
+                // optional ground-truth, the user's count doesn't depend on
+                // them). Only fall back to FIFO if there are no training
+                // events to evict.
+                val trimmed = if (buffer.length() > MAX_BUFFER_SIZE) {
+                    trimBufferPreservingDetections(buffer)
+                } else {
+                    buffer
                 }
-                newBuffer
-            } else {
-                buffer
-            }
 
-            writeBuffer(trimmed)
-            Log.d(TAG, "Buffered event (total: ${trimmed.length()})")
-        } catch (e: Exception) {
-            Log.e(TAG, "Buffer write failed", e)
+                writeBuffer(trimmed)
+                Log.d(TAG, "Buffered event (total: ${trimmed.length()})")
+            } catch (e: Exception) {
+                Log.e(TAG, "Buffer write failed", e)
+            }
         }
+    }
+
+    /**
+     * Drop events to bring the buffer back under MAX_BUFFER_SIZE.
+     * Drops training_window events first (oldest first), then falls back
+     * to FIFO over remaining events.
+     *
+     * Visible for unit testing.
+     */
+    internal fun trimBufferPreservingDetections(buffer: JSONArray): JSONArray {
+        val needToDrop = buffer.length() - MAX_BUFFER_SIZE
+        if (needToDrop <= 0) return buffer
+
+        // Walk through and mark training_window events for eviction first.
+        val keep = BooleanArray(buffer.length()) { true }
+        var dropped = 0
+
+        // Pass 1 — drop oldest training_window events
+        var i = 0
+        while (dropped < needToDrop && i < buffer.length()) {
+            val event = buffer.optJSONObject(i)
+            if (event != null && event.optString("type") == "training_window") {
+                keep[i] = false
+                dropped++
+            }
+            i++
+        }
+
+        // Pass 2 — if still over, drop oldest remaining events FIFO
+        i = 0
+        while (dropped < needToDrop && i < buffer.length()) {
+            if (keep[i]) {
+                keep[i] = false
+                dropped++
+            }
+            i++
+        }
+
+        // Build the result preserving order
+        val result = JSONArray()
+        for (j in 0 until buffer.length()) {
+            if (keep[j]) result.put(buffer.getJSONObject(j))
+        }
+        return result
     }
 
     private fun readBuffer(): JSONArray {
         return try {
             if (bufferFile.exists()) {
-                JSONArray(bufferFile.readText())
+                val text = bufferFile.readText()
+                if (text.isEmpty()) {
+                    // Empty file is treated as empty buffer (e.g. truncated mid-write)
+                    JSONArray()
+                } else {
+                    JSONArray(text)
+                }
             } else {
                 JSONArray()
             }
         } catch (e: Exception) {
+            // File exists but is corrupt — log loudly so we know we lost data,
+            // then return empty so the rest of the app keeps working.
+            Log.e(TAG, "Buffer file exists but is corrupt — events lost", e)
             JSONArray()
         }
     }
 
+    /**
+     * Write the buffer atomically: write to a temp file then rename.
+     * Without this, a crash mid-write could leave the buffer file truncated
+     * (e.g. zero bytes), which readBuffer() would treat as "no events" — and
+     * everything that was already buffered would be silently lost.
+     */
     private fun writeBuffer(buffer: JSONArray) {
-        bufferFile.writeText(buffer.toString())
+        val tmpFile = File(bufferFile.parentFile, "${bufferFile.name}.tmp")
+        try {
+            tmpFile.writeText(buffer.toString())
+            // Rename is atomic on POSIX (and Android) — either the new file
+            // is fully in place, or the old one is still there.
+            if (!tmpFile.renameTo(bufferFile)) {
+                // Fallback: rename failed (e.g. on Android FAT32 partition)
+                // — write directly. Worst case we still get the old behavior.
+                bufferFile.writeText(buffer.toString())
+                tmpFile.delete()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "writeBuffer failed", e)
+            tmpFile.delete()
+        }
     }
 
     private fun clearBuffer() {
