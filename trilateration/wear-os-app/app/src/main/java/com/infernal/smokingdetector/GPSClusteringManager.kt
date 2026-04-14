@@ -44,7 +44,15 @@ class GPSClusteringManager(private val context: Context) : LocationListener {
 
         // GPS update interval
         private const val GPS_UPDATE_INTERVAL_MS = 300_000L // 5 minutes
-        private const val GPS_MIN_DISTANCE_M = 50f
+        // BUG+050 fix: was 50f, which combined with STAY_POINT_RADIUS_M=50m
+        // meant Android only delivered location callbacks AFTER the user had
+        // already moved beyond the stay radius. The `distance < 50m` branch
+        // in onLocationChanged could therefore essentially never fire, and
+        // stay-point detection was dead code. Dropped to 5m so the listener
+        // fires on micro-movements inside a stay (walking around the kitchen,
+        // reaching for a phone, etc.) and the duration check can accumulate
+        // time at the same location.
+        private const val GPS_MIN_DISTANCE_M = 5f
 
         // Cluster labels
         const val CLUSTER_HOME = 0

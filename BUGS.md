@@ -419,3 +419,39 @@
 - **Fix**: Renamed the snapshot to `initialQ` (so it's clearly read-only) and moved the save INTO the per-item success branch: after each successful fetch, re-read `getOfflineQueue()`, findIndex by ts+url to locate THIS item in the current state, splice it out, save. Any items queued during the await are preserved because we only touch the specific item we just synced.
 - **Test**: trilateration/test_offline_queue_race.py — 7 tests: (a) 4 static-grep assertions that the bad pattern can't sneak back, (b) 3 Python ports that prove the fixed algorithm preserves interleaved new items while the buggy baseline loses them.
 - **Regression**: forge baseline 226 PASS / 0 FAIL.
+
+## BUG+047: FALSE POSITIVE on re-read — detect_stay_points IS correct
+- **Status**: CLOSED — not a bug (2026-04-14)
+- **Date**: 2026-04-14 15:01
+- **Investigation**: Initial bug report claimed that `detect_stay_points` only checks `haversine(points[i], points[j])` without verifying intermediate points. This is WRONG on re-read: the inner while loop iterates j forward one step at a time, and the `if dist > radius_m: break` fires on the FIRST j where the point exits the radius. So the home→bakery→home scenario WOULD correctly break when the user walks out. The algorithm is sound.
+- **Lesson**: trace the loop with a concrete counter-example BEFORE logging the bug, not after. Kept in numbering sequence so future audits don't renumber.
+
+## BUG+048: stay_points.py temporal_labeling line 261: df['hour'] = df['start_time'].dt.hour. The label is computed from start_time ONLY. Problem: stay points can span many hours. A user who arrives home at 21h30 and leaves at 8h00 (a realistic overnight sleep stay) has start_time.hour = 21 → labeled 'bar' by label_time() because 18 <= 21 < 22. But the actual MAJORITY of the stay (10+ hours) is overnight home time. Real-world impact: every overnight sleep gets mislabeled as bar/social, then DBSCAN + majority-vote across the cluster inherits the wrong label, and the GPS-context feature fed to the ML model is systematically wrong for evening home stays. Fix: label based on the MIDPOINT of the stay (start + duration/2) OR the majority hour bucket across the stay duration.
+- **Status**: FIXED (2026-04-14)
+- **Date**: 2026-04-14 15:03
+- **Severity**: HIGH (ML validity — every overnight stay mislabeled 'bar' instead of 'home')
+- **Symptom**: A user going to bed at 21h30 and waking at 8h00 has the entire sleep period mislabeled as 'bar' by the temporal_labeling pass, because label_time(21) returns 'bar'. DBSCAN majority-vote then propagates this wrong label to the whole cluster, feeding garbage into the gps_cluster feature used by the ML model.
+- **Root cause**: Original code used `.dt.hour` on the start_time only, which is a zero-duration anchor. A stay is a DURATION, not an instant — the label must reflect where the majority of time was spent.
+- **Fix**: compute midpoint = start_time + (end_time - start_time) / 2, then take `.dt.hour` of the midpoint. For a 21h30→8h00 stay the midpoint is ~2h45 → 'home'. The label_time function itself is unchanged — only the input timestamp.
+- **Test**: trilateration/test_stay_points_midpoint_label.py — 8 tests: overnight → 'home', short evening → 'bar', morning-to-afternoon → 'work', weekend lunch → 'work', cluster majority-vote consistency, noise preservation, empty input, BUG+048 marker.
+- **Regression**: forge baseline 243 PASS / 0 FAIL.
+
+## BUG+049: infernal-app/pubspec.yaml line 32: dependency 'intl: any' uses the wildcard version specifier. pub will resolve it to whatever latest version is compatible, meaning a dart pub upgrade on a future day can silently pick up an intl version with breaking changes. Reproducible builds require pinned or caret-pinned versions. flutter_secure_storage, pointycastle, crypto, path_provider, webview_flutter all use caret-range (^X.Y.Z) which allows patch/minor upgrades within the same major. intl should follow the same convention. Fix: change 'intl: any' to 'intl: ^0.19.0' (or whatever current stable is when the script is re-run).
+- **Status**: FIXED (2026-04-14)
+- **Date**: 2026-04-14 15:04
+- **Severity**: MEDIUM (reproducibility — silent breakage risk on pub upgrade)
+- **Symptom**: `dart pub upgrade` could silently pull intl 0.20+ (or any future major) and break the generated l10n code (which uses intl.Intl.pluralLogic and intl.DateFormat.yMMMd in 7 locales). Since intl 'any' means no upper bound, there's no guard against breaking changes.
+- **Root cause**: 'any' was a leftover from scaffolding — other deps already use caret, intl was overlooked.
+- **Fix**: Pinned `intl: ^0.19.0` (the Flutter 3.x-compatible major) with an inline comment documenting the pin rationale.
+- **Test**: trilateration/test_pubspec_and_gps_config.py — 4 tests: no 'intl: any' line, caret range present, BUG+049 marker, no other 'any' deps either.
+- **Regression**: forge baseline 243 PASS / 0 FAIL.
+
+## BUG+050: GPSClusteringManager.kt start() line 71-85 registers requestLocationUpdates with GPS_MIN_DISTANCE_M = 50f, meaning Android only delivers location callbacks when the user has moved at least 50 meters. onLocationChanged line 112 then checks 'if (distance < STAY_POINT_RADIUS_M)' where STAY_POINT_RADIUS_M = 50.0. Since the LocationManager only fires when distance >= 50m, the 'stay detected' branch (line 112-121) can essentially NEVER fire. The stay-point detection logic is dead code: getCurrentCluster always returns CLUSTER_OTHER. Impact: the gps_cluster feature fed to the ML model is always 3 (other), never home/work/bar. The 'pattern-based threshold' adjustment in DetectionService (isHighSmokingHour = threshold - 0.15f when home) never activates because clustering never emits non-OTHER labels. Fix: remove the GPS_MIN_DISTANCE_M=50f filter OR drop it to 5m so stay detection has real data to work with.
+- **Status**: FIXED (2026-04-14)
+- **Date**: 2026-04-14 15:05
+- **Severity**: HIGH (entire feature dead — GPS context feature always 'other', downstream threshold adjustment never applies)
+- **Symptom**: gps_cluster always 3 (CLUSTER_OTHER). The `isHighSmokingHour` threshold-lowering in DetectionService never triggers. The smart-context features of the detector are effectively disabled without anyone noticing because nothing crashes — it just silently underperforms.
+- **Root cause**: The two constants (GPS_MIN_DISTANCE_M filter vs STAY_POINT_RADIUS_M logic) were configured independently and nobody noticed the filter was set exactly AT the radius, making the `distance < radius` branch unreachable in practice. The LocationManager's min-distance filter decides which callbacks reach us; setting it at 50m means we only hear about moves ≥ 50m, so inside-radius micro-movements are invisible.
+- **Fix**: GPS_MIN_DISTANCE_M dropped from 50f to 5f so Android delivers callbacks on small movements inside a stay. 5m is small enough to accumulate duration at a stationary spot but large enough to filter out GPS jitter. Inline comment references BUG+050 for future contributors.
+- **Test**: trilateration/test_pubspec_and_gps_config.py — 5 tests: invariant `gps_min < stay_radius/5`, specific check that 50f can't reappear, BUG+050 marker, Python simulation of old vs new behavior proving the old filter silently dropped all micro-movement callbacks.
+- **Regression**: forge baseline 243 PASS / 0 FAIL.

@@ -257,8 +257,17 @@ def temporal_labeling(clustered_stays: pd.DataFrame) -> pd.DataFrame:
 
     df = clustered_stays.copy()
 
-    # Extract hour from start_time
-    df['hour'] = df['start_time'].dt.hour
+    # BUG+048 fix: label based on the MIDPOINT of each stay, not the
+    # start_time alone. A realistic overnight sleep arriving at 21h30 and
+    # leaving at 8h00 has start_time.hour=21 which would be labeled 'bar'
+    # by label_time() even though the user was actually sleeping at home
+    # for 10+ hours. Using the midpoint anchors the label to where the
+    # majority of the stay duration actually lies.
+    #
+    # For stays crossing midnight we still use clock hour of the midpoint
+    # (not a decimal — the buckets are integer-hour based).
+    mid_time = df['start_time'] + (df['end_time'] - df['start_time']) / 2
+    df['hour'] = mid_time.dt.hour
 
     # Temporal labeling — every hour 0-23 is mapped exactly once, no gaps.
     #
