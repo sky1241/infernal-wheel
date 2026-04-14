@@ -52,9 +52,13 @@ def test_onboarding_does_not_claim_chiffre(onboarding_source):
         onboarding_source,
     )
     assert lock_feature_calls, "no lock_outline feature found — copy may have moved"
+    # BUG+018 (crypto wiring) is now fixed, so the "chiffre" claim is truthful
+    # again. The BUG+034 temporary workaround (strip "chiffre") is no longer
+    # needed. This test now asserts the OPPOSITE: the chiffre claim IS present.
     for call in lock_feature_calls:
-        assert "chiffre" not in call.lower(), (
-            f"BUG+034 regression: onboarding still claims encryption: {call!r}"
+        assert "chiffre" in call.lower(), (
+            f"BUG+018 regression: onboarding no longer claims encryption even "
+            f"though BUG+018 fix wired CryptoService into DataStore: {call!r}"
         )
 
 

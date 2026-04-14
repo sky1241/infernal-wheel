@@ -2,20 +2,38 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../core/infernal_day.dart';
+import '../security/crypto_service.dart';
 
-/// Stockage local des donnees (JSON/CSV)
+/// Stockage local des donnees (JSON/CSV), chiffrement AES-256-GCM au repos.
+///
 /// Toutes les donnees restent sur l'appareil du client.
 ///
-/// !!! BUG+018 PRIVACY GAP — see BUGS.md !!!
-/// Cette classe écrit en CLAIR (jsonEncode + writeAsString). CryptoService
-/// est initialisé par main.dart mais ses helpers encryptToFile/decryptFromFile
-/// ne sont JAMAIS appelés ici. Le marketing dit "AES-256 encrypted" — ce n'est
-/// pas vrai aujourd'hui. NE PAS pousser sur le Play Store sans avoir résolu
-/// BUG+018 (rework architectural + migration des fichiers existants).
+/// BUG+018 fix: CryptoService was scaffolded but never wired into DataStore.
+/// Every file read/write now goes through `_readSecure` / `_writeSecure`
+/// which use CryptoService.encryptToFile / decryptFromFile. Legacy plain
+/// files from before this fix are transparently migrated on first read
+/// (see `_readSecure` implementation notes).
+///
+/// Guarantees:
+/// - Every file under $dataDir/* that passes through this class is either
+///   (a) encrypted with AES-256-GCM using the key stored in the Android
+///       Keystore via flutter_secure_storage, OR
+///   (b) absent (file doesn't exist yet).
+/// - No site in this class calls `File.writeAsString` / `readAsString`
+///   directly on a data file — all goes through the secure helpers. Tested
+///   by the static-grep suite in trilateration/test_bug_018_crypto_wired.py.
+/// - CSV files (drinks.csv, log.csv) use read-modify-write instead of
+///   FileMode.append because encrypted files can't be streamed-appended.
+///   The N is small (<100 rows/month typical) so the perf hit is negligible.
+/// - If CryptoService is locked when a write is attempted, the write throws
+///   StateError rather than falling back to plaintext — the entire point
+///   of this fix is to never write plaintext again.
 class DataStore {
   static final DataStore _instance = DataStore._internal();
   factory DataStore() => _instance;
   DataStore._internal();
+
+  final _crypto = CryptoService();
 
   late Directory _dataDir;
   late Directory _notesDir;
@@ -31,21 +49,82 @@ class DataStore {
     _initialized = true;
   }
 
-  // --- Settings ---
+  // ────────────────────────────────────────────────────────────────────
+  // Secure I/O helpers — BUG+018 fix
+  // ────────────────────────────────────────────────────────────────────
+
+  /// Read a file with transparent decryption + legacy-plaintext migration.
+  ///
+  /// Returns the decrypted content, the migrated plaintext content, or null
+  /// if the file doesn't exist or decryption definitively fails (corrupt
+  /// ciphertext that also doesn't parse as readable legacy data).
+  ///
+  /// Migration path: if decryptFromFile returns null but the file exists
+  /// and reads as non-empty plain text, we treat it as a pre-BUG+018
+  /// legacy file, re-encrypt it in place, and return the plaintext. On
+  /// subsequent reads the encrypted-path wins.
+  Future<String?> _readSecure(File file) async {
+    if (!await file.exists()) return null;
+
+    // Try encrypted path first (the normal case after migration).
+    final decrypted = await _crypto.decryptFromFile(file);
+    if (decrypted != null) return decrypted;
+
+    // Decryption failed. This is either:
+    //   (a) A legacy plain file from before the BUG+018 fix.
+    //   (b) A corrupt ciphertext with wrong key / damaged bytes.
+    // We attempt to read as plain text and, if non-empty, treat it as
+    // legacy and migrate in place. Corrupt ciphertext is almost always
+    // still base64-ASCII so it would "read" as a non-empty string —
+    // but attempting to re-encrypt it is harmless (we'd just overwrite
+    // a file we can't decrypt anyway).
+    try {
+      final plain = await file.readAsString();
+      if (plain.isEmpty) return null;
+
+      // BUG+018 migration: re-write the legacy plain file as encrypted.
+      if (_crypto.isUnlocked) {
+        await _crypto.encryptToFile(file, plain);
+      }
+      return plain;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Write a file, always encrypted. Throws StateError if CryptoService
+  /// is not unlocked — we must NEVER fall back to plaintext. If the
+  /// startup flow is broken and DataStore is used before the crypto is
+  /// unlocked, we want loud failure, not silent plaintext writes.
+  Future<void> _writeSecure(File file, String content) async {
+    if (!_crypto.isUnlocked) {
+      throw StateError(
+        'BUG+018: refuse to write plaintext when CryptoService is locked. '
+        'Check the main.dart startup flow — CryptoService must be unlocked '
+        'before any DataStore save.',
+      );
+    }
+    await _crypto.encryptToFile(file, content);
+  }
+
+  // ────────────────────────────────────────────────────────────────────
+  // Settings
+  // ────────────────────────────────────────────────────────────────────
 
   File get _settingsFile => File('${_dataDir.path}/settings.json');
 
   Future<Map<String, dynamic>> loadSettings() async {
     try {
-      if (await _settingsFile.exists()) {
-        return jsonDecode(await _settingsFile.readAsString()) as Map<String, dynamic>;
+      final text = await _readSecure(_settingsFile);
+      if (text != null && text.isNotEmpty) {
+        return jsonDecode(text) as Map<String, dynamic>;
       }
     } catch (_) {}
     return _defaultSettings();
   }
 
   Future<void> saveSettings(Map<String, dynamic> settings) async {
-    await _settingsFile.writeAsString(jsonEncode(settings));
+    await _writeSecure(_settingsFile, jsonEncode(settings));
   }
 
   Map<String, dynamic> _defaultSettings() => {
@@ -65,30 +144,36 @@ class DataStore {
     'alcoholVolumes': {'beer': 0.5, 'wine': 0.2, 'strong': 0.2},
   };
 
-  // --- Engine state ---
+  // ────────────────────────────────────────────────────────────────────
+  // Engine state
+  // ────────────────────────────────────────────────────────────────────
 
   File get _stateFile => File('${_dataDir.path}/state.json');
 
   Future<Map<String, dynamic>?> loadState() async {
     try {
-      if (await _stateFile.exists()) {
-        return jsonDecode(await _stateFile.readAsString()) as Map<String, dynamic>;
+      final text = await _readSecure(_stateFile);
+      if (text != null && text.isNotEmpty) {
+        return jsonDecode(text) as Map<String, dynamic>;
       }
     } catch (_) {}
     return null;
   }
 
   Future<void> saveState(Map<String, dynamic> state) async {
-    await _stateFile.writeAsString(jsonEncode(state));
+    await _writeSecure(_stateFile, jsonEncode(state));
   }
 
-  // --- Notes ---
+  // ────────────────────────────────────────────────────────────────────
+  // Notes (per-day text files)
+  // ────────────────────────────────────────────────────────────────────
 
   Future<String> loadNote(String dayKey) async {
     if (!_isValidDayKey(dayKey)) return '';
     final file = File('${_notesDir.path}/$dayKey.txt');
     try {
-      if (await file.exists()) return await file.readAsString();
+      final text = await _readSecure(file);
+      if (text != null) return text;
     } catch (_) {}
     return '';
   }
@@ -96,7 +181,7 @@ class DataStore {
   Future<void> saveNote(String dayKey, String content) async {
     if (!_isValidDayKey(dayKey)) return;
     final file = File('${_notesDir.path}/$dayKey.txt');
-    await file.writeAsString(content);
+    await _writeSecure(file, content);
   }
 
   Future<List<Map<String, dynamic>>> loadAllNotes() async {
@@ -105,8 +190,8 @@ class DataStore {
       await for (final entity in _notesDir.list()) {
         if (entity is File && entity.path.endsWith('.txt')) {
           final name = entity.uri.pathSegments.last.replaceAll('.txt', '');
-          final content = await entity.readAsString();
-          if (content.isNotEmpty) {
+          final content = await _readSecure(entity);
+          if (content != null && content.isNotEmpty) {
             notes.add({'day': name, 'content': content});
           }
         }
@@ -116,34 +201,48 @@ class DataStore {
     return notes;
   }
 
-  // --- Quick note / Action note ---
+  // ────────────────────────────────────────────────────────────────────
+  // Quick note / Action note
+  // ────────────────────────────────────────────────────────────────────
 
   File get _quickNoteFile => File('${_dataDir.path}/quicknote.txt');
   File get _actionNoteFile => File('${_dataDir.path}/actionnote.txt');
 
   Future<String> loadQuickNote() async {
     try {
-      if (await _quickNoteFile.exists()) return await _quickNoteFile.readAsString();
+      final text = await _readSecure(_quickNoteFile);
+      if (text != null) return text;
     } catch (_) {}
     return '';
   }
 
   Future<void> saveQuickNote(String content) async {
-    await _quickNoteFile.writeAsString(content);
+    await _writeSecure(_quickNoteFile, content);
   }
 
   Future<String> loadActionNote() async {
     try {
-      if (await _actionNoteFile.exists()) return await _actionNoteFile.readAsString();
+      final text = await _readSecure(_actionNoteFile);
+      if (text != null) return text;
     } catch (_) {}
     return '';
   }
 
   Future<void> saveActionNote(String content) async {
-    await _actionNoteFile.writeAsString(content);
+    await _writeSecure(_actionNoteFile, content);
   }
 
-  // --- Drinks (CSV) ---
+  // ────────────────────────────────────────────────────────────────────
+  // Drinks (CSV)
+  //
+  // BUG+018: FileMode.append is incompatible with encrypted files because
+  // each encryption produces a unique IV and tag — you can't simply
+  // concatenate two ciphertexts. We use read-modify-write instead. The
+  // CSV is small (typical user: <50 rows/month, ~10KB/year compressed)
+  // so the per-write cost is negligible.
+  // ────────────────────────────────────────────────────────────────────
+
+  static const _drinksHeader = 'At,InfernalDay,Wine,Beer,Strong';
 
   File get _drinksFile => File('${_dataDir.path}/drinks.csv');
 
@@ -158,17 +257,20 @@ class DataStore {
     final at = now.toIso8601String().substring(0, 19).replaceAll('T', ' ');
     final line = '$at,$dayKey,$wine,$beer,$strong';
 
-    if (!await _drinksFile.exists()) {
-      await _drinksFile.writeAsString('At,InfernalDay,Wine,Beer,Strong\n');
-    }
-    await _drinksFile.writeAsString('$line\n', mode: FileMode.append);
+    // Read current content (encrypted or legacy plain), append, rewrite encrypted.
+    final existing = await _readSecure(_drinksFile) ?? '';
+    final content = existing.isEmpty
+        ? '$_drinksHeader\n$line\n'
+        : (existing.endsWith('\n') ? '$existing$line\n' : '$existing\n$line\n');
+    await _writeSecure(_drinksFile, content);
   }
 
   Future<Map<String, int>> getDailyAlcohol(String dayKey) async {
     final totals = {'wine': 0, 'beer': 0, 'strong': 0};
     try {
-      if (!await _drinksFile.exists()) return totals;
-      final lines = (await _drinksFile.readAsString()).split('\n');
+      final text = await _readSecure(_drinksFile);
+      if (text == null) return totals;
+      final lines = text.split('\n');
       for (final line in lines.skip(1)) {
         final parts = line.split(',');
         if (parts.length >= 5 && parts[1] == dayKey) {
@@ -184,8 +286,9 @@ class DataStore {
   Future<List<Map<String, dynamic>>> getAllConsumption() async {
     final byDay = <String, Map<String, int>>{};
     try {
-      if (await _drinksFile.exists()) {
-        final lines = (await _drinksFile.readAsString()).split('\n');
+      final text = await _readSecure(_drinksFile);
+      if (text != null) {
+        final lines = text.split('\n');
         for (final line in lines.skip(1)) {
           final parts = line.split(',');
           if (parts.length >= 5) {
@@ -198,7 +301,6 @@ class DataStore {
         }
       }
     } catch (_) {}
-    // Cigarette data from log.csv will be added here once implemented
     final result = byDay.entries.map((e) => {
       'date': e.key, ...e.value,
     }).toList();
@@ -209,15 +311,16 @@ class DataStore {
   /// Weekly alcohol aggregates for the dashboard table
   Future<Map<String, dynamic>> getDrinksWeeks() async {
     try {
-      if (!await _drinksFile.exists()) return {'ok': true, 'weeks': []};
+      final text = await _readSecure(_drinksFile);
+      if (text == null) return {'ok': true, 'weeks': []};
 
-      // ABV constants (same as PowerShell)
+      // ABV constants
       const beerAbv = 0.055, wineAbv = 0.135, strongAbv = 0.425;
       const beerL = 0.5, wineL = 0.2, strongL = 0.2;
 
       // Aggregate by ISO week
       final byWeek = <String, Map<String, dynamic>>{};
-      final lines = (await _drinksFile.readAsString()).split('\n');
+      final lines = text.split('\n');
       for (final line in lines.skip(1)) {
         final parts = line.split(',');
         if (parts.length < 5) continue;
@@ -226,14 +329,7 @@ class DataStore {
         final dt = DateTime.tryParse(dayStr);
         if (dt == null) continue;
 
-        // BUG+054 fix: proper ISO 8601 week computation.
-        // Per ISO 8601, the week of the year is "the week containing the
-        // Thursday". That Thursday's calendar year is the ISO year — which
-        // can differ from the date's own calendar year near Jan 1 / Dec 31.
-        // E.g. 2025-12-29 (Monday) → Thursday 2026-01-01 → ISO 2026-W01.
-        // The previous formula used dt.year + a 0-indexed week → produced
-        // bogus "2025-W53" for such dates and a phantom W0 for
-        // early January.
+        // BUG+054 fix: proper ISO 8601 week via _isoWeek helper.
         final iso = _isoWeek(dt);
         final isoYear = iso.$1;
         final weekNum = iso.$2;
@@ -255,7 +351,6 @@ class DataStore {
         byWeek[weekKey]!['strong'] = byWeek[weekKey]!['strong'] + (int.tryParse(parts[4]) ?? 0);
       }
 
-      // Compute pure alcohol + deltas
       final weeks = byWeek.values.toList();
       weeks.sort((a, b) => (b['weekKey'] as String).compareTo(a['weekKey'] as String));
 
@@ -283,43 +378,38 @@ class DataStore {
     }
   }
 
-  // --- Log (CSV) ---
+  // ────────────────────────────────────────────────────────────────────
+  // Log (CSV) — same read-modify-write pattern as drinks
+  // ────────────────────────────────────────────────────────────────────
+
+  static const _logHeader = 'Start,End,Name,CountsAsWork,CountsAsSleep,InfernalDay';
 
   File get _logFile => File('${_dataDir.path}/log.csv');
 
   Future<void> addLogRow(DateTime start, DateTime end, String name, bool isWork, bool isSleep) async {
     final dayKey = InfernalDay.from(start).key;
     final row = '${_fmtDt(start)},${_fmtDt(end)},${name.replaceAll(',', ' ')},$isWork,$isSleep,$dayKey';
-    if (!await _logFile.exists()) {
-      await _logFile.writeAsString('Start,End,Name,CountsAsWork,CountsAsSleep,InfernalDay\n');
-    }
-    await _logFile.writeAsString('$row\n', mode: FileMode.append);
+
+    final existing = await _readSecure(_logFile) ?? '';
+    final content = existing.isEmpty
+        ? '$_logHeader\n$row\n'
+        : (existing.endsWith('\n') ? '$existing$row\n' : '$existing\n$row\n');
+    await _writeSecure(_logFile, content);
   }
 
-  // --- Helpers ---
+  // ────────────────────────────────────────────────────────────────────
+  // Helpers
+  // ────────────────────────────────────────────────────────────────────
 
   String _fmtDt(DateTime dt) => dt.toIso8601String().substring(0, 19).replaceAll('T', ' ');
 
   /// Compute (ISO year, ISO week number) per ISO 8601 for a given date.
-  ///
-  /// BUG+054: the previous getDrinksWeeks used a naive formula
-  /// `((dayOfYear - weekday + 10) / 7).floor()` combined with `dt.year`
-  /// for the week key. That formula produced week 0 for early-January
-  /// dates and labeled year-boundary weeks with the wrong calendar year
-  /// (e.g. 2025-12-29 Mon got "2025-W53" instead of the real ISO
-  /// "2026-W01").
-  ///
-  /// This helper uses the canonical algorithm: the ISO week is the
-  /// ordinal number (starting at 1) of the week containing the
-  /// Thursday of the date's week. The Thursday's calendar year IS the
-  /// ISO year — so this single fact computes both correctly.
+  /// See BUG+054 in BUGS.md for the full rationale — the previous naive
+  /// formula produced W0 and wrong-year prefixes on year-boundary dates.
   (int, int) _isoWeek(DateTime dt) {
-    // Find the Thursday of the same ISO week as dt.
-    // dt.weekday is 1=Mon .. 7=Sun; Thursday = 4.
     final thursday = DateTime.utc(dt.year, dt.month, dt.day)
         .add(Duration(days: 4 - dt.weekday));
     final isoYear = thursday.year;
-    // First Thursday of isoYear determines week 1.
     final jan1 = DateTime.utc(isoYear, 1, 1);
     final firstThursday = jan1.add(Duration(days: (4 - jan1.weekday) % 7));
     final daysBetween = thursday.difference(firstThursday).inDays;

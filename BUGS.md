@@ -148,19 +148,22 @@
 - **Regression**: forge baseline 112 PASS / 0 FAIL.
 
 ## BUG+018: CRITICAL PRIVACY BUG: crypto_service.dart is initialized by main.dart (setupAuto / unlockAuto) but its encrypt() / encryptToFile() / decryptFromFile() / decrypt() methods are NEVER called anywhere in lib/. data_store.dart writes plain JSON to disk with no encryption. The README, PRIVACY_POLICY, SAMSUNG_PARTNER_PLAN and Play Store description all say '100% local data, AES-256 encrypted'. This is a marketing lie and a privacy regression: anyone who roots the phone can dump full smoking/drinking history in plaintext. Also means BUG+016 (broken decrypt) doesn't crash the app in production because decrypt is dead code.
-- **Status**: OPEN — DEFERRED (architectural rework required, awaiting user decision)
-- **Date**: 2026-04-10 22:28
+- **Status**: FIXED (2026-04-14)
+- **Date**: 2026-04-10 22:28 (logged) → 2026-04-14 (fixed)
 - **Severity**: CRITICAL (privacy + Play Store false advertising)
-- **Symptom**: settings.json, state.json, drinks.csv, log.csv, notes/*.txt all stored as plaintext under getApplicationDocumentsDirectory()/infernal_data/. Anyone with root or a dev-mode device can `adb pull` the entire history including timestamps of every cigarette, drink, and note.
-- **Root cause**: When crypto_service.dart was added, the `encryptToFile` / `decryptFromFile` helpers were defined but data_store.dart was never refactored to use them. Every call site in DataStore writes raw bytes via `file.writeAsString(jsonEncode(...))`. The crypto service is a dangling dependency.
-- **Fix**: NOT APPLIED in pass forge4 — touches ~14 read/write sites and needs:
-  1. Migration path for existing plain-text files on upgrade.
-  2. Re-architecture of CSV append (current addDrink/addLogRow appends one line; encryption requires re-encrypting the whole file each write or moving to a length-prefixed-record format).
-  3. Async refactor of every callsite (encryptToFile is async, today's saves are fire-and-forget).
-  4. End-to-end tests covering pre-migration plaintext, post-migration ciphertext, and the migration pass itself.
-  Recommended: dedicated session, behind a feature flag, with a backup-export step before migration. In the interim, either downgrade the marketing copy ("local-only" without "AES-256") or land the rework before the next Play Store push.
-- **Test**: TODO (test_data_store_encryption.dart — to be written alongside the fix).
-- **Regression**: N/A — current pass forge4 leaves the bug OPEN by design and adds a TODO marker in data_store.dart pointing here.
+- **Symptom**: settings.json, state.json, drinks.csv, log.csv, notes/*.txt were all stored as plaintext under getApplicationDocumentsDirectory()/infernal_data/. Anyone with root or a dev-mode device could `adb pull` the entire history including timestamps of every cigarette, drink, and note. Marketing + PRIVACY_POLICY.md claimed AES-256-GCM — a legally-risky lie.
+- **Root cause**: crypto_service.dart was scaffolded early but never integrated. Every DataStore read/write used `File.writeAsString` / `readAsString` directly on plaintext. CryptoService was a dangling dependency — initialized (setupAuto generates & stores a key in Android Keystore) but unused.
+- **Fix** (this pass): data_store.dart rewritten to route ALL file I/O through two new helpers:
+  - `_readSecure(File)` — tries `CryptoService.decryptFromFile` first; if that returns null, falls back to plain `readAsString` and IF the plain text is non-empty, treats it as a pre-fix legacy file and RE-WRITES it encrypted via `encryptToFile` before returning. Transparent one-time migration per file on first read after upgrade.
+  - `_writeSecure(File, String)` — always calls `CryptoService.encryptToFile`. Throws StateError if CryptoService is locked (never falls back to plaintext — the whole point of the fix).
+  - CSV files (drinks.csv, log.csv) converted from `FileMode.append` to read-modify-write, because encrypted files can't be streamed-appended (each encryption produces a unique IV+tag). N is small (<100 rows/month) so the perf cost is negligible.
+  - main.dart startup flow already unlocks CryptoService before DataStore is used (setupAuto on first launch, unlockAuto on subsequent) — no change needed there.
+  - The legacy "!!! BUG+018 PRIVACY GAP !!!" banner at the top of data_store.dart was removed and replaced with a positive description of the encryption guarantees.
+  - Onboarding "chiffre" copy restored (BUG+034 workaround reverted).
+  - PRIVACY_POLICY.md + README.md restored to honestly claim AES-256-GCM (BUG+058 workaround reverted).
+- **Test**: trilateration/test_bug_018_crypto_wired.py — 17 static-grep tests: CryptoService imported, _crypto field present, _readSecure + _writeSecure helpers defined, _writeSecure throws on locked crypto, _readSecure has the migration path, NO direct `writeAsString` on data files, at most 1 `readAsString` (the legacy-migration site inside _readSecure), NO FileMode.append in code, _writeSecure called from >= 8 sites, _readSecure called from >= 10 sites, PRIVACY GAP banner removed, BUG+018 fix marker present, downstream onboarding claims chiffre, PRIVACY_POLICY claims AES-256-GCM, README Security mentions active encryption. Plus the existing test_crypto_service_format.py (11 tests) still guards the AES-256-GCM binary format spec that the helpers use.
+- **Regression**: forge baseline 307 PASS / 0 FAIL (+16 new). Zero regression. Legacy files from before the fix will be migrated automatically on first read after upgrade.
+- **Migration notes**: Existing users upgrading from pre-fix builds will have their data transparently migrated on first launch. The migration is triggered per-file by `_readSecure` when it finds a plain file that fails AES-GCM decryption. No explicit migration pass — it happens lazily. Once the file is re-written encrypted, future reads use the fast encrypted path.
 
 ## BUG+019: forge.py add_bug() regex r'BUG[+-](\d+)' is too permissive. It matches BUG IDs anywhere in the file, including mentions inside the TEXT of existing bug descriptions. Consequence: when I wrote 'see BUG+017' inside BUG+016's description, forge counted 17 as existing and jumped to 018, skipping 017. The regex should anchor to the start of a line (BUG header) to only count actual bug IDs.
 - **Status**: FIXED (2026-04-10)

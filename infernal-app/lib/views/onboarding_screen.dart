@@ -42,11 +42,12 @@ class OnboardingScreen extends StatelessWidget {
               const SizedBox(height: 16),
               _buildFeature(Icons.smoking_rooms_outlined, 'Compteur clopes', 'Chaque cigarette est tracee'),
               const SizedBox(height: 16),
-              // BUG+034 fix: drop the "chiffre" claim until BUG+018 (crypto
-              // wiring) is resolved. The data IS local-only — that part is
-              // true. The encryption claim was not; CryptoService is not
-              // currently wired into data_store.
-              _buildFeature(Icons.lock_outline, 'Donnees privees', 'Tout reste sur ton telephone'),
+              // BUG+018 fix: CryptoService is now wired into DataStore so
+              // the "chiffre" (encrypted) claim is truthful again — every
+              // data file is AES-256-GCM encrypted at rest with a key stored
+              // in the Android Keystore. This was previously dropped under
+              // BUG+034 while the crypto wiring was deferred.
+              _buildFeature(Icons.lock_outline, 'Donnees privees', 'Tout reste sur ton telephone, chiffre'),
               const Spacer(),
               // CTA
               SizedBox(

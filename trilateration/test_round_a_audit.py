@@ -149,50 +149,47 @@ def test_bug_057_marker_present():
 # BUG+058 — docs no longer make false AES-256 claims
 # ============================================================================
 
-def test_privacy_policy_does_not_claim_aes256_directly():
-    """The bad pattern was 'All data is encrypted with AES-256-GCM'."""
+def test_privacy_policy_claims_encryption_now_wired():
+    """BUG+018 is now fixed — PRIVACY_POLICY.md CAN and SHOULD claim
+    AES-256-GCM encryption truthfully. (This test was inverted from its
+    BUG+058 version which expected the claim to be absent; the underlying
+    reality changed when BUG+018 shipped.)"""
     src = _read(PRIVACY)
-    # The only AES-256-GCM mention should be in the disclaimer paragraph
-    bad = re.search(
-        r"All data is encrypted with AES-256-GCM",
-        src,
+    assert "AES-256-GCM" in src, (
+        "BUG+018 regression: PRIVACY_POLICY.md no longer mentions the "
+        "AES-256-GCM encryption that is actually wired"
     )
-    assert bad is None, (
-        "BUG+058 regression: PRIVACY_POLICY.md still claims data IS "
-        "encrypted with AES-256-GCM (BUG+018 says it isn't)"
-    )
-
-
-def test_privacy_policy_acknowledges_deferred_encryption():
-    """The fix adds explicit text about the deferred encryption."""
-    src = _read(PRIVACY)
-    assert "BUG+018" in src or "deferred" in src.lower() or "roadmap" in src.lower(), (
-        "BUG+058 regression: PRIVACY_POLICY.md no longer acknowledges the "
-        "deferred encryption claim"
+    # The BUG+058 disclaimer text ("claim was inaccurate") should be gone
+    # now that the claim is actually accurate.
+    assert "claim was inaccurate" not in src, (
+        "BUG+058 disclaimer text still in PRIVACY_POLICY even though BUG+018 "
+        "has shipped — remove the disclaimer to reflect the current truth"
     )
 
 
-def test_readme_does_not_promise_aes256_storage():
-    """README must not assert AES-256 storage as a current feature."""
+def test_readme_restores_aes256_architecture_line():
+    """Architecture diagram can show 'AES-256-GCM store' again (or similar
+    wording) now that the encryption is wired."""
     src = _read(README)
-    # Find the architecture diagram region and check it doesn't say
-    # `AES-256 storage` standalone (without context)
-    bad = re.search(r"\|\s*AES-256 storage\s*\|", src)
-    assert bad is None, (
-        "BUG+058 regression: README still shows 'AES-256 storage' in "
-        "the architecture diagram"
+    # Just assert AES-256-GCM is mentioned somewhere in the architecture
+    # region or security section (we deliberately leave the exact wording
+    # flexible so the test doesn't force a specific diagram format).
+    assert "AES-256-GCM" in src, (
+        "BUG+018 regression: README no longer mentions AES-256-GCM even "
+        "though encryption is now active"
     )
 
 
-def test_readme_security_section_is_honest_about_encryption():
-    """README Security section must state encryption is deferred, not active."""
+def test_readme_security_section_claims_active_encryption():
+    """README Security section must state encryption IS active (not deferred)."""
     src = _read(README)
-    # Find ## Security section
     idx = src.find("## Security")
     assert idx >= 0
-    sec = src[idx:idx + 2000]
-    # Should reference BUG+018 OR the word "deferred" in the encryption context
-    assert "BUG+018" in sec or "deferred" in sec.lower() or "not yet" in sec.lower(), (
-        "BUG+058 regression: README Security section no longer documents "
-        "the deferred encryption status"
+    sec = src[idx:idx + 2500]
+    assert "AES-256-GCM" in sec
+    # The Security section should reference the BUG+018 fix, not leave the
+    # old "deferred" caveat.
+    assert "BUG+018 fix" in sec or "Encryption at rest" in sec, (
+        "BUG+018 regression: README Security section doesn't document that "
+        "encryption at rest is now active"
     )

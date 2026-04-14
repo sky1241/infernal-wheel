@@ -20,16 +20,17 @@ InfernalWheel is a personal addiction tracking app. **All your data stays on you
 
 All data is stored locally on your device:
 - **Local-only**: All data stays on your device — no server, no cloud, no sync.
-- **Backup disabled**: Android auto-backup to Google Drive is OFF by default
+- **Backup disabled**: Android auto-backup to Google Drive is OFF
   (allowBackup="false" in the manifest), so your data will NOT be uploaded
   to any third-party service even if you have Android backup enabled
   globally.
-- **Note on encryption**: This release stores your data as plain JSON/CSV
-  files in the app's private storage area (only your own apps with root
-  access can read them). A previous version of this document stated
-  "encrypted with AES-256-GCM" — that claim was inaccurate and has been
-  removed. End-to-end encryption is on the roadmap and will be reinstated
-  with explicit notice when shipped (BUG+018 in our internal tracker).
+- **Encryption at rest**: All data files (notes, drinks, state, settings,
+  logs) are encrypted with AES-256-GCM. The encryption key is auto-generated
+  on first launch and stored in the Android Keystore (hardware-backed on
+  compatible devices). The encrypted key is never transmitted off the device.
+- **Scope**: encryption covers every file the app writes under its private
+  storage directory. An attacker with root access can still read the
+  ciphertext but cannot decrypt it without the Keystore-protected key.
 
 ## Data Types Stored (locally only)
 
