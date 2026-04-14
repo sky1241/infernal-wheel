@@ -78,6 +78,14 @@ def generate_subject_dataset(subject_id: int, n_samples_per_class: int = 5) -> p
             else:
                 hr_current = hr_baseline
 
+            # BUG+053 fix: proximity_smoking used to be 0.5 if cigarette else
+            # 0.1 — a perfect label leak. The RF learned `proximity > 0.3
+            # -> cigarette` instantly and the reported LOSO F1 was measuring
+            # the label-from-proximity function, not real IMU classification.
+            # Now proximity is drawn uniformly at random so it carries zero
+            # label information; the model must learn from IMU features.
+            proximity = float(np.random.uniform(0.0, 1.0))
+
             # Extract features
             features = extract_all_features(
                 accel_3d=accel_3d,
@@ -86,7 +94,7 @@ def generate_subject_dataset(subject_id: int, n_samples_per_class: int = 5) -> p
                 hr_baseline=hr_baseline,
                 hr_current=hr_current,
                 gps_cluster=gps_cluster,
-                proximity_smoking=0.5 if gesture == 'cigarette' else 0.1
+                proximity_smoking=proximity,
             )
 
             features['label'] = gesture

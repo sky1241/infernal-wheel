@@ -226,10 +226,18 @@ class DataStore {
         final dt = DateTime.tryParse(dayStr);
         if (dt == null) continue;
 
-        // ISO week key
-        final dayOfYear = dt.difference(DateTime(dt.year, 1, 1)).inDays;
-        final weekNum = ((dayOfYear - dt.weekday + 10) / 7).floor();
-        final weekKey = '${dt.year}-W${weekNum.toString().padLeft(2, '0')}';
+        // BUG+054 fix: proper ISO 8601 week computation.
+        // Per ISO 8601, the week of the year is "the week containing the
+        // Thursday". That Thursday's calendar year is the ISO year — which
+        // can differ from the date's own calendar year near Jan 1 / Dec 31.
+        // E.g. 2025-12-29 (Monday) → Thursday 2026-01-01 → ISO 2026-W01.
+        // The previous formula used dt.year + a 0-indexed week → produced
+        // bogus "2025-W53" for such dates and a phantom W0 for
+        // early January.
+        final iso = _isoWeek(dt);
+        final isoYear = iso.$1;
+        final weekNum = iso.$2;
+        final weekKey = '$isoYear-W${weekNum.toString().padLeft(2, '0')}';
 
         if (!byWeek.containsKey(weekKey)) {
           final monday = dt.subtract(Duration(days: dt.weekday - 1));
@@ -291,6 +299,33 @@ class DataStore {
   // --- Helpers ---
 
   String _fmtDt(DateTime dt) => dt.toIso8601String().substring(0, 19).replaceAll('T', ' ');
+
+  /// Compute (ISO year, ISO week number) per ISO 8601 for a given date.
+  ///
+  /// BUG+054: the previous getDrinksWeeks used a naive formula
+  /// `((dayOfYear - weekday + 10) / 7).floor()` combined with `dt.year`
+  /// for the week key. That formula produced week 0 for early-January
+  /// dates and labeled year-boundary weeks with the wrong calendar year
+  /// (e.g. 2025-12-29 Mon got "2025-W53" instead of the real ISO
+  /// "2026-W01").
+  ///
+  /// This helper uses the canonical algorithm: the ISO week is the
+  /// ordinal number (starting at 1) of the week containing the
+  /// Thursday of the date's week. The Thursday's calendar year IS the
+  /// ISO year — so this single fact computes both correctly.
+  (int, int) _isoWeek(DateTime dt) {
+    // Find the Thursday of the same ISO week as dt.
+    // dt.weekday is 1=Mon .. 7=Sun; Thursday = 4.
+    final thursday = DateTime.utc(dt.year, dt.month, dt.day)
+        .add(Duration(days: 4 - dt.weekday));
+    final isoYear = thursday.year;
+    // First Thursday of isoYear determines week 1.
+    final jan1 = DateTime.utc(isoYear, 1, 1);
+    final firstThursday = jan1.add(Duration(days: (4 - jan1.weekday) % 7));
+    final daysBetween = thursday.difference(firstThursday).inDays;
+    final weekNum = 1 + (daysBetween ~/ 7);
+    return (isoYear, weekNum);
+  }
 
   bool _isValidDayKey(String key) => RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(key);
 }

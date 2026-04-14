@@ -172,6 +172,11 @@ def generate_training_dataset(n_per_class: int = 50) -> pd.DataFrame:
             accel_3d, gyro_3d, timestamps, hr_baseline, hr_current, gps_cluster = \
                 generate_synthetic_gesture(gesture)
 
+            # BUG+053 fix: proximity_smoking used to be 0.5 if cigarette
+            # else 0.1 — a perfect label leak. Now random so the GBM must
+            # learn from IMU features, not from the contextual prior.
+            proximity = float(np.random.uniform(0.0, 1.0))
+
             # Extract features
             features = extract_all_features(
                 accel_3d=accel_3d,
@@ -181,7 +186,7 @@ def generate_training_dataset(n_per_class: int = 50) -> pd.DataFrame:
                 hr_current=hr_current,
                 gps_cluster=gps_cluster,
                 event_timestamp=datetime.now(),
-                proximity_smoking=0.5 if gesture == 'cigarette' else 0.1
+                proximity_smoking=proximity,
             )
 
             features['label'] = gesture
