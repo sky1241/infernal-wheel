@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Smoking Detector</string>
-    <string name="status_ready">Ready</string>
-    <string name="button_start">Start</string>
-    <string name="button_monitor">📡 Start Monitor</string>
-    <string name="button_detect">🔍 Detect Now</string>
-    <string name="button_test">Test Model</string>
+    <!-- BUG+051 fix: watch app_name was "Smoking Detector" which:
+         (1) broke brand consistency — phone + Play Store use "-1+"
+         (2) was a privacy leak — anyone glancing at the watch tile saw
+             an explicit "Smoking Detector" label. The "-1+" name is
+             intentionally opaque for discretion.
+         Also removed 5 unused strings (status_ready, button_start,
+         button_monitor, button_detect, button_test) — dead i18n after
+         the Compose UI migration; all button labels now come from
+         MainScreen.kt / SettingsScreen.kt string literals in French. -->
+    <string name="app_name">-1+</string>
 </resources>

@@ -753,6 +753,13 @@ class LocalServer {
     return _jsonOk({'ok': true, 'goalHours': hours});
   }
 
+  // BUG+052 fix: user-supplied color is injected into a <style> block by
+  // the dashboard JS. Without server-side validation an attacker (or
+  // manually-imported settings.json) could embed a color string like
+  // "red;} body{display:none;} body{" and break out of the custom-property
+  // context to inject arbitrary CSS. Allow only strict #rrggbb hex.
+  static final _hexColorRe = RegExp(r'^#[0-9a-fA-F]{6}$');
+
   Future<Response> _handleApiCustomActions(Request request) async {
     final data = await _readBody(request);
     if (data == null) return _jsonError(400, 'Invalid body');
@@ -765,10 +772,13 @@ class LocalServer {
       if (label.isEmpty) continue;
       final key = label.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
       if (key.isEmpty) continue;
+      // BUG+052: reject non-hex colors instead of silently trusting them.
+      final rawColor = (raw['color'] as String?)?.trim() ?? '';
+      final color = _hexColorRe.hasMatch(rawColor) ? rawColor : '#ff9955';
       existing.add({
         'key': key, 'label': label, 'mode': 'break',
         'minutes': 0, 'requireOk': true, 'custom': true,
-        'color': raw['color'] ?? '#ff9955',
+        'color': color,
       });
     }
     settings['actions'] = existing;

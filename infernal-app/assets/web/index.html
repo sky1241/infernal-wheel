@@ -3638,6 +3638,15 @@ async function saveCustomActions(){
   }
 }
 
+/* BUG+052 fix: defense-in-depth on the client side. The server already
+ * validates color with a hex regex on POST, but settings files loaded
+ * from disk or a manually-imported config could still contain junk.
+ * Re-validate here with a strict #rrggbb regex and silently drop any
+ * action with a non-hex color, rather than concatenating arbitrary
+ * strings into a <style> block. */
+const _HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
+const _SAFE_KEY_RE = /^[a-z0-9]+$/;
+
 function injectCustomActionCSS(actions){
   let el = document.getElementById("customActionStyles");
   if(!el){ el = document.createElement("style"); el.id = "customActionStyles"; document.head.appendChild(el); }
@@ -3645,6 +3654,7 @@ function injectCustomActionCSS(actions){
   for(const a of actions){
     if(!a.custom || !a.color) continue;
     const k = a.key, c = a.color;
+    if(!_SAFE_KEY_RE.test(k) || !_HEX_COLOR_RE.test(c)) continue;
     css += ".btn.action-"+k+"{--act-bg:"+c+";--act-glow:"+c+"80}\n";
     css += ".timeline-bar.action-"+k+"{background:linear-gradient(180deg,"+c+"b3,"+c+"66)}\n";
   }
