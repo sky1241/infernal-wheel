@@ -1058,19 +1058,31 @@ ta.addEventListener("input", function() {
   setNoteStatus("en cours...", "saving");
 });
 
+// BUG+060 fix: same in-flight guard as BUG+055 (index.html quicknote/
+// actionnote autosave). Without it, a slow /api/note POST can be
+// overlapped by the next 2-second tick and we send two concurrent
+// writes that race on the server (data_store.saveNote fire-and-forget
+// writeAsString — older arrival wins, newer content lost).
+var noteSaving = false;
 setInterval(async function() {
+  if (noteSaving) return;
   var currentText = ta.value || "";
   if (!dirty && currentText === lastTextOnly) return;
   var toSave = buildFullContent();
-  var j = await postJSON("/api/note", {day: day, content: toSave});
-  if (j && j.ok) {
-    fullContent = toSave;
-    lastTextOnly = currentText;
-    dirty = false;
-    setNoteStatus("saved " + new Date().toLocaleTimeString().slice(0,5), "saved");
-  } else {
-    setNoteStatus("error", "error");
-    showToast("Erreur sauvegarde note.", "error", "Notes");
+  noteSaving = true;
+  try {
+    var j = await postJSON("/api/note", {day: day, content: toSave});
+    if (j && j.ok) {
+      fullContent = toSave;
+      lastTextOnly = currentText;
+      dirty = false;
+      setNoteStatus("saved " + new Date().toLocaleTimeString().slice(0,5), "saved");
+    } else {
+      setNoteStatus("error", "error");
+      showToast("Erreur sauvegarde note.", "error", "Notes");
+    }
+  } finally {
+    noteSaving = false;
   }
 }, 2000);
 

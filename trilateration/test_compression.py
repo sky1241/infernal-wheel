@@ -166,7 +166,10 @@ def test_real_data():
 
 
 def test_daily_storage():
-    """Estimate daily storage for 10 cigarettes."""
+    """Estimate daily storage for 10 cigarettes.
+    BUG+057 fix: previously this function had ZERO assertions, so it would
+    always 'pass' even if the compression broke. Added concrete budget
+    assertions."""
     print("\n=== Test 3: Daily storage estimate ===")
     np.random.seed(42)
 
@@ -189,13 +192,36 @@ def test_daily_storage():
 
     cigs = 10
     measurements = 28 * cigs
+    ratio = 1 - total_compressed / total_raw
+    daily_kb = total_compressed / 1024
+    annual_mb = total_compressed * 365 / 1024 / 1024
+
     print(f"  Cigarettes: {cigs}, Measurements: {measurements}")
     print(f"  Raw total: {total_raw/1024:.1f} KB")
     print(f"  Compressed total: {total_compressed/1024:.1f} KB")
-    print(f"  Ratio: {(1 - total_compressed/total_raw)*100:.1f}% reduction")
-    print(f"  Per day storage: {total_compressed/1024:.1f} KB")
+    print(f"  Ratio: {ratio*100:.1f}% reduction")
+    print(f"  Per day storage: {daily_kb:.1f} KB")
     print(f"  90 days storage: {total_compressed*90/1024/1024:.2f} MB")
-    print(f"  PASS")
+
+    # BUG+057 fix: real assertions instead of just print.
+    # Random Gaussian noise compresses BADLY (no autocorrelation, XOR
+    # delta encoding doesn't help). Empirically this scenario hits ~4-6%
+    # reduction. We assert > 0% to catch outright regressions where
+    # compression made things WORSE (a real possibility if the header
+    # format breaks). Real smoking gestures see 85-95% reduction (see
+    # test_synthetic).
+    assert ratio > 0.0, (
+        f"Compression INCREASED size by {-ratio*100:.1f}% — "
+        f"definite regression in the format"
+    )
+    # Sanity bound on annual storage. This test uses Gaussian noise
+    # (worst case for compression) — empirically ~500 MB/year. Real
+    # gesture signals compress 85-95% so production storage is ~50-100 MB
+    # per year for this many cigarettes/day. We bound at 1 GB to catch
+    # outright format-bloat regressions while tolerating the noise case.
+    assert annual_mb < 1024, (
+        f"Annual storage estimate {annual_mb:.1f} MB exceeds 1 GB sanity bound"
+    )
 
 
 def test_edge_cases():

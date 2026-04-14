@@ -60,7 +60,11 @@ def main():
         trajectory_data.append({
             'timestamp': base_time + timedelta(minutes=60 + i*5),
             'lat': home_lat + t * (bar_lat - home_lat) + np.random.normal(0, 0.0002),
-            'lon': home_lon + t * (bar_lon - bar_lon) + np.random.normal(0, 0.0002),
+            # BUG+056 fix: was `(bar_lon - bar_lon)` which is always 0,
+            # making the simulated trajectory move only NORTH (never EAST).
+            # The integration test was working with a degenerate path that
+            # could mask real bugs in 2-D clustering.
+            'lon': home_lon + t * (bar_lon - home_lon) + np.random.normal(0, 0.0002),
             'accuracy': np.random.uniform(10, 20)
         })
 

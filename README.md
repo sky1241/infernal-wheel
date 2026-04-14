@@ -23,7 +23,7 @@ Watch (Wear OS)                     Phone (Flutter)
 | +1 Beer/Wine/Fort|  MessageClient | MainActivity     |
 | ML Detection     | ------------> | Shelf server:8011|
 | Offline buffer   |                | WebView dashboard|
-| PhoneConnListener|                | AES-256 storage  |
+| PhoneConnListener|                | Local-only store |
 +------------------+                +------------------+
 ```
 
@@ -34,7 +34,7 @@ infernal-app/          # Flutter mobile app (Android)
   lib/
     server/            # Shelf HTTP server + API (20 endpoints)
     engine/            # Timer engine (work/sleep/break segments)
-    security/          # AES-256-GCM + Android Keystore
+    security/          # CryptoService (AES-256-GCM helpers, NOT yet wired — see BUG+018)
     views/             # Onboarding, WebView, PIN screen
   assets/web/          # Dashboard HTML (5200 lines) + Notes page
   android/             # Kotlin: WatchMessageReceiver, MainActivity
@@ -70,7 +70,7 @@ ux_resources/          # UX bible (~45K lines)
 | ML model | TensorFlow Lite (int8, 23KB) |
 | Local server | shelf (Dart HTTP) |
 | Storage | SQLite (watch) + JSON (phone) |
-| Encryption | AES-256-GCM + Android Keystore |
+| Encryption | CryptoService scaffolded (AES-256-GCM) — NOT yet wired into DataStore (BUG+018, deferred) |
 | Sync | Wear OS MessageClient (Bluetooth) |
 | Dashboard | Vanilla HTML/CSS/JS (no framework) |
 
@@ -90,10 +90,15 @@ The watch runs a TFLite model that classifies hand gestures:
 
 ## Security
 
-- AES-256-GCM encryption (key auto-generated, stored in Android Keystore)
-- No server, no account, no cloud — data never leaves the device
-- Android app sandboxing + full-disk encryption
-- Path traversal protection on all API endpoints
+- **No server, no account, no cloud** — data never leaves the device
+- **Loopback-only HTTP API** — shelf server binds to 127.0.0.1:8011 (BUG+026 fix)
+- **DetectionService not exported** — only our own package can talk to it (BUG+040 fix)
+- **allowBackup="false"** — no Google Drive auto-backup of user data (BUG+041 fix)
+- **Android app sandboxing + full-disk encryption** (provided by the OS)
+- **Encryption at rest**: deferred. CryptoService (AES-256-GCM helpers + Android
+  Keystore key storage) is implemented but NOT yet wired into DataStore.
+  Until BUG+018 ships, data files are stored as plain JSON/CSV in the app's
+  private storage area.
 
 ## Build
 

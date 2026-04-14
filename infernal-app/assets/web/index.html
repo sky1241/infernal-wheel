@@ -4788,17 +4788,28 @@ qn.addEventListener("input", ()=>{
   qDirty = true;
   if(qns) qns.textContent = "\u2022\u2022\u2022";
 });
+// BUG+055 fix: in-flight guard so a slow network doesn't trigger two
+// concurrent POST /api/quicknote calls that can race on the server
+// (data_store.saveQuickNote overwrites the file — the older request
+// arriving last would overwrite the newer content).
+let qSaving = false;
 setInterval(async ()=>{
+  if(qSaving) return;
   const current = qn.value || "";
   if(!qDirty && current === qLast){ return; }
-  const j = await postJSON("/api/quicknote",{content:current});
-  if(j && j.ok){
-    qLast = current;
-    qDirty = false;
-    if(qns) qns.textContent = "\u2713";
-  } else {
-    if(qns) qns.textContent = "error";
-    showToast("Erreur sauvegarde note rapide.", "error", "Notes");
+  qSaving = true;
+  try{
+    const j = await postJSON("/api/quicknote",{content:current});
+    if(j && j.ok){
+      qLast = current;
+      qDirty = false;
+      if(qns) qns.textContent = "\u2713";
+    } else {
+      if(qns) qns.textContent = "error";
+      showToast("Erreur sauvegarde note rapide.", "error", "Notes");
+    }
+  } finally {
+    qSaving = false;
   }
 }, 2000);
 
@@ -4819,17 +4830,25 @@ if(an){
     }
   });
   an.addEventListener("input", ()=>{ aDirty = true; if(ans) ans.textContent = "\u2022\u2022\u2022"; });
+  // BUG+055 fix: same in-flight guard as for the quick note autosave.
+  let aSaving = false;
   setInterval(async ()=>{
+    if(aSaving) return;
     const current = an.value || "";
     if(!aDirty && current === aLast){ return; }
-    const j = await postJSON("/api/actionnote",{content:current});
-    if(j && j.ok){
-      aLast = current;
-      aDirty = false;
-      if(ans) ans.textContent = "\u2713";
-    } else {
-      if(ans) ans.textContent = "error";
-      showToast("Erreur sauvegarde note action.", "error", "Notes");
+    aSaving = true;
+    try{
+      const j = await postJSON("/api/actionnote",{content:current});
+      if(j && j.ok){
+        aLast = current;
+        aDirty = false;
+        if(ans) ans.textContent = "\u2713";
+      } else {
+        if(ans) ans.textContent = "error";
+        showToast("Erreur sauvegarde note action.", "error", "Notes");
+      }
+    } finally {
+      aSaving = false;
     }
   }, 2000);
 }
