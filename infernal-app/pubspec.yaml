@@ -31,10 +31,9 @@ dependencies:
   # Utils
   # BUG+049 fix: was 'any' which would let dart pub upgrade pick up any
   # future breaking version silently. Pinned to caret range like the
-  # other dependencies for reproducible builds. intl 0.19.0 is the
-  # Flutter-SDK-compatible version for Flutter 3.x; upgrade when the
-  # Flutter SDK bumps its intl requirement.
-  intl: ^0.19.0
+  # other dependencies for reproducible builds. flutter_localizations
+  # from the SDK pins intl at 0.20.2 — our range must include that.
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:

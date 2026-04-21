@@ -466,14 +466,39 @@ class DetectionService : Service() {
             loggedBatchCount++
         }
 
-        // 2. Temporal filter — only run CNN during learned smoking hours.
-        //    Phase 1 (no history yet): first BOOTSTRAP_BATCHES batches bypass
-        //    the filter so the CNN runs and we collect enough detections to
-        //    build a smoking-hour pattern.
-        //    Phase 2+: the filter strictly gates inference by learned hours.
-        val isBootstrap = totalBatchesReceived < BOOTSTRAP_BATCHES
-        if (!isBootstrap && !database.isHighSmokingHour()) {
-            return
+        // 2. Sleep filter — skip inference when the user is likely asleep.
+        //
+        //    Design: the CNN léger runs H24 EXCEPT during sleep. The
+        //    GaussianHourPattern does NOT gate on/off — it only adjusts
+        //    the SequenceDetector threshold (fewer peaks required during
+        //    high-smoking hours). This way the detection works at ANY
+        //    hour, including unusual ones (late-night party, early morning).
+        //
+        //    Sleep detection: if the hour is in the [22h-7h] night window
+        //    AND the learned pattern score is very low (< 0.1) for this
+        //    minute, the user probably never smokes at this time → skip.
+        //    If the pattern isn't learned yet (< 5 observations), we
+        //    use a conservative night window [0h-6h] only.
+        //
+        //    This replaces the previous design that killed the CNN entirely
+        //    outside learned smoking hours — which meant zero detection
+        //    until enough +1 manual data was collected, and zero detection
+        //    at unusual hours even after learning.
+        val currentHour = java.util.Calendar.getInstance()
+            .get(java.util.Calendar.HOUR_OF_DAY)
+        val pattern = database.getGaussianPattern()
+        val isNightWindow = currentHour in 0..6
+        if (pattern.isLearned()) {
+            val minuteOfDay = currentHour * 60 +
+                java.util.Calendar.getInstance().get(java.util.Calendar.MINUTE)
+            val score = pattern.score(minuteOfDay)
+            // Deep night + very low score = sleeping, skip
+            if (currentHour >= 22 || currentHour < 7) {
+                if (score < 0.1f) return
+            }
+        } else {
+            // Pattern not learned: conservative — skip only 0h-6h
+            if (isNightWindow) return
         }
 
         // 3. Rate limiter
@@ -536,20 +561,54 @@ class DetectionService : Service() {
             )
 
             if (seqResult.triggered) {
-                // Capture training data BEFORE handling detection — this gives the
-                // fine-tuner labelled ground-truth for every CNN-detected event.
-                // The window is the FULL ring buffer (~8s of context), not just
-                // the 112-sample CNN slice, so the fine-tuner has temporal margin.
-                captureTrainingWindow(
-                    label = "auto_detected",
-                    confidence = cigProb
+                // Multi-signal confirmation (trilatération) before committing
+                // the detection. The CNN sequence alone can false-positive on
+                // repetitive gestures (eating, coffee). We cross-check with:
+                //   1. HR delta: nicotine causes +5-15 bpm within 2 min
+                //   2. GPS cluster: is the user at a known smoking location?
+                //   3. Hour pattern score: is this a typical smoking time?
+                //
+                // Each signal votes independently. We require at least 1
+                // corroborating signal (besides the CNN itself) to confirm.
+                // If no signal corroborates, we still log it as low-confidence
+                // but do NOT count it as +1.
+                val hrDelta = healthServices.getCurrentHR() - healthServices.getBaselineHR()
+                val hrConfirms = hrDelta >= 4.0f  // nicotine HR rise
+                val gpsCluster = gpsManager.getCurrentCluster()
+                val gpsConfirms = gpsCluster != GPSClusteringManager.CLUSTER_OTHER
+                    // known location = more likely real
+                val hourConfirms = isHighSmokingHour  // pattern says this is a smoking hour
+
+                val confirmCount = listOf(hrConfirms, gpsConfirms, hourConfirms).count { it }
+
+                Log.i(
+                    TAG,
+                    "[TRILATERATION] cigProb=${"%.3f".format(cigProb)} " +
+                        "hrDelta=${"%.1f".format(hrDelta)} hrOK=$hrConfirms " +
+                        "gps=$gpsCluster gpsOK=$gpsConfirms " +
+                        "hourOK=$hourConfirms confirms=$confirmCount/3"
                 )
 
-                // Extract dummy features placeholder for DB schema (CNN doesn't compute them)
-                handleCigaretteDetected(
-                    confidence = cigProb,
-                    features = FloatArray(30)
-                )
+                if (confirmCount >= 1) {
+                    // Confirmed — real cigarette
+                    captureTrainingWindow(
+                        label = "auto_detected",
+                        confidence = cigProb
+                    )
+                    handleCigaretteDetected(
+                        confidence = cigProb,
+                        features = FloatArray(30)
+                    )
+                    Log.i(TAG, "[TRILATERATION] CONFIRMED — +1 cigarette")
+                } else {
+                    // CNN triggered but no corroborating signal — likely false positive
+                    Log.i(TAG, "[TRILATERATION] REJECTED — no corroborating signal, skipping +1")
+                    // Still capture for training (labeled as uncertain)
+                    captureTrainingWindow(
+                        label = "uncertain_no_confirm",
+                        confidence = cigProb
+                    )
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "25Hz inference failed", e)
