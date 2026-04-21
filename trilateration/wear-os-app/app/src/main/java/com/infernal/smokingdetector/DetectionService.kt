@@ -846,8 +846,9 @@ class DetectionService : Service() {
         // Send notification
         sendCigaretteNotification(confidence)
 
-        // Trigger boost sampling (5 minutes @ 100Hz)
-        boostManager.triggerBoost("cigarette_detected")
+        // Note: boost sampling is already triggered by the 3-stage pipeline
+        // at OBSERVING → FULL transition (line 594). No need to re-trigger
+        // here — doing so would reset the boost timer mid-collection.
 
         // Schedule a heart-rate confirmation recheck 2 minutes after detection.
         // Nicotine causes HR to rise 5-15 bpm within 120 seconds of the first
