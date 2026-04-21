@@ -555,6 +555,24 @@ class DetectionService : Service() {
             // HR delta (real-time)
             val hrDelta = healthServices.getCurrentHR() - healthServices.getBaselineHR()
 
+            // ── LEARNING PHASE GATE ──
+            // During the first 24h (or until the user has manually logged
+            // enough cigarettes), the CNN runs and LOGS for debug visibility
+            // but does NOT trigger auto-detection. Only manual +1 feeds the
+            // smoking pattern so the learning data stays 100% human-validated.
+            // This prevents the CNN (F1=0.41) from injecting false positives
+            // into the pattern and sabotaging the downstream threshold tuning.
+            val manualClopeCount = database.getCountLastNDays(1)
+            val patternReady = database.getGaussianPattern().isLearned() // >= 5 obs
+            val autoDetectionEnabled = patternReady && manualClopeCount >= 10
+
+            if (!autoDetectionEnabled) {
+                Log.d(TAG, "25Hz [LEARNING] cigProb=${"%.3f".format(cigProb)} " +
+                    "peak=$isHighProb manualCount=$manualClopeCount patternReady=$patternReady " +
+                    "— auto-detection DISABLED (manual +1 only)")
+                return@withContext
+            }
+
             // ── 3-STAGE DETECTION PIPELINE ──
             when (detectionStage) {
 
