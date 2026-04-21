@@ -4727,10 +4727,16 @@ async function refreshLive(){
       }
     }
 
-    if(j.dailyClopeSec != null){
-      const sec = Math.max(0, Number(j.dailyClopeSec || 0));
-      const min = sec > 0 ? Math.ceil(sec / 60) : 0;
-      document.getElementById("smokeToday").innerHTML = "<div class='seg break'><div><b>Cigarettes (jour)</b></div><div class='muted'>Clope: " + min + "m</div></div>";
+    // Cigarette counter for the day — combines watch auto-detected + manual +1
+    const clopeCount = Number(j.dayClopeCount || 0);
+    const clopeSec = Math.max(0, Number(j.dailyClopeSec || 0));
+    const clopeMin = clopeSec > 0 ? Math.ceil(clopeSec / 60) : 0;
+    const clopeEl = document.getElementById("smokeToday");
+    if (clopeEl) {
+      clopeEl.innerHTML = "<div class='seg break'><div><b>🚬 Cigarettes (jour)</b></div>"
+        + "<div style='font-size:1.5em;font-weight:bold;color:#ff4040'>" + clopeCount + "</div>"
+        + (clopeMin > 0 ? "<div class='muted'>Temps pause: " + clopeMin + "m</div>" : "")
+        + "</div>";
     }
 
   } catch(e){ notifyNetError(); }
