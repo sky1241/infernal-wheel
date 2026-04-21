@@ -44,6 +44,18 @@ class DetectionService : Service() {
         private const val RING_BUFFER_25HZ = 200            // ~8s of signal at 25Hz
         private const val MIN_INFERENCE_INTERVAL_25HZ_MS = 4_000L  // Don't run more than once per 4s
 
+        // 3-stage detection pipeline:
+        //   Stage 1 (IDLE):     CNN léger tourne, watches for cigProb spike
+        //   Stage 2 (OBSERVING): 1 minute of trilatération multi-signaux
+        //                        to confirm the spike is real, not a false positive
+        //   Stage 3 (FULL):     5 minutes of deep observation + data collection
+        //                        → if confirmed: +1 cigarette
+        //                        → if not: return to IDLE, 0 cigarette
+        private const val OBSERVATION_DURATION_MS = 60_000L    // 1 minute
+        private const val FULL_OBSERVATION_DURATION_MS = 5 * 60_000L // 5 minutes
+        private const val OBSERVATION_CONFIRM_THRESHOLD = 3    // need 3+ high-prob windows in 1 min
+        private const val FULL_CONFIRM_THRESHOLD = 5           // need 5+ high-prob windows in 5 min
+
         // Bootstrap window: while we don't have a learned smoking-hour profile yet,
         // let the first BOOTSTRAP_BATCHES samples through the temporal filter so the
         // CNN actually runs and we can validate the pipeline (and start collecting
@@ -125,6 +137,13 @@ class DetectionService : Service() {
     // a temporal pattern match over the last 6 minutes of inferences.
     // See SequenceDetector.kt for the rationale.
     private val sequenceDetector = SequenceDetector()
+
+    // 3-stage detection state machine
+    private enum class DetectionStage { IDLE, OBSERVING, FULL }
+    @Volatile private var detectionStage = DetectionStage.IDLE
+    @Volatile private var stageStartMs = 0L
+    @Volatile private var stageHighProbCount = 0  // high cigProb windows in current stage
+    @Volatile private var stageHrDeltaSum = 0f    // accumulated HR delta during stage
 
     /**
      * Ring buffer for 25Hz accel samples coming from Samsung SDK.
@@ -519,12 +538,9 @@ class DetectionService : Service() {
         try {
             val probs = detector.predictRaw25Hz(window)
             val cigProb = probs[SmokingDetector.CLASS_CIGARETTE]
+            val nowMs = System.currentTimeMillis()
 
-            // Feed the sequence detector (replaces single-threshold trigger).
-            // The sequence detector waits for 3 high peaks in 6 minutes
-            // (2 in a learned smoking hour) before firing. See SequenceDetector.kt.
-            // "High smoking hour" is decided by the GaussianHourPattern, which
-            // is a continuous score (not a cliffed hour bucket).
+            // Hour pattern score for threshold adjustment
             val gaussianPattern = database.getGaussianPattern()
             val cal = java.util.Calendar.getInstance()
             val minuteOfDay = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
@@ -532,67 +548,108 @@ class DetectionService : Service() {
             val hourScore = gaussianPattern.score(minuteOfDay)
             val isHighSmokingHour = hourScore > 0.5f
 
-            val seqResult = sequenceDetector.push(
-                probability = cigProb,
-                nowMs = System.currentTimeMillis(),
-                isHighSmokingHour = isHighSmokingHour
-            )
+            // Adaptive peak threshold: lower during known smoking hours
+            val peakThreshold = if (isHighSmokingHour) 0.40f else 0.50f
+            val isHighProb = cigProb >= peakThreshold
 
-            Log.d(
-                TAG,
-                "25Hz inference: cigProb=${"%.3f".format(cigProb)} " +
-                    "peaks=${seqResult.peakCount}/${seqResult.minPeaksRequired} " +
-                    "triggered=${seqResult.triggered} probs=${probs.contentToString()}"
-            )
+            // HR delta (real-time)
+            val hrDelta = healthServices.getCurrentHR() - healthServices.getBaselineHR()
 
-            if (seqResult.triggered) {
-                // Multi-signal confirmation (trilatération) before committing
-                // the detection. The CNN sequence alone can false-positive on
-                // repetitive gestures (eating, coffee). We cross-check with:
-                //   1. HR delta: nicotine causes +5-15 bpm within 2 min
-                //   2. GPS cluster: is the user at a known smoking location?
-                //   3. Hour pattern score: is this a typical smoking time?
-                //
-                // Each signal votes independently. We require at least 1
-                // corroborating signal (besides the CNN itself) to confirm.
-                // If no signal corroborates, we still log it as low-confidence
-                // but do NOT count it as +1.
-                val hrDelta = healthServices.getCurrentHR() - healthServices.getBaselineHR()
-                val hrConfirms = hrDelta >= 4.0f  // nicotine HR rise
-                val gpsCluster = gpsManager.getCurrentCluster()
-                val gpsConfirms = gpsCluster != GPSClusteringManager.CLUSTER_OTHER
-                    // known location = more likely real
-                val hourConfirms = isHighSmokingHour  // pattern says this is a smoking hour
+            // ── 3-STAGE DETECTION PIPELINE ──
+            when (detectionStage) {
 
-                val confirmCount = listOf(hrConfirms, gpsConfirms, hourConfirms).count { it }
+                DetectionStage.IDLE -> {
+                    // Stage 1: CNN léger watches for a spike
+                    Log.d(TAG, "25Hz [IDLE] cigProb=${"%.3f".format(cigProb)} peak=$isHighProb")
+                    if (isHighProb) {
+                        // Spike detected → enter 1-minute observation
+                        detectionStage = DetectionStage.OBSERVING
+                        stageStartMs = nowMs
+                        stageHighProbCount = 1
+                        stageHrDeltaSum = hrDelta
+                        Log.i(TAG, "[STAGE] IDLE → OBSERVING (cigProb=${"%.3f".format(cigProb)})")
+                    }
+                }
 
-                Log.i(
-                    TAG,
-                    "[TRILATERATION] cigProb=${"%.3f".format(cigProb)} " +
-                        "hrDelta=${"%.1f".format(hrDelta)} hrOK=$hrConfirms " +
-                        "gps=$gpsCluster gpsOK=$gpsConfirms " +
-                        "hourOK=$hourConfirms confirms=$confirmCount/3"
-                )
+                DetectionStage.OBSERVING -> {
+                    // Stage 2: 1 minute of trilatération observation
+                    val elapsed = nowMs - stageStartMs
+                    if (isHighProb) stageHighProbCount++
+                    stageHrDeltaSum += hrDelta
 
-                if (confirmCount >= 1) {
-                    // Confirmed — real cigarette
-                    captureTrainingWindow(
-                        label = "auto_detected",
-                        confidence = cigProb
-                    )
-                    handleCigaretteDetected(
-                        confidence = cigProb,
-                        features = FloatArray(30)
-                    )
-                    Log.i(TAG, "[TRILATERATION] CONFIRMED — +1 cigarette")
-                } else {
-                    // CNN triggered but no corroborating signal — likely false positive
-                    Log.i(TAG, "[TRILATERATION] REJECTED — no corroborating signal, skipping +1")
-                    // Still capture for training (labeled as uncertain)
-                    captureTrainingWindow(
-                        label = "uncertain_no_confirm",
-                        confidence = cigProb
-                    )
+                    Log.d(TAG, "25Hz [OBSERVING] cigProb=${"%.3f".format(cigProb)} " +
+                        "peaks=$stageHighProbCount/$OBSERVATION_CONFIRM_THRESHOLD " +
+                        "elapsed=${elapsed / 1000}s/60s hrDelta=${"%.1f".format(hrDelta)}")
+
+                    if (elapsed >= OBSERVATION_DURATION_MS) {
+                        // 1 minute is up — decide
+                        if (stageHighProbCount >= OBSERVATION_CONFIRM_THRESHOLD) {
+                            // Enough peaks in 1 min → go to full observation
+                            detectionStage = DetectionStage.FULL
+                            stageStartMs = nowMs
+                            // Keep the accumulated counts, continue counting
+                            Log.i(TAG, "[STAGE] OBSERVING → FULL " +
+                                "(peaks=$stageHighProbCount, avgHrDelta=${"%.1f".format(stageHrDeltaSum / stageHighProbCount)})")
+                            // Trigger boost sampling for better data collection
+                            boostManager.triggerBoost("observation_confirmed")
+                        } else {
+                            // Not enough peaks → false alarm, back to idle
+                            Log.i(TAG, "[STAGE] OBSERVING → IDLE (only $stageHighProbCount peaks, threshold=$OBSERVATION_CONFIRM_THRESHOLD)")
+                            detectionStage = DetectionStage.IDLE
+                            stageHighProbCount = 0
+                            stageHrDeltaSum = 0f
+                        }
+                    }
+                }
+
+                DetectionStage.FULL -> {
+                    // Stage 3: 5 minutes of deep observation
+                    val elapsed = nowMs - stageStartMs
+                    if (isHighProb) stageHighProbCount++
+                    stageHrDeltaSum += hrDelta
+
+                    Log.d(TAG, "25Hz [FULL] cigProb=${"%.3f".format(cigProb)} " +
+                        "peaks=$stageHighProbCount/$FULL_CONFIRM_THRESHOLD " +
+                        "elapsed=${elapsed / 1000}s/300s hrDelta=${"%.1f".format(hrDelta)}")
+
+                    if (elapsed >= FULL_OBSERVATION_DURATION_MS) {
+                        // 5 minutes is up — final decision
+                        val avgHrDelta = if (stageHighProbCount > 0) stageHrDeltaSum / stageHighProbCount else 0f
+                        val gpsCluster = gpsManager.getCurrentCluster()
+                        val gpsConfirms = gpsCluster != GPSClusteringManager.CLUSTER_OTHER
+                        val hrConfirms = avgHrDelta >= 4.0f
+
+                        Log.i(TAG, "[FULL DECISION] peaks=$stageHighProbCount " +
+                            "avgHrDelta=${"%.1f".format(avgHrDelta)} hrOK=$hrConfirms " +
+                            "gps=$gpsCluster gpsOK=$gpsConfirms hour=$isHighSmokingHour")
+
+                        if (stageHighProbCount >= FULL_CONFIRM_THRESHOLD) {
+                            // CONFIRMED — real cigarette
+                            Log.i(TAG, "[DETECTION] CONFIRMED — +1 cigarette " +
+                                "(peaks=$stageHighProbCount, avgHrDelta=${"%.1f".format(avgHrDelta)})")
+                            captureTrainingWindow(
+                                label = "auto_detected",
+                                confidence = cigProb
+                            )
+                            handleCigaretteDetected(
+                                confidence = cigProb,
+                                features = FloatArray(30)
+                            )
+                        } else {
+                            // Not confirmed — false positive
+                            Log.i(TAG, "[DETECTION] REJECTED — not enough peaks in full observation " +
+                                "(peaks=$stageHighProbCount < $FULL_CONFIRM_THRESHOLD)")
+                            captureTrainingWindow(
+                                label = "uncertain_no_confirm",
+                                confidence = cigProb
+                            )
+                        }
+
+                        // Back to idle
+                        detectionStage = DetectionStage.IDLE
+                        stageHighProbCount = 0
+                        stageHrDeltaSum = 0f
+                    }
                 }
             }
         } catch (e: Exception) {

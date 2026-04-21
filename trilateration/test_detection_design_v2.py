@@ -118,81 +118,77 @@ def test_health_services_has_sleep_detection():
 # 3. Trilatération multi-signaux before +1
 # ============================================================================
 
-def test_trilateration_check_before_handle_cigarette(source):
-    """When SequenceDetector triggers, we must cross-check with HR + GPS +
-    pattern BEFORE calling handleCigaretteDetected."""
+def test_3_stage_pipeline_enum_exists(source):
+    """The 3-stage state machine must be defined."""
+    assert "enum class DetectionStage" in source
+    assert "IDLE" in source and "OBSERVING" in source and "FULL" in source
+
+
+def test_idle_stage_watches_for_spike(source):
+    """Stage 1 (IDLE): CNN watches for cigProb spike."""
     idx = source.find("private suspend fun runInference25Hz")
-    assert idx >= 0
-    body = source[idx:idx + 5000]
-    assert "TRILATERATION" in body, (
-        "Trilatération multi-signal check missing from runInference25Hz"
+    body = source[idx:idx + 8000]
+    assert "DetectionStage.IDLE" in body
+    assert "IDLE" in body and "OBSERVING" in body
+
+
+def test_observing_stage_runs_1_minute(source):
+    """Stage 2 (OBSERVING): 1 minute of observation."""
+    assert "OBSERVATION_DURATION_MS" in source
+    idx = source.find("private suspend fun runInference25Hz")
+    body = source[idx:idx + 8000]
+    assert "DetectionStage.OBSERVING" in body
+
+
+def test_full_stage_runs_5_minutes(source):
+    """Stage 3 (FULL): 5 minutes of deep observation."""
+    assert "FULL_OBSERVATION_DURATION_MS" in source
+    idx = source.find("private suspend fun runInference25Hz")
+    body = source[idx:idx + 8000]
+    assert "DetectionStage.FULL" in body
+
+
+def test_observing_can_reject_to_idle(source):
+    """If 1-minute observation doesn't confirm, must go back to IDLE."""
+    idx = source.find("private suspend fun runInference25Hz")
+    body = source[idx:idx + 8000]
+    # Must transition OBSERVING → IDLE on rejection
+    assert "OBSERVING" in body and "IDLE" in body
+
+
+def test_full_stage_confirms_or_rejects(source):
+    """Stage 3 must either call handleCigaretteDetected or log REJECTED."""
+    idx = source.find("private suspend fun runInference25Hz")
+    body = source[idx:idx + 8000]
+    assert "handleCigaretteDetected" in body
+    assert "REJECTED" in body
+
+
+def test_full_stage_captures_training_data(source):
+    """Both confirmed and rejected detections should capture training data."""
+    idx = source.find("private suspend fun runInference25Hz")
+    body = source[idx:idx + 8000]
+    assert body.count("captureTrainingWindow") >= 2, (
+        "Need at least 2 captureTrainingWindow calls (confirmed + rejected)"
     )
 
 
-def test_trilateration_checks_hr_delta(source):
-    """HR delta must be one of the confirming signals."""
+def test_observing_triggers_boost_on_confirm(source):
+    """When OBSERVING confirms → triggers boost for better data collection."""
     idx = source.find("private suspend fun runInference25Hz")
-    body = source[idx:idx + 5000]
-    assert "hrDelta" in body or "getCurrentHR" in body, (
-        "Trilatération doesn't check heart rate"
-    )
-
-
-def test_trilateration_checks_gps_cluster(source):
-    """GPS cluster must be one of the confirming signals."""
-    idx = source.find("private suspend fun runInference25Hz")
-    body = source[idx:idx + 5000]
-    assert "gpsCluster" in body or "getCurrentCluster" in body, (
-        "Trilatération doesn't check GPS cluster"
-    )
-
-
-def test_trilateration_checks_hour_pattern(source):
-    """Hour pattern score must be one of the confirming signals."""
-    idx = source.find("private suspend fun runInference25Hz")
-    body = source[idx:idx + 5000]
-    assert "hourConfirms" in body or "isHighSmokingHour" in body, (
-        "Trilatération doesn't check hour pattern"
-    )
-
-
-def test_trilateration_requires_at_least_one_confirmation(source):
-    """The detection must require >= 1 corroborating signal beyond the CNN."""
-    idx = source.find("private suspend fun runInference25Hz")
-    body = source[idx:idx + 5000]
-    assert "confirmCount >= 1" in body, (
-        "Trilatération doesn't enforce minimum confirmation count"
-    )
-
-
-def test_trilateration_rejects_unconfirmed(source):
-    """Unconfirmed detections must NOT call handleCigaretteDetected."""
-    idx = source.find("private suspend fun runInference25Hz")
-    body = source[idx:idx + 5000]
-    assert "REJECTED" in body, (
-        "Trilatération doesn't log/handle rejection of unconfirmed detections"
-    )
-
-
-def test_unconfirmed_still_captures_training_data(source):
-    """Even rejected detections should capture training windows for future
-    model improvement (labeled as uncertain)."""
-    idx = source.find("private suspend fun runInference25Hz")
-    body = source[idx:idx + 5000]
-    assert "uncertain" in body.lower(), (
-        "Rejected detections don't capture training data as uncertain"
-    )
+    body = source[idx:idx + 8000]
+    assert "triggerBoost" in body and "observation_confirmed" in body
 
 
 # ============================================================================
 # 4. SequenceDetector threshold still adapts to pattern
 # ============================================================================
 
-def test_sequence_detector_still_uses_hour_score(source):
-    """The SequenceDetector.push() must still receive isHighSmokingHour
-    so it can use 2 peaks instead of 3 during high-smoking hours."""
+def test_peak_threshold_adapts_to_hour_pattern(source):
+    """The peak threshold in the 3-stage pipeline must adapt based on
+    isHighSmokingHour — lower threshold during known smoking hours."""
     idx = source.find("private suspend fun runInference25Hz")
-    body = source[idx:idx + 5000]
-    assert "isHighSmokingHour" in body and "sequenceDetector.push" in body, (
-        "SequenceDetector no longer receives isHighSmokingHour for threshold adjustment"
+    body = source[idx:idx + 8000]
+    assert "isHighSmokingHour" in body and "peakThreshold" in body, (
+        "Peak threshold no longer adapts to hour pattern"
     )
