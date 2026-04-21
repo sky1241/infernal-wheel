@@ -76,23 +76,41 @@ def test_no_bootstrap_batches_gate_for_temporal(source):
 # ============================================================================
 
 def test_sleep_filter_exists(source):
-    """A sleep filter must exist that skips inference during night hours."""
+    """A sleep filter must exist that skips inference during sleep."""
     idx = source.find("private fun onSamsung25HzBatch")
     next_fn = source.find("private suspend fun runInference25Hz", idx)
     body = source[idx:next_fn] if next_fn > idx else source[idx:idx + 3000]
-    # Must reference sleep or night window
-    assert "sleep" in body.lower() or "night" in body.lower(), (
+    assert "sleep" in body.lower() or "isSleeping" in body, (
         "No sleep filter found in onSamsung25HzBatch"
     )
 
 
-def test_sleep_filter_uses_hour_check(source):
-    """Sleep filter must check the current hour (not just the pattern score)."""
+def test_sleep_filter_uses_real_hr_data(source):
+    """Sleep filter must use real HR-based sleep detection from
+    HealthServicesManager, not just clock hour."""
     idx = source.find("private fun onSamsung25HzBatch")
     next_fn = source.find("private suspend fun runInference25Hz", idx)
     body = source[idx:next_fn] if next_fn > idx else source[idx:idx + 3000]
-    assert "currentHour" in body or "HOUR_OF_DAY" in body, (
-        "Sleep filter doesn't check the clock hour"
+    assert "healthServices.isSleeping" in body or "isSleeping" in body, (
+        "Sleep filter doesn't use real HR-based sleep detection"
+    )
+
+
+def test_health_services_has_sleep_detection():
+    """HealthServicesManager must expose an isSleeping property based on
+    real HR data (low HR + low variance + below 65 bpm)."""
+    hsm_path = os.path.join(
+        REPO_ROOT,
+        "trilateration", "wear-os-app", "app", "src", "main", "java",
+        "com", "infernal", "smokingdetector", "HealthServicesManager.kt",
+    )
+    with open(hsm_path, encoding="utf-8") as f:
+        hsm_src = f.read()
+    assert "var isSleeping" in hsm_src, (
+        "HealthServicesManager doesn't expose isSleeping property"
+    )
+    assert "hrStd" in hsm_src or "variance" in hsm_src.lower(), (
+        "Sleep detection doesn't check HR variance/stability"
     )
 
 

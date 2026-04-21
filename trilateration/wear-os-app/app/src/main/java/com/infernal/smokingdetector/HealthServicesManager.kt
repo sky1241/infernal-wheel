@@ -51,6 +51,17 @@ class HealthServicesManager(private val context: Context) {
     // BUG 8 FIX: Store the CoroutineScope as a field so we can cancel it in stop()
     private var monitoringScope: CoroutineScope? = null
 
+    // Sleep state — updated by Samsung's sleep tracking.
+    // Uses a simple heuristic from the HR data: if HR has been consistently
+    // low (< baseline + 3 bpm) with very low variance for the last 5 minutes
+    // AND the HR is below 65 bpm, the user is probably asleep. This works
+    // because during sleep, HR drops to resting level and becomes very stable.
+    // Samsung's dedicated sleep tracking via Health Connect would be more
+    // accurate but requires the phone-side SleepService bridge which isn't
+    // available on the watch process directly.
+    @Volatile var isSleeping: Boolean = false
+        private set
+
     /**
      * Start passive heart rate monitoring
      * STUB: Returns mock data for compilation
@@ -124,6 +135,31 @@ class HealthServicesManager(private val context: Context) {
             hrTimeline.add(HrSample(nowMs, hr))
             val cutoff = nowMs - HR_HISTORY_WINDOW_MS
             hrTimeline.removeAll { it.timestampMs < cutoff }
+        }
+
+        // Sleep detection from HR pattern.
+        // During sleep: HR drops to resting, becomes very stable (low variance),
+        // typically below 65 bpm. We check the last 5 minutes of HR timeline.
+        // This runs on every HR update (~10s) so the state transitions quickly.
+        synchronized(hrTimeline) {
+            if (hrTimeline.size >= 10) {  // need at least ~2 min of data
+                val recentSamples = hrTimeline.map { it.bpm }
+                val avgHr = recentSamples.average().toFloat()
+                val hrVariance = recentSamples.map { (it - avgHr) * (it - avgHr) }.average().toFloat()
+                val hrStd = kotlin.math.sqrt(hrVariance)
+                val closeToBsl = avgHr < baselineHR + 3.0f
+                val lowVariance = hrStd < 3.0f  // very stable HR = sleep
+                val lowAbsolute = avgHr < 65.0f
+
+                val wasSleeping = isSleeping
+                isSleeping = closeToBsl && lowVariance && lowAbsolute
+
+                if (isSleeping != wasSleeping) {
+                    Log.i(TAG, "Sleep state changed: isSleeping=$isSleeping " +
+                        "(avgHr=${"%.1f".format(avgHr)} std=${"%.1f".format(hrStd)} " +
+                        "baseline=${"%.1f".format(baselineHR)})")
+                }
+            }
         }
 
         Log.d(TAG, "HR update: current=$hr, baseline=$baselineHR, delta=${hr - baselineHR}")

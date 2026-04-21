@@ -466,7 +466,7 @@ class DetectionService : Service() {
             loggedBatchCount++
         }
 
-        // 2. Sleep filter — skip inference when the user is likely asleep.
+        // 2. Sleep filter — skip inference when the user is asleep.
         //
         //    Design: the CNN léger runs H24 EXCEPT during sleep. The
         //    GaussianHourPattern does NOT gate on/off — it only adjusts
@@ -474,31 +474,16 @@ class DetectionService : Service() {
         //    high-smoking hours). This way the detection works at ANY
         //    hour, including unusual ones (late-night party, early morning).
         //
-        //    Sleep detection: if the hour is in the [22h-7h] night window
-        //    AND the learned pattern score is very low (< 0.1) for this
-        //    minute, the user probably never smokes at this time → skip.
-        //    If the pattern isn't learned yet (< 5 observations), we
-        //    use a conservative night window [0h-6h] only.
+        //    Sleep detection uses REAL HR data from HealthServicesManager:
+        //    when HR is consistently low (< baseline+3), stable (std < 3),
+        //    and below 65 bpm for the last 5 minutes → user is asleep.
+        //    This works regardless of clock time: a 15h nap is caught,
+        //    and a 3am party keeps the CNN running.
         //
-        //    This replaces the previous design that killed the CNN entirely
-        //    outside learned smoking hours — which meant zero detection
-        //    until enough +1 manual data was collected, and zero detection
-        //    at unusual hours even after learning.
-        val currentHour = java.util.Calendar.getInstance()
-            .get(java.util.Calendar.HOUR_OF_DAY)
-        val pattern = database.getGaussianPattern()
-        val isNightWindow = currentHour in 0..6
-        if (pattern.isLearned()) {
-            val minuteOfDay = currentHour * 60 +
-                java.util.Calendar.getInstance().get(java.util.Calendar.MINUTE)
-            val score = pattern.score(minuteOfDay)
-            // Deep night + very low score = sleeping, skip
-            if (currentHour >= 22 || currentHour < 7) {
-                if (score < 0.1f) return
-            }
-        } else {
-            // Pattern not learned: conservative — skip only 0h-6h
-            if (isNightWindow) return
+        //    Fallback when HR data is not available: use clock hour as
+        //    approximation (0h-6h only).
+        if (healthServices.isSleeping) {
+            return
         }
 
         // 3. Rate limiter
