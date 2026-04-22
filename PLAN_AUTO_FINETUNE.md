@@ -111,13 +111,7 @@ MONTRE                          TÉLÉPHONE                     MONTRE
 - [ ] Si le F1 estimé du nouveau modèle est pire → ne pas déployer
 - [ ] Versioning des modèles (v6 → v6.1 → v6.2 → ...)
 
-### Étape 6 — UI feedback
-- [ ] Dashboard phone: section "Modèle IA" avec:
-  - Version du modèle actuel (v6 generic / v6.1 personal)
-  - Nombre de training windows collectées
-  - Date du dernier fine-tune
-  - Estimation F1 (si on a assez de données pour un mini test)
-- [ ] Watch notification quand le modèle est mis à jour
+### ~~Étape 6 — UI feedback~~ (RETIRÉ — pas nécessaire)
 
 ## Contraintes techniques
 
