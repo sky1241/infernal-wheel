@@ -139,7 +139,28 @@ class OnDeviceTrainer(private val context: Context) {
 
         Log.i(TAG, "Optimal threshold: $bestThreshold (accuracy: ${(bestAccuracy * 100).toInt()}%)")
 
-        // Step 4: Save the personalized threshold config
+        // Step 4: Rollback check — only use the personal threshold if it's
+        // actually BETTER than the default 0.60. Otherwise we'd be pushing
+        // a worse threshold that generates more false positives.
+        val defaultThreshold = 0.60f
+        var defaultCorrect = 0
+        for (i in features.indices) {
+            val predicted = if (features[i][0] >= defaultThreshold) 1f else 0f
+            if (predicted == labels[i]) defaultCorrect++
+        }
+        val defaultAccuracy = defaultCorrect.toFloat() / features.size
+
+        if (bestAccuracy <= defaultAccuracy) {
+            val msg = "Personal threshold ($bestThreshold, ${(bestAccuracy*100).toInt()}%) is NOT better " +
+                "than default ($defaultThreshold, ${(defaultAccuracy*100).toInt()}%) — keeping default"
+            Log.i(TAG, msg)
+            return TrainResult(false, positives.size, negatives.size, 1f - defaultAccuracy, null, msg)
+        }
+
+        Log.i(TAG, "Personal threshold BEATS default: " +
+            "${(bestAccuracy*100).toInt()}% vs ${(defaultAccuracy*100).toInt()}%")
+
+        // Step 5: Save the personalized threshold config
         val configFile = File(getFlutterDir(), "personal_threshold.json")
         val config = JSONObject().apply {
             put("threshold", bestThreshold)
