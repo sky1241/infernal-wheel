@@ -36,7 +36,10 @@ class MainActivity : ComponentActivity() {
         // BUG+039: manual +1 tap debounce window — clicks within this
         // interval of the previous are ignored to prevent accidental
         // double-taps from creating ghost DB rows + double BT syncs.
-        private const val MANUAL_LOG_DEBOUNCE_MS = 300L
+        // Raised from 300ms to 2000ms after real-world test: user reported
+        // accidental multi-taps on the 1.2" watch screen inflating the
+        // daily count (31 counted vs ~10 real).
+        private const val MANUAL_LOG_DEBOUNCE_MS = 2000L
     }
 
     private lateinit var database: DatabaseManager

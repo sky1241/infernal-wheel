@@ -548,8 +548,12 @@ class DetectionService : Service() {
             val hourScore = gaussianPattern.score(minuteOfDay)
             val isHighSmokingHour = hourScore > 0.5f
 
-            // Adaptive peak threshold: lower during known smoking hours
-            val peakThreshold = if (isHighSmokingHour) 0.40f else 0.50f
+            // Adaptive peak threshold: lower during known smoking hours.
+            // Raised from 0.50 to 0.60 after real-world test showed 4 false
+            // OBSERVING entries in 15 minutes on normal gestures (eating,
+            // arm movements). At 0.60, 2 of those 4 would have been blocked.
+            // During high-smoking hours we drop to 0.50 for sensitivity.
+            val peakThreshold = if (isHighSmokingHour) 0.50f else 0.60f
             val isHighProb = cigProb >= peakThreshold
 
             // HR delta (real-time)
