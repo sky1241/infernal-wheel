@@ -549,11 +549,19 @@ class DetectionService : Service() {
             val isHighSmokingHour = hourScore > 0.5f
 
             // Adaptive peak threshold: lower during known smoking hours.
-            // Raised from 0.50 to 0.60 after real-world test showed 4 false
-            // OBSERVING entries in 15 minutes on normal gestures (eating,
-            // arm movements). At 0.60, 2 of those 4 would have been blocked.
-            // During high-smoking hours we drop to 0.50 for sensitivity.
-            val peakThreshold = if (isHighSmokingHour) 0.50f else 0.60f
+            // Uses personalized threshold from phone-side fine-tuning if
+            // available (stored in SharedPreferences by threshold_update handler),
+            // otherwise falls back to the default calibrated values.
+            val personalThreshold = prefs.getFloat("personal_threshold", -1f)
+            val peakThreshold = if (personalThreshold > 0f) {
+                // Personalized: use the phone-computed optimal threshold,
+                // lowered by 0.10 during high smoking hours for sensitivity
+                if (isHighSmokingHour) (personalThreshold - 0.10f).coerceAtLeast(0.30f)
+                else personalThreshold
+            } else {
+                // Default: generic calibration from real-world test data
+                if (isHighSmokingHour) 0.50f else 0.60f
+            }
             val isHighProb = cigProb >= peakThreshold
 
             // HR delta (real-time)

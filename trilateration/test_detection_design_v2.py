@@ -127,7 +127,7 @@ def test_3_stage_pipeline_enum_exists(source):
 def test_idle_stage_watches_for_spike(source):
     """Stage 1 (IDLE): CNN watches for cigProb spike."""
     idx = source.find("private suspend fun runInference25Hz")
-    body = source[idx:idx + 8000]
+    body = source[idx:idx + 12000]
     assert "DetectionStage.IDLE" in body
     assert "IDLE" in body and "OBSERVING" in body
 
@@ -136,7 +136,7 @@ def test_observing_stage_runs_1_minute(source):
     """Stage 2 (OBSERVING): 1 minute of observation."""
     assert "OBSERVATION_DURATION_MS" in source
     idx = source.find("private suspend fun runInference25Hz")
-    body = source[idx:idx + 8000]
+    body = source[idx:idx + 12000]
     assert "DetectionStage.OBSERVING" in body
 
 
@@ -144,14 +144,14 @@ def test_full_stage_runs_5_minutes(source):
     """Stage 3 (FULL): 5 minutes of deep observation."""
     assert "FULL_OBSERVATION_DURATION_MS" in source
     idx = source.find("private suspend fun runInference25Hz")
-    body = source[idx:idx + 8000]
+    body = source[idx:idx + 12000]
     assert "DetectionStage.FULL" in body
 
 
 def test_observing_can_reject_to_idle(source):
     """If 1-minute observation doesn't confirm, must go back to IDLE."""
     idx = source.find("private suspend fun runInference25Hz")
-    body = source[idx:idx + 8000]
+    body = source[idx:idx + 12000]
     # Must transition OBSERVING → IDLE on rejection
     assert "OBSERVING" in body and "IDLE" in body
 
@@ -159,7 +159,7 @@ def test_observing_can_reject_to_idle(source):
 def test_full_stage_confirms_or_rejects(source):
     """Stage 3 must either call handleCigaretteDetected or log REJECTED."""
     idx = source.find("private suspend fun runInference25Hz")
-    body = source[idx:idx + 8000]
+    body = source[idx:idx + 12000]
     assert "handleCigaretteDetected" in body
     assert "REJECTED" in body
 
@@ -167,7 +167,7 @@ def test_full_stage_confirms_or_rejects(source):
 def test_full_stage_captures_training_data(source):
     """Both confirmed and rejected detections should capture training data."""
     idx = source.find("private suspend fun runInference25Hz")
-    body = source[idx:idx + 8000]
+    body = source[idx:idx + 12000]
     assert body.count("captureTrainingWindow") >= 2, (
         "Need at least 2 captureTrainingWindow calls (confirmed + rejected)"
     )
@@ -176,7 +176,7 @@ def test_full_stage_captures_training_data(source):
 def test_observing_triggers_boost_on_confirm(source):
     """When OBSERVING confirms → triggers boost for better data collection."""
     idx = source.find("private suspend fun runInference25Hz")
-    body = source[idx:idx + 8000]
+    body = source[idx:idx + 12000]
     assert "triggerBoost" in body and "observation_confirmed" in body
 
 
@@ -188,7 +188,7 @@ def test_peak_threshold_adapts_to_hour_pattern(source):
     """The peak threshold in the 3-stage pipeline must adapt based on
     isHighSmokingHour — lower threshold during known smoking hours."""
     idx = source.find("private suspend fun runInference25Hz")
-    body = source[idx:idx + 8000]
+    body = source[idx:idx + 12000]
     assert "isHighSmokingHour" in body and "peakThreshold" in body, (
         "Peak threshold no longer adapts to hour pattern"
     )

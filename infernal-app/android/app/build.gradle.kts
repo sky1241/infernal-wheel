@@ -40,6 +40,13 @@ android {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("com.google.android.gms:play-services-wearable:18.1.0")
+
+    // TFLite for on-device inference (used by OnDeviceTrainer to extract
+    // features from training windows and compute optimal threshold)
+    implementation("org.tensorflow:tensorflow-lite:2.17.0")
+
+    // WorkManager for background fine-tuning (étape 3)
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 }
 
 flutter {

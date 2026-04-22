@@ -93,11 +93,14 @@ def train_on_sed(model):
         std = np.std(X, axis=(0, 1)) + 1e-10
         X_n = (X - mean) / std
 
-        # Save normalization params
+        # Save normalization params (include metadata for downstream tests)
         np.savez(
             os.path.join(BASE_DIR, "normalization_params_v6_25hz.npz"),
             mean=mean.astype(np.float32),
             std=std.astype(np.float32),
+            window_samples=WINDOW_SAMPLES,
+            channels=CHANNELS,
+            sample_rate=25,
         )
 
         # Class weighting

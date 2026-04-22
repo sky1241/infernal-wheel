@@ -27,6 +27,9 @@ class MainActivity : FlutterFragmentActivity(), MessageClient.OnMessageReceivedL
         // Register as MessageClient listener directly (bypass manifest issues)
         Wearable.getMessageClient(this).addListener(this)
         Log.d(TAG, "MessageClient listener registered")
+
+        // Schedule periodic on-device fine-tuning (every 24h when battery OK)
+        FinetuneWorker.schedule(this)
     }
 
     override fun onDestroy() {
