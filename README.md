@@ -67,7 +67,7 @@ ux_resources/          # UX bible (~45K lines)
 |-----------|-----------|
 | Mobile app | Flutter (Dart) + WebView |
 | Watch app | Kotlin + Compose for Wear OS |
-| ML model | TensorFlow Lite (int8, 23KB) |
+| ML model | TensorFlow Lite (int8, 35KB production · v6 25Hz) |
 | Local server | shelf (Dart HTTP) |
 | Storage | SQLite (watch) + JSON (phone) |
 | Encryption | AES-256-GCM at rest for all data files + Android Keystore key (BUG+018 fix) |
