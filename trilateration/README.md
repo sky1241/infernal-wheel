@@ -92,7 +92,7 @@ Document maître avec vue d'ensemble complète (428 lignes)
 - **Platforms** : Apple Watch (CoreML, Neural Engine), Wear OS (TFLite, NNAPI)
 - **Optimization** : Pruning 50% + Quantization int8 = 8× reduction (1024KB → 128KB, -3% accuracy)
 - **Battery** : Adaptive triggering 95% save, Quantization -60% power
-- **Validation** : LOSO (gold standard), Lab 85-92% F1, Field 80-86% F1 (real-world)
+- **Validation target** : LOSO (gold standard) — Lab 85-92% F1 and Field 80-86% F1 are **literature benchmarks** (RisQ, ASPIRE, Sense2Quit) used as Phase 3-4 targets, not measured on this model yet. Current model validated end-to-end on Galaxy Watch 7 (April 2026, 2 real-world sessions). See [BUGS.md BUG+053](BUGS.md) on label-leakage audit invalidating prior F1 metrics.
 
 ---
 
@@ -145,13 +145,15 @@ python quantize_model.py --input model.h5 --output model_int8.tflite
 
 ---
 
-## 📊 MÉTRIQUES DE PERFORMANCE VALIDÉES
+## 📊 MÉTRIQUES CIBLES (issues de la littérature)
 
-| Phase | Environnement | F1-Score | Méthode | Source |
-|-------|---------------|----------|---------|--------|
-| **Lab** | Contrôlé | **85-92%** | 10-fold CV | Video ground truth |
-| **Field** | Real-world | **80-86%** | LOSO (15-30 participants) | Self-report + EMA |
-| **Production** | Deployment | **Target 80%+** | Continuous monitoring | A/B testing |
+> ⚠️ **Important** : les chiffres ci-dessous sont les **targets attendus** dérivés de la littérature et des benchmarks comparables (RisQ, ASPIRE, Sense2Quit). Ils ne sont **pas mesurés sur ce modèle**. La validation Phase 3-4 (Lab + Field LOSO) est planifiée mais pas exécutée. Status actuel : prototype validé end-to-end sur Galaxy Watch 7, 2 sessions réelles (avril 2026). Voir [BUGS.md BUG+053](BUGS.md) sur l'audit label-leakage qui invalide les F1 antérieurs.
+
+| Phase | Environnement | F1-Score (target) | Méthode | Source |
+|-------|---------------|-------------------|---------|--------|
+| **Lab** | Contrôlé | **85-92%** *(target)* | 10-fold CV | Literature benchmark |
+| **Field** | Real-world | **80-86%** *(target)* | LOSO (15-30 participants) | Literature benchmark |
+| **Production** | Deployment | **80%+** *(target)* | Continuous monitoring | A/B testing planned |
 
 ### Benchmarks littérature
 
